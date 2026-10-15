@@ -53,6 +53,7 @@ module ui_render #(
     input  wire        i_estop,         // 1 = 急停
     input  wire        i_signal_ok,     // 1 = 遥控信号有效
     input  wire        i_arm_hint,      // 1 = 想启动但油门不在中位（提示"请回中位"）
+    input  wire [1:0]  i_menu_sel,      // 菜单【高亮选中项】（摇杆拨动改它，与 i_page 分开）
 
     // ---- 动态数值字符 RAM 读端口（pixel 域）----
     output wire [5:0]  o_dyn_raddr,
@@ -266,9 +267,11 @@ module ui_render #(
     // 图层与颜色
     // ------------------------------------------------------------------
     wire in_menu_bar = (i_pixel_x < MENU_W);
+    // ★ 2026-10-16：高亮跟随【摇杆选中的项 i_menu_sel】，而内容区显示【已按确认进入的页 i_page】
+    //   —— 两段式交互（需求方明确）：摇杆只移动高亮，按确认才换页。
     wire menu_sel_band = in_menu_bar &&
-                         (i_pixel_y >= (MENU_Y0 + i_page * MENU_STEP - 8)) &&
-                         (i_pixel_y <  (MENU_Y0 + i_page * MENU_STEP + 24));
+                         (i_pixel_y >= (MENU_Y0 + i_menu_sel * MENU_STEP - 8)) &&
+                         (i_pixel_y <  (MENU_Y0 + i_menu_sel * MENU_STEP + 24));
     wire in_status_bar = (i_pixel_y >= (STATUS_Y - 8)) && (i_pixel_y < (STATUS_Y + 24));
 
     reg [23:0] rgb;

@@ -180,9 +180,11 @@ module falcons_top (
     // ==================================================================
     // 3. 运行状态：启动开关、急停锁存、页面选择
     // ==================================================================
-    reg run_en;          // 底盘使能（S1 切换）
+    reg run_en;          // 底盘使能（★ 由"接管档 + 油门中位 + 信号有效 + 非急停"决定，见下）
     reg estop_latch;     // 急停锁存（S4 切换；ToF 触发也会置位）
-    reg [1:0] page;      // 界面页面 0=摄像头 1=雷达 2=车身数据 3=路径点导航
+    reg key1_stop;       // S1：接管档内的"停机锁存"（按一次停、再按解除）
+    reg [1:0] page;      // 界面【已确认进入】的页面 0=摄像头 1=雷达 2=车身数据 3=路径点导航
+    reg [1:0] menu_sel;  // 菜单【高亮选中项】（摇杆拨动改它，按确认才赋给 page）
 
     // ToF 急停（模块未做出：保持 0；将来接上后由 distance < D_STOP 触发）
     wire tof_estop = 1'b0;
@@ -224,39 +226,40 @@ module falcons_top (
         if (!sys_rst_n) begin
             run_en      <= 1'b0;
             estop_latch <= 1'b0;
+            key1_stop   <= 1'b0;
             page        <= 2'd0;
+            menu_sel    <= 2'd0;      // 需求原文 §17：初始化默认选中"摄像头画面"
         end else begin
-            // S1：启动 / 停止切换（A1 启动门禁）
-            //   停止：任何时候按 S1 都能停（安全优先，不加任何附加条件）
-            //   启动：必须"油门在中位死区内 + 遥控信号有效"，防止上电/失控时一按就窜车
-            if (key1_press) begin
-                if (run_en)         run_en <= 1'b0;       // 停止
-                else if (arm_ready) run_en <= 1'b1;       // 启动（门禁通过）
-            end
+            // ---- 底盘使能：★ 2026-10-16 按需求方要求改为"模式驱动" ----
+            //   需求原文 §13："当模式开关选择接管车辆控制时，通过遥控器直接控制车辆行走以及转向"
+            //   → 不再需要先按 S1：**切到接管档就算"开"**，但必须满足
+            //     · 油门在中位死区内（|throttle| ≤ 100）—— 防止切档瞬间杆在半位就窜车
+            //     · 遥控信号有效（丢信号时不许动）
+            //     · 未急停、且没有按过 S1 的"停机锁存"
+            //   → 离开接管档时清掉停机锁存，这样再切回接管档又是"即可开"。
+            //   → 【自动档已删去】：需求原文只描述两档（接管 / 控制屏幕光标）。
+            if (key1_press) key1_stop <= ~key1_stop;   // S1：停机锁存 / 解除
+            if (!manual_drive) key1_stop <= 1'b0;      // 切出接管档 → 清锁存
+            run_en <= manual_drive & throttle_centered & rc_signal_ok &
+                      ~estop_latch & ~key1_stop;
             // 急停锁存：S4 或 ToF 触发置位；再按 S4 清除
             if (tof_estop)        estop_latch <= 1'b1;
             else if (key4_press)  estop_latch <= ~estop_latch;
-            // ---- 页面（菜单选项）切换 ----
-            //   ★ 依据需求原文《使用FPGA实现的差速小车功能设计.md》§17：
-            //     "左侧…为菜单列表…**使用摇杆上下拨动来切换选项**"，
-            //     且 §13 规定摇杆操作屏幕只在"模式开关选择控制屏幕光标"档。
-            //   ★ 更正（2026-10-16）：上一版把切页做成"遥控 select/confirm 或板载 S3"，
-            //     **与需求原文不符**（review 时被指出）。现改回摇杆：
-            //       - 光标档（mode=1）+ 摇杆向上/向下拨 → 切上一项/下一项
-            //       - 板载 S3 保留为"无遥控时的备用翻页"，不占用遥控按键
-            //       - select/confirm 不再参与切页：§33 里它们是"切辅助菜单项 / 确认路径点"，
-            //         属于路径点导航页的交互（该页尚未实现），不该在有菜单的地方顺手翻页
-            //   ★ 四个页面都是"摇杆仍可上下切换菜单选项"（§21/§25/§29），
-            //     所以本设计里"选中项"与"显示的页面"是同一个变量 page：拨动即切换并显示。
+            // ---- 菜单：摇杆只移动【高亮】，按确认才切页（需求方 2026-10-16 明确）----
+            //   §17"使用摇杆上下拨动来切换选项" + §21"选中该项**并确认时**…显示"
+            //   → 两段式：menu_sel 由摇杆改；rc_confirm 把 menu_sel 赋给 page。
+            //   select / back 两个按钮属于路径点导航页的逻辑（§33），本层不接。
+            //   板载 S3 保留为"无遥控时的备用翻页"（同时移动高亮与页面，避免两者不一致）。
             if (key3_press) begin
-                page <= (page == 2'd3) ? 2'd0 : (page + 2'd1);
+                menu_sel <= (menu_sel == 2'd3) ? 2'd0 : (menu_sel + 2'd1);
+                page     <= (page     == 2'd3) ? 2'd0 : (page     + 2'd1);
             end else if (cursor_mode && rc_menu_up) begin
-                page <= (page == 2'd0) ? 2'd3 : (page - 2'd1);
+                menu_sel <= (menu_sel == 2'd0) ? 2'd3 : (menu_sel - 2'd1);
             end else if (cursor_mode && rc_menu_down) begin
-                page <= (page == 2'd3) ? 2'd0 : (page + 2'd1);
+                menu_sel <= (menu_sel == 2'd3) ? 2'd0 : (menu_sel + 2'd1);
+            end else if (rc_confirm) begin
+                page <= menu_sel;                      // ★ 确认才进入该项页面
             end
-            // 急停时强制停机
-            if (estop_latch) run_en <= 1'b0;
         end
     end
 
@@ -644,15 +647,16 @@ module falcons_top (
     //     这里先在 sys 域寄存一拍，源就变成 DFF 输出、组合深度归零，
     //     同步器第一级的 slack 回落到与纯 DFF→DFF（estop_latch，−0.404 ns）同一量级。
     //   代价：延迟 1 个 50 MHz 周期（20 ns）。这些都是"人操作级别"的慢变量，无影响。
-    reg [1:0] page_s, mode_s;
+    reg [1:0] page_s, mode_s, menu_s;
     reg       run_s, estop_s, sig_s, arm_s;
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
-            page_s  <= 2'd0; mode_s  <= 2'd0;
+            page_s  <= 2'd0; mode_s  <= 2'd0; menu_s <= 2'd0;
             run_s   <= 1'b0; estop_s <= 1'b0; sig_s <= 1'b0; arm_s <= 1'b0;
         end else begin
             page_s  <= page;
             mode_s  <= rc_mode;
+            menu_s  <= menu_sel;
             run_s   <= chassis_running;
             estop_s <= estop_latch;
             sig_s   <= rc_signal_ok;
@@ -662,13 +666,14 @@ module falcons_top (
 
     // sys → pixel 跨域：状态位两级同步（慢变量，间隔远大于同步器延迟）
     //   源一律用上面打过一拍的 *_s（纯 DFF 输出）
-    reg [1:0] page_ps1, page_ps2, mode_ps1, mode_ps2;
+    reg [1:0] page_ps1, page_ps2, mode_ps1, mode_ps2, menu_ps1, menu_ps2;
     reg       run_ps1, run_ps2, estop_ps1, estop_ps2, sig_ps1, sig_ps2;
     reg       arm_ps1, arm_ps2;                          // A1："请回中位"提示
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
             page_ps1  <= 2'd0; page_ps2  <= 2'd0;
             mode_ps1  <= 2'd0; mode_ps2  <= 2'd0;
+            menu_ps1  <= 2'd0; menu_ps2  <= 2'd0;
             run_ps1   <= 1'b0; run_ps2   <= 1'b0;
             estop_ps1 <= 1'b0; estop_ps2 <= 1'b0;
             sig_ps1   <= 1'b0; sig_ps2   <= 1'b0;
@@ -676,6 +681,7 @@ module falcons_top (
         end else begin
             page_ps1  <= page_s;          page_ps2  <= page_ps1;
             mode_ps1  <= mode_s;          mode_ps2  <= mode_ps1;
+            menu_ps1  <= menu_s;          menu_ps2  <= menu_ps1;
             run_ps1   <= run_s;           run_ps2   <= run_ps1;
             estop_ps1 <= estop_s;         estop_ps2 <= estop_ps1;
             sig_ps1   <= sig_s;           sig_ps2   <= sig_ps1;
@@ -746,6 +752,7 @@ module falcons_top (
         .i_video_active (video_active),
         .o_pixel_rgb888 (ui_rgb),
         .i_page         (page_ps2),
+        .i_menu_sel     (menu_ps2),
         .i_ui_mode      (mode_ps2),
         .i_run          (run_ps2),
         .i_estop        (estop_ps2),

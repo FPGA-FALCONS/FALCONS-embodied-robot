@@ -25,6 +25,7 @@ module ui_render_tb;
     reg  [1:0]  uimode = 2'd0;
     reg         run_i = 1'b0, estop_i = 1'b0, sigok_i = 1'b1;
     reg         armhint_i = 1'b0;           // A1：启动门禁提示（"请回中位"）
+    reg  [1:0]  menusel = 2'd0;             // 菜单高亮项（两段式：摇杆改它、确认才换页）
 
     wire [23:0] rgb;
     wire [5:0]  dyn_raddr;
@@ -50,6 +51,7 @@ module ui_render_tb;
         .i_estop        (estop_i),
         .i_signal_ok    (sigok_i),
         .i_arm_hint     (armhint_i),
+        .i_menu_sel     (menusel),
         .o_dyn_raddr    (dyn_raddr),
         .i_dyn_rdata    (dyn_rdata)
     );

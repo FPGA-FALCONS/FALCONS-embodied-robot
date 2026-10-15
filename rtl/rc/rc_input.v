@@ -230,10 +230,12 @@ module rc_input #(
             o_steer    <= steer_now;
             o_throttle <= throttle_now;
 
-            // 模式开关三档 → 0 手动 / 1 屏幕光标 / 2 自动
-            if (pos_mode == 2'd2)      o_mode <= 2'd2;
-            else if (pos_mode == 2'd0) o_mode <= 2'd0;
-            else                       o_mode <= 2'd1;
+            // 模式开关 → **两档**（2026-10-16 按需求方要求删掉"自动"档）
+            //   需求原文 §13 只描述两档：「接管车辆控制」与「控制屏幕光标」。
+            //   判定：脉宽低于 SW_LO_US(1300) = 手动接管；其余（含中位与高位）= 屏幕光标。
+            //   这样二档开关（1000/2000）与三档开关都能用；SW_HI_US 保留但不再参与判定。
+            //   无效/超时按中位处理 → 也是"屏幕光标"档（安全的默认：不驱动底盘）。
+            o_mode <= (pos_mode == 2'd0) ? 2'd0 : 2'd1;
 
             o_btn_select  <= btn_edge(pos_select,  prev_select);
             o_btn_confirm <= btn_edge(pos_confirm, prev_confirm);
