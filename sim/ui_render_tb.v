@@ -24,6 +24,7 @@ module ui_render_tb;
     reg  [1:0]  page = 2'd0;
     reg  [1:0]  uimode = 2'd0;
     reg         run_i = 1'b0, estop_i = 1'b0, sigok_i = 1'b1;
+    reg         armhint_i = 1'b0;           // A1：启动门禁提示（"请回中位"）
 
     wire [23:0] rgb;
     wire [5:0]  dyn_raddr;
@@ -31,6 +32,7 @@ module ui_render_tb;
 
     integer errors = 0;
     integer cnt_menu_text, cnt_sel_text, cnt_hl, cnt_status, cnt_label, cnt_num, cnt_ph, cnt_yaw;
+    integer px_manual, px_hint, px_estop, px_nosig;   // 状态栏文案切换对比
 
     integer x, y;
 
@@ -47,6 +49,7 @@ module ui_render_tb;
         .i_run          (run_i),
         .i_estop        (estop_i),
         .i_signal_ok    (sigok_i),
+        .i_arm_hint     (armhint_i),
         .o_dyn_raddr    (dyn_raddr),
         .i_dyn_rdata    (dyn_rdata)
     );
@@ -172,6 +175,55 @@ module ui_render_tb;
         repeat (4) @(posedge pixel_clk);
         scan(256, 272);
         check_pos ("placeholder_on_page1", cnt_ph);
+
+        // ---------------- A1 启动门禁提示（请回中位）----------------
+        //   判据用【状态栏白字像素数】对比（不比较具体汉字，只比较字数）：
+        //     ST_MANUAL   "手动"   = 2 字
+        //     ST_ESTOP    "急停"   = 2 字
+        //     ST_NOSIGNAL "无信号" = 3 字
+        //     ST_ARM_DENY "请回中位" = 4 字
+        //   所以 hint 像素数 > manual 像素数 ⇒ 文案确实切到了更长的门禁提示；
+        //   estop / nosignal 时像素数 < hint ⇒ 优先级顺序正确（门禁提示不抢占它们）。
+        $display("-- 7. A1 启动门禁：arm_hint=1 显示 请回中位；急停/无信号优先级更高 --");
+        page = 2'd0; sigok_i = 1'b1; estop_i = 1'b0; armhint_i = 1'b0; uimode = 2'd0;
+        cnt_status = 0;
+        repeat (4) @(posedge pixel_clk);
+        scan(550, 590);
+        px_manual = cnt_status;
+
+        cnt_status = 0; armhint_i = 1'b1;
+        repeat (4) @(posedge pixel_clk);
+        scan(550, 590);
+        px_hint = cnt_status;
+
+        if (px_hint > px_manual) begin
+            $display("  pass  arm_hint_status: hint=%0d > manual=%0d px", px_hint, px_manual);
+        end else begin
+            errors = errors + 1;
+            $display("  FAIL  arm_hint_status: hint=%0d <= manual=%0d px (text not switched)", px_hint, px_manual);
+        end
+
+        cnt_status = 0; estop_i = 1'b1;
+        repeat (4) @(posedge pixel_clk);
+        scan(550, 590);
+        px_estop = cnt_status;
+        if (px_estop < px_hint) begin
+            $display("  pass  estop_over_hint: estop=%0d < hint=%0d px", px_estop, px_hint);
+        end else begin
+            errors = errors + 1;
+            $display("  FAIL  estop_over_hint: estop=%0d >= hint=%0d px (priority wrong)", px_estop, px_hint);
+        end
+
+        cnt_status = 0; estop_i = 1'b0; sigok_i = 1'b0;
+        repeat (4) @(posedge pixel_clk);
+        scan(550, 590);
+        px_nosig = cnt_status;
+        if (px_nosig < px_hint) begin
+            $display("  pass  nosignal_over_hint: nosig=%0d < hint=%0d px", px_nosig, px_hint);
+        end else begin
+            errors = errors + 1;
+            $display("  FAIL  nosignal_over_hint: nosig=%0d >= hint=%0d px (priority wrong)", px_nosig, px_hint);
+        end
 
         $display("======== 结果 ========");
         if (errors == 0) $display("PASS: ui_render all checks passed");

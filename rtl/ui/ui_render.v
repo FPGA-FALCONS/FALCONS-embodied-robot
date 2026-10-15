@@ -52,6 +52,7 @@ module ui_render #(
     input  wire        i_run,           // 1 = 底盘正在输出
     input  wire        i_estop,         // 1 = 急停
     input  wire        i_signal_ok,     // 1 = 遥控信号有效
+    input  wire        i_arm_hint,      // 1 = 想启动但油门不在中位（提示"请回中位"）
 
     // ---- 动态数值字符 RAM 读端口（pixel 域）----
     output wire [5:0]  o_dyn_raddr,
@@ -93,6 +94,8 @@ module ui_render #(
     always @(*) begin
         if (i_estop)                status_text = {UI_TXT_ST_ESTOP_ADDR,       UI_TXT_ST_ESTOP_LEN};
         else if (!i_signal_ok)      status_text = {UI_TXT_ST_NOSIGNAL_ADDR,    UI_TXT_ST_NOSIGNAL_LEN};
+        // A1：启动被门禁拒绝时给出明确原因，否则用户只会看到"按 S1 没反应"
+        else if (i_arm_hint)        status_text = {UI_TXT_ST_ARM_DENY_ADDR,    UI_TXT_ST_ARM_DENY_LEN};
         else if (i_ui_mode == 2'd0) status_text = {UI_TXT_ST_MANUAL_ADDR,      UI_TXT_ST_MANUAL_LEN};
         else if (i_ui_mode == 2'd2) status_text = {UI_TXT_ST_AUTO_ADDR,        UI_TXT_ST_AUTO_LEN};
         else                        status_text = {UI_TXT_ST_SELECT_MODE_ADDR, UI_TXT_ST_SELECT_MODE_LEN};

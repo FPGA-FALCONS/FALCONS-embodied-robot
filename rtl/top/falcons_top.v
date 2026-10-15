@@ -183,27 +183,9 @@ module falcons_top (
     assign o_tof_shut = 1'b1;
     assign io_tof_sda = 1'bz;
 
-    always @(posedge i_clk_50m or negedge sys_rst_n) begin
-        if (!sys_rst_n) begin
-            run_en      <= 1'b0;
-            estop_latch <= 1'b0;
-            page        <= 2'd0;
-        end else begin
-            // S1：启动 / 停止切换（急停锁存时不允许启动）
-            if (key1_press && !estop_latch) run_en <= ~run_en;
-            // 急停锁存：S4 或 ToF 触发置位；再按 S4 清除
-            if (tof_estop)        estop_latch <= 1'b1;
-            else if (key4_press)  estop_latch <= ~estop_latch;
-            // 页面切换：S3 或遥控 select
-            if (key3_press || rc_select || rc_confirm)
-                page <= (page == 2'd3) ? 2'd0 : (page + 2'd1);
-            // 急停时强制停机
-            if (estop_latch) run_en <= 1'b0;
-        end
-    end
-
     // 遥控模式：0=手动接管 1=屏幕光标 2=自动
     //   光标模式下摇杆用于操作界面，不能开车 → 把油门/转向强制为 0
+    //   ★ 本组 wire 必须在下面的 always 之前声明：always 里按 B2 要用 cursor_mode
     wire        manual_drive = (rc_mode == 2'd0);
     wire        cursor_mode  = (rc_mode == 2'd1);
     wire signed [11:0] steer_in    = cursor_mode ? 12'sd0 : rc_steer;
@@ -211,6 +193,46 @@ module falcons_top (
 
     // 手动接管时才允许底盘接收摇杆；自动模式下由导航给定（未接入 → 0）
     wire chassis_manual = manual_drive;
+
+    // ---- 启动门禁（A1，2026-10-15 加）----
+    //   ★ 用户要求"油门中位要有死区"：归一化油门是连续量，摇杆回弹误差与接收机
+    //     中位漂移都会让"精确等于 0"永远不成立，所以按死区判定而不是判 ==0。
+    //   量程：rc_input 输出的油门是 −1000…+1000，死区 100 = 满行程的 10%，
+    //   与 rc_input 自身的 DEADZONE_US(25 µs) 叠加后，允许的中位误差约 ±15% 行程。
+    //   上板实测若"杆已回中却启动不了"→ 调大此值；若"轻轻一碰就启动"→ 调小。
+    localparam integer ARM_THROTTLE_DEADZONE = 100;
+    wire        throttle_centered = (rc_throttle <= ARM_THROTTLE_DEADZONE) &&
+                                    (rc_throttle >= -ARM_THROTTLE_DEADZONE);
+    // 允许启动：油门在中位死区内 且 遥控信号有效（急停由下面的强制停机兜住）
+    wire        arm_ready = throttle_centered & rc_signal_ok;
+    // 提示"请回中位"：没在运行、信号正常、油门却没回中位、也没急停
+    wire        arm_hint  = ~run_en & rc_signal_ok & ~throttle_centered & ~estop_latch;
+
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) begin
+            run_en      <= 1'b0;
+            estop_latch <= 1'b0;
+            page        <= 2'd0;
+        end else begin
+            // S1：启动 / 停止切换（A1 启动门禁）
+            //   停止：任何时候按 S1 都能停（安全优先，不加任何附加条件）
+            //   启动：必须"油门在中位死区内 + 遥控信号有效"，防止上电/失控时一按就窜车
+            if (key1_press) begin
+                if (run_en)         run_en <= 1'b0;       // 停止
+                else if (arm_ready) run_en <= 1'b1;       // 启动（门禁通过）
+            end
+            // 急停锁存：S4 或 ToF 触发置位；再按 S4 清除
+            if (tof_estop)        estop_latch <= 1'b1;
+            else if (key4_press)  estop_latch <= ~estop_latch;
+            // 页面切换（B2）：S3 任何时候可用；遥控 select/confirm 只在"屏幕光标"档可用。
+            //   原因：手动开车时手指在摇杆上，误触 select 会把界面翻走；
+            //   而光标档本来就要用按键选菜单，所以只在光标档放开。
+            if (key3_press || (cursor_mode && (rc_select || rc_confirm)))
+                page <= (page == 2'd3) ? 2'd0 : (page + 2'd1);
+            // 急停时强制停机
+            if (estop_latch) run_en <= 1'b0;
+        end
+    end
 
     // ==================================================================
     // 4. 电机与编码器（vendor: motor_tb6612）
@@ -290,7 +312,11 @@ module falcons_top (
         .PWM_BITS      (PWM_BITS),
         .WINDOW_MS     (10),                      // 100 Hz 测速窗口（与文档 §4.3 一致）
         .INV_DIR_VEC   (INV_DIR_VEC),
-        .ENC_INV_DIR_VEC(ENC_INV_DIR_VEC)
+        .ENC_INV_DIR_VEC(ENC_INV_DIR_VEC),
+        // A3：堵转启动宽限 30 → 50 窗口（300 ms → 500 ms）
+        //   库默认 30 窗口是给小惯量电机调的：本车 30:1 减速 + 整车质量，
+        //   从静止给到目标转速需要更久，300 ms 内位移不足会被误判堵转并锁存。
+        .STALL_STARTUP_WINDOWS (50)
     ) u_motor (
         .i_clock       (i_clk_50m),
         .i_reset_n     (sys_rst_n),
@@ -500,6 +526,9 @@ module falcons_top (
     //   kp/ki/kd = 当前 PID 参数（Q8，256 = 1.0），可用串口 P/I/D 命令在线改
     //   flags 位：bit0 闭环使能 / bit1 堵转 / bit2 串口命令错误 / bit3 PID 饱和
     //   err  = 目标 − 实际 (rpm)
+    //   steer/throttle/mode/sig_ok = 遥控输入（第 9~12 列，2026-10-15 加）
+    //     ★ 调遥控时必须能看到"杆位 → 归一化值"这一环，否则轮速不对时无法判断
+    //       是遥控进来的值就不对，还是 PID/底盘的问题。
     //
     // 注：speed_report 自带 FIFO 与 UART 发送器，所以顶层**不需要**再例化
     //     uart_byte_tx；直接用它的 o_uart_tx 驱动串口输出脚（M15）。
@@ -512,9 +541,12 @@ module falcons_top (
     wire signed [31:0]  report_flags = {28'd0, (|pid_sat), cmd_error, (|stall_vec), run_en};
 
     speed_report #(
-        .CLK_FREQ_HZ (CLK_HZ),
-        .BAUD_RATE   (BAUD_DEBUG),
-        .REPORT_DIV  (1_000_000)        // 50 MHz / 1_000_000 = 50 Hz
+        .CLK_FREQ_HZ    (CLK_HZ),
+        .BAUD_RATE      (BAUD_DEBUG),
+        .REPORT_DIV     (1_000_000),    // 50 MHz / 1_000_000 = 50 Hz
+        // A2：12 列最长一行约 96 字符，32 字节 FIFO 会让状态机频繁等空位，
+        //     加大到 128 字节（一行可整行缓冲，BSRAM 开销可忽略）
+        .FIFO_DEPTH_LOG2(7)
     ) u_report (
         .i_clock   (i_clk_50m),
         .i_reset_n (sys_rst_n),
@@ -526,6 +558,11 @@ module falcons_top (
         .i_kd      (kd_r),
         .i_flags   (report_flags),
         .i_err     (report_err),
+        // 遥控输入原样上报（12 位有符号 → 32 位，符号扩展后便于示波/绘图对照）
+        .i_steer    ({{20{rc_steer[11]}},    rc_steer}),
+        .i_throttle ({{20{rc_throttle[11]}}, rc_throttle}),
+        .i_mode     ({30'd0, rc_mode}),
+        .i_sig_ok   ({31'd0, rc_signal_ok}),
         .i_force   (1'b0),
         .o_uart_tx (o_uart_tx)
     );
@@ -570,9 +607,38 @@ module falcons_top (
     end
     wire pixel_rst_n = pixel_pwr_cnt[3];
 
+    // ---- sys 域先打一拍，再跨到 pixel 域（2026-10-15 加，为消掉 CDC 的深组合路径）----
+    //   为什么要多这一级：
+    //     STA 会把 sys→pixel 当成同步关系分析（PLL 派生时钟名无法用 get_clocks 引用，
+    //     写 set_false_path 会报 TA2004，见上面注释）。若跨域源是**组合逻辑**，
+    //     组合深度会直接算进 slack：
+    //       * arm_hint  = ~run_en & rc_signal_ok & ~throttle_centered & ~estop_latch
+    //                     （含一个 12 位比较器）→ 实测 slack = −2.473 ns
+    //       * rc_signal_ok = 6 路 timed_out 相或（在 rc_input 内部）→ −2.199 ns
+    //     这里先在 sys 域寄存一拍，源就变成 DFF 输出、组合深度归零，
+    //     同步器第一级的 slack 回落到与纯 DFF→DFF（estop_latch，−0.404 ns）同一量级。
+    //   代价：延迟 1 个 50 MHz 周期（20 ns）。这些都是"人操作级别"的慢变量，无影响。
+    reg [1:0] page_s, mode_s;
+    reg       run_s, estop_s, sig_s, arm_s;
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) begin
+            page_s  <= 2'd0; mode_s  <= 2'd0;
+            run_s   <= 1'b0; estop_s <= 1'b0; sig_s <= 1'b0; arm_s <= 1'b0;
+        end else begin
+            page_s  <= page;
+            mode_s  <= rc_mode;
+            run_s   <= chassis_running;
+            estop_s <= estop_latch;
+            sig_s   <= rc_signal_ok;
+            arm_s   <= arm_hint;
+        end
+    end
+
     // sys → pixel 跨域：状态位两级同步（慢变量，间隔远大于同步器延迟）
+    //   源一律用上面打过一拍的 *_s（纯 DFF 输出）
     reg [1:0] page_ps1, page_ps2, mode_ps1, mode_ps2;
     reg       run_ps1, run_ps2, estop_ps1, estop_ps2, sig_ps1, sig_ps2;
+    reg       arm_ps1, arm_ps2;                          // A1："请回中位"提示
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
             page_ps1  <= 2'd0; page_ps2  <= 2'd0;
@@ -580,12 +646,14 @@ module falcons_top (
             run_ps1   <= 1'b0; run_ps2   <= 1'b0;
             estop_ps1 <= 1'b0; estop_ps2 <= 1'b0;
             sig_ps1   <= 1'b0; sig_ps2   <= 1'b0;
+            arm_ps1   <= 1'b0; arm_ps2   <= 1'b0;
         end else begin
-            page_ps1  <= page;            page_ps2  <= page_ps1;
-            mode_ps1  <= rc_mode;         mode_ps2  <= mode_ps1;
-            run_ps1   <= chassis_running; run_ps2   <= run_ps1;
-            estop_ps1 <= estop_latch;     estop_ps2 <= estop_ps1;
-            sig_ps1   <= rc_signal_ok;    sig_ps2   <= sig_ps1;
+            page_ps1  <= page_s;          page_ps2  <= page_ps1;
+            mode_ps1  <= mode_s;          mode_ps2  <= mode_ps1;
+            run_ps1   <= run_s;           run_ps2   <= run_ps1;
+            estop_ps1 <= estop_s;         estop_ps2 <= estop_ps1;
+            sig_ps1   <= sig_s;           sig_ps2   <= sig_ps1;
+            arm_ps1   <= arm_s;           arm_ps2   <= arm_ps1;
         end
     end
 
@@ -644,6 +712,7 @@ module falcons_top (
         .i_run          (run_ps2),
         .i_estop        (estop_ps2),
         .i_signal_ok    (sig_ps2),
+        .i_arm_hint     (arm_ps2),
         .o_dyn_raddr    (dyn_raddr),
         .i_dyn_rdata    (dyn_rdata)
     );

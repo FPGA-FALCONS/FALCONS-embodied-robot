@@ -68,6 +68,7 @@ ST_CALIB:标定中
 ST_RADAR_LOST:雷达丢失
 ST_CAM_LOST:摄像头未就绪
 ST_SELECT_MODE:请选择模式
+ST_ARM_DENY:请回中位
 
 # ---- 单位 ----
 UNIT_DEG:度

@@ -1,8 +1,11 @@
 //////////////////////////////////////////////////////////////////////////////////
 // 模块：speed_report —— 速度闭环调试上报（CSV 文本，115200 8N1）
 //
-// 输出格式（每帧一行，8 个十进制有符号整数）：
-//     tgt,act,duty,kp,ki,kd,flags,err\r\n
+// 输出格式（每帧一行，12 个十进制有符号整数）：
+//     tgt,act,duty,kp,ki,kd,flags,err,steer,throttle,mode,sig_ok\r\n
+//
+//   ★ 2026-10-15 扩列：原本 8 列全是轮速链路的量，调遥控时看不到"杆位 → 归一化值"
+//     这一环，只能靠轮速反推。追加的 4 列（steer/throttle/mode/sig_ok）来自遥控输入。
 //
 //   | 列 | 含义 | 单位 / 说明 |
 //   | --- | --- | --- |
@@ -14,6 +17,10 @@
 //   | 6 | kd    | Kd，Q8 |
 //   | 7 | flags | bit0 = 闭环使能；bit1 = 任一堵转；bit2 = 命令解析出错；bit3 = 任一输出饱和 |
 //   | 8 | err   | e(k) = tgt − act，同列 1/2 的单位 |
+//   | 9  | steer    | 遥控转向归一化值（±1000，中位 0） |
+//   | 10 | throttle | 遥控油门归一化值（±1000，中位 0） |
+//   | 11 | mode     | 遥控模式档：0 = 手动接管 / 1 = 屏幕光标 / 2 = 自动 |
+//   | 12 | sig_ok   | 遥控信号有效：1 = 六路都在刷新 / 0 = 有通道超时 |
 //
 // 例：3000,2870,612,26,3,0,1,130
 //     → 目标 300 rpm，实际 287 rpm，占空比 612（≈30%），Kp=0.1016，Ki=0.0117，
@@ -49,8 +56,15 @@ module speed_report #(
     input  wire signed [31:0] i_kd,
     input  wire signed [31:0] i_flags,
     input  wire signed [31:0] i_err,
+    // 遥控输入（第 9~12 列，方便上板核对"杆位 → 归一化值"）
+    input  wire signed [31:0] i_steer,
+    input  wire signed [31:0] i_throttle,
+    input  wire signed [31:0] i_mode,
+    input  wire signed [31:0] i_sig_ok,
 
-    input  wire        i_force,        // 单周期：立即插播一行
+    input  wire        i_force,        // 插播一行：拉高即触发；★ 保持高会连续上报
+                                       //   （S_IDLE 里是 report_tick || i_force，发完一行
+                                       //    回到 S_IDLE 若仍为高就再发一行）→ 单次触发请给脉冲
     output wire        o_uart_tx
 );
 
@@ -61,7 +75,7 @@ module speed_report #(
                      S_END   = 3'd4;
 
     reg [2:0]  state;
-    reg [2:0]  field;
+    reg [3:0]  field;                  // 4 位：支持最多 16 个字段（当前 12 个）
     reg [31:0] cur_val;
     reg [2:0]  widx;
     reg [3:0]  dcount;
@@ -137,14 +151,18 @@ module speed_report #(
     reg signed [31:0] field_val;
     always @(*) begin
         case (field)
-            3'd0:    field_val = i_tgt;
-            3'd1:    field_val = i_act;
-            3'd2:    field_val = i_duty;
-            3'd3:    field_val = i_kp;
-            3'd4:    field_val = i_ki;
-            3'd5:    field_val = i_kd;
-            3'd6:    field_val = i_flags;
-            default: field_val = i_err;
+            4'd0:    field_val = i_tgt;
+            4'd1:    field_val = i_act;
+            4'd2:    field_val = i_duty;
+            4'd3:    field_val = i_kp;
+            4'd4:    field_val = i_ki;
+            4'd5:    field_val = i_kd;
+            4'd6:    field_val = i_flags;
+            4'd7:    field_val = i_err;
+            4'd8:    field_val = i_steer;
+            4'd9:    field_val = i_throttle;
+            4'd10:   field_val = i_mode;
+            default: field_val = i_sig_ok;
         endcase
     end
 
@@ -154,7 +172,7 @@ module speed_report #(
     always @(posedge i_clock or negedge i_reset_n) begin
         if (!i_reset_n) begin
             state       <= S_IDLE;
-            field       <= 3'd0;
+            field       <= 4'd0;
             cur_val     <= 32'd0;
             widx        <= 3'd0;
             dcount      <= 4'd0;
@@ -168,7 +186,7 @@ module speed_report #(
             case (state)
                 S_IDLE: begin
                     if (report_tick || i_force) begin
-                        field <= 3'd0;
+                        field <= 4'd0;
                         state <= S_PREP;
                     end
                 end
@@ -209,13 +227,13 @@ module speed_report #(
                 end
                 S_SEP: begin
                     if (!ch_pending) begin
-                        if (field == 3'd7) begin
+                        if (field == 4'd11) begin           // 最后一个字段（第 12 列）
                             end_idx <= 2'd0;
                             state   <= S_END;
                         end else begin
                             ch_byte  <= 8'h2C;              // ','
                             ch_start <= 1'b1;
-                            field    <= field + 3'd1;
+                            field    <= field + 4'd1;
                             state    <= S_PREP;
                         end
                     end

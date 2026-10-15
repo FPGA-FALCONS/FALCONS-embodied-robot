@@ -9,7 +9,8 @@
 #   rc_input_tb      6 路遥控捕获、归一化/死区/模式三档/按钮/丢信号  （12 项）
 #   chassis_ctrl_tb  差速分解、限幅、安全逻辑、闭环方向、rpm 换算      （23 项）
 #   num_text_tb      实时数值格式化（含负数与前导空格）                （22 项）
-#   ui_render_tb     中文界面渲染（菜单/高亮/状态栏/动态数值/占位）    （8 项）
+#   ui_render_tb     中文界面渲染（菜单/高亮/状态栏/门禁提示/动态数值/占位）
+#   speed_report_tb  串口 CSV 上行 12 列格式（整行逐字符比对）          （4 行）
 #
 # 编码：本文件必须保存为 UTF-8 with BOM（PowerShell 5.1 靠 BOM 判编码）。
 #
@@ -49,6 +50,19 @@ $sources = @(
     "$VendorRoot\motor_tb6612\rtl\stall_detect.v",
     "$VendorRoot\motor_tb6612\rtl\motor_unit.v",
     "$VendorRoot\motor_tb6612\rtl\motor_top.v",
+    # 串口包（speed_report 内部例化 uart_tx_queue；falcons_top 用 uart_byte_rx）
+    #   ★ 漏这几个文件时【编译仍然全过】—— vlog 是逐文件独立编译的，不做模块解析；
+    #     直到 vsim 加载 design 才报 "Module 'uart_tx_queue' is not defined"，
+    #     在 run_sim.ps1 的输出里表现为 speed_report 测试 "Error loading design"。
+    "$VendorRoot\uart\rtl\uart_byte_tx.v",
+    "$VendorRoot\uart\rtl\uart_tx_queue.v",
+    "$VendorRoot\uart\rtl\uart_byte_rx.v",
+    "$VendorRoot\uart\rtl\uart_rx_queue.v",
+    # FIFO 包：uart_tx_queue / uart_rx_queue 内部都例化 sync_fifo
+    #   ★ 依赖是【两层】的：speed_report → uart_tx_queue → sync_fifo。
+    #     补依赖时只补一层仍会在 vsim 加载时报下一个没定义的模块，
+    #     所以这里一次性把闭包补全（sync_fifo.v 是叶子，无下级例化）。
+    "$VendorRoot\sync_fifo\rtl\sync_fifo.v",
     # 应用层
     "$ProjectRoot\rtl\common\font_rom.v",
     "$ProjectRoot\rtl\common\ui_text_rom.v",
@@ -58,20 +72,23 @@ $sources = @(
     "$ProjectRoot\rtl\motor\speed_pid.v",
     "$ProjectRoot\rtl\motor\chassis_ctrl.v",
     "$ProjectRoot\rtl\ui\dyn_text_ram.v",
+    "$ProjectRoot\rtl\debug\speed_report.v",
     "$ProjectRoot\rtl\ui\num_text.v",
     "$ProjectRoot\rtl\ui\ui_render.v",
     # 测试平台
     "$PSScriptRoot\rc_input_tb.v",
     "$PSScriptRoot\chassis_ctrl_tb.v",
     "$PSScriptRoot\num_text_tb.v",
-    "$PSScriptRoot\ui_render_tb.v"
+    "$PSScriptRoot\ui_render_tb.v",
+    "$PSScriptRoot\speed_report_tb.v"
 )
 
 $tests = @(
     @{ Name = 'rc_input';     Top = 'rc_input_tb';     Desc = '遥控 6 路：归一化/死区/模式三档/按钮/丢信号' },
     @{ Name = 'chassis_ctrl'; Top = 'chassis_ctrl_tb'; Desc = '★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算' },
     @{ Name = 'num_text';     Top = 'num_text_tb';     Desc = '实时数值格式化（负数、前导空格、字段边界）' },
-    @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮/状态栏/动态数值/占位页' }
+    @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮/状态栏/动态数值/占位页' },
+    @{ Name = 'speed_report'; Top = 'speed_report_tb'; Desc = '串口 CSV 上行：12 列格式/负数/边界/大数' }
 )
 
 # ---------- 建库并编译 ----------

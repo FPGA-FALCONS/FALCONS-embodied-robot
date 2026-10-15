@@ -21,11 +21,11 @@ FPGA 四驱差速小车（具身机器人）的**主工程**。板卡：高云 *
 
 | 项 | 状态 |
 | --- | --- |
-| 进度 | 骨架 + 中文四页界面（含实时数值）+ 遥控 6 路 + 四路速度闭环 + IMU 偏航角链路 + **串口 CSV 上报**；ToF/雷达/导航为预留 |
-| 仿真 | 4 个自检 tb / **70 项检查全 PASS**（`sim\run_sim.ps1` 一条命令） |
-| 综合 | **ERROR 0**；比特流 `impl\pnr\falcons.fs`（34.0 MB，未入库） |
-| 资源 | Logic 8441/138240（**7%**）、Register 3472（3%）、BSRAM **9**/340（3%）、DSP 41/298（14%） |
-| 时序 | SETUP 2 条（最差 −2.23 ns）+ HOLD 7 条，**全部为跨时钟域结构性现象** |
+| 进度 | 骨架 + 中文四页界面（含实时数值）+ 遥控 6 路 + 四路速度闭环 + IMU 偏航角链路 + 串口 CSV 上报（12 列）；**上板前补全 A/B 六项已完成**（启动门禁+油门中位死区、堵转启动宽限、方向取反、切页门禁、烧录脚本）；ToF/雷达/导航为预留 |
+| 仿真 | **5 个自检 tb / 87 项检查全 PASS**（rc_input 20 / chassis_ctrl 23 / num_text 28 / ui_render 12 / speed_report 4；`sim\run_sim.ps1` 一条命令） |
+| 综合 | **ERROR 0**；比特流 `impl\pnr\falcons.fs`（**34.2 MB**，未入库） |
+| 资源 | Logic **9081**/138240（7%）、Register 4092（3%）、BSRAM 9/340（3%）、DSP 41/298（14%） |
+| 时序 | **SETUP 0 条**（同域最差 **+0.746 ns**，全部满足）+ HOLD 12 条（最差 −0.998 ns）+ RECOVERY 25 条，**负 slack 全部在跨时钟域与上电复位路径上**（详见 `doc\工作记录.md` §15.10 的口径说明） |
 | 模块库 | `vendor\` 里 10 个包 / 144 文件；来源 commit `c9b8025`（**2026-10-15 起本项目直接维护**，见 `vendor\ORIGIN.md`） |
 | Git | 首次提交 `bb9ea07`（199 文件 / 72107 行），当前 `main` 已推送到远程并建立跟踪 |
 | 上板 | **尚未做过**（本轮所有结论来自编译、仿真、综合与时序报告） |
@@ -57,7 +57,7 @@ FALCONS-embodied-robot\
 │    ├─ build.ps1                     一键构建（调 gw_sh）
 │    ├─ run_all_modules.ps1           跑 vendor 里各模块自带的测试（改了模块后回归用）
 │    ├─ gen_font_rom.py               中文字库生成器（字表 → 点阵 ROM，数据内嵌）
-│    └─ font_chars.txt                UI 文案字表（73 条）
+│    └─ font_chars.txt                UI 文案字表（74 条）
 ├─ scripts\vendor_sources.tcl         Tcl 侧源文件清单（从 modules.list 派生）
 ├─ rtl\
 │    ├─ top\falcons_top.v             整车顶层（只做例化与连线）
@@ -80,23 +80,31 @@ FALCONS-embodied-robot\
 ```powershell
 cd "D:\Programs\FPGA Projects\FALCONS-embodied-robot"
 
-# 1) 跑仿真（4 个自检 tb，每个开独立 vsim 进程）—— 改了代码或 vendor 里的模块后必跑
-powershell -File sim\run_sim.ps1
+# ★ 本机执行策略禁止直接跑 .ps1，所有脚本都要加 -ExecutionPolicy Bypass
+
+# 1) 跑仿真（5 个自检 tb，每个开独立 vsim 进程）—— 改了代码或 vendor 里的模块后必跑
+powershell -ExecutionPolicy Bypass -File sim\run_sim.ps1
 
 # 2) 改了 vendor 里某个模块 → 顺手跑那个模块自带的测试
-powershell -File tools\run_all_modules.ps1 -Packages motor_tb6612
+powershell -ExecutionPolicy Bypass -File tools\run_all_modules.ps1 -Packages motor_tb6612
 
 # 3) 构建（Gowin 综合 + 布局布线）
-powershell -File tools\build.ps1
+powershell -ExecutionPolicy Bypass -File tools\build.ps1
 #    等价于手写：
 #    & "D:\Apps\Gowin\Gowin_V1.9.12.03_x64\IDE\bin\gw_sh.exe" build.tcl
 
 # 4) 改了界面文案后重新生成字库
 python tools\gen_font_rom.py
+
+# 5) 烧录（上板第一步；详见 doc\上板指南_v1.md 第一节）
+powershell -ExecutionPolicy Bypass -File tools\program_flash.ps1 -Action Cables    # 列下载器
+powershell -ExecutionPolicy Bypass -File tools\program_flash.ps1 -Action Sram      # ★ 先只下 SRAM
+powershell -ExecutionPolicy Bypass -File tools\program_flash.ps1 -Action Program   # 验证无误再固化
 ```
 
-✅ **最近一次构建**（含 IMU 链路）：**ERROR 0**、比特流 `impl\pnr\falcons.fs`（34.1 MB）、
-Logic 6% / BSRAM 9 块 / DSP 41。上板步骤、按键/LED/遥控映射、IMU 现象判据、已知限制见 **`doc\上板指南_v1.md`**。
+✅ **最近一次构建**（含上板前补全 A/B 六项）：**ERROR 0**、比特流 `impl\pnr\falcons.fs`（**34.2 MB**）、
+Logic 7% / BSRAM 9 块 / DSP 41；仿真 **5 个 tb / 87 项全 PASS**。
+上板步骤、按键/LED/遥控映射、**启动门禁行为**、IMU 现象判据、已知限制见 **`doc\上板指南_v1.md`**。
 
 ---
 
@@ -207,6 +215,10 @@ Logic 6% / BSRAM 9 块 / DSP 41。上板步骤、按键/LED/遥控映射、IMU �
 | 仿真通过 ≠ 能综合 | 位宽越界 ModelSim 容忍、Gowin 报 `EX3784` 并把模块降级成黑盒 |
 | 约束里引用 PLL 派生时钟 | `set_false_path -to [get_clocks {pixel_clk}]` 报 `TA2004` 并**让综合失败**（该时钟在约束解析阶段还不存在） |
 | PowerShell 数组拼换行 | `@( @('a','b'), @('c', 'x' + "``n" + 'y') )` 里第二行会**丢** → 用 here-string |
+| 批量替换改坏 `.ps1` 的 BOM | 写回时用了无 BOM 的 `UTF8Encoding($false)` → PowerShell 按 GBK 解中文注释，报一串 `Unexpected token` / `Missing closing '}'`，**看起来像脚本被改坏了，其实只少了 3 个字节**。改 `.ps1` 要点：`ReadAllBytes` 判原 BOM，写回保持一致 |
+| 仿真清单漏依赖闭包 | `vlog` 逐文件独立编译、**不做模块解析** → 少列依赖时编译全过，`vsim` 加载才报 `Module 'xxx' is not defined` / `Error loading design`。补依赖要**补到叶子** |
+| `i_force` 是电平不是脉冲 | `speed_report` 的 `i_force` 在 `S_IDLE` 里是**或**条件：保持高电平会**连续上报**。按"单周期"的旧注释给长脉冲 → 每次多留一行残留，检查到的永远是上一行（行长 39/42/42/42）。**注释与实现不符要立刻改注释** |
+| 文档里的检查项数量 | 曾出现 `num_text` 标 22 项、主 README 标 26 项、实测 28 项 —— **数字必须从命令输出统计**，不能凭印象写 |
 
 完整版（按 6 类归，含现象与处理）见 `doc\工作记录.md` 第十节。
 
@@ -223,24 +235,33 @@ Logic 6% / BSRAM 9 块 / DSP 41。上板步骤、按键/LED/遥控映射、IMU �
   `app_key`（按键去抖）、`ui_render` + `num_text` + `dyn_text_ram`（中文界面与实时数值）；
   从 `car_fpga` 搬入 `speed_pid` / `reset_sync` / `uart_cmd_rx` / `speed_report`
 - **遥控控制**（`rtl\rc\rc_input.v`）：库内**单路** `rc_pwm_capture` 实例化 **×6**；转向/油门归一化到 ±1000
-  （中位 1500 µs、死区 ±25 µs）；模式开关三档（手动接管 / 屏幕光标 / 自动）；3 个按钮（select/确认/返回）
-  上升沿脉冲；丢信号 **100 ms** 检测 → 摇杆归零 + 状态栏提示。**已验证**：仿真 12 项 PASS、综合通过。
+  （中位 1500 µs、死区 ±25 µs）；**方向取反参数** `STEER_REVERSE` / `THROTTLE_REVERSE`（换接收机/接线不动线）；
+  模式开关三档（手动接管 / 屏幕光标 / 自动）；3 个按钮（select/确认/返回）
+  上升沿脉冲；丢信号 **100 ms** 检测 → 摇杆归零 + 状态栏提示。**已验证**：仿真 **20 项** PASS、综合通过。
   **未验证**：通道角色映射是按设计文档语义**假设**的（待实测核对）；光标模式的界面交互未做（依赖 L5 导航页）
+- **启动门禁 + 油门中位死区**（2026-10-15 上板前补全，★ 用户点名）：`ARM_THROTTLE_DEADZONE = 100`，
+  按 S1 启动需"油门在中位死区内 + 遥控信号有效"，**停止不受限制**；状态栏提示 `请回中位`
 - **IMU 链路**：`imu660ra` → `gyro_tilt_comp` → `yaw_integrate` → 数据页航向角（三个包已进 `modules.list`）
-- **中文点阵字库**：220 字 / 73 条文案，由 `tools\gen_font_rom.py` 生成并**内嵌**（不用 `$readmemh`）
+- **中文点阵字库**：**223 字 / 74 条文案**，由 `tools\gen_font_rom.py` 生成并**内嵌**（不用 `$readmemh`）。
+  本轮加 `ST_ARM_DENY:请回中位` 时**字库字符数没变** —— "请/回/中/位"四个字在该字库里都已存在
+  （分别来自"请选择模式""返回""标定中""航位"），所以 `font_rom.v` 内容不变，只有 `ui_text_rom.v` 与 `ui_text_index.vh` 变化（git 可证）
 - **板级约束**：`constr\falcons.cst`（44 个 `IO_LOC`，逐针抄手册；雷达 RX=C14）+ `falcons.sdc`
-- **仿真**：4 个自检测试台 / **70 项检查全 PASS**（`rc_input` 12 / `chassis_ctrl` 23 / `num_text` 26 / `ui_render` 9）
-- **综合与布局布线**：ERROR 0、比特流 34.1 MB、时序仅剩 CDC 结构性违规
-- **文档**：功能设计（权威）、工作记录、上板指南、参数总表与待定清单、模块库接口速查、升级流程、设计落实待办
+- **仿真**：5 个自检测试台 / **87 项检查全 PASS**（`rc_input` 20 / `chassis_ctrl` 23 / `num_text` 28 / `ui_render` 12 / `speed_report` 4）
+- **综合与布局布线**：ERROR 0、比特流 **34.2 MB**；**SETUP 同域 0 违规**（最差 +0.746 ns），
+  负 slack 全在跨时钟域同步器与上电复位路径上（HOLD 12 / RECOVERY 25，详见 `doc\工作记录.md` §15.10）
+- **上板前补全 A/B 六项**（2026-10-15）：启动门禁+油门死区、CSV 12 列、堵转启动宽限 50、`program_flash.ps1` 迁入、
+  遥控方向取反、切页限定光标档；并**消除了一条本轮引入的 CDC 深组合路径**（−2.473 → −0.998 ns）
+- **文档**：功能设计（权威）、工作记录、上板指南、参数总表与待定清单、模块库接口速查、设计落实待办
 
 ### 尚未完成
 
-1. ~~CSV 上报未接线~~ **已完成**：`speed_report` 已在顶层例化（`u_report`），串口按 **50 Hz** 输出 8 列 CSV：`tgt,act,duty,kp,ki,kd,flags,err`（它自带 FIFO + UART TX，故不必再例化 `uart_byte_tx`）
+1. ~~CSV 上报未接线~~ **已完成**：`speed_report` 已在顶层例化（`u_report`），串口按 **50 Hz** 输出 **12 列** CSV：
+   `tgt,act,duty,kp,ki,kd,flags,err,steer,throttle,mode,sig_ok`（它自带 FIFO + UART TX，故不必再例化 `uart_byte_tx`；
+   后 4 列为 2026-10-15 新增，用于核对"杆位 → 归一化值"）
 2. **串口命令只接了一部分**：`P/I/D`、`X`、`Z` 已生效；`T/1-4`（目标速度）与 `E/U`（开环/闭环）未接 ——
    本轮速度给定只来自遥控
 3. ~~引脚逐针复验未做~~ **已完成**：`tools\check_pin_constraints.py` 已迁入并**扩展**（覆盖手册 J2/J4/J5/J6/J7 五张表），**35 根信号逐针一致**；并借此发现、修掉了顶层 ToF 引脚语义错误（详见 `doc\工作记录.md` 第十四节）
-   "抄自已复核过的旧值 + 手册表格"，还没用脚本对手册 PDF 原文逐针比对过
-4. **`tools\` 还缺 1 个脚本**：`program_flash.ps1`（烧录）—— 见 `tools\README.md`
+4. ~~`tools\` 还缺 1 个脚本~~ **已完成**（2026-10-15）：`program_flash.ps1` 已迁入（默认位流 `impl\pnr\falcons.fs`，用法见 `doc\上板指南_v1.md` 第一节）。`tools\` 仍缺 `plot_yaw.py`（串口采集+分析+绘图），见 `tools\README.md`
 5. **速度环 PID 未整定**：用的是 `car_fpga` 的 Q8 初值（26/3/0），需上板后按现象整定
 6. **尚未上板**：所有结论来自编译、仿真、综合与时序报告；`.fs` 生成但没烧过
 7. **快照升级路径**：将来若要改用 git submodule，把 `vendor\verilog-reusable-modules` 这个挂载点
@@ -252,7 +273,7 @@ Logic 6% / BSRAM 9 块 / DSP 41。上板步骤、按键/LED/遥控映射、IMU �
 | --- | --- |
 | 远程 | `https://github.com/HITSZ-FPGA-FALCONS/FALCONS-embodied-robot.git`（分支 `main`，已建立跟踪） |
 | 首次提交 | `bb9ea07`（199 文件 / 72107 行：vendor 模块 144 + 工程文件 55） |
-| 未入库 | `impl\`（含 34.1 MB 比特流）、`logs\`、`work*\`、`transcript` —— 由 `.gitignore` 排除 |
+| 未入库 | `impl\`（含 34.2 MB 比特流）、`logs\`、`work*\`、`transcript` —— 由 `.gitignore` 排除 |
 
 ---
 

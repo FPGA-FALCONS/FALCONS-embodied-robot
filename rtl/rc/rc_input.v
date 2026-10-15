@@ -44,6 +44,9 @@ module rc_input #(
     parameter integer TIMEOUT_US    = 100_000,    // 单路超时（100 ms）
     parameter integer SW_LO_US      = 1300,       // 三档：低位阈值
     parameter integer SW_HI_US      = 1700,       // 三档：高位阈值
+    // 方向取反（换接收机/换接线时用参数解决，不必动线）
+    parameter integer STEER_REVERSE    = 0,       // 1 = 转向取反
+    parameter integer THROTTLE_REVERSE = 0,       // 1 = 油门取反
     // ---- 通道映射（按实际接线改这里，不要改逻辑）----
     parameter integer CH_STEER      = 0,
     parameter integer CH_THROTTLE   = 1,
@@ -157,8 +160,11 @@ module rc_input #(
         end
     endfunction
 
-    wire signed [11:0] steer_now    = norm_cmd(us_steer,    flat_vld[CH_STEER]    & ~flat_to[CH_STEER]);
-    wire signed [11:0] throttle_now = norm_cmd(us_throttle, flat_vld[CH_THROTTLE] & ~flat_to[CH_THROTTLE]);
+    wire signed [11:0] steer_raw    = norm_cmd(us_steer,    flat_vld[CH_STEER]    & ~flat_to[CH_STEER]);
+    wire signed [11:0] throttle_raw = norm_cmd(us_throttle, flat_vld[CH_THROTTLE] & ~flat_to[CH_THROTTLE]);
+    // 方向取反：上板实测若"推油门车往后走"或"打右舵车往左转"，把对应参数置 1 即可
+    wire signed [11:0] steer_now    = STEER_REVERSE    ? (-steer_raw)    : steer_raw;
+    wire signed [11:0] throttle_now = THROTTLE_REVERSE ? (-throttle_raw) : throttle_raw;
 
     // ------------------------------------------------------------------
     // 三档判定 + 按钮上升沿

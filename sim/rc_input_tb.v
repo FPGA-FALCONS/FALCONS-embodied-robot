@@ -73,6 +73,51 @@ module rc_input_tb;
         .o_chan_valid   (chan_vld)
     );
 
+    // ------------------------------------------------------------------
+    // B1：方向取反参数的【对照实例】
+    //   同一组 rc_pwm 输入，只把 STEER_REVERSE / THROTTLE_REVERSE 置 1，
+    //   期望两个模拟量的输出符号相反、而模式与按钮完全不受影响。
+    //   独立实例的好处：不需要为了测取反而破坏主实例那套已通过的期望值。
+    // ------------------------------------------------------------------
+    wire signed [11:0] steer_rev, throttle_rev;
+    wire [1:0]         mode_rev;
+    wire               sel_rev, conf_rev, back_rev, sig_rev;
+
+    rc_input #(
+        .CLK_FREQ_HZ   (CLK_HZ),
+        .NUM_CH        (6),
+        .CENTER_US     (1500),
+        .HALF_RANGE_US (500),
+        .DEADZONE_US   (25),
+        .MIN_PULSE_US  (900),
+        .MAX_PULSE_US  (2100),
+        .TIMEOUT_US    (5000),
+        .SW_LO_US      (1300),
+        .SW_HI_US      (1700),
+        .CH_STEER      (0),
+        .CH_THROTTLE   (1),
+        .CH_CONFIRM    (2),
+        .CH_BACK       (3),
+        .CH_MODE       (4),
+        .CH_SELECT     (5),
+        .STEER_REVERSE    (1),          // ← 与主实例唯一的差别
+        .THROTTLE_REVERSE (1)
+    ) dut_rev (
+        .clk            (clk),
+        .rst_n          (rst_n),
+        .rc_pwm         (rc_pwm),
+        .o_steer        (steer_rev),
+        .o_throttle     (throttle_rev),
+        .o_mode         (mode_rev),
+        .o_btn_select   (sel_rev),
+        .o_btn_confirm  (conf_rev),
+        .o_btn_back     (back_rev),
+        .o_signal_valid (sig_rev),
+        .o_chan_us      (),
+        .o_chan_timeout (),
+        .o_chan_valid   ()
+    );
+
     always #500 clk = ~clk;             // 1 MHz
 
     // ------------------------------------------------------------------
@@ -191,6 +236,23 @@ module rc_input_tb;
         send_frame(1500, 1500, 1500, 1500, 1500, 1500);
         send_frame(1500, 1500, 1500, 1500, 1500, 1500);
         check_int("signal_valid_1", sig_ok, 1, 0);
+
+        // ---------------- 7. 方向取反参数（B1）----------------
+        $display("-- 7. STEER_REVERSE/THROTTLE_REVERSE=1：两个模拟量取反，模式/按钮不受影响 --");
+        send_frame(2000, 1000, 1500, 1500, 1500, 1500);
+        send_frame(2000, 1000, 1500, 1500, 1500, 1500);
+        check_int("steer_norm_pos",    steer,          1000, 1);
+        check_int("steer_rev_neg",     steer_rev,     -1000, 1);
+        check_int("throttle_norm_neg", throttle,      -1000, 1);
+        check_int("throttle_rev_pos",  throttle_rev,   1000, 1);
+        check_int("mode_rev_unaffected", mode_rev, mode, 0);
+        check_int("sig_rev_unaffected",  sig_rev,  sig_ok, 0);
+
+        // 中位时取反前后都应为 0（−0 与 +0 都是 0，防止实现写成取反后偏 1）
+        send_frame(1500, 1500, 1500, 1500, 1500, 1500);
+        send_frame(1500, 1500, 1500, 1500, 1500, 1500);
+        check_int("steer_rev_center",    steer_rev,    0, 0);
+        check_int("throttle_rev_center", throttle_rev, 0, 0);
 
         // ---------------- 汇总 ----------------
         $display("======== 结果 ========");
