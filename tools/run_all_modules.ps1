@@ -1,9 +1,9 @@
-﻿# run_all_modules.ps1 —— 把内嵌模块库自带的测试全跑一遍（"库自带测试当门槛"）
+﻿# run_all_modules.ps1 —— 把 vendor 里各模块自带的测试全跑一遍（"模块自带测试当门槛"）
 #
 # 为什么需要它：
-#   内嵌快照的价值一半在于"每个包都能单独仿真"。同步完模块库、或改了某个包的
+#   vendor 里的模块都自带 sim\ 与测试入口，价值一半就在这里。改了某个模块、或改动它的
 #   使用方式之后，先跑一遍库自带测试，能立刻区分"是我的应用层写错了"还是
-#   "快照本身有问题"。
+#   "模块本身有问题"。
 #
 # 怎么跑（两个关键点）：
 #   1. ModelSim 在 -c（命令行）模式下，tb 里的 $finish 会【终结整个 vsim 进程】。
@@ -13,7 +13,7 @@
 #   2. 每个入口的完整输出都落盘到 logs\ 下（.gitignore 已忽略），便于事后查证。
 #
 # 产物说明：跑测试会在 vendor 的包 sim 目录里生成 work\ / transcript / build\ 等。
-#   这些已被 .gitignore 忽略，不会污染快照，check_vendor.ps1 也不会误报。
+#   这些已被 .gitignore 忽略，不会污染 vendor 目录。
 #
 # 编码：本文件必须保存为 UTF-8 with BOM。
 #
@@ -35,7 +35,7 @@ $requestedModelSim = $ModelSim
 . (Join-Path $PSScriptRoot 'lib_paths.ps1')
 if ($requestedModelSim) { $ModelSim = $requestedModelSim } else { $ModelSim = $ModelSimDefault }
 
-if (-not (Test-Path $VendorRoot))   { throw "找不到内嵌目录 $VendorRoot —— 先跑 tools\sync_vendor.ps1。" }
+if (-not (Test-Path $VendorRoot))   { throw "找不到 vendor 目录：$VendorRoot —— 检查 vendor\verilog-reusable-modules 是否完整（见 vendor\ORIGIN.md）。" }
 if (-not (Test-Path $LogRoot))      { New-Item -ItemType Directory -Path $LogRoot -Force | Out-Null }
 
 # 归一化 -Packages：
@@ -102,7 +102,7 @@ foreach ($pkg in $target) {
 
 Write-Host ''
 Write-Host '================ 跑一遍内嵌模块库的自带测试 ================' -ForegroundColor Cyan
-Write-Host ("  内嵌快照 : {0}" -f $VendorRoot)
+Write-Host ("  vendor   : {0}" -f $VendorRoot)
 Write-Host ("  ModelSim : {0}  {1}" -f $ModelSim, $(if ($hasModelSim) { '(已找到)' } else { '(未找到！)' }))
 Write-Host ("  待跑入口 : {0} 个（{1} 个包）" -f $entries.Count, $target.Count)
 

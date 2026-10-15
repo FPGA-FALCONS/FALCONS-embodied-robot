@@ -38,8 +38,8 @@ proc get_vendor_sources {} {
     foreach pkg [lsort [read_referenced_packages]] {
         set dir "$VENDOR_ROOT/modules/$pkg/rtl"
         if {![file isdirectory $dir]} {
-            puts "ERROR: deps/modules.list references '$pkg' but $dir does not exist (run tools/sync_vendor.ps1 first)."
-            puts "错误：deps/modules.list 引用了 '$pkg'，但 $dir 不存在（先跑 tools/sync_vendor.ps1）。"
+            puts "ERROR: deps/modules.list references '$pkg' but $dir does not exist (check vendor/verilog-reusable-modules)."
+            puts "错误：deps/modules.list 引用了 '$pkg'，但 $dir 不存在（检查 vendor/verilog-reusable-modules 是否完整）。"
             exit 1
         }
         foreach f [lsort [glob -nocomplain "$dir/*.v"]] { lappend out $f }

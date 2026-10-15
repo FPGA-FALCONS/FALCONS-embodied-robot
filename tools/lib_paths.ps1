@@ -5,7 +5,7 @@
 #
 # 为什么要有这个文件：
 #   本项目吃过"三处各写一份路径、改一处漏两处"的亏。Gowin 的 build*.tcl、
-#   ModelSim 的 run_*.ps1、check_vendor / sync_vendor 全部从这里取路径，
+#   ModelSim 的 run_sim.ps1、build / run_all_modules 全部从这里取路径，
 #   改目录结构时只改本文件。
 #
 # 编码：本文件必须保存为 UTF-8 with BOM，否则 Windows PowerShell 5.1
@@ -20,17 +20,10 @@ $RtlRoot     = Join-Path $ProjectRoot 'rtl'
 $ConstrRoot  = Join-Path $ProjectRoot 'constr'
 $SimRoot     = Join-Path $ProjectRoot 'sim'
 
-# ---- 内嵌快照的记账文件 ----
-$VendorLock  = Join-Path $ProjectRoot 'VENDOR.lock'
-$Manifest    = Join-Path $DepsRoot 'vendor_manifest.sha256'
+# ---- 依赖清单：本工程编译哪些包（build.tcl / run_all_modules 都从它派生）----
+# 注：vendor 里的模块自 2026-10-15 起由本工程直接维护，不再有"源库同步"这件事，
+#     来源与改模块的纪律见 vendor\ORIGIN.md。
 $ModulesList = Join-Path $DepsRoot 'modules.list'
-
-# ---- 源库（LIB_ROOT）：同步的来源，只在 sync_vendor.ps1 里被写到的才是它 ----
-# 优先取环境变量 FALCONS_LIB_ROOT，其次取下面的默认值。
-# 注意：本工程【只读】源库（只用 git archive / git log），绝不写入。
-$LibRootDefault = 'D:\Programs\FPGA Projects\verilog-reusable-modules'
-$LibRoot = if ($env:FALCONS_LIB_ROOT) { $env:FALCONS_LIB_ROOT } else { $LibRootDefault }
-$LibUrl  = 'git@github.com:HITSZ-FPGA-FALCONS/verilog-reusable-modules.git'
 
 # ---- 外部工具 ----
 $ModelSimDefault = 'D:\Apps\modeltech64_10.6d\win64'

@@ -1,21 +1,19 @@
-﻿# build.ps1 —— 一键构建：先体检 vendor 快照，再调 Gowin 综合 + 布局布线
-#
-# 为什么要把体检放在构建之前自动执行：
-#   若 vendor 里的模块被谁"就地改过"，构建会成功、结果却不可复现，
-#   后面排查问题时最贵的就是这一步。所以让它挡在前面。
-#
-# 编码：本文件必须保存为 UTF-8 with BOM。
+﻿# build.ps1 —— 一键构建：调 Gowin 综合 + 布局布线
 #
 # 用法：
 #   powershell -File tools\build.ps1
 #   powershell -File tools\build.ps1 -Tcl build_speed.tcl      # 分阶段工程
-#   powershell -File tools\build.ps1 -SkipCheck                # 确认快照有意的改动时跳过体检
+#
+# 注：vendor 里的模块自 2026-10-15 起由本工程直接维护（见 vendor\ORIGIN.md），
+#     所以不再有"构建前体检快照"这一步 —— 原来的 check_vendor.ps1 已删除。
+#     ★ 改了 vendor 里的模块后，请先跑 sim\run_sim.ps1 做回归，再来构建。
+#
+# 编码：本文件必须保存为 UTF-8 with BOM。
 
 [CmdletBinding()]
 param(
     [string]$Tcl = 'build.tcl',
-    [string]$GowinSh,
-    [switch]$SkipCheck
+    [string]$GowinSh
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,19 +21,7 @@ $requestedGowin = $GowinSh
 . (Join-Path $PSScriptRoot 'lib_paths.ps1')
 if ($requestedGowin) { $GowinSh = $requestedGowin } else { $GowinSh = $GowinShDefault }
 
-# ---------- 1. 体检 ----------
-if (-not $SkipCheck) {
-    Write-Host ''
-    Write-Host '===== 构建前体检：tools\check_vendor.ps1 =====' -ForegroundColor Cyan
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check_vendor.ps1')
-    if ($LASTEXITCODE -ne 0) {
-        throw "快照体检未通过（退出码 $LASTEXITCODE）—— 先解决上面的 [BAD] 项；确认是有意改动再加 -SkipCheck。"
-    }
-} else {
-    Write-Host '（已按 -SkipCheck 跳过体检）' -ForegroundColor Yellow
-}
-
-# ---------- 2. 构建 ----------
+# ---------- 构建 ----------
 $tclPath = Join-Path $ProjectRoot $Tcl
 if (-not (Test-Path $GowinSh)) { throw "找不到 gw_sh.exe：$GowinSh`n用 -GowinSh 指定，或改 tools\lib_paths.ps1。" }
 if (-not (Test-Path $tclPath)) { throw "工程根下找不到 $Tcl（当前工程根：$ProjectRoot）。" }
@@ -50,7 +36,7 @@ try {
     Pop-Location
 }
 
-# ---------- 3. 报告产物 ----------
+# ---------- 报告产物 ----------
 Write-Host ''
 $pnr = Join-Path $ProjectRoot 'impl\pnr'
 if (Test-Path $pnr) {
