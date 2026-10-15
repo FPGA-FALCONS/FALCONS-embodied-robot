@@ -274,8 +274,8 @@ Logic 7% / BSRAM 9 块 / DSP 41；仿真 **5 个 tb / 87 项全 PASS**。
 | --- | --- |
 | 远程 | `https://github.com/HITSZ-FPGA-FALCONS/FALCONS-embodied-robot.git`（分支 `main`，已建立跟踪） |
 | 首次提交 | `bb9ea07`（199 文件 / 72107 行：vendor 模块 144 + 工程文件 55） |
-| 最新提交 | `57ff8ba`「上板前补全 A/B 六项 + 消除本轮引入的 CDC 深组合路径」—— 19 文件 / +1201 −201，**已推送** |
-| 提交历史 | `bb9ea07` → `a640a15` → `0439dd8` → `d68e02f` → `c2cddf4` → `7dba09e` → `57ff8ba` |
+| 提交历史 | **不在这里维护完整列表**（每提交一次都会过期，是必然漂移的信息）—— 用 `git log --oneline` 看。关键节点：`bb9ea07` 首次提交 → `c2cddf4` vendor 转为本项目直接维护 → `7dba09e` 串口 CSV 上报 + 引脚逐针复验 → `57ff8ba` 上板前补全 A/B 六项 → `22969a8` 写入 PID 初值 0/64/0 |
+| 本地是否领先 | 用 `git status -sb` 看：行首出现 `[ahead N]` 就是有未推送的提交 |
 | 未入库 | `impl\`（含 34.2 MB 比特流）、`logs\`、`work*\`、`transcript` —— 由 `.gitignore` 排除 |
 | 推送注意 | 本机受限环境下 `git push` 会因 schannel `SEC_E_NO_CREDENTIALS` 失败，需放行网络/TLS 访问后重试（本次即如此） |
 
