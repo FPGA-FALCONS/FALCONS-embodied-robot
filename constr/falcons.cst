@@ -11,7 +11,7 @@
 //      （DVI_TX_Top 内部创建 LVDS25 输出单元，故只需 IO_LOC）
 //   4. 遥控 6 路：J6 整排 D19 E19 E18 F18 F20 F19（功能设计文档 §2.4）
 //   5. 雷达 RX：C14 = J3.3（★ 详见下方说明）
-//   6. ToF / RK3588：J7 整排 E17 F16 C20 D20（占位，模块未做出）
+//   6. ToF：J7 排针（SDA=E17 / SCL=F16 / INT=C20 / SHUT=D20）；模块未做出，四线置安全空闲态
 //
 // ★★ 雷达绝对不要接 A15 ★★
 //   A15 = J2.6 = IMU 的 CS；J1 与 J2 是**同一条网络**，两个输出挂一起会"对打"，
@@ -138,16 +138,21 @@ IO_PORT "i_imu_miso" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
 IO_LOC  "o_imu_cs_n" A15;                                  // J2 CS → SPI CS#
 IO_PORT "o_imu_cs_n" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
 
-// ---------------- 预留：雷达 / ToF / RK3588 ----------------
+// ---------------- 预留：雷达 / ToF ----------------
 IO_LOC  "i_radar_rx" C14;                                  // J3.3 雷达 TX → 主板 RX（★ 不是 A15）
 IO_PORT "i_radar_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
 
-IO_LOC  "i_tof_echo" E17;                                  // J7.1（ToF 模块未做出，占位）
-IO_PORT "i_tof_echo" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
-IO_LOC  "o_rk_tx" F16;                                     // J7.2（RK3588 串口 TX，预留）
-IO_PORT "o_rk_tx" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
-IO_LOC  "i_rk_rx" C20;                                     // J7.3（RK3588 串口 RX，预留）
-IO_PORT "i_rk_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+// ToF（J7 排针，I2C 接口）—— 2026-10-15 按手册 J7 表逐针核验后修正：
+//   原先把 J7.3/J7.4（SDA/SCL）误当成"ToF 回波 + RK3588 串口"，语义错误，已改。
+//   手册 J7 表：1 VIN/3V3、2 GND、3 SDA=E17、4 SCL=F16、5 INT=C20、6 SHUT=D20
+IO_LOC  "o_tof_scl" F16;                                   // J7.4 SCL
+IO_PORT "o_tof_scl" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "io_tof_sda" E17;                                  // J7.3 SDA（I2C 双向）
+IO_PORT "io_tof_sda" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_tof_int" C20;                                   // J7.5 INT
+IO_PORT "i_tof_int" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "o_tof_shut" D20;                                  // J7.6 SHUT
+IO_PORT "o_tof_shut" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
 
 // ---------------- LED0~LED7（高电平点亮）----------------
 IO_LOC  "o_led[0]" M22;

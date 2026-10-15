@@ -7,7 +7,7 @@
 //   输入            4 个板载按键、6 路遥控 PWM、4 路编码器、串口 RX、雷达 RX(C14)
 //   输出            4 路电机（IN1/IN2/PWM）+ STBY、串口 TX、HDMI TMDS、8 个 LED
 //   显示            1024x600 HDMI，中文四页界面（ui_render）
-//   预留            ToF（模块未做出，留输入与急停通路）、RK3588（串口）、雷达（C14）
+//   预留            ToF（J7 的 I2C 四线，模块未做出）、雷达（C14）；RK3588 通路待选型（J1 GPIO 已用尽）
 //
 // 【时钟域】两个（依据功能设计文档 §4.2 的策略）
 //   * sys 域   50 MHz：IMU、控制、估计、遥控、串口、按键、页面状态
@@ -65,10 +65,16 @@ module falcons_top (
     output wire        o_imu_cs_n,         // A15（J2 CS）
 
     // ---- 预留外设 ----
-    input  wire        i_radar_rx,         // C14（J3.4 → J1.24；★ 不要接 A15）
-    input  wire        i_tof_echo,         // ToF 模块未做出，接输入引脚占位
-    output wire        o_rk_tx,            // RK3588 串口 TX（预留）
-    input  wire        i_rk_rx,            // RK3588 串口 RX（预留）
+    // 雷达：J3.3 = C14（★ 不要接 A15 —— 那是 J2.6 IMU CS，且 J1 与 J2 同网络，会对打）
+    input  wire        i_radar_rx,         // C14（J3.3 雷达 TX → 主板 RX，仅接收）
+    // ToF：J7 排针（VIN / GND / SDA / SCL / INT / SHUT），是 **I2C** 接口
+    //   ★ 2026-10-15 引脚复验修正（依据手册 J7 表）：
+    //     原先把 J7.3/J7.4 误当成"ToF 回波 + RK3588 串口 TX"，语义是错的。
+    //     现改为正确的 I2C 四线；ToF 模块尚未做出，四线暂置安全空闲态。
+    output wire        o_tof_scl,          // F16（J7.4 SCL）
+    inout  wire        io_tof_sda,         // E17（J7.3 SDA，I2C 双向）
+    input  wire        i_tof_int,          // C20（J7.5 INT）
+    output wire        o_tof_shut,         // D20（J7.6 SHUT）
 
     // ---- 状态指示 ----
     output wire [7:0]  o_led
@@ -168,12 +174,14 @@ module falcons_top (
 
     // ToF 急停（模块未做出：保持 0；将来接上后由 distance < D_STOP 触发）
     wire tof_estop = 1'b0;
-    // ToF 原始输入引脚先接住，避免悬空告警（将来给 tof_i2c 使用）
-    wire tof_echo_unused = i_tof_echo;
-    // 雷达 RX 与 RK3588 串口同理：本轮未接模块，但引脚必须存在（约束里已分配）
+    // 雷达 RX：本轮未接模块，引脚已在约束里分配，先接住避免悬空告警
     wire radar_rx_unused = i_radar_rx;
-    wire rk_rx_unused    = i_rk_rx;
-    assign o_rk_tx = 1'b1;              // 预留串口空闲电平
+
+    // ToF 尚未实现（模块没做出来）：四线置安全空闲态，等 tof_i2c 模块接入
+    //   SCL 空闲高、SHUT 高（不关断）、SDA 高阻（不驱动总线）
+    assign o_tof_scl  = 1'b1;
+    assign o_tof_shut = 1'b1;
+    assign io_tof_sda = 1'bz;
 
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
@@ -309,6 +317,7 @@ module falcons_top (
     // 6. 串口：命令接收（调参）+ 上报预留
     // ==================================================================
     wire [7:0] rx_data;
+    wire       cmd_error;      // 串口命令解析错误标志（bit2 上报用）
     wire       rx_valid;
 
     uart_byte_rx #(
@@ -352,11 +361,10 @@ module falcons_top (
         .o_count_clear(cmd_count_clear),
         .o_stall_clear(cmd_stall_clear),
         .o_report_req (),
-        .o_cmd_error  ()
+        .o_cmd_error  (cmd_error)
     );
 
-    // 串口 TX 暂未接上报模块（下一版接 speed_report）；保持空闲高电平
-    assign o_uart_tx = 1'b1;
+    // 串口 TX 由下面的 speed_report 驱动（见 6c 节）
 
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
@@ -483,6 +491,45 @@ module falcons_top (
     wire signed [31:0] yaw_deg = (yaw_raw * 10486) >>> 20;
 
     // ==================================================================
+    // ==================================================================
+    // 6c. 串口 CSV 上报：速度环关键量 @50 Hz
+    //
+    // 协议（8 列，115200 8N1）：tgt,act,duty,kp,ki,kd,flags,err
+    //   tgt  = 左侧目标轮速 (rpm)      act = 左侧实际轮速 (rpm)
+    //   duty = 通道 0 的有符号占空比（dir 为 1 时取负）
+    //   kp/ki/kd = 当前 PID 参数（Q8，256 = 1.0），可用串口 P/I/D 命令在线改
+    //   flags 位：bit0 闭环使能 / bit1 堵转 / bit2 串口命令错误 / bit3 PID 饱和
+    //   err  = 目标 − 实际 (rpm)
+    //
+    // 注：speed_report 自带 FIFO 与 UART 发送器，所以顶层**不需要**再例化
+    //     uart_byte_tx；直接用它的 o_uart_tx 驱动串口输出脚（M15）。
+    // ==================================================================
+    wire [PWM_BITS-1:0] duty0_raw   = duty_flat[0*PWM_BITS +: PWM_BITS];
+    wire signed [31:0]  report_tgt   = (tgt_left * 100) >>> 10;   // delta → rpm（÷10.24）
+    wire signed [31:0]  report_duty  = dir_vec[0] ? -$signed({1'b0, duty0_raw})
+                                                  :  $signed({1'b0, duty0_raw});
+    wire signed [31:0]  report_err   = report_tgt - rpm0;
+    wire signed [31:0]  report_flags = {28'd0, (|pid_sat), cmd_error, (|stall_vec), run_en};
+
+    speed_report #(
+        .CLK_FREQ_HZ (CLK_HZ),
+        .BAUD_RATE   (BAUD_DEBUG),
+        .REPORT_DIV  (1_000_000)        // 50 MHz / 1_000_000 = 50 Hz
+    ) u_report (
+        .i_clock   (i_clk_50m),
+        .i_reset_n (sys_rst_n),
+        .i_tgt     (report_tgt),
+        .i_act     (rpm0),
+        .i_duty    (report_duty),
+        .i_kp      (kp_r),
+        .i_ki      (ki_r),
+        .i_kd      (kd_r),
+        .i_flags   (report_flags),
+        .i_err     (report_err),
+        .i_force   (1'b0),
+        .o_uart_tx (o_uart_tx)
+    );
+
     // 7. 显示：HDMI 时序 + 中文界面
     // ==================================================================
     wire        pixel_clk, pixel_req, frame_start, frame_sync, video_active, pll_lock;
@@ -622,7 +669,7 @@ module falcons_top (
     wire unused_ok = (|rc_chan_us) | (|rc_timeout) | (|rc_valid) | (|count_flat) |
                      (|enc_dir_vec) | (|pid_sat) | (|tgt_left) | (|tgt_right) |
                      (|rpm0) | (|rpm1) | (|rpm2) | (|rpm3) |
-                     tof_echo_unused | radar_rx_unused | rk_rx_unused |
+                     radar_rx_unused | i_tof_int |
                      imu_err_flag | (|imu_err_code) | (|imu_state_dbg) |
                      imu_init_done | imu_calib_done | imu_calib_fail |
                      (|imu_gyro_x) | (|imu_gyro_y) | (|imu_acc_x) | (|imu_acc_y) | (|imu_acc_z) |

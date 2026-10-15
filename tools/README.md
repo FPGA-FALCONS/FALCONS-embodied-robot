@@ -9,6 +9,7 @@
 | `run_all_modules.ps1` | 把 `vendor\` 里各模块自带的测试跑一遍（**模块自带测试当门槛**），日志落 `logs\` | **改了 vendor 里某个模块之后**做回归 |
 | `gen_font_rom.py` | 中文字库生成器：从 `font_chars.txt` 渲染 16×16 点阵 + 字符串索引，**数据内嵌**进 Verilog（不用 `$readmemh`） | 改了界面文案后 |
 | `font_chars.txt` | UI 文案字表（73 条），`gen_font_rom.py` 的输入 | 加 / 改界面文案时 |
+| `check_pin_constraints.py` | ★ **引脚约束逐针复验**：从手册 PDF 原文解析「针号→网络→J1正式Pin」，与 `constr\falcons.cst` 里实际生效的 `IO_LOC` 逐针比对（覆盖手册 J2/J4/J5/J6/J7 五张表，共 35 根信号），并查引脚唯一性与注释一致性 | **改约束 / 换接线 / 拿到新版手册后必跑** |
 
 ```powershell
 # 常用
@@ -17,6 +18,7 @@ powershell -File tools\build.ps1 -Tcl build_speed.tcl               # 分阶段�
 powershell -File tools\run_all_modules.ps1 -Packages motor_tb6612   # 改了某个模块后回归
 powershell -File tools\run_all_modules.ps1 -ReferencedOnly          # 只跑 modules.list 里的包
 python tools\gen_font_rom.py                                        # 重新生成字库
+python tools\check_pin_constraints.py                               # ★ 引脚逐针复验（改约束/换接线后必跑）
 ```
 
 > ⚠ **改了 vendor 里的模块，必须跑 `sim\run_sim.ps1`**（整车仿真回归）。模块是整车的一部分，
@@ -58,6 +60,6 @@ $c = [System.IO.File]::ReadAllText($p, [System.Text.Encoding]::UTF8)
 
 | 来源 | 用途 |
 | --- | --- |
-| `class\car_fpga\tools\check_pin_constraints.py` | ★ 引脚约束一键复验：从手册 PDF 原文解析「针号→网络→J1正式Pin」，与实际生效的 `IO_LOC` 逐针比对，并查引脚唯一性、注释一致性 |
+
 | `class\car_fpga\tools\program_flash.ps1` | 烧录（注意：默认烧 `falcons.fs`，换工程要显式 `-Fs`）。迁入时**不要**沿用旧写法 `& $cli @args`（`$args` 是自动变量，那里恒为空，等于不带参数执行） |
 | `class\car_fpga\tools\plot_yaw.py` | 串口采集 + 分析 + 绘图。迁入时避免用 `⚠`/`✓` 直接 print（GBK 控制台下 `UnicodeEncodeError` 直接崩溃） |
