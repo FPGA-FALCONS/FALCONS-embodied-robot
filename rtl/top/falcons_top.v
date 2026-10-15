@@ -92,9 +92,18 @@ module falcons_top (
     localparam [3:0]   ENC_INV_DIR_VEC = 4'b1010;       // 编码器计数方向：右前/右后反相
 
     // 速度环 PID 初值（Q8；运行时可经串口 P/I/D 命令在线改）
-    localparam integer KP_INIT = 26;                    // 0.1
-    localparam integer KI_INIT = 3;
-    localparam integer KD_INIT = 0;
+    //   ★ 2026-10-16 用户指定：P=0 / I=64 / D=0（Q8 口径，256 = 1.0）
+    //     → Kp = 0.0、Ki = 0.25、Kd = 0.0，即【纯积分控制】
+    //   量级提醒（原 Ki = 3，即 0.012，这是它的 21 倍）：
+    //     每个 10 ms 窗口的增量 Δu = Ki × err / 256 = err / 4；
+    //     误差 100 rpm 时每窗口 +25、每秒 +2500，而占空比满量程只有 2047
+    //     → 约 0.8 s 就会积分饱和（CSV 的 flags bit3 会置位）。
+    //     上板若表现为"起步猛冲 / 到速后来回振荡"，先把 Ki 降回来再试。
+    //   注意 speed_pid.v 里也有一套同名默认值（26/3/0），那是**库的默认值**；
+    //   本工程由顶层这三个 localparam 显式覆盖，实际生效值以这里为准。
+    localparam integer KP_INIT = 0;                     // 0.0  —— 用户指定
+    localparam integer KI_INIT = 64;                    // 0.25 —— 用户指定
+    localparam integer KD_INIT = 0;                     // 0.0  —— 用户指定（先关微分，编码器量化噪声会被放大）
 
     // ==================================================================
     // 1. 复位与按键
