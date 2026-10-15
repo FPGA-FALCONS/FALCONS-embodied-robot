@@ -240,6 +240,8 @@ git add vendor deps VENDOR.lock rtl; git commit -m "..."     # 快照与记账�
 4. **串口只收不发**：`speed_report` 已搬入但未接 `uart_byte_tx`；`T/1-4`、`E/U` 命令未接
 5. **`tools\` 还缺 3 个脚本**：`check_pin_constraints.py`、`program_flash.ps1`、`plot_*.py`（见 `tools\README.md`）
 4. **`tools\` 还缺 3 个脚本**：`check_pin_constraints.py`、`program_flash.ps1`、`plot_*.py`（见 `tools\README.md`）。
-5. ~~未做首次提交~~ **已完成**：首次提交 `bb9ea07`（199 文件 / 72107 行，含内嵌快照 144 文件），工作区干净。**注意这是本地仓库 —— 尚未配置远程、未 push**。
+5. ~~未做首次提交~~ **已完成并已推送**：
+   - 仓库：**`https://github.com/HITSZ-FPGA-FALCONS/FALCONS-embodied-robot.git`**（分支 `main`）
+   - 首次提交 `bb9ea07`（199 文件 / 72107 行，含内嵌快照 144 文件）；`impl\`（比特流）、`logs\` 按要求未入库
 6. **快照升级路径**：将来若要改用 git submodule，把 `vendor\verilog-reusable-modules` 这个挂载点
    就地换成 submodule 即可，应用层与脚本几乎不用改（方案文档第二节 D→C 的平滑升级）。
