@@ -29,6 +29,7 @@ LBL_GYRO:角速度
 LBL_VEL:中心速度
 LBL_POSE:航位
 LBL_ENC:编码器
+LBL_WHEEL:车轮转速
 LBL_LF:左前
 LBL_RF:右前
 LBL_LR:左后

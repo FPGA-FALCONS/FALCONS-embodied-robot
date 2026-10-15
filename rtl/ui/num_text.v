@@ -21,8 +21,12 @@
 module num_text #(
     parameter integer CLK_HZ     = 50_000_000,
     parameter integer REFRESH_MS = 100,      // 刷新周期
-    parameter integer FIELD_W    = 4,        // 每字段字符数（符号+3 位数字）
-    parameter integer NUM_FIELDS = 7
+    parameter integer FIELD_W    = 4,        // 每字段字符数（符号 + 3 位数字，±999）
+    // ★ 2026-10-16：7 → 9，按需求原文 §29 的数据页布局排字段
+    //   0 航向角 / 1~4 四轮转速 A B C D / 5 角速度 / 6 中心速度 / 7~8 航位 x,y
+    //   （车轮旁显示的是【车轮转速】而不是累计计数，量级 ±400，所以字段宽度不用动；
+    //     9 字段 × 4 = 36 字符，原 64 深的字符 RAM 够用）
+    parameter integer NUM_FIELDS = 9
 )(
     input  wire                clk,
     input  wire                rst_n,
@@ -33,7 +37,9 @@ module num_text #(
     input  wire signed [31:0]  i_v3,
     input  wire signed [31:0]  i_v4,
     input  wire signed [31:0]  i_v5,
-    input  wire signed [31:0]  i_v6,      // 字段 6：航向角（整数度）
+    input  wire signed [31:0]  i_v6,      // 字段 6：中心速度（rpm）
+    input  wire signed [31:0]  i_v7,      // 字段 7：航位 x（odom 未实现，暂 0）
+    input  wire signed [31:0]  i_v8,      // 字段 8：航位 y（odom 未实现，暂 0）
 
     output reg                 o_we,
     output reg  [5:0]          o_addr,
@@ -59,7 +65,7 @@ module num_text #(
 
     reg [3:0]  state;
     reg [26:0] div;
-    reg [2:0]  fidx;          // 字段号 0..NUM_FIELDS-1
+    reg [3:0]  fidx;          // 字段号 0..NUM_FIELDS-1（4 位：最多 16 个字段）
     reg        sign;          // 1 = 负数
     reg [15:0] mag;           // 剩余量（用于逐位减法）
     reg [3:0]  dig_h, dig_t, dig_o;
@@ -69,13 +75,15 @@ module num_text #(
     // 取字段值
     always @(*) begin
         case (fidx)
-            3'd0:    cur = i_v0;
-            3'd1:    cur = i_v1;
-            3'd2:    cur = i_v2;
-            3'd3:    cur = i_v3;
-            3'd4:    cur = i_v4;
-            3'd5:    cur = i_v5;
-            default: cur = i_v6;
+            4'd0:    cur = i_v0;
+            4'd1:    cur = i_v1;
+            4'd2:    cur = i_v2;
+            4'd3:    cur = i_v3;
+            4'd4:    cur = i_v4;
+            4'd5:    cur = i_v5;
+            4'd6:    cur = i_v6;
+            4'd7:    cur = i_v7;
+            default: cur = i_v8;
         endcase
         absv = (cur < 0) ? (32'd0 - cur) : cur;
     end
@@ -87,7 +95,7 @@ module num_text #(
         if (!rst_n) begin
             state  <= S_WAIT;
             div    <= 27'd0;
-            fidx   <= 3'd0;
+            fidx   <= 4'd0;
             sign   <= 1'b0;
             mag    <= 16'd0;
             dig_h  <= 4'd0;
@@ -104,7 +112,7 @@ module num_text #(
                 S_WAIT: begin
                     if (div >= REFRESH_DIV[26:0]) begin
                         div   <= 27'd0;
-                        fidx  <= 3'd0;
+                        fidx  <= 4'd0;
                         state <= S_LOAD;
                     end else begin
                         div <= div + 27'd1;
@@ -176,7 +184,7 @@ module num_text #(
                     if (fidx >= (NUM_FIELDS - 1)) begin
                         state <= S_WAIT;
                     end else begin
-                        fidx  <= fidx + 3'd1;
+                        fidx  <= fidx + 4'd1;
                         state <= S_LOAD;
                     end
                 end

@@ -78,14 +78,17 @@ module ui_render #(
         end
     endfunction
 
+    // 数据页的 5 行标签（按需求原文 §29 的信息项排）
+    //   0 航向角 / 1 车轮转速 / 2 角速度 / 3 中心速度 / 4 航位
     function [17:0] label_text;
-        input [1:0] idx;
+        input [2:0] idx;
         begin
             case (idx)
-                2'd0:    label_text = {UI_TXT_LBL_YAW_ADDR,   UI_TXT_LBL_YAW_LEN};
-                2'd1:    label_text = {UI_TXT_LBL_VEL_ADDR,   UI_TXT_LBL_VEL_LEN};
-                2'd2:    label_text = {UI_TXT_LBL_ENC_ADDR,   UI_TXT_LBL_ENC_LEN};
-                default: label_text = {UI_TXT_LBL_STATE_ADDR, UI_TXT_LBL_STATE_LEN};
+                3'd0:    label_text = {UI_TXT_LBL_YAW_ADDR,   UI_TXT_LBL_YAW_LEN};
+                3'd1:    label_text = {UI_TXT_LBL_WHEEL_ADDR, UI_TXT_LBL_WHEEL_LEN};
+                3'd2:    label_text = {UI_TXT_LBL_GYRO_ADDR,  UI_TXT_LBL_GYRO_LEN};
+                3'd3:    label_text = {UI_TXT_LBL_VEL_ADDR,   UI_TXT_LBL_VEL_LEN};
+                default: label_text = {UI_TXT_LBL_POSE_ADDR,  UI_TXT_LBL_POSE_LEN};
             endcase
         end
     endfunction
@@ -133,10 +136,13 @@ module ui_render #(
         end
     endfunction
 
-    // 数据页数值段列位置（每段 4 字符 = 4 字组）
-    localparam [5:0] VX_L  = 6'd20,     // x = 320
+    // 数据页数值段列位置（每段 4 字符 = 4 字组；字组 = 16 px）
+    localparam [5:0] VX_L  = 6'd20,     // x = 320（单值行）
                      VX_R  = 6'd26,     // x = 416
-                     VX_E0 = 6'd20, VX_E1 = 6'd24, VX_E2 = 6'd28, VX_E3 = 6'd32;
+                     VX_E0 = 6'd20,     // x = 320  ┐
+                     VX_E1 = 6'd25,     // x = 400  │ 一行放 4 个轮速，段间留 16 px 间隙
+                     VX_E2 = 6'd30,     // x = 480  │ （4 字符 = 64 px，步进 80 px）
+                     VX_E3 = 6'd35;     // x = 560  ┘
 
     reg [31:0] seg [0:5];
     integer    si, mi;
@@ -158,30 +164,40 @@ module ui_render #(
         end
 
         // ---------------- 数据页（页 2）----------------
+        //   字段映射（num_text，每字段 4 字符 = 4 字组，基址 = 字段号 × 4）：
+        //     0 航向角 / 1~4 四轮转速 A,B,C,D / 5 角速度 / 6 中心速度 / 7,8 航位 x,y
+        //   ★ 需求原文 §29 的完整布局是"中心小车俯视图 + 车轮旁标转速 + 右侧竖排"，
+        //     本轮先把【数据项与标签】对齐（下面这 5 行），车体示意图的绘制是下一步。
+        //     车轮旁显示的以转速（rpm，±400）为准 —— 不是编码器累计计数。
         if (i_page == 2'd2) begin
-            // 航向角：yaw_integrate 的实时偏航角（整数度）→ 动态字段 6（基址 6×4 = 24）
+            // 行0：航向角（整数度）—— 字段 0
             if ((i_pixel_y >= 80) && (i_pixel_y < 96)) begin
-                seg[0] = seg_rom(label_text(2'd0), PAGEXW[5:0]);
+                seg[0] = seg_rom(label_text(3'd0), PAGEXW[5:0]);
+                seg[1] = seg_ram(6'd0, 6'd4, VX_L);
+            end
+            // 行1：四个车轮的转速 A/B/C/D —— 字段 1~4（§29"四个轮子旁显示每个轮子转速"）
+            if ((i_pixel_y >= 120) && (i_pixel_y < 136)) begin
+                seg[0] = seg_rom(label_text(3'd1), PAGEXW[5:0]);
+                seg[1] = seg_ram(6'd4,  6'd4, VX_E0);
+                seg[2] = seg_ram(6'd8,  6'd4, VX_E1);
+                seg[3] = seg_ram(6'd12, 6'd4, VX_E2);
+                seg[4] = seg_ram(6'd16, 6'd4, VX_E3);
+            end
+            // 行2：角速度 —— 字段 5（单位：整数 °/s）
+            if ((i_pixel_y >= 160) && (i_pixel_y < 176)) begin
+                seg[0] = seg_rom(label_text(3'd2), PAGEXW[5:0]);
+                seg[1] = seg_ram(6'd20, 6'd4, VX_L);
+            end
+            // 行3：中心速度 —— 字段 6（rpm）
+            if ((i_pixel_y >= 200) && (i_pixel_y < 216)) begin
+                seg[0] = seg_rom(label_text(3'd3), PAGEXW[5:0]);
                 seg[1] = seg_ram(6'd24, 6'd4, VX_L);
             end
-            // 中心速度：左右侧【目标】轮速（字段 0/1）
-            if ((i_pixel_y >= 120) && (i_pixel_y < 136)) begin
-                seg[0] = seg_rom(label_text(2'd1), PAGEXW[5:0]);
-                seg[1] = seg_ram(6'd0, 6'd4, VX_L);
-                seg[2] = seg_ram(6'd4, 6'd4, VX_R);
-            end
-            // 编码器：四路【实际】轮速（字段 2..5）
-            if ((i_pixel_y >= 160) && (i_pixel_y < 176)) begin
-                seg[0] = seg_rom(label_text(2'd2), PAGEXW[5:0]);
-                seg[1] = seg_ram(6'd8,  6'd4, VX_E0);
-                seg[2] = seg_ram(6'd12, 6'd4, VX_E1);
-                seg[3] = seg_ram(6'd16, 6'd4, VX_E2);
-                seg[4] = seg_ram(6'd20, 6'd4, VX_E3);
-            end
-            // 状态
-            if ((i_pixel_y >= 200) && (i_pixel_y < 216)) begin
-                seg[0] = seg_rom(label_text(2'd3), PAGEXW[5:0]);
-                seg[1] = seg_rom(status_text, VX_L);
+            // 行4：航位 x / y —— 字段 7、8（odom 未实现 → 暂恒 0）
+            if ((i_pixel_y >= 240) && (i_pixel_y < 256)) begin
+                seg[0] = seg_rom(label_text(3'd4), PAGEXW[5:0]);
+                seg[1] = seg_ram(6'd28, 6'd4, VX_L);
+                seg[2] = seg_ram(6'd32, 6'd4, VX_R);
             end
         end
 

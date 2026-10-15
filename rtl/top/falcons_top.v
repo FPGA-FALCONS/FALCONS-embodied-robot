@@ -694,19 +694,31 @@ module falcons_top (
     wire [5:0] dyn_raddr;
     wire [7:0] dyn_rdata;
 
+    // ★ 2026-10-16 字段按需求原文 §29 的数据页布局重排（9 项）：
+    //     0 航向角 / 1~4 四轮转速 A,B,C,D / 5 角速度 / 6 中心速度 / 7,8 航位 x,y
+    //   车轮旁显示的是【车轮转速】（rpm，±400），不是编码器累计计数 ——
+    //   所以字段宽度仍是"符号 + 3 位数字"，字符 RAM 也仍是 64 深（9×4 = 36 字符）。
+    wire signed [31:0] wheel_sum_rpm = rpm0 + rpm1 + rpm2 + rpm3;
+    wire signed [31:0] center_rpm    = wheel_sum_rpm >>> 2;      // 中心速度 = 四轮平均
+    // 角速度：gyro_tilt_comp 输出按 Q16 理解（若上板后量纲不对，改这个右移位数）
+    wire signed [31:0] gyro_deg_s    = gyro_z_comp >>> 16;
+
     num_text #(
         .CLK_HZ     (CLK_HZ),
-        .REFRESH_MS (100)
+        .REFRESH_MS (100),
+        .NUM_FIELDS (9)
     ) u_num_text (
         .clk    (i_clk_50m),
         .rst_n  (sys_rst_n),
-        .i_v0   (tgt_left_rpm),      // 字段 0：左侧目标轮速
-        .i_v1   (tgt_right_rpm),     // 字段 1：右侧目标轮速
-        .i_v2   (rpm0),              // 字段 2：A 左前实际
-        .i_v3   (rpm1),              // 字段 3：B 右前实际
-        .i_v4   (rpm2),              // 字段 4：C 左后实际
-        .i_v5   (rpm3),              // 字段 5：D 右后实际
-        .i_v6   (yaw_deg),           // 字段 6：航向角（整数度，来自 IMU 链路）
+        .i_v0   (yaw_deg),           // 字段 0：航向角（整数度，画在小车前端）
+        .i_v1   (rpm0),              // 字段 1：A 左前轮转速
+        .i_v2   (rpm1),              // 字段 2：B 右前轮转速
+        .i_v3   (rpm2),              // 字段 3：C 左后轮转速
+        .i_v4   (rpm3),              // 字段 4：D 右后轮转速
+        .i_v5   (gyro_deg_s),        // 字段 5：角速度（整数 °/s，量纲待上板校准）
+        .i_v6   (center_rpm),        // 字段 6：中心速度（四轮平均 rpm）
+        .i_v7   (32'sd0),            // 字段 7：航位 x（odom 未实现 → 暂 0）
+        .i_v8   (32'sd0),            // 字段 8：航位 y（odom 未实现 → 暂 0）
         .o_we   (dyn_we),
         .o_addr (dyn_waddr),
         .o_data (dyn_wdata)
