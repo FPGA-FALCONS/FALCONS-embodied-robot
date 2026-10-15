@@ -215,6 +215,7 @@ Logic 7% / BSRAM 9 块 / DSP 41；仿真 **5 个 tb / 87 项全 PASS**。
 | 仿真通过 ≠ 能综合 | 位宽越界 ModelSim 容忍、Gowin 报 `EX3784` 并把模块降级成黑盒 |
 | 约束里引用 PLL 派生时钟 | `set_false_path -to [get_clocks {pixel_clk}]` 报 `TA2004` 并**让综合失败**（该时钟在约束解析阶段还不存在） |
 | PowerShell 数组拼换行 | `@( @('a','b'), @('c', 'x' + "``n" + 'y') )` 里第二行会**丢** → 用 here-string |
+| `git commit -m` 带引号的多行文本 | 含 `"` 的多行 here-string 放进 `-m` 会被 PowerShell **拆成多个参数** → git 报一串 `pathspec … did not match any file(s)`，看着像路径问题、其实是参数被拆了。**改用 `git commit -F <文件>`**（消息写 UTF-8 无 BOM 文件）。同一个坑在 `git commit -m`、`-File` 传参、`"a,b"` 上共踩过 4 次 |
 | 批量替换改坏 `.ps1` 的 BOM | 写回时用了无 BOM 的 `UTF8Encoding($false)` → PowerShell 按 GBK 解中文注释，报一串 `Unexpected token` / `Missing closing '}'`，**看起来像脚本被改坏了，其实只少了 3 个字节**。改 `.ps1` 要点：`ReadAllBytes` 判原 BOM，写回保持一致 |
 | 仿真清单漏依赖闭包 | `vlog` 逐文件独立编译、**不做模块解析** → 少列依赖时编译全过，`vsim` 加载才报 `Module 'xxx' is not defined` / `Error loading design`。补依赖要**补到叶子** |
 | `i_force` 是电平不是脉冲 | `speed_report` 的 `i_force` 在 `S_IDLE` 里是**或**条件：保持高电平会**连续上报**。按"单周期"的旧注释给长脉冲 → 每次多留一行残留，检查到的永远是上一行（行长 39/42/42/42）。**注释与实现不符要立刻改注释** |
