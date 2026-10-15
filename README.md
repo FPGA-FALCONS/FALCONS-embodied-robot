@@ -273,7 +273,10 @@ Logic 7% / BSRAM 9 块 / DSP 41；仿真 **5 个 tb / 87 项全 PASS**。
 | --- | --- |
 | 远程 | `https://github.com/HITSZ-FPGA-FALCONS/FALCONS-embodied-robot.git`（分支 `main`，已建立跟踪） |
 | 首次提交 | `bb9ea07`（199 文件 / 72107 行：vendor 模块 144 + 工程文件 55） |
+| 最新提交 | `57ff8ba`「上板前补全 A/B 六项 + 消除本轮引入的 CDC 深组合路径」—— 19 文件 / +1201 −201，**已推送** |
+| 提交历史 | `bb9ea07` → `a640a15` → `0439dd8` → `d68e02f` → `c2cddf4` → `7dba09e` → `57ff8ba` |
 | 未入库 | `impl\`（含 34.2 MB 比特流）、`logs\`、`work*\`、`transcript` —— 由 `.gitignore` 排除 |
+| 推送注意 | 本机受限环境下 `git push` 会因 schannel `SEC_E_NO_CREDENTIALS` 失败，需放行网络/TLS 访问后重试（本次即如此） |
 
 ---
 
