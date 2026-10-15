@@ -1,0 +1,86 @@
+# -----------------------------------------------------------------------------
+# 本项目在源库 .gitignore 基础上增加两类规则：
+#   1) 项目自有的构建/仿真/日志产物目录（logs/、sim 库）
+#   2) 内嵌 vendor 目录里跑仿真时产生的未跟踪产物（work/、transcript、build/）
+#      这些必须忽略：否则 vendor 快照会被本地产物污染，check_vendor.ps1
+#      会把"跑过仿真"误报成"内嵌副本被本地改动过"。
+#      注意：被 git 跟踪的 vendor 文件不受影响，忽略规则只管未跟踪文件。
+# -----------------------------------------------------------------------------
+
+# ---- 操作系统与编辑器临时文件 ----
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*.tmp
+*.temp
+*.bak
+*.orig
+*~
+.idea/
+.vscode/
+
+# ---- 通用日志、缓存和仿真输出 ----
+*.log
+*.jou
+*.str
+*.out
+*.vcd
+*.fst
+*.wlf
+*.vpd
+*.shm
+*.key
+*.stackdump
+transcript
+coverage/
+covhtmlreport/
+
+# ---- ModelSim / Questa：保留源文件与 *.do，只忽略生成的库与会话文件 ----
+work/
+work_*/
+modelsim.ini
+*.mpf
+*.mti
+*.cr.mti
+*.qdb
+*.qpg
+*.qtl
+_info
+_vmake
+vsim.dbg
+wlft*/
+
+# ---- Gowin EDA：*.gprj 是工程源文件要保留，impl 与本机生成物忽略 ----
+impl/
+*.gprj.user
+*.fs
+*.bin
+*.binx
+*.pr
+*.p
+*.vg
+*.vo
+*.sdf
+*.timing_paths
+device.cfg
+
+# ---- Icarus / Verilator / Yosys 等工具输出 ----
+build/
+obj_dir/
+dist/
+*.vvp
+*.blif
+*.edif
+*.edn
+*.syn.v
+
+# ---- Python 辅助脚本缓存 ----
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# ---- 本项目自有：脚本运行日志（tools/run_all_modules.ps1 的输出）----
+logs/

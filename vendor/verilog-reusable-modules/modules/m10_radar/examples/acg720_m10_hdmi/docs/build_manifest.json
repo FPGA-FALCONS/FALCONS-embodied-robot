@@ -1,0 +1,119 @@
+{
+  "device": "GW5AT-LV138PG484AC1/I0",
+  "date": "2026-10-14",
+  "packet_bytes": 102,
+  "revision": "Rev I / ACG720_RevI_028: M10 J3.4 TX -> J1.24 -> C14 input; reusable reader, GPS102 and zoom RTL unchanged",
+  "timing": {
+    "setup": 0.736,
+    "hold": 0.19,
+    "recovery": 0.225,
+    "removal": 0.138
+  },
+  "simulation_tests": [
+    "m10_radar_tb",
+    "uart_rx_recovery_tb",
+    "m10_gps_packet_parser_tb",
+    "zoom_control_tb",
+    "polar_to_xy_tb",
+    "point_bitmap_tb",
+    "point_cloud_video_tb",
+    "m10_point_cloud_core_tb"
+  ],
+  "shared_regressions": [
+    "uart_queue_loopback_tb",
+    "disp_driver_tb"
+  ],
+  "source_sha256": {
+    "modules/hdmi_1024x600/rtl/disp_driver.v": "1aca751fc313855cda0979ddc6468040086d79f10095ac2218532aeca2f6fdb5",
+    "modules/hdmi_1024x600/rtl/disp_parameter_cfg.vh": "20de670514f0397edb613dd367874b869efc555b5c7647445ec428ce9a86f659",
+    "modules/hdmi_1024x600/rtl/display_pll.v": "5ad32ba195fa54d5608a1733a9ef08fe058a6baf260bfe9152a6ee969eebd6d8",
+    "modules/hdmi_1024x600/rtl/dvi_tx.v": "e6d08a36f1cfe061a147e8c9aa4f657e5c85d7f30d6c32b3b23f6b6bd7dd00d1",
+    "modules/m10_radar/examples/acg720_m10_hdmi/acg720_m10_hdmi.gprj": "836463657874c95cca20ff7098a5fca4a6677b968c5fd1a5029209abb866169f",
+    "modules/m10_radar/examples/acg720_m10_hdmi/build.tcl": "f924afea8d66d041e9198c8abe61dc58e9bb0ea8f541283f880ac214a3e11ab7",
+    "modules/m10_radar/examples/acg720_m10_hdmi/constraints/acg720_m10_hdmi.cst": "16f27b5dcb75966c90f007c03741cf5642bd282037d7a3f19509a684c9ece484",
+    "modules/m10_radar/examples/acg720_m10_hdmi/constraints/acg720_m10_hdmi.sdc": "cc86684b747783c19dc76f2e0d7b2a522002a27bb341f1fd6603088b7ee76093",
+    "modules/m10_radar/examples/acg720_m10_hdmi/rtl/acg720_m10_hdmi_top.v": "7fe39a4a6c1fa5195f172e0651332055096e46fa28ae2cdc763931e699ee5c3c",
+    "modules/m10_radar/rtl/m10_packet_parser.v": "2e43a0192b733089198c8a799669b465f58085bf278e6ddef7650cfcaae4cc27",
+    "modules/m10_radar/rtl/m10_point_cloud_core.v": "aa79bcd2561f9f0927cea8ba687db46929e0c953a624df2a5ecc728118e6234b",
+    "modules/m10_radar/rtl/m10_radar.v": "412edebdd0cb22fe8c9d0755f78ad03e2cf609211457fcbeeb7cd3a4877c4768",
+    "modules/m10_radar/rtl/point_bitmap.v": "7d1183679cb0f440eb4cd4334264459f467e54db582a3b857264bca92335754d",
+    "modules/m10_radar/rtl/point_cloud_video.v": "c6882a84761665fdb70c3d556ac340de844c5b35c8003050e85607132e1d7569",
+    "modules/m10_radar/rtl/polar_to_xy.v": "639db8b0892b29c1c2ee9fcca1bd0f9e3b9be4a555dcfe68f20b61faf9fc1b4b",
+    "modules/m10_radar/rtl/sin_lut.vh": "b13890b19a9dc5ad9362a300fa024fd95a94dbf7aab65de5ca98b7ebc593caa3",
+    "modules/m10_radar/rtl/zoom_control.v": "737b09bc47bd9a02aca3d8e3cf722cc46f8e1edc16ec9f7bd31c04e7f46762ac",
+    "modules/uart/rtl/uart_byte_rx.v": "5d50c50daecea3c2f9ddad79acb9fd6135f83677db3e712c8b82008dc2f4b169",
+    "modules/uart/rtl/uart_byte_tx.v": "4d507592ed26ecebee58062e946b90ad7e7aebe86d0a2327e8e7afd9688bed2d",
+    "modules/m10_radar/examples/acg720_m10_hdmi/tools/build.ps1": "815998b50643123ef1bc9e0594793ec4a0bd0b9cb8a4af9901bda682edf45b57",
+    "modules/m10_radar/examples/acg720_m10_hdmi/tools/check_timing.py": "2536702a9feb77d61dfce129d520b9909f80b3b6d7648cfca71a508b1ef7fe73"
+  },
+  "bitstream": {
+    "path": "impl/pnr/acg720_m10_hdmi.fs",
+    "sha256": "1f91f14db54e1bc94562a268169dd392fd701caaf7ac751762663af8191fa739",
+    "bytes": 36497831
+  },
+  "build_local_time": "2026-10-14T00:37:54",
+  "timezone": "Asia/Shanghai",
+  "verified_in_repository": true,
+  "source_line_endings": "Repository .gitattributes retained; current source bytes hashed after the Rev I pin update",
+  "gowin": "V1.9.12.03",
+  "fmax_report": [
+    [
+      "1",
+      "u_display_pll/PLL_inst/CLKOUT0.default_gen_clk",
+      "49.000(MHz)",
+      "50.833(MHz)",
+      "18",
+      "TOP"
+    ]
+  ],
+  "resources": {
+    "logic": {
+      "used": 4275.0,
+      "available": 138240.0
+    },
+    "register": {
+      "used": 3004.0,
+      "available": 139095.0
+    },
+    "bsram": {
+      "used": 34.0,
+      "available": 340.0
+    },
+    "dsp": {
+      "used": 3.5,
+      "available": 298.0
+    },
+    "iologic": {
+      "used": 8.0,
+      "available": 285.0
+    }
+  },
+  "pinout": {
+    "manual": "ACG720_引脚接线手册_RevI.md",
+    "manual_revision": "Rev I / 028 雷达TX修正",
+    "manual_date": "2026-10-11",
+    "manual_sha256": "2ad068683b84f7d5f41c35e739825c60a554a18207484d13a85236fd594b2f6d",
+    "adapter_board": "ACG720_RevI_028",
+    "radar_tx": {
+      "adapter_pin": "J3.4",
+      "mother_socket_pin": "J1.24",
+      "fpga_pin": "C14",
+      "fpga_direction": "input",
+      "bank": 2,
+      "io_type": "LVCMOS33",
+      "bank_vccio_v": 3.3
+    },
+    "radar_rx": {
+      "adapter_pin": "J3.3",
+      "connection": "NC"
+    },
+    "a15_function": "IMU CS, J2.6 / J1.38",
+    "pnr_pin_check_pass": true,
+    "pnr_report": "impl/pnr/acg720_m10_hdmi.rpt.txt",
+    "pnr_report_sha256": "845a91d3291883dd90de5fcbaf27f9aaf04b5e3532925322ad1f919899d442c4",
+    "hardware_test": "Pending for Rev I / C14; 2026-10-07 hardware feedback used the earlier A15 direct wiring"
+  },
+  "simulation_date": "2026-10-07",
+  "simulation_rerun_for_pin_update": false,
+  "rtl_changed": false
+}

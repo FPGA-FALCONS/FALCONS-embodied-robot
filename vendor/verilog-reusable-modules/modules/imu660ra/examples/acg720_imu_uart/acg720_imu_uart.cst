@@ -1,0 +1,61 @@
+//============================================================================
+// IMU660RA 最小上板示例 —— ACG720 / GW5AT-138B 管脚约束
+//
+// 接线（走板载 J2 接口，1×6 公排针；引脚依《ACG720_引脚接线手册_RevI.pdf》J2 表）：
+//   J2.1 VCC     -> 5V    （模块板载 LDO；须确认 GPIO0 bank 跳线为 3.3V）
+//   J2.2 GND     -> GND
+//   J2.3 SCL/SPC -> A14   （主板 A14 / J1.39）
+//   J2.4 SDA/SDI -> A13   （主板 A13 / J1.40）
+//   J2.5 SA0/SDO -> A16   （SPI 模式下即 MISO；主板 A16 / J1.37）
+//   J2.6 CS      -> A15   （主板 A15 / J1.38）
+//============================================================================
+
+// 系统时钟 50MHz
+IO_LOC  "i_clock" Y18;
+IO_PORT "i_clock" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+// 按键 S0（低有效复位）
+IO_LOC  "i_key_n" F15;
+IO_PORT "i_key_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// IMU660RA SPI
+IO_LOC  "o_imu_sck" A14;
+IO_PORT "o_imu_sck" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_imu_mosi" A13;
+IO_PORT "o_imu_mosi" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "i_imu_miso" A16;
+IO_PORT "i_imu_miso" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC  "o_imu_cs_n" A15;
+IO_PORT "o_imu_cs_n" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+// 串口发送（板载 USB 转串口）
+IO_LOC  "o_uart_tx" M15;
+IO_PORT "o_uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+// 诊断 LED（高电平点亮）
+IO_LOC  "o_led[0]" M22;
+IO_PORT "o_led[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_led[1]" N22;
+IO_PORT "o_led[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_led[2]" L21;
+IO_PORT "o_led[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_led[3]" K21;
+IO_PORT "o_led[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_led[4]" K22;
+IO_PORT "o_led[4]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_led[5]" J22;
+IO_PORT "o_led[5]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_led[6]" H22;
+IO_PORT "o_led[6]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_led[7]" M21;
+IO_PORT "o_led[7]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;

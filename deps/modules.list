@@ -1,0 +1,28 @@
+# deps/modules.list —— 本工程实际引用的模块包清单（依赖闭包的唯一真源）
+#
+# 用途：
+#   1) build*.tcl / sim 脚本 / gprj 的源文件路径都从这里派生，路径只在【一处】定义；
+#   2) tools/check_vendor.ps1 依据它高亮"被工程引用、且相对源库有变化"的文件；
+#   3) tools/run_all_modules.ps1 依据它决定哪些包必须先跑通（库自带测试当门槛）。
+#
+# 格式：包名<空格>用途说明。以 # 开头的行为注释。
+# 全部 10 个包都已内嵌进 vendor/（全量快照）；本文件只列【本工程当前编译进工程的】包，
+# 其余包是"已内嵌、待接入"，不需要修改 vendor 即可随时加进来。
+
+# ---- 当前已接入（整车顶层 falcons_top 在用）----
+motor_tb6612     四路 TB6612 驱动 / 正交编码器解码 / 定窗口测速 / 堵转保护（motor_top 四路集成）
+uart             串口字节收发（调试命令接收；CSV 上报下一版接入）
+sync_fifo        单时钟同步 FIFO（uart_tx_queue / rx_queue 的公共依赖）
+hdmi_1024x600    1024x600 HDMI/DVI 输出（中文界面的显示通路）
+imu660ra         ★ IMU660RA（BMI270）六轴 SPI 驱动：初始化 + 1 kHz 读取 + 开机零偏标定
+gyro_tilt_comp   陀螺 Z 轴固定安装倾斜补偿（k = |a|/a_z，自动带符号）
+yaw_integrate    偏航角积分（1024 Hz 定点，±180° 回绕，零乘法器）
+rc_pwm_receiver  ★ 只实例化包内的 rc_pwm_capture（单路捕获）×6 → 6 通道，见 rtl/rc/rc_input.v；
+#                 不使用包内的 rc_receiver（它把两路固定包成 steering/throttle，不够 6 路用）
+
+# ---- 已内嵌、按阶段接入（把包名移出注释即进入编译）----
+# imu660ra         逐飞 IMU660RA（BMI270）六轴 SPI 驱动（下一阶段：偏航角链路）
+# gyro_tilt_comp   陀螺 Z 轴固定安装倾斜补偿（下一阶段）
+# yaw_integrate    偏航角积分（下一阶段）
+# m10_radar        M10 雷达包解析 + 点云显示（雷达页，待接入；RX 接 C14）
+# ov5640_capture   并行 DVP OV5640 初始化与采集（摄像头页，待接入，依赖 DDR3 帧缓存）

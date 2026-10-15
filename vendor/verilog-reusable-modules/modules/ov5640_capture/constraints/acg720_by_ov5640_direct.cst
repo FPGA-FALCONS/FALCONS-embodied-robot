@@ -1,0 +1,34 @@
+// ACG720 + BY_OV5640_V1.1 2x9 direct-plug mapping.
+// Align the GND/3V3 row and leave the ACG720 connector's NC/NC row empty.
+// Module FLASH lands on N20 and is intentionally left undriven.
+// The module has its own 24 MHz oscillator, so no XCLK pin is required.
+IO_LOC "camera_pwdn" L1;
+IO_PORT "camera_pwdn" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "camera_rst_n" B1;
+IO_PORT "camera_rst_n" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "camera_sclk" L18;
+IO_PORT "camera_sclk" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "camera_sdat" A1;
+IO_PORT "camera_sdat" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "camera_data[7]" J1;
+IO_PORT "camera_data[7]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_data[6]" G1;
+IO_PORT "camera_data[6]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_data[5]" H2;
+IO_PORT "camera_data[5]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_data[4]" F1;
+IO_PORT "camera_data[4]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_data[3]" G2;
+IO_PORT "camera_data[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_data[2]" D1;
+IO_PORT "camera_data[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_data[1]" E1;
+IO_PORT "camera_data[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_data[0]" M17;
+IO_PORT "camera_data[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_pclk" J2;
+IO_PORT "camera_pclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_href" B2;
+IO_PORT "camera_href" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "camera_vsync" M20;
+IO_PORT "camera_vsync" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;

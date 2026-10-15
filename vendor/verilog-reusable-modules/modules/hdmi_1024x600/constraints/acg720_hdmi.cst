@@ -1,0 +1,9 @@
+// ACG720 onboard HDMI connector. DVI_TX_Top creates the LVDS25 output cells.
+IO_LOC "tmds_data_n[2]" M2;
+IO_LOC "tmds_data_n[1]" L4;
+IO_LOC "tmds_data_n[0]" K3;
+IO_LOC "tmds_data_p[2]" M3;
+IO_LOC "tmds_data_p[1]" L5;
+IO_LOC "tmds_data_p[0]" L3;
+IO_LOC "tmds_clk_n" J4;
+IO_LOC "tmds_clk_p" K4;

@@ -1,0 +1,157 @@
+//============================================================================
+// motor_tb6612（TB6612FNG ×2 四路）模块管脚约束 —— ACG720 / GW5AT-138B
+//
+// 【依据】《ACG720_引脚接线手册_RevI.pdf》
+//          Rev I | 027 确认快照 | 2026-10-08 | 5 页
+//          手册第 4 页固定了 J4（电机驱动 A/B）与 J5（电机驱动 C/D）的
+//          「针号 -> 主板网络(GPIO) -> J1正式Pin」对应关系。
+//          本文件 21 根电机/编码器信号全部按该手册逐针抄录，不作推测；
+//          与已在 car_fpga 工程上板验证通过的 motor_test.cst 逐针一致。
+//
+// 仅含电机/编码器引脚（不含按键 / LED / 串口等板载资源）。集成到工程时：
+//   1. 并入该工程的顶层 .cst；
+//   2. 若顶层端口名与 motor_top 不同（例如加了 o_motor_ 前缀），
+//      把下面的信号名改成你顶层的名字 —— **引脚号不变**。
+//
+//----------------------------------------------------------------------------
+//  接口形式：J4 / J5 各为 2×6 公排针，2.54 mm
+//            正面上排为偶数针、下排为奇数针，两排均从左到右
+//            J4.1 与 J5.1 均为 NC（实体针保留，悬空）
+//
+//  位序：A/B 走 J4（编码器 E1/E2），C/D 走 J5（编码器 E3/E4）
+//        bit0 = A    bit1 = B    bit2 = C    bit3 = D
+//       （哪个位对应车上哪个轮位，由接线与装车决定，本文件不作假设）
+//
+//  J4 —— 电机驱动 A / B
+//
+//   J4针   信号   方向   主板网络   J1正式Pin   motor_top 端口
+//     1    NC     --     NC         -           —
+//     2    STBY   ->     A19        35          o_stby     ★ 必须接，且加 10k 下拉
+//     3    PWMB   <-     A18        36          o_pwm[1]
+//     4    PWMA   <-     F14        33          o_pwm[0]
+//     5    BIN2   <-     F13        34          o_in2[1]
+//     6    AIN2   <-     E14        31          o_in2[0]
+//     7    BIN1   <-     E13        32          o_in1[1]
+//     8    AIN1   <-     B13        27          o_in1[0]
+//     9    E2A    ->     C13        28          i_enc_a[1]
+//    10    E1A    ->     D15        25          i_enc_a[0]
+//    11    E2B    ->     D14        26          i_enc_b[1]
+//    12    E1B    ->     C15        23          i_enc_b[0]
+//
+//  J5 —— 电机驱动 C / D
+//
+//   J5针   信号   方向   主板网络   J1正式Pin   motor_top 端口
+//     1    NC     --     NC         -           —（原 ADC 位置）
+//     2    GND    --     GND        11/29       ★ 唯一的跨板共地针
+//     3    PWMD   <-     B15        22          o_pwm[3]
+//     4    PWMC   <-     B16        21          o_pwm[2]
+//     5    DIN2   <-     D17        20          o_in2[3]
+//     6    CIN2   <-     C17        19          o_in2[2]
+//     7    DIN1   <-     E16        18          o_in1[3]
+//     8    CIN1   <-     D16        17          o_in1[2]
+//     9    E4A    ->     B17        16          i_enc_a[3]
+//    10    E3A    ->     B18        15          i_enc_a[2]
+//    11    E4B    ->     C18        14          i_enc_b[3]
+//    12    E3B    ->     C19        13          i_enc_b[2]
+//
+//----------------------------------------------------------------------------
+//  电源 / 地
+//    电池         -> D24A 模块 Vin+ / Vin-（电机电源，独立于 FPGA 供电）
+//    J5 pin2 GND  -> D24A GND（跨板共地，必须接；星形接地，单点汇合）
+//    J4/J5 其余针位不含电源：J4 整排无 GND、也没有 3V3；
+//    编码器供电由 D24A 模块的 6PIN 线自带，不由本排针提供。
+//    J1 参考：J1.11 与 J1.29 同为 GND；J1.12 = 3V3；J1.30 = 5V。
+//
+//  ★★ 三个必须遵守的安全事项 ★★
+//   1) 下面 13 根电机输出全部设成 PULL_MODE=DOWN：
+//      保证 FPGA 上电配置期间（IO 高阻）这些线是低电平，电机不会乱转。
+//   2) 驱动模块 STBY 到 GND 之间要加 10 kΩ 下拉电阻（硬件双保险）；
+//      驱动板上的 STBY 跳线帽必须拔掉，否则永久使能、失去软件急停。
+//   3) 电池负极接模块 Vin-，FPGA 地与它只在 J5 pin2 汇合，
+//      不要让 FPGA 的 GND 单独接到电机侧的另一个点。
+//
+//  电平提醒：GPIO0 的 bank 跳线必须保持 3.3V（编码器输出高电平 = 其供电电压，
+//  模块 6PIN 给编码器供的是 3.3V，正好匹配）。若驱动板逻辑侧为 5V，
+//  3.3V 直驱属"贴边"（TB6612 的 VIH = 0.7×VCC），必要时加 74HCT245。
+//
+//  灰排线接法（手册第 5 页第 5 条）：按 Pin 号核对两端并确认 Pin1；
+//  母头面对插孔的方向与公针有镜像，**插反会整排错位**。
+//============================================================================
+
+//---------------------------------------------------------------------------
+// 电机驱动输出（★ 全部 PULL_MODE=DOWN：上电配置期间保持低电平，防窜车）
+//---------------------------------------------------------------------------
+// STBY（驱动模块使能）—— J4 pin2 - 主板 A19 - J1.35
+IO_LOC  "o_stby" A19;
+IO_PORT "o_stby" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+// ---- A 路（J4 / E1）：AIN1 / AIN2 / PWMA ----
+IO_LOC  "o_in1[0]" B13;   // J4 pin8  AIN1 - J1.27
+IO_PORT "o_in1[0]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_in2[0]" E14;   // J4 pin6  AIN2 - J1.31
+IO_PORT "o_in2[0]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_pwm[0]" F14;   // J4 pin4  PWMA - J1.33
+IO_PORT "o_pwm[0]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+// ---- B 路（J4 / E2）：BIN1 / BIN2 / PWMB ----
+IO_LOC  "o_in1[1]" E13;   // J4 pin7  BIN1 - J1.32
+IO_PORT "o_in1[1]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_in2[1]" F13;   // J4 pin5  BIN2 - J1.34
+IO_PORT "o_in2[1]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_pwm[1]" A18;   // J4 pin3  PWMB - J1.36
+IO_PORT "o_pwm[1]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+// ---- C 路（J5 / E3）：CIN1 / CIN2 / PWMC ----
+IO_LOC  "o_in1[2]" D16;   // J5 pin8  CIN1 - J1.17
+IO_PORT "o_in1[2]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_in2[2]" C17;   // J5 pin6  CIN2 - J1.19
+IO_PORT "o_in2[2]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_pwm[2]" B16;   // J5 pin4  PWMC - J1.21
+IO_PORT "o_pwm[2]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+// ---- D 路（J5 / E4）：DIN1 / DIN2 / PWMD ----
+IO_LOC  "o_in1[3]" E16;   // J5 pin7  DIN1 - J1.18
+IO_PORT "o_in1[3]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_in2[3]" D17;   // J5 pin5  DIN2 - J1.20
+IO_PORT "o_in2[3]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_pwm[3]" B15;   // J5 pin3  PWMD - J1.22
+IO_PORT "o_pwm[3]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+//---------------------------------------------------------------------------
+// 编码器输入（推挽输出；给内部上拉避免悬空引脚振荡）
+//---------------------------------------------------------------------------
+// A 路编码器 —— J4 pin10 (E1A) - J1.25 / J4 pin12 (E1B) - J1.23
+IO_LOC  "i_enc_a[0]" D15;
+IO_PORT "i_enc_a[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC  "i_enc_b[0]" C15;
+IO_PORT "i_enc_b[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// B 路编码器 —— J4 pin9 (E2A) - J1.28 / J4 pin11 (E2B) - J1.26
+IO_LOC  "i_enc_a[1]" C13;
+IO_PORT "i_enc_a[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC  "i_enc_b[1]" D14;
+IO_PORT "i_enc_b[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// C 路编码器 —— J5 pin10 (E3A) - J1.15 / J5 pin12 (E3B) - J1.13
+IO_LOC  "i_enc_a[2]" B18;
+IO_PORT "i_enc_a[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC  "i_enc_b[2]" C19;
+IO_PORT "i_enc_b[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// D 路编码器 —— J5 pin9 (E4A) - J1.16 / J5 pin11 (E4B) - J1.14
+IO_LOC  "i_enc_a[3]" B17;
+IO_PORT "i_enc_a[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC  "i_enc_b[3]" C18;
+IO_PORT "i_enc_b[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;

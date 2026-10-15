@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-138B" pn="GW5AT-LV138PG484AC1/I0">gw5at138b-012</Device>
+    <FileList>
+        <File path="../../sync_fifo/rtl/sync_fifo.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/uart_byte_tx.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/uart_byte_rx.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/uart_tx_queue.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/uart_rx_queue.v" type="file.verilog" enable="1"/>
+        <File path="uart_echo_top.v" type="file.verilog" enable="1"/>
+        <File path="acx720_uart_echo.cst" type="file.cst" enable="1"/>
+        <File path="acx720_uart_echo.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>

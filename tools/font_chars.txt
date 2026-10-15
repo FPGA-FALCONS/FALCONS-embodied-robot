@@ -1,0 +1,97 @@
+# UI 字表：界面用到的全部文案（UTF-8，无 BOM）
+#
+# 格式：<常量名>:<文案>
+#   * `#` 开头为注释、空行忽略
+#   * 常量名会变成 `rtl\common\ui_text_index.vh` 里的 localparam：
+#       UI_TXT_<常量名>_ADDR / UI_TXT_<常量名>_LEN
+#   * 脚本自动收集所有文案里出现的字符（去重，含 ASCII 可打印字符）生成 16x16 点阵字库
+#   * 改文案后重跑：python tools\gen_font_rom.py
+#
+# 依据：doc\使用FPGA实现的差速小车功能设计_ai优化版.md §5（屏幕 UI 与交互）、§6（模块接口）
+
+# ---- 一级菜单（左侧，约占屏宽 1/5~1/6）----
+MENU_CAMERA:摄像头画面
+MENU_RADAR:雷达建图展示
+MENU_VEHICLE:车身运行数据显示
+MENU_NAV:路径点导航
+
+# ---- 路径点导航辅助菜单（浮空于地图右侧）----
+AUX_SET_POINT:确认路径点
+AUX_UNDO_POINT:撤销路径点
+AUX_START_NAV:开始导航
+AUX_PAUSE_NAV:暂停任务
+AUX_BACK:返回
+AUX_CLEAR_ALL:清除所有路径点
+
+# ---- 车身数据页标签 ----
+LBL_YAW:航向角
+LBL_GYRO:角速度
+LBL_VEL:中心速度
+LBL_POSE:航位
+LBL_ENC:编码器
+LBL_LF:左前
+LBL_RF:右前
+LBL_LR:左后
+LBL_RR:右后
+LBL_TARGET:目标
+LBL_ACTUAL:实际
+LBL_DUTY:占空比
+LBL_STATE:状态
+LBL_DIST:距离
+LBL_MODE:模式
+LBL_TIME:时间
+LBL_POINTS:路径点
+LBL_MAP:地图
+LBL_CAMERA:摄像头
+LBL_RADAR:雷达
+LBL_VEHICLE:车身
+LBL_NAV:导航
+LBL_X:横坐标
+LBL_Y:纵坐标
+LBL_SPEED:速度
+
+# ---- 状态词 ----
+ST_INIT:初始化
+ST_READY:就绪
+ST_NORMAL:正常
+ST_MANUAL:手动
+ST_AUTO:自动
+ST_ESTOP:急停
+ST_SAT:饱和
+ST_STALL:堵转
+ST_NOSIGNAL:无信号
+ST_ARRIVED:已到达
+ST_RUNNING:导航中
+ST_ERROR:错误
+ST_WAITING:等待
+ST_CALIB:标定中
+ST_RADAR_LOST:雷达丢失
+ST_CAM_LOST:摄像头未就绪
+ST_SELECT_MODE:请选择模式
+
+# ---- 单位 ----
+UNIT_DEG:度
+UNIT_SEC:秒
+UNIT_MM:毫米
+UNIT_CM:厘米
+UNIT_M:米
+UNIT_RPM:转每分
+UNIT_CNT:计数
+UNIT_MPS:米每秒
+UNIT_PCT:百分比
+
+# ---- 交互提示与标题 ----
+HINT_SELECT:选择
+HINT_CONFIRM:确认
+HINT_CANCEL:取消
+HINT_ZOOM_IN:放大
+HINT_ZOOM_OUT:缩小
+HINT_MOVE_MAP:摇杆移图
+TITLE_SYSTEM:小车控制系统
+TITLE_NAV_SETUP:路径点设置
+HINT_NO_TASK:无任务
+
+# ---- 占位页提示（摄像头/雷达/导航尚未接入时显示）----
+PLACEHOLDER_CAM:摄像头未接入
+PLACEHOLDER_RADAR:雷达未接入
+PLACEHOLDER_NAV:导航未实现

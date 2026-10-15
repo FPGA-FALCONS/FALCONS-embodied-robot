@@ -1,0 +1,30 @@
+# Git 行尾策略 —— 随仓库生效，不依赖各机器 core.autocrlf
+#
+# 与源库 verilog-reusable-modules 保持同一套规则：内嵌快照要跟着一起搬，
+# 否则同一份 RTL 在本仓库与源库之间会出现 CRLF/LF 混排 —— 后果是
+# "改一行显示成全文件重写"的伪 diff，代码评审直接失效。
+#
+# 本文件必须是无 BOM 的 ASCII/UTF-8 —— 带 BOM 会导致第一条模式匹配失败。
+
+# ---- 默认：文本文件一律以 LF 存储在仓库、检出为 LF ----
+* text=auto eol=lf
+
+# ---- Windows 原生脚本：仓库内仍存 LF，仅检出时给 CRLF ----
+# 注意 eol 只影响检出侧，不会动 .ps1 的 UTF-8 BOM（PowerShell 5.1 靠 BOM 判编码）。
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# ---- 行尾敏感 / 二进制文件：禁止任何转换 ----
+# .mem 为 $readmemh 的 ROM 初始化数据，混入 CR 会让部分仿真器把 0x0D 当非法字符。
+*.mem  -text
+*.fs   -text
+*.bin  -text
+*.bit  -text
+*.png  -text
+*.jpg  -text
+*.jpeg -text
+*.gif  -text
+*.pdf  -text
+*.zip  -text
+*.tar  -text

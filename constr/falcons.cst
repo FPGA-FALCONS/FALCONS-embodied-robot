@@ -1,0 +1,168 @@
+// ============================================================================
+// falcons.cst —— FALCONS-embodied-robot 整车管脚约束
+//
+// 器件：GW5AT-138B（GW5AT-LV138PG484AC1/I0），ACG720 开发板
+//
+// ★ 引脚来源与依据（逐针抄录，不靠"相邻引脚递增"推测）
+//   1. 电机/编码器 21 根：逐针抄自 class\car_fpga\constr\motor_test.cst
+//      该文件已按《ACG720_引脚接线手册_RevI.pdf》逐针复核（J4/J5 排线直连）
+//   2. 板载时钟/按键/串口/LED：手册 §2.3 板载资源表
+//   3. HDMI：模块库 modules\hdmi_1024x600\constraints\acg720_hdmi.cst
+//      （DVI_TX_Top 内部创建 LVDS25 输出单元，故只需 IO_LOC）
+//   4. 遥控 6 路：J6 整排 D19 E19 E18 F18 F20 F19（功能设计文档 §2.4）
+//   5. 雷达 RX：C14 = J3.3（★ 详见下方说明）
+//   6. ToF / RK3588：J7 整排 E17 F16 C20 D20（占位，模块未做出）
+//
+// ★★ 雷达绝对不要接 A15 ★★
+//   A15 = J2.6 = IMU 的 CS；J1 与 J2 是**同一条网络**，两个输出挂一起会"对打"，
+//   可能损坏 IO 或表现为 IMU / 雷达随机失效。模块库 M10 示例写 A15 是
+//   "不装 IMU 时的独立飞线选脚"，本车 IMU 必装 → 必须用 C14。
+//
+// ★ 接线纪律（上电前逐条核对）
+//   - 灰排线按 Pin 号核对两端，确认 Pin1（母头与公针是镜像的，插反 = 整排错位，综合查不出）
+//   - J1 与 Jx.y 是同一网络，接线二选一
+//   - 电机 13 根输出全部 PULL_MODE=DOWN + STBY 加 10 kΩ 下拉 + 拔掉驱动板 STBY 跳线帽
+//   - 地线单点汇合（J5 pin2），星形接地；电机电流不进 FPGA 地
+//   - GPIO0 bank 跳线必须 3.3 V
+// ============================================================================
+
+// ---------------- 系统时钟 ----------------
+IO_LOC  "i_clk_50m" Y18;                                   // FPGA_GCLK1，50 MHz
+IO_PORT "i_clk_50m" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+// ---------------- 板载按键（低有效）----------------
+IO_LOC  "i_key_reset_n" F15;                               // S0 复位
+IO_PORT "i_key_reset_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_key1_n" A20;                                    // S1 启动 / 停止
+IO_PORT "i_key1_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_key2_n" B20;                                    // S2 计数清零 + 堵转清除
+IO_PORT "i_key2_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_key3_n" A21;                                    // S3 切换界面页面
+IO_PORT "i_key3_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_key4_n" B21;                                    // S4 急停（锁存切换）
+IO_PORT "i_key4_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ---------------- 调试串口（板载 USB 转串口，115200 8N1）----------------
+IO_LOC  "o_uart_tx" M15;
+IO_PORT "o_uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "i_uart_rx" J21;
+IO_PORT "i_uart_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ---------------- 遥控接收机 6 路 PWM（J6 整排）----------------
+IO_LOC  "i_rc_pwm[0]" D19;                                 // J6.1  CH1 转向
+IO_PORT "i_rc_pwm[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_rc_pwm[1]" E19;                                 // J6.2  CH2 油门
+IO_PORT "i_rc_pwm[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_rc_pwm[2]" E18;                                 // J6.3  CH3 确认
+IO_PORT "i_rc_pwm[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_rc_pwm[3]" F18;                                 // J6.4  CH4 返回
+IO_PORT "i_rc_pwm[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_rc_pwm[4]" F20;                                 // J6.5  CH5 模式开关
+IO_PORT "i_rc_pwm[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_rc_pwm[5]" F19;                                 // J6.6  CH6 select
+IO_PORT "i_rc_pwm[5]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ---------------- 电机驱动（WHEELTEC D24A，J4/J5 排线直连）----------------
+// 通道顺序：0=A 左前  1=B 右前  2=C 左后  3=D 右后（与本车极性标定一致）
+IO_LOC  "o_stby" A19;
+IO_PORT "o_stby" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_motor_in1[0]" B13;                              // J4 pin8  AIN1 - J1.27
+IO_PORT "o_motor_in1[0]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_motor_in2[0]" E14;                              // J4 pin6  AIN2 - J1.31
+IO_PORT "o_motor_in2[0]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_motor_pwm[0]" F14;                              // J4 pin4  PWMA - J1.33
+IO_PORT "o_motor_pwm[0]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_motor_in1[1]" E13;                              // J4 pin7  BIN1 - J1.32
+IO_PORT "o_motor_in1[1]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_motor_in2[1]" F13;                              // J4 pin5  BIN2 - J1.34
+IO_PORT "o_motor_in2[1]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_motor_pwm[1]" A18;                              // J4 pin3  PWMB - J1.36
+IO_PORT "o_motor_pwm[1]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_motor_in1[2]" D16;                              // J5 pin8  CIN1 - J1.17
+IO_PORT "o_motor_in1[2]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_motor_in2[2]" C17;                              // J5 pin6  CIN2 - J1.19
+IO_PORT "o_motor_in2[2]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_motor_pwm[2]" B16;                              // J5 pin4  PWMC - J1.21
+IO_PORT "o_motor_pwm[2]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_motor_in1[3]" E16;                              // J5 pin7  DIN1 - J1.18
+IO_PORT "o_motor_in1[3]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_motor_in2[3]" D17;                              // J5 pin5  DIN2 - J1.20
+IO_PORT "o_motor_in2[3]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_motor_pwm[3]" B15;                              // J5 pin3  PWMD - J1.22
+IO_PORT "o_motor_pwm[3]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+// ---------------- 编码器 A/B ×4 ----------------
+// 注意：C17 C18 C19 D17 B17 B18 带时钟能力（MGCLK*/SGCLK*/RPLL*），
+//       这里当普通 IO 用（实现允许）；将来要外部时钟只能另想办法
+IO_LOC  "i_enc_a[0]" D15;
+IO_PORT "i_enc_a[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_enc_b[0]" C15;
+IO_PORT "i_enc_b[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_enc_a[1]" C13;
+IO_PORT "i_enc_a[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_enc_b[1]" D14;
+IO_PORT "i_enc_b[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_enc_a[2]" B18;
+IO_PORT "i_enc_a[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_enc_b[2]" C19;
+IO_PORT "i_enc_b[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_enc_a[3]" B17;
+IO_PORT "i_enc_a[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "i_enc_b[3]" C18;
+IO_PORT "i_enc_b[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ---------------- HDMI 输出（板载 HDMI 1 接口，DVI_TX_Top 内部建 LVDS25）----------------
+IO_LOC  "o_tmds_clk_p"  K4;
+IO_LOC  "o_tmds_clk_n"  J4;
+IO_LOC  "o_tmds_data_p[0]" L3;
+IO_LOC  "o_tmds_data_n[0]" K3;
+IO_LOC  "o_tmds_data_p[1]" L5;
+IO_LOC  "o_tmds_data_n[1]" L4;
+IO_LOC  "o_tmds_data_p[2]" M3;
+IO_LOC  "o_tmds_data_n[2]" M2;
+
+// ---------------- IMU660RA（J2 接口，SPI Mode0，四线）----------------
+// J2 排针：VCC=5V、GND、SCL→A14、SDA→A13、SA0/SDO→A16、CS→A15
+// ★ A15 就是 J2.6 = IMU CS，而 J1 与 J2 是同一条网络 ——
+//   所以雷达 RX 只能用 C14（见下方"预留"段），两个输出挂一起会对打。
+IO_LOC  "o_imu_sck" A14;                                   // J2 SCL → SPI SCK
+IO_PORT "o_imu_sck" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_imu_mosi" A13;                                  // J2 SDA → SPI MOSI
+IO_PORT "o_imu_mosi" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "i_imu_miso" A16;                                  // J2 SDO/SA0 → SPI MISO
+IO_PORT "i_imu_miso" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "o_imu_cs_n" A15;                                  // J2 CS → SPI CS#
+IO_PORT "o_imu_cs_n" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+// ---------------- 预留：雷达 / ToF / RK3588 ----------------
+IO_LOC  "i_radar_rx" C14;                                  // J3.3 雷达 TX → 主板 RX（★ 不是 A15）
+IO_PORT "i_radar_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC  "i_tof_echo" E17;                                  // J7.1（ToF 模块未做出，占位）
+IO_PORT "i_tof_echo" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "o_rk_tx" F16;                                     // J7.2（RK3588 串口 TX，预留）
+IO_PORT "o_rk_tx" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "i_rk_rx" C20;                                     // J7.3（RK3588 串口 RX，预留）
+IO_PORT "i_rk_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ---------------- LED0~LED7（高电平点亮）----------------
+IO_LOC  "o_led[0]" M22;
+IO_PORT "o_led[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_led[1]" N22;
+IO_PORT "o_led[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_led[2]" L21;
+IO_PORT "o_led[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_led[3]" K21;
+IO_PORT "o_led[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_led[4]" K22;
+IO_PORT "o_led[4]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_led[5]" J22;
+IO_PORT "o_led[5]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_led[6]" H22;
+IO_PORT "o_led[6]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "o_led[7]" M21;
+IO_PORT "o_led[7]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;

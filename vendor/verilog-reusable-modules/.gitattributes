@@ -1,0 +1,31 @@
+# Git 行尾策略 —— 随仓库生效，不依赖各机器 core.autocrlf
+#
+# 背景：Windows 机器上 Git 常带 core.autocrlf=true（部分安装还是系统级配置，
+# 位于 Git 安装目录的 etc/gitconfig，换台机器就没了）。仅靠本地配置的后果：
+# 一旦有人用 autocrlf=false 在 Windows 上编辑并提交 CRLF，之后别人改这个文件
+# 一行，git add 会把整文件归一化，diff 变成“全文重写”的伪 diff。
+# 因此把行尾规则写进仓库，对所有人强制生效。
+#
+# 本文件必须是无 BOM 的 ASCII/UTF-8 —— 带 BOM 会导致第一条模式匹配失败。
+
+# ---- 默认：文本文件一律以 LF 存储在仓库、检出为 LF ----
+* text=auto eol=lf
+
+# ---- Windows 原生脚本：仓库内仍存 LF，仅检出时给 CRLF ----
+# 注意 eol 只影响检出侧，不会动 .ps1 的 UTF-8 BOM（PowerShell 5.1 靠 BOM 判编码）。
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# ---- 行尾敏感 / 二进制文件：禁止任何转换 ----
+# .mem 为 $readmemh 的 ROM 初始化数据，混入 CR 会让部分仿真器把 0x0D 当非法字符。
+*.mem  -text
+*.fs   -text
+*.bin  -text
+*.bit  -text
+*.png  -text
+*.jpg  -text
+*.jpeg -text
+*.gif  -text
+*.pdf  -text
+*.zip  -text

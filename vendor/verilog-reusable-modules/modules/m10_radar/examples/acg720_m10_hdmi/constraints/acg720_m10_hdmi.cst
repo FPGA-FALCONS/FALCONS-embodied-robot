@@ -1,0 +1,34 @@
+// ACG720 / GW5AT-LV138PG484AC1/I0, copied from tested module constraints.
+IO_LOC "i_clock" Y18;
+IO_PORT "i_clock" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "i_reset_n" F15;
+IO_PORT "i_reset_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+// Board S1 (A20) zooms in; S2 (B20) zooms out. Both are active low.
+IO_LOC "i_zoom_in_n" A20;
+IO_PORT "i_zoom_in_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "i_zoom_out_n" B20;
+IO_PORT "i_zoom_out_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+// Rev I / ACG720_RevI_028: radar J3.4 TX -> J1.24 -> FPGA C14 input.
+// J3.3 is radar RX and remains disconnected; A15 is J2.6 IMU CS.
+// Set the GPIO bank jumper to 3.3 V.
+// Do not connect the radar to onboard USB-UART RX J21.
+IO_LOC "i_radar_rx" C14;
+IO_PORT "i_radar_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "o_error_led" M22;
+IO_PORT "o_error_led" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+// Board USB-UART TX input. Send a copy of raw radar bytes at 921600 8N1.
+IO_LOC "o_debug_uart_tx" M15;
+IO_PORT "o_debug_uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+// DVI_TX_Top instantiates the differential output cells.
+IO_LOC "tmds_data_n[2]" M2;
+IO_LOC "tmds_data_n[1]" L4;
+IO_LOC "tmds_data_n[0]" K3;
+IO_LOC "tmds_data_p[2]" M3;
+IO_LOC "tmds_data_p[1]" L5;
+IO_LOC "tmds_data_p[0]" L3;
+IO_LOC "tmds_clk_n" J4;
+// Keep the dedicated DVI reset release FF beside left-side HDMI IOL29..40.
+// OSER10 checks reset recovery on both 245 MHz edges (2.041 ns apart).
+// This is an actual placement constraint, not a timing exception.
+INS_LOC "dvi_reset_sync_1_s0" R36C2[0][A];
+IO_LOC "tmds_clk_p" K4;

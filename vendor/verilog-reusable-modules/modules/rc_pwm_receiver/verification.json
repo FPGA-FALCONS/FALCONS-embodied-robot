@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-14",
+  "timezone": "Asia/Shanghai",
+  "simulation": {
+    "tool": "Icarus Verilog 12.0",
+    "status": "PASS",
+    "groups": 17,
+    "explicit_assertions": 502,
+    "failures": 0,
+    "exit_code": 0,
+    "clock_hz": 50000000
+  },
+  "lint": {
+    "tool": "Verilator 5.053",
+    "status": "PASS",
+    "warnings": 0,
+    "errors": 0
+  },
+  "hardware": {
+    "transmitter": "HT-10A",
+    "receiver": "F-10A",
+    "board": "ACG720/GW5AT-138C",
+    "real_ch1_joystick_display_changes": "user confirmed",
+    "receiver_channels_tested": "user reported CH1-CH4 successful",
+    "pwm_voltage_measured": false,
+    "receiver_supply_trial_v": 3.3,
+    "normalized_commands_hardware_verified": false,
+    "command_path_timing_signed_off": false
+  },
+  "sha256": {
+    "constraints/rc_receiver.sdc": "dc4e3fc42f6b3c273fe379185aaf625ab249a99d13091a9a997c2b239a80d42a",
+    "README.md": "2eb16b3d3c136bbb5bb6b88a0c3d44ad70aa791e26a1dcaf7b370a1c18879992",
+    "rtl/rc_pwm_capture.v": "377bc4af9ce2a8090acbc2b417f291377ed97a512643832178a3b4344a1b788d",
+    "rtl/rc_receiver.v": "530dcac20705762ca941da5a5226890d72f1aab47a3e18c06182c95e5f4aa854",
+    "sim/rc_receiver_tb.v": "bb5c3c7248b33117af84e5f69d728ea734fd3b914920c32449f31c9712771c4d",
+    "sim/run_test.do": "3bec96a41010a966ea99b6a02801fd1880a51329d5d29eb72b6779500507bd22",
+    "sim/run_test.ps1": "803743505cdcaae1d8411753c0f77dcca52f41e712b07241a66d27712de6d781",
+    "VERIFICATION.md": "a50fc7040d87f796acad374fa9ea0fff5697724eb783982e7379e3e729aacaf4"
+  }
+}

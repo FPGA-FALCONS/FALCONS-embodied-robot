@@ -1,0 +1,33 @@
+//============================================================================
+// IMU660RA（BMI270）模块管脚约束 —— ACG720 / GW5AT-138B
+//
+// 仅包含 IMU 相关引脚。集成到具体工程时：
+//   1. 并入该工程的顶层 .cst；
+//   2. 若顶层端口名不同，把下面的信号名改成你顶层的名字。
+//
+// 接线（走板载 J2 接口，1×6 公排针 / 2.54 mm / 从左到右 Pin1..Pin6）：
+//   引脚依《ACG720_引脚接线手册_RevI.pdf》的 J2 表逐针抄录。
+//
+//   J2.1 VCC     -> 5V    （模块板载 LDO；须确认 GPIO0 bank 跳线为 3.3V）
+//   J2.2 GND     -> GND
+//   J2.3 SCL/SPC -> A14   （主板 A14 / J1.39）
+//   J2.4 SDA/SDI -> A13   （主板 A13 / J1.40）
+//   J2.5 SA0/SDO -> A16   （SPI 模式下即 MISO，不要当 I2C 地址脚；主板 A16 / J1.37）
+//   J2.6 CS      -> A15   （主板 A15 / J1.38）
+//
+// 若不走 J2 而改为飞线到 J1 排针，按上面的「J1.x」针号接即可。
+//============================================================================
+
+IO_LOC  "o_imu_sck" A14;
+IO_PORT "o_imu_sck" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "o_imu_mosi" A13;
+IO_PORT "o_imu_mosi" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+// MISO 建议保留上拉，避免模块未接或掉电时输入悬空
+IO_LOC  "i_imu_miso" A16;
+IO_PORT "i_imu_miso" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// 片选空闲为高，加内部上拉更稳
+IO_LOC  "o_imu_cs_n" A15;
+IO_PORT "o_imu_cs_n" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
