@@ -33,6 +33,7 @@ module rc_input_tb;
     wire signed [11:0] steer, throttle;
     wire [1:0]         mode;
     wire               btn_sel, btn_conf, btn_back;
+    wire               menu_up, menu_down;          // 摇杆上下拨动 → 菜单切换脉冲
     wire               sig_ok;
     wire [6*16-1:0]    chan_us;
     wire [5:0]         chan_to, chan_vld;
@@ -67,6 +68,8 @@ module rc_input_tb;
         .o_btn_select   (btn_sel),
         .o_btn_confirm  (btn_conf),
         .o_btn_back     (btn_back),
+        .o_menu_up      (menu_up),
+        .o_menu_down    (menu_down),
         .o_signal_valid (sig_ok),
         .o_chan_us      (chan_us),
         .o_chan_timeout (chan_to),
@@ -112,6 +115,8 @@ module rc_input_tb;
         .o_btn_select   (sel_rev),
         .o_btn_confirm  (conf_rev),
         .o_btn_back     (back_rev),
+        .o_menu_up      (),
+        .o_menu_down    (),
         .o_signal_valid (sig_rev),
         .o_chan_us      (),
         .o_chan_timeout (),
@@ -254,6 +259,81 @@ module rc_input_tb;
         check_int("steer_rev_center",    steer_rev,    0, 0);
         check_int("throttle_rev_center", throttle_rev, 0, 0);
 
+        // ---------------- 8. 摇杆上下拨动 → 菜单切换（需求原文 §17）----------------
+        //   要求："使用摇杆上下拨动来切换选项"
+        //   判据：拨到位产生【恰好一个】脉冲；杆停在端点【不连翻】；回中后才算"松手"、能再拨
+        $display("-- 8. 摇杆拨动：一次一个脉冲；停住不连翻；回中后才可再触发 --");
+        begin : menu_test
+            integer up_cnt, dn_cnt, k;
+            up_cnt = 0; dn_cnt = 0;
+
+            // (a) 拨到 +1000 并保持 5 ms（期间 2 帧）→ 应恰好 1 个 up 脉冲
+            fork
+                begin
+                    send_frame(1500, 2000, 1500, 1500, 1500, 1500);
+                    send_frame(1500, 2000, 1500, 1500, 1500, 1500);
+                end
+                begin
+                    for (k = 0; k < 5000; k = k + 1) begin
+                        @(posedge clk);
+                        if (menu_up)   up_cnt = up_cnt + 1;
+                        if (menu_down) dn_cnt = dn_cnt + 1;
+                    end
+                end
+            join
+            check_int("menu_up_once",   up_cnt, 1, 0);   // ★ 杆保持拨出也只有 1 个脉冲
+            check_int("menu_down_none", dn_cnt, 0, 0);
+
+            // (b) 回中位 5 ms → 不产生脉冲（内部从此回到 idle）
+            fork
+                begin
+                    send_frame(1500, 1500, 1500, 1500, 1500, 1500);
+                    send_frame(1500, 1500, 1500, 1500, 1500, 1500);
+                end
+                begin
+                    for (k = 0; k < 5000; k = k + 1) begin
+                        @(posedge clk);
+                        if (menu_up)   up_cnt = up_cnt + 1;
+                        if (menu_down) dn_cnt = dn_cnt + 1;
+                    end
+                end
+            join
+            check_int("menu_idle_no_pulse", up_cnt, 1, 0);   // 仍是 1
+
+            // (c) 再拨一次 +1000 → 又 1 个（证明"回中后才可再触发"）
+            fork
+                begin
+                    send_frame(1500, 2000, 1500, 1500, 1500, 1500);
+                    send_frame(1500, 2000, 1500, 1500, 1500, 1500);
+                end
+                begin
+                    for (k = 0; k < 5000; k = k + 1) begin
+                        @(posedge clk);
+                        if (menu_up)   up_cnt = up_cnt + 1;
+                        if (menu_down) dn_cnt = dn_cnt + 1;
+                    end
+                end
+            join
+            check_int("menu_up_again", up_cnt, 2, 0);
+
+            // (d) 向下拨 −1000 → down 脉冲 1 个
+            fork
+                begin
+                    send_frame(1500, 1000, 1500, 1500, 1500, 1500);
+                    send_frame(1500, 1000, 1500, 1500, 1500, 1500);
+                end
+                begin
+                    for (k = 0; k < 5000; k = k + 1) begin
+                        @(posedge clk);
+                        if (menu_up)   up_cnt = up_cnt + 1;
+                        if (menu_down) dn_cnt = dn_cnt + 1;
+                    end
+                end
+            join
+            check_int("menu_down_once", dn_cnt, 1, 0);
+            check_int("menu_up_stays_2", up_cnt, 2, 0);
+        end
+
         // ---------------- 汇总 ----------------
         $display("======== 结果 ========");
         if (errors == 0) $display("PASS: rc_input 全部检查通过");
@@ -263,8 +343,8 @@ module rc_input_tb;
 
     // 超时保护
     initial begin
-        #50_000_000;                        // 50 ms 仿真时间上限
-        $display("FAIL: 仿真超时（50 ms）");
+        #120_000_000;                       // 120 ms 仿真时间上限（加了菜单拨动 4 段 × 5 ms）
+        $display("FAIL: 仿真超时（120 ms）");
         $finish;
     end
 

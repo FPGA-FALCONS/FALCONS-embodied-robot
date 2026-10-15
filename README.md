@@ -40,6 +40,7 @@ FPGA 四驱差速小车（具身机器人）的**主工程**。板卡：高云 *
 | 2 | **源库 `verilog-reusable-modules` 已归档只读**：不再同步、不再维护，也不要动它 | 只留作开发历史与将来的复用出口；本工程构建 / 仿真 / 综合**只读 `vendor\`**，与它无关 |
 | 3 | **`.ps1` 必须是 UTF-8 with BOM**；读中文文件必须显式指定 UTF-8；改顶层后必须跑一次综合；引脚约束逐针抄硬件手册 | 分别是：PS 5.1 按 GBK 读会乱码+语法错、`Get-Content` 会静默数错行、仿真过 ≠ 能综合、引脚错位看起来像"模块坏了" |
 | 4 | **没有明确指令，不做破坏性动作**：不删文件/目录、不回退（`reset --hard` / `clean -fd` / `checkout -- .`）、不覆盖工作区外文件、不擅自 push | 这类操作**难以追溯与恢复**。**"解释原因 / 讨论方案 / 问意见"都不等于授权** —— 动手前先把"删什么、影响什么、怎么恢复"列出来等确认 |
+| 5 | ★ **宏观设计与功能行为一律以 `doc\使用FPGA实现的差速小车功能设计.md`（需求原文，37 行）为准**；`..._ai优化版.md`（652 行）是实现层面的主要依据，但它对需求的复述**不保证逐字等价**，**冲突时以需求原文为准** | 2026-10-16 的教训：实现时主要对照了 AI 扩写版并自行做了若干"等效"决策（把摇杆切菜单做成按键切页、数据页改布局、把 `ui_compositor`/`menu_ui` 合并），**需求原文里这些行为是写死的**。**实现与需求原文不一致 = 缺陷，不是另一种设计**；要改的是实现，不是需求 |
 
 ---
 
@@ -57,18 +58,24 @@ FALCONS-embodied-robot\
 │    ├─ build.ps1                     一键构建（调 gw_sh）
 │    ├─ run_all_modules.ps1           跑 vendor 里各模块自带的测试（改了模块后回归用）
 │    ├─ gen_font_rom.py               中文字库生成器（字表 → 点阵 ROM，数据内嵌）
-│    └─ font_chars.txt                UI 文案字表（74 条）
+│    ├─ font_chars.txt                UI 文案字表（74 条）
+│    ├─ program_flash.ps1             位流下载/固化（封装 programmer_cli）
+│    └─ check_pin_constraints.py      ★ 引脚约束逐针复验（对手册 PDF 原文比对）
 ├─ scripts\vendor_sources.tcl         Tcl 侧源文件清单（从 modules.list 派生）
 ├─ rtl\
-│    ├─ top\falcons_top.v             整车顶层（只做例化与连线）
+│    ├─ top\falcons_top.v             整车顶层（例化为主；★ 目前还含启动门禁、切页、跨域同步、
+│    │                                 数值换算 —— 与功能设计文档"顶层只连线"的要求不符，待整改）
 │    ├─ rc\rc_input.v                 遥控 6 路输入 + 模式仲裁
 │    ├─ motor\chassis_ctrl.v          差速分解 + 4×增量式 PID；speed_pid.v（搬自 car_fpga）
 │    ├─ ui\ui_render.v                中文界面渲染；num_text.v 数值格式化；dyn_text_ram.v 跨域字符缓冲
 │    ├─ debug\uart_cmd_rx.v           串口命令解析（搬自 car_fpga）；speed_report.v（待接线）
 │    └─ common\                       按键去抖、复位同步、字库与字符串 ROM
 ├─ constr\falcons.cst / .sdc          板级与电气约束（成对给出；44 个 IO_LOC）
-├─ sim\                               4 个自检测试台 + run_sim.ps1 批量入口
-├─ doc\                               功能设计、工作记录、上板指南、参数总表、接口速查、设计落实待办
+├─ sim\                               5 个自检测试台 + run_sim.ps1 批量入口
+├─ doc\                               文档目录（索引与优先级见 doc\README.md）
+│    ├─ 使用FPGA实现的差速小车功能设计.md          ★★★ 需求原文（宏观设计与功能行为的最高依据）
+│    ├─ 使用FPGA实现的差速小车功能设计_ai优化版.md  ★ AI 扩写版（实现层面主要依据；冲突时以需求原文为准）
+│    └─ 工作记录 / 上板指南_v1 / 参数总表与待定清单 / 模块库接口速查 / 设计落实待办 / README
 ├─ build.tcl                          主构建脚本（产物 impl\pnr\falcons.fs）
 └─ logs\                              脚本日志（.gitignore 已忽略）
 ```

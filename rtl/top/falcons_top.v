@@ -145,6 +145,7 @@ module falcons_top (
     wire signed [11:0] rc_steer, rc_throttle;
     wire [1:0]         rc_mode;
     wire               rc_select, rc_confirm, rc_back;
+    wire               rc_menu_up, rc_menu_down;      // 摇杆上下拨动（需求原文 §17）
     wire               rc_signal_ok;
     wire [6*16-1:0]    rc_chan_us;
     wire [5:0]         rc_timeout, rc_valid;
@@ -168,6 +169,8 @@ module falcons_top (
         .o_btn_select   (rc_select),
         .o_btn_confirm  (rc_confirm),
         .o_btn_back     (rc_back),
+        .o_menu_up      (rc_menu_up),
+        .o_menu_down    (rc_menu_down),
         .o_signal_valid (rc_signal_ok),
         .o_chan_us      (rc_chan_us),
         .o_chan_timeout (rc_timeout),
@@ -233,11 +236,25 @@ module falcons_top (
             // 急停锁存：S4 或 ToF 触发置位；再按 S4 清除
             if (tof_estop)        estop_latch <= 1'b1;
             else if (key4_press)  estop_latch <= ~estop_latch;
-            // 页面切换（B2）：S3 任何时候可用；遥控 select/confirm 只在"屏幕光标"档可用。
-            //   原因：手动开车时手指在摇杆上，误触 select 会把界面翻走；
-            //   而光标档本来就要用按键选菜单，所以只在光标档放开。
-            if (key3_press || (cursor_mode && (rc_select || rc_confirm)))
+            // ---- 页面（菜单选项）切换 ----
+            //   ★ 依据需求原文《使用FPGA实现的差速小车功能设计.md》§17：
+            //     "左侧…为菜单列表…**使用摇杆上下拨动来切换选项**"，
+            //     且 §13 规定摇杆操作屏幕只在"模式开关选择控制屏幕光标"档。
+            //   ★ 更正（2026-10-16）：上一版把切页做成"遥控 select/confirm 或板载 S3"，
+            //     **与需求原文不符**（review 时被指出）。现改回摇杆：
+            //       - 光标档（mode=1）+ 摇杆向上/向下拨 → 切上一项/下一项
+            //       - 板载 S3 保留为"无遥控时的备用翻页"，不占用遥控按键
+            //       - select/confirm 不再参与切页：§33 里它们是"切辅助菜单项 / 确认路径点"，
+            //         属于路径点导航页的交互（该页尚未实现），不该在有菜单的地方顺手翻页
+            //   ★ 四个页面都是"摇杆仍可上下切换菜单选项"（§21/§25/§29），
+            //     所以本设计里"选中项"与"显示的页面"是同一个变量 page：拨动即切换并显示。
+            if (key3_press) begin
                 page <= (page == 2'd3) ? 2'd0 : (page + 2'd1);
+            end else if (cursor_mode && rc_menu_up) begin
+                page <= (page == 2'd0) ? 2'd3 : (page - 2'd1);
+            end else if (cursor_mode && rc_menu_down) begin
+                page <= (page == 2'd3) ? 2'd0 : (page + 2'd1);
+            end
             // 急停时强制停机
             if (estop_latch) run_en <= 1'b0;
         end

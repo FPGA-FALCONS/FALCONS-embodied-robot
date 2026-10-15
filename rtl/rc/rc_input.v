@@ -47,6 +47,16 @@ module rc_input #(
     // 方向取反（换接收机/换接线时用参数解决，不必动线）
     parameter integer STEER_REVERSE    = 0,       // 1 = 转向取反
     parameter integer THROTTLE_REVERSE = 0,       // 1 = 油门取反
+
+    // ---- 菜单上下拨动判定 ----
+    //   依据：需求原文《使用FPGA实现的差速小车功能设计.md》§17
+    //         "左侧占屏幕约 1/5 或 1/6 宽度为菜单列表…**使用摇杆上下拨动来切换选项**"
+    //   ★ 上一版用遥控 select/confirm 或板载 S3 切页，**与需求原文不符**，这里改回摇杆。
+    //   用【油门通道】做"上下"（左右那路是转向）。必须有回中区，否则杆停在端点会连续翻页。
+    parameter integer MENU_STEP_TH = 400,         // 归一化值超过它 = "拨到位"（±1000 的 40%）
+    parameter integer MENU_IDLE_TH = 150,         // 回到这个范围内才算松手，之后才能再次触发
+    parameter integer MENU_REVERSE = 0,           // 1 = 上下方向取反（实测方向反了就改它）
+
     // ---- 通道映射（按实际接线改这里，不要改逻辑）----
     parameter integer CH_STEER      = 0,
     parameter integer CH_THROTTLE   = 1,
@@ -65,6 +75,8 @@ module rc_input #(
     output reg                     o_btn_select,    // 单周期脉冲
     output reg                     o_btn_confirm,
     output reg                     o_btn_back,
+    output reg                     o_menu_up,       // 单周期脉冲：摇杆向上拨一次（菜单上一项）
+    output reg                     o_menu_down,     // 单周期脉冲：摇杆向下拨一次（菜单下一项）
 
     output wire                    o_signal_valid,  // 1 = 全部通道都在刷新
     output wire [NUM_CH*16-1:0]    o_chan_us,       // 各路脉宽（调试/显示）
@@ -196,6 +208,10 @@ module rc_input #(
 
     reg [1:0] prev_select, prev_confirm, prev_back;
 
+    // 菜单拨动状态：0 = 已回中（可触发）/ 1 = 已向上拨出 / 2 = 已向下拨出
+    reg [1:0] menu_state;
+    wire signed [11:0] menu_thr = throttle_raw;   // 用未取反的原始油门判"上下"（见参数注释）
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             o_steer       <= 12'sd0;
@@ -204,6 +220,9 @@ module rc_input #(
             o_btn_select  <= 1'b0;
             o_btn_confirm <= 1'b0;
             o_btn_back    <= 1'b0;
+            o_menu_up     <= 1'b0;
+            o_menu_down   <= 1'b0;
+            menu_state    <= 2'd0;
             prev_select   <= 2'd1;
             prev_confirm  <= 2'd1;
             prev_back     <= 2'd1;
@@ -219,6 +238,27 @@ module rc_input #(
             o_btn_select  <= btn_edge(pos_select,  prev_select);
             o_btn_confirm <= btn_edge(pos_confirm, prev_confirm);
             o_btn_back    <= btn_edge(pos_back,    prev_back);
+
+            // ---- 菜单上下拨动：三态 + 边沿（必须回中后才能再次触发）----
+            //   不在 idle 态时即使杆一直停在端点也只算"一次"，不会连翻。
+            o_menu_up   <= 1'b0;
+            o_menu_down <= 1'b0;
+            case (menu_state)
+                2'd0: begin
+                    if (menu_thr > MENU_STEP_TH) begin
+                        menu_state  <= 2'd1;
+                        o_menu_up   <= MENU_REVERSE ? 1'b0 : 1'b1;
+                        o_menu_down <= MENU_REVERSE ? 1'b1 : 1'b0;
+                    end else if (menu_thr < -MENU_STEP_TH) begin
+                        menu_state  <= 2'd2;
+                        o_menu_up   <= MENU_REVERSE ? 1'b1 : 1'b0;
+                        o_menu_down <= MENU_REVERSE ? 1'b0 : 1'b1;
+                    end
+                end
+                2'd1: if (menu_thr < MENU_IDLE_TH)  menu_state <= 2'd0;   // 回到中位区 → 可再次触发
+                2'd2: if (menu_thr > -MENU_IDLE_TH) menu_state <= 2'd0;
+                default: menu_state <= 2'd0;
+            endcase
 
             prev_select   <= pos_select;
             prev_confirm  <= pos_confirm;
