@@ -4,7 +4,7 @@
 
 - 基线：`701144bb2dce4109c5c859bdb782037bddd45a0c`，本地分支`feat/ht10a-channel-integration`。
 - 新仓库：HITSZ-FPGA-FALCONS/FALCONS-embodied-robot；用户确认的CH2/CH4及四开关分配见[接线与验收](HT10A接线与验收.md)。
-- 仅改应用层、测试和相关工具/说明；vendor模块及两份需求原文没有修改。没有推送、烧录或实物操作。
+- 仅改应用层、测试和相关工具/说明；vendor模块及两份需求原文没有修改。首次本地交付阶段未推送；没有烧录或实物操作。功能分支发布按后续用户明确授权执行，记录见工作记录。
 - 机器路径：`D:/HITSZ_FALCONS/FALCONS-embodied-robot`；工具Gowin V1.9.12.03、Icarus 12。本机未安装ModelSim，本轮未实跑ModelSim；同一测试清单保留其入口。
 
 ## 实际执行结果
