@@ -30,7 +30,7 @@ FPGA 四驱差速小车（具身机器人）的**主工程**。板卡：高云 *
 | 资源 | Logic **9112**/138240（7%）、Register **4227**/139095（4%）、BSRAM 9/340（3%）、DSP 43/298（15%）、IOLOGIC 8/285（3%） |
 | 时序 | **SETUP 上升沿路径 0 条负 slack（最差 +0.032 ns）/ REMOVAL 0 条（+0.269 ns）**；HOLD **13** 条（最差 −1.026 ns，sys→pixel 同步器第一级）；RECOVERY **8** 条（最差 −5.983 ns，复位释放 → HDMI 245 MHz 串行域）；**SETUP 下降沿 4 条**（= `Numbers of Setup Violated Endpoints` = `Numbers of Falling Endpoints`，即 `u_OSER10_{clk,b,r,g}/RESET` 这 4 个 245 MHz 下降沿捕获端点，**结构性伪违规**）。★ **口径已于 2026-10-16 21:18 查清**（两次独立布线统计逐项相同 + 排他性推理，见 `doc\工作记录.md` §21.9） |
 | 模块库 | `vendor\` 里 10 个包 / 144 文件；来源 commit `c9b8025`（**2026-10-15 起本项目直接维护**，见 `vendor\ORIGIN.md`） |
-| Git | 首次提交 `bb9ea07`（199 文件 / 72107 行）；`main` 上依次是 **`43be57a`**（全项目审查修复）→ **`05677e1`**（复查后 17 项修复）→ **`3ed83e7`**（时序口径查清 + 文档同步）→ **`9da6a51`**（残留措辞修正）；★ **相对远程未推送**（领先数会随每次提交变化，**一律以 `git status -sb` 为准，不要在此处写死数字**）；远程跟踪已建立；队友的 `feat/ht10a-channel-integration`（基点 `701144b`）**已合并进 `main`**（**push 需用户明确指令**） |
+| Git | 首次提交 `bb9ea07`（199 文件 / 72107 行）；远程 `origin` = `HITSZ-FPGA-FALCONS/FALCONS-embodied-robot`，**`main` 已与 `origin/main` 同步**（2026-10-16 推送）；★ **最新提交哈希与领先/落后数会随时变化，一律以 `git log` / `git status -sb` 为准，此处不写死**；队友的 `feat/ht10a-channel-integration`（基点 `701144b`）**已合并进 `main`**；★ **push 需用户明确指令**，且在 workspace-write 沙箱下会因凭据（schannel `SEC_E_NO_CREDENTIALS`）被拒、需提权 |
 | 上板 | **尚未做过**（本轮所有结论来自编译、仿真、综合与时序报告） |
 
 ---
