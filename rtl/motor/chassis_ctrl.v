@@ -181,6 +181,11 @@ module chassis_ctrl #(
     //      所以只要 run_en = 0，i_enable = 0 就已经先把它清零了，i_clear 永远轮不到。
     //      ★ `speed_pid` 的 `i_clear` **端口本身保留**（库接口不动、其它使用者仍可用；
     //        其"重新起调"的语义由 i_enable = 0 的复位路径覆盖）。
+    //      ★ 但端口**必须显式接常量**（下面四处均为 `.i_clear(1'b0)`）：完全不写这条连线
+    //        会留下空连接，实测新增 8 条 Gowin 告警 —— 4 条 `WARN (EX3073) Port 'i_clear'
+    //        remains unconnected` + 4 条 `WARN (EX2565) Input 'i_clear' … is undriven …
+    //        simulation mismatch possible`。显式接 0 既消除这 8 条告警，又保持语义不变
+    //        （该端口语义已被 i_enable = 0 的复位路径覆盖，见上一条）。
     // ------------------------------------------------------------------
     wire signed [31:0] u0, u1, u2, u3;
     wire signed [31:0] e0, e1, e2, e3;
@@ -192,6 +197,7 @@ module chassis_ctrl #(
         .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
         .i_setpoint(tgt_left),  .i_feedback(i_delta0), .i_fb_valid(i_delta_valid),
         .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
+        .i_clear(1'b0),
         .o_u(u0), .o_err(e0), .o_sat(s0)
     );
 
@@ -201,6 +207,7 @@ module chassis_ctrl #(
         .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
         .i_setpoint(tgt_right), .i_feedback(i_delta1), .i_fb_valid(i_delta_valid),
         .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
+        .i_clear(1'b0),
         .o_u(u1), .o_err(e1), .o_sat(s1)
     );
 
@@ -210,6 +217,7 @@ module chassis_ctrl #(
         .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
         .i_setpoint(tgt_left),  .i_feedback(i_delta2), .i_fb_valid(i_delta_valid),
         .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
+        .i_clear(1'b0),
         .o_u(u2), .o_err(e2), .o_sat(s2)
     );
 
@@ -219,6 +227,7 @@ module chassis_ctrl #(
         .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
         .i_setpoint(tgt_right), .i_feedback(i_delta3), .i_fb_valid(i_delta_valid),
         .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
+        .i_clear(1'b0),
         .o_u(u3), .o_err(e3), .o_sat(s3)
     );
 

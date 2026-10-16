@@ -110,26 +110,32 @@ if ($Action -in @('Sram', 'Program')) {
     #     · 反向也会漏：改了 vendor\ 下的模块、constr\ 引脚约束、或 build.tcl
     #       都不在这条检查的范围内。
     #   要真正确定位流与当前源码一致，唯一办法是重新跑综合（tools\build.ps1）。
-    if ($Force) {
-        Write-Host '      -Force：跳过"位流比 RTL 新"检查（请自行确认位流与当前 RTL 一致）。' -ForegroundColor Yellow
-    } else {
-        $rtlRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'rtl'
-        $rtlFiles = @()
-        if (Test-Path $rtlRoot) {
-            $rtlFiles = @(Get-ChildItem -Path $rtlRoot -Recurse -File -Include '*.v', '*.vh' -ErrorAction SilentlyContinue)
+    #   ★ 2026-10-16 修正：这段硬检查原来**未判 -DryRun** —— `-Action Sram -DryRun`
+    #     的契约是"只打印命令、不执行"，却会因为位流过期而报错退出，自相矛盾。
+    #     现在整段包进 `if (-not $DryRun)`：-DryRun 一律跳过检查（不打印结论、
+    #     也不因位流过期中断），照常走到下面的"只打印命令"分支。
+    if (-not $DryRun) {
+        if ($Force) {
+            Write-Host '      -Force：跳过"位流比 RTL 新"检查（请自行确认位流与当前 RTL 一致）。' -ForegroundColor Yellow
+        } else {
+            $rtlRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'rtl'
+            $rtlFiles = @()
+            if (Test-Path $rtlRoot) {
+                $rtlFiles = @(Get-ChildItem -Path $rtlRoot -Recurse -File -Include '*.v', '*.vh' -ErrorAction SilentlyContinue)
+            }
+            $newer = @($rtlFiles | Where-Object { $_.LastWriteTime -gt $info.LastWriteTime } |
+                                     Sort-Object LastWriteTime -Descending)
+            if ($newer.Count -gt 0) {
+                $sample = ($newer | Select-Object -First 5 | ForEach-Object {
+                    "        {0}  {1}" -f $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'), $_.FullName
+                }) -join "`n"
+                $msg = "位流比 RTL 旧：rtl\ 下有 {0} 个 .v/.vh（共扫过 {1} 个）的修改时间晚于位流 {2}。" +
+                       "`n    最新的几个：`n{3}`n" +
+                       "    先重新综合（tools\build.ps1）再烧；确实要用这个旧位流请加 -Force。"
+                throw ($msg -f $newer.Count, $rtlFiles.Count, $info.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'), $sample)
+            }
+            Write-Host ("      新鲜度检查通过：rtl\ 下 {0} 个 .v/.vh 都不晚于位流。" -f $rtlFiles.Count) -ForegroundColor Green
         }
-        $newer = @($rtlFiles | Where-Object { $_.LastWriteTime -gt $info.LastWriteTime } |
-                                 Sort-Object LastWriteTime -Descending)
-        if ($newer.Count -gt 0) {
-            $sample = ($newer | Select-Object -First 5 | ForEach-Object {
-                "        {0}  {1}" -f $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'), $_.FullName
-            }) -join "`n"
-            $msg = "位流比 RTL 旧：rtl\ 下有 {0} 个 .v/.vh（共扫过 {1} 个）的修改时间晚于位流 {2}。" +
-                   "`n    最新的几个：`n{3}`n" +
-                   "    先重新综合（tools\build.ps1）再烧；确实要用这个旧位流请加 -Force。"
-            throw ($msg -f $newer.Count, $rtlFiles.Count, $info.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'), $sample)
-        }
-        Write-Host ("      新鲜度检查通过：rtl\ 下 {0} 个 .v/.vh 都不晚于位流。" -f $rtlFiles.Count) -ForegroundColor Green
     }
 }
 

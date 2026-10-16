@@ -19,8 +19,8 @@
 #       logs\sim_<test>.log（UTF-8 无 BOM，logs\ 已被 .gitignore 忽略）。
 #       ★ 判 PASS 的三条硬条件（2026-10-16 收紧，见判定段注释）：
 #         ① PASS:/FAIL 都**锚行首**匹配；② 先做 zeroFail 抵消（"0 FAIL" 不算失败）；
-#         ③ tb 打印的 `CHECKS: N` 必须与实测 pass 行数一致。
-#       ★ 每次运行前会**清空并重建**仿真库（只清 sim\work_sim 这一个目录）——
+#         ③ tb 打印的 `CHECKS: N` 必须与实测 pass 行数一致（**仅对打印 CHECKS 的 tb 生效** —— 当前 6 台中只有 `ht10a_input_tb`）。
+#       ★ 每次运行前会**清空并重建**仿真库（**ModelSim 引擎**；Icarus 分支每台全量重编，不建库；只清 sim\work_sim 这一个目录）——
 #         防止库里残留上次编译的旧模块，把"漏列源文件"掩盖成假通过。
 #
 # 用法：
@@ -159,6 +159,15 @@ $libName     = Split-Path -Leaf $libraryPath
 $simPrefix = [System.IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\') + '\'
 if (-not $libraryPath.StartsWith($simPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw 'Library must stay within sim/.'
+}
+# ★★ 破坏面守卫（2026-10-16 加固，**不要删**）：上面的 StartsWith 只判"是否落在 sim\ 前缀之内"，
+#   而 **sim\ 根路径本身也算"之内"** —— 传 `-Library .` 时 GetFullPath 得到的正是 sim\，
+#   守卫通过，紧接着的 `Remove-Item -Recurse -Force $libraryPath` 会**递归删掉整个 sim\**
+#   （6 个测试台、sim\README.md、本脚本自身）。所以这里再挡一次：库路径去掉结尾反斜杠后
+#   等于 sim\ 根路径 → 直接拒绝。
+$simRootPath = [System.IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\')
+if ($libraryPath.TrimEnd('\') -eq $simRootPath) {
+    throw 'Library must not be the sim\ root itself (-Library . would delete the whole sim\ directory).'
 }
 if ($Simulator -eq 'ModelSim') {
     # ★ 2026-10-16：每次运行前**先清空、再重建**这个库（原来是"库存在就复用"）。
