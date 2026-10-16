@@ -9,22 +9,31 @@
 //
 //   | 列 | 含义 | 单位 / 说明 |
 //   | --- | --- | --- |
-//   | 1 | tgt   | 目标转速，单位【计数/测速窗口】，**rpm = 本列 ÷ 10** |
-//   | 2 | act   | 实际转速，同单位，**rpm = 本列 ÷ 10** |
-//   | 3 | duty  | 当前输出的占空比（有符号；负号 = 反转方向），满值 2^PWM_BITS |
+//   | 1 | tgt   | 目标转速，单位 **rpm（顶层已换算）** |
+//   | 2 | act   | 实际转速，同列 1，单位 **rpm** |
+//   | 3 | duty  | 当前输出的占空比（有符号；负号 = 反转方向），满值 2^PWM_BITS − 1 = 2047 |
 //   | 4 | kp    | Kp，Q8 定点（256 = 1.0） |
 //   | 5 | ki    | Ki，Q8 |
 //   | 6 | kd    | Kd，Q8 |
 //   | 7 | flags | bit0 = 闭环使能；bit1 = 任一堵转；bit2 = 命令解析出错；bit3 = 任一输出饱和 |
-//   | 8 | err   | e(k) = tgt − act，同列 1/2 的单位 |
+//   | 8 | err   | e(k) = tgt − act，单位 **rpm**（与列 1/2 同口径） |
 //   | 9  | steer    | 遥控转向归一化值（±1000，中位 0） |
 //   | 10 | throttle | 遥控油门归一化值（±1000，中位 0） |
 //   | 11 | mode     | 遥控模式档（两档）：0 = 手动接管 / 1 = 屏幕光标 |
 //   | 12 | sig_ok   | 遥控信号有效：1 = 参与判定的通道都在刷新 / 0 = 有通道超时 |
 //
-// 例：3000,2870,612,0,64,0,1,130
-//     → 目标 300 rpm，实际 287 rpm，占空比 612（≈30%），Kp=0、Ki=0.25（Q8=64）、
-//       Kd=0，闭环运行中，还有 13 rpm 的静差
+//   ★ 2026-10-16 单位口径修正：列 1/2/8 **一律是 rpm**，本模块内部不做任何
+//     "÷10" 换算 —— 传进来的就已经是 rpm：
+//       · i_tgt  = falcons_top 的 report_tgt = (tgt_left * 100) >>> 10
+//       · i_act  = chassis_ctrl 的 o_rpm0（delta_to_rpm：delta × 100 >>> 10）
+//       · i_err  = falcons_top 的 report_err = report_tgt − rpm0
+//     原注释写的是"单位【计数/测速窗口】，rpm = 本列 ÷ 10" —— 与顶层接线冲突，
+//     按它读 CSV 会把转速读错 10 倍，已改正（本次只有注释错，代码没动）。
+//
+// 例（12 列）：300,287,612,0,64,0,1,13,0,0,0,1
+//     → 目标 300 rpm、实际 287 rpm、占空比 612（= 612/2047 ≈ 30%）、Kp = 0、
+//       Ki = 0.25（Q8 = 64）、Kd = 0、flags = 1（闭环使能）、静差 13 rpm；
+//       遥控侧：转向 0、油门 0、模式 0（接管档）、信号有效
 //       （当前生效值是顶层覆盖的 P=0 / I=64 / D=0，见 falcons_top.v 的 KP/KI/KD_INIT；
 //        上面这组 26/3/0 只是 speed_pid.v 的库默认值，实际不生效）
 //
@@ -53,9 +62,15 @@ module speed_report #(
     input  wire signed [31:0] i_tgt,
     input  wire signed [31:0] i_act,
     input  wire signed [31:0] i_duty,
-    input  wire signed [31:0] i_kp,
-    input  wire signed [31:0] i_ki,
-    input  wire signed [31:0] i_kd,
+    // ★ 2026-10-16：kp/ki/kd 由 [31:0] 收窄为 **[15:0]**，与真实来源同宽
+    //   （顶层 kp_r/ki_r/kd_r 是 signed [15:0]，chassis_ctrl 的 i_kp 也是 [15:0]）。
+    //   原来写成 [15:0] 的实参接 [31:0] 的形参，vlog 会对每个实例报
+    //   WARN (EX3670) port size mismatch —— 3 条告警，本次实测已消。
+    //   下面是 32 位有符号的 field_val，赋值处按 Verilog 规则**自动符号扩展**，
+    //   所以负数（如 -1）仍会正确打印成 "-1" 而不是补零后的 65535。
+    input  wire signed [15:0] i_kp,
+    input  wire signed [15:0] i_ki,
+    input  wire signed [15:0] i_kd,
     input  wire signed [31:0] i_flags,
     input  wire signed [31:0] i_err,
     // 遥控输入（第 9~12 列，方便上板核对"杆位 → 归一化值"）

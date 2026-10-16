@@ -49,10 +49,6 @@ module ui_render #(
     // ---- 界面状态（sys 域送来，已在顶层两级同步）----
     input  wire [1:0]  i_page,          // 0=摄像头 1=雷达 2=车身数据 3=路径点导航
     input  wire [1:0]  i_ui_mode,       // 0=手动接管 1=屏幕光标（两档，"自动"档已删）
-    input  wire        i_run,           // 1 = 底盘正在输出
-                                        //   ★ 当前【未参与渲染】：状态栏没有"运行中"这一档，
-                                        //     顶层仍在连它。保留端口是为将来加"运行中"指示，
-                                        //     若确认不需要可连同顶层与 tb 一起删（见待办台账）
     input  wire        i_estop,         // 1 = 急停
     input  wire        i_signal_ok,     // 1 = 遥控信号有效
     input  wire        i_arm_hint,      // 1 = 想启动但油门不在中位（提示"请回中位"）

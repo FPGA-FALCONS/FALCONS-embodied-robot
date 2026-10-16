@@ -11,6 +11,9 @@
 #   .\program_flash.ps1 -Action Program    # ★ 擦除 + 写入 + 校验（固化）
 #   .\program_flash.ps1 -Action Verify     # 只校验 Flash 里的内容
 #   任何动作加 -DryRun 只打印命令不执行
+#   ★ 2026-10-16：Sram/Program 会先做"位流新鲜度"硬检查 —— 只要 rtl\ 下有
+#      .v/.vh 的修改时间晚于位流就报错退出（提示先重新综合）；确实要用旧位流
+#      才加 -Force。检查细节与已知局限见脚本中该段的注释。
 #
 # 编码：本文件必须保存为 UTF-8 with BOM。Windows PowerShell 5.1 会把「无 BOM 的
 #       UTF-8」按 GBK 读取，中文注释变乱码并直接导致语法错误、脚本无法运行。
@@ -38,7 +41,11 @@ param(
     # 指定用哪块下载器（多块时），留空则用默认
     [int]$CableIndex = -1,
 
-    [switch]$DryRun
+    [switch]$DryRun,
+
+    # ★ 2026-10-16 新增：跳过"位流比 RTL 新"的硬检查
+    #   （确实要用某个旧位流时才加；正常流程请重新综合，不要图快）
+    [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
@@ -91,7 +98,39 @@ if ($Action -in @('Sram', 'Program')) {
     $info = Get-Item $Fs
     Write-Host ("位流：{0}" -f $info.FullName)
     Write-Host ("      生成于 {0}，大小 {1:N1} MB" -f $info.LastWriteTime, ($info.Length / 1MB))
-    Write-Host '      确认这个时间晚于你最后一次改 RTL —— 否则烧进去的是旧逻辑。' -ForegroundColor Yellow
+
+    # ---------- 位流新鲜度：由"提醒"改为"硬检查"（2026-10-16）----------
+    #   原来这里只 Write-Host 提醒一句"确认这个时间晚于你最后一次改 RTL"，
+    #   人一眼扫过去就当没看见 → 烧进去的还是旧逻辑，现场表现为"改了代码没反应"，
+    #   排查时又要去怀疑驱动/接线/时钟，成本极高。
+    #   现在：任一 rtl\**\*.v | *.vh 的 LastWriteTime 晚于位流 → throw，除非显式 -Force。
+    #   ★ 这只是**粗筛**，两条已知局限（别把它当成"位流与源码一致"的证明）：
+    #     · mtime 不等于语义变化：git 检出 / 切分支 / 重新克隆都会刷新文件时间，
+    #       会出现"RTL 其实没改却被拦下"（这时重新综合一次，或加 -Force 说明原因）；
+    #     · 反向也会漏：改了 vendor\ 下的模块、constr\ 引脚约束、或 build.tcl
+    #       都不在这条检查的范围内。
+    #   要真正确定位流与当前源码一致，唯一办法是重新跑综合（tools\build.ps1）。
+    if ($Force) {
+        Write-Host '      -Force：跳过"位流比 RTL 新"检查（请自行确认位流与当前 RTL 一致）。' -ForegroundColor Yellow
+    } else {
+        $rtlRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'rtl'
+        $rtlFiles = @()
+        if (Test-Path $rtlRoot) {
+            $rtlFiles = @(Get-ChildItem -Path $rtlRoot -Recurse -File -Include '*.v', '*.vh' -ErrorAction SilentlyContinue)
+        }
+        $newer = @($rtlFiles | Where-Object { $_.LastWriteTime -gt $info.LastWriteTime } |
+                                 Sort-Object LastWriteTime -Descending)
+        if ($newer.Count -gt 0) {
+            $sample = ($newer | Select-Object -First 5 | ForEach-Object {
+                "        {0}  {1}" -f $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'), $_.FullName
+            }) -join "`n"
+            $msg = "位流比 RTL 旧：rtl\ 下有 {0} 个 .v/.vh（共扫过 {1} 个）的修改时间晚于位流 {2}。" +
+                   "`n    最新的几个：`n{3}`n" +
+                   "    先重新综合（tools\build.ps1）再烧；确实要用这个旧位流请加 -Force。"
+            throw ($msg -f $newer.Count, $rtlFiles.Count, $info.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'), $sample)
+        }
+        Write-Host ("      新鲜度检查通过：rtl\ 下 {0} 个 .v/.vh 都不晚于位流。" -f $rtlFiles.Count) -ForegroundColor Green
+    }
 }
 
 if ($Action -ne 'Cables' -and $Action -ne 'Scan') {

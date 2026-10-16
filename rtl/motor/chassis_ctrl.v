@@ -29,6 +29,10 @@
 // 【自动导航预留】
 //   顶层把 `i_auto_valid` 拉低即可让底盘忽略导航给定；将来避障/路径规划模块
 //   只需驱动 `i_auto_center` / `i_auto_diff`（同一内部单位），本模块无需改动。
+//   ★ 2026-10-16 修正：`i_auto_valid = 0` 现在**同时**把 `i_auto_center` 与
+//     `i_auto_diff` 按 0 处理 —— 原先只门控了差速量（diff_raw），中心速度
+//     （center_raw）却直接取 i_auto_center；自动导航未接入时该端口若残留非 0，
+//     车就会被一个不该生效的中心速度推着走。两个量必须同门控。
 //////////////////////////////////////////////////////////////////////////////////
 
 `timescale 1ns/1ps
@@ -107,7 +111,10 @@ module chassis_ctrl #(
         end
     end
 
-    wire signed [31:0] center_raw = i_manual ? man_center : i_auto_center;
+    // ★ 2026-10-16 修正：`i_auto_valid` 原来**只门控了差速**（diff_raw），中心速度
+    //   center_raw 直接取 i_auto_center → 自动导航未接入时残留值会把车推着走。
+    //   现在中心速度与差速量同门控：i_auto_valid = 0 ⇒ 两者都为 0。
+    wire signed [31:0] center_raw = i_manual ? man_center : (i_auto_valid ? i_auto_center : 32'sd0);
     wire signed [31:0] diff_raw   = i_manual ? man_diff   : (i_auto_valid ? i_auto_diff : 32'sd0);
 
     // 限幅（指令层）
@@ -166,6 +173,14 @@ module chassis_ctrl #(
     // ------------------------------------------------------------------
     // 3. 四路独立速度环
     //    通道顺序按本车标定记录：0=A 左前、1=B 右前、2=C 左后、3=D 右后
+    //
+    //    ★ 2026-10-16：四处 `.i_clear(~run_en)` 连线已**删除**。
+    //      它是永不成立的**死分支**：`speed_pid` 内部是
+    //          if (!i_enable) … else if (i_clear) …
+    //      —— i_enable 判断在前，而这里 run_en 正是喂给同一个 speed_pid 的 i_enable，
+    //      所以只要 run_en = 0，i_enable = 0 就已经先把它清零了，i_clear 永远轮不到。
+    //      ★ `speed_pid` 的 `i_clear` **端口本身保留**（库接口不动、其它使用者仍可用；
+    //        其"重新起调"的语义由 i_enable = 0 的复位路径覆盖）。
     // ------------------------------------------------------------------
     wire signed [31:0] u0, u1, u2, u3;
     wire signed [31:0] e0, e1, e2, e3;
@@ -174,7 +189,7 @@ module chassis_ctrl #(
     speed_pid #(
         .PWM_BITS(PWM_BITS), .KP_INIT(KP_INIT), .KI_INIT(KI_INIT), .KD_INIT(KD_INIT)
     ) u_pid_lf (
-        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en), .i_clear(~run_en),
+        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
         .i_setpoint(tgt_left),  .i_feedback(i_delta0), .i_fb_valid(i_delta_valid),
         .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
         .o_u(u0), .o_err(e0), .o_sat(s0)
@@ -183,7 +198,7 @@ module chassis_ctrl #(
     speed_pid #(
         .PWM_BITS(PWM_BITS), .KP_INIT(KP_INIT), .KI_INIT(KI_INIT), .KD_INIT(KD_INIT)
     ) u_pid_rf (
-        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en), .i_clear(~run_en),
+        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
         .i_setpoint(tgt_right), .i_feedback(i_delta1), .i_fb_valid(i_delta_valid),
         .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
         .o_u(u1), .o_err(e1), .o_sat(s1)
@@ -192,7 +207,7 @@ module chassis_ctrl #(
     speed_pid #(
         .PWM_BITS(PWM_BITS), .KP_INIT(KP_INIT), .KI_INIT(KI_INIT), .KD_INIT(KD_INIT)
     ) u_pid_lr (
-        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en), .i_clear(~run_en),
+        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
         .i_setpoint(tgt_left),  .i_feedback(i_delta2), .i_fb_valid(i_delta_valid),
         .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
         .o_u(u2), .o_err(e2), .o_sat(s2)
@@ -201,7 +216,7 @@ module chassis_ctrl #(
     speed_pid #(
         .PWM_BITS(PWM_BITS), .KP_INIT(KP_INIT), .KI_INIT(KI_INIT), .KD_INIT(KD_INIT)
     ) u_pid_rr (
-        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en), .i_clear(~run_en),
+        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
         .i_setpoint(tgt_right), .i_feedback(i_delta3), .i_fb_valid(i_delta_valid),
         .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
         .o_u(u3), .o_err(e3), .o_sat(s3)

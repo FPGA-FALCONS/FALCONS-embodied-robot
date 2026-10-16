@@ -61,7 +61,13 @@ module rc_input_tb;
         .CH_THROTTLE   (1),
         .CH_CONFIRM    (2),
         .CH_MODE       (4),
-        .CH_SELECT     (3)          // ★ 措施1：bit3（原"返回"键位）= select
+        .CH_SELECT     (3),         // ★ 措施1：bit3（原"返回"键位）= select
+        // ★ 2026-10-16：主实例**显式**传"六路全参与"。
+        //   原因：rc_input 的默认值已由 63 改成 6'b011111（本车五路，排除闲置 bit5）。
+        //   本实例在下面"掩码"用例里扮演【对照组：不排除任何通道】，如果继续依赖
+        //   默认值，改默认值就会悄悄改变本台的语义（实测：sig_all6_ok 由 0 变成 1，
+        //   用例直接失败）。显式写出来，用例的意图就不再受默认值影响。
+        .SIG_VALID_MASK (6'b111111)
     ) dut (
         .clk            (clk),
         .rst_n          (rst_n),
@@ -284,8 +290,10 @@ module rc_input_tb;
         $display("-- 5. select 通道拉到高位 → 应产生一次脉冲，且只在跳变那一拍 --");
         begin : btn_wait
             integer pulses;
+            integer cross_pulses;       // ★ 同期 confirm 通道的脉冲数（应为 0）
             integer k;
             pulses = 0;
+            cross_pulses = 0;
             fork
                 // ★ 新实现的两条要求：① 该通道**连续 2 帧**确认才算"按下"；
                 //   ② 必须**先见到释放**再按下（幽灵点击防护）。所以这里连发 3 帧。
@@ -300,11 +308,16 @@ module rc_input_tb;
                 begin
                     for (k = 0; k < 8000; k = k + 1) begin      // 覆盖 3 帧（帧确认需 ≥2 帧）
                         @(posedge clk);
-                        if (btn_sel) pulses = pulses + 1;
+                        if (btn_sel)  pulses = pulses + 1;
+                        if (btn_conf) cross_pulses = cross_pulses + 1;
                     end
                 end
             join
             check_int("select_pulse_count", pulses, 1, 0);
+            // ★ 2026-10-16 补测：按 select **不得**带出 confirm 脉冲
+            //   （两个按钮共用同一套 armed 状态机，译码写错就会串台；
+            //    原用例只统计了 select 自己，串台是抓不到的）
+            check_int("select_does_not_confirm", cross_pulses, 0, 0);
         end
 
         // ---------------- 5b. 确认键（第二个按钮）同样应产生单周期脉冲 ----------------
@@ -313,8 +326,10 @@ module rc_input_tb;
         $display("-- 5b. confirm 通道拉到高位 → 应产生一次脉冲 --");
         begin : btn2_wait
             integer pulses;
+            integer cross_pulses;       // ★ 同期 select 通道的脉冲数（应为 0）
             integer k;
             pulses = 0;
+            cross_pulses = 0;
             fork
                 // 同上：连发 3 帧以满足"连续 2 帧确认"（bit2 = 确认）；
                 //   同样必须包在 begin…end 里才是顺序发送
@@ -327,10 +342,13 @@ module rc_input_tb;
                     for (k = 0; k < 8000; k = k + 1) begin      // 覆盖 3 帧（帧确认需 ≥2 帧）
                         @(posedge clk);
                         if (btn_conf) pulses = pulses + 1;
+                        if (btn_sel)  cross_pulses = cross_pulses + 1;
                     end
                 end
             join
             check_int("confirm_pulse_count", pulses, 1, 0);
+            // ★ 2026-10-16 补测：按 confirm **不得**带出 select 脉冲（与 5 段互为反向验证）
+            check_int("confirm_does_not_select", cross_pulses, 0, 0);
         end
 
         // ---------------- 6. 超时 → 信号无效 ----------------
@@ -441,8 +459,12 @@ module rc_input_tb;
 
         // ---------------- 9. 信号有效性掩码（措施②的验证）----------------
         //   场景：bit5（J6.6 闲置未接）一直没有脉冲，其余 5 路正常刷新。
-        //   期望：dut（默认掩码 63 = 6 路全参与）sig_ok = 0 —— 旧行为，会把整车拖死；
+        //   期望：dut（**显式** SIG_VALID_MASK = 6'b111111，即 6 路全参与）sig_ok = 0
+        //         —— 旧行为，会把整车拖死；
         //         dut_mask（排除 bit5）sig_mask_ok = 1 —— 整车仍能被使能。
+        //   ★ 2026-10-16：dut 的"全参与"改成**显式传参**（不再依赖默认值）——
+        //     rc_input 的默认值已改为 6'b011111（本车五路），继续依赖默认值会让
+        //     这条用例的含义随默认值漂移（实测确实把 sig_all6_ok 变成了 1）。
         //   这是"保留 6 路接口 + 只接 5 路"能够真正开动的前提。
         $display("-- 9. 掩码：bit5 无脉冲、其余 5 路正常 → 全参与=0，掩码=1 --");
         begin : mask_test
@@ -465,7 +487,7 @@ module rc_input_tb;
     // 超时保护
     initial begin
         #150_000_000;                       // 150 ms 仿真时间上限（菜单拨动 4 段 × 5 ms + 掩码段 8 帧 + 各按钮段）
-        $display("FAIL: 仿真超时（120 ms）");
+        $display("FAIL: 仿真超时（150 ms）");
         $finish;
     end
 

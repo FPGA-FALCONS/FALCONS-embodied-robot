@@ -9,11 +9,19 @@
 #   ht10a_input_tb  HT10A 通道/标定/开关/失效/启动门禁集成
 #   rc_input_tb      遥控槽位映射、归一化/死区/模式两档/按钮(select+confirm)/丢信号/取反/摇杆拨动/掩码有效性
 #   chassis_ctrl_tb  差速分解、限幅、安全逻辑、闭环方向、rpm 换算      （23 项）
-#   num_text_tb      实时数值格式化（含负数与前导空格）                （28 项）
+#   num_text_tb      实时数值格式化（含负数与前导空格）                （39 项 = 原 36 + 2026-10-16 补的 3 条）
 #   ui_render_tb     中文界面渲染（菜单/高亮/状态栏/门禁提示/动态数值/占位）
 #   speed_report_tb  串口 CSV 上行 12 列格式（整行逐字符比对）          （4 行）
 #
 # 编码：本文件必须保存为 UTF-8 with BOM（PowerShell 5.1 靠 BOM 判编码）。
+#
+# 输出：屏幕只回显"检查行 + 结论"；每个测试的**完整输出**落盘
+#       logs\sim_<test>.log（UTF-8 无 BOM，logs\ 已被 .gitignore 忽略）。
+#       ★ 判 PASS 的三条硬条件（2026-10-16 收紧，见判定段注释）：
+#         ① PASS:/FAIL 都**锚行首**匹配；② 先做 zeroFail 抵消（"0 FAIL" 不算失败）；
+#         ③ tb 打印的 `CHECKS: N` 必须与实测 pass 行数一致。
+#       ★ 每次运行前会**清空并重建**仿真库（只清 sim\work_sim 这一个目录）——
+#         防止库里残留上次编译的旧模块，把"漏列源文件"掩盖成假通过。
 #
 # 用法：
 #   powershell -File sim\run_sim.ps1
@@ -28,14 +36,52 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# 【已知限制，2026-10-16 记录】logs\sim_<test>.log 里 tb 的**中文** $display 是乱码
+#   （形如 "??????"、夹杂少量怪字），而 ASCII 部分（pass / FAIL / 断言名 / 数值）完好。
+#   根因在 ModelSim 侧：vsim 把 UTF-8 无 BOM 的 tb 源文件读进来后，$display 字符串按
+#   本地代码页输出，无法表示的字符在**字节层面**就已经是 '?'（0x3F，实测 dump 过）——
+#   信息在进入 PowerShell 之前就丢了，**脚本侧修不了**。
+#   （试过把 [Console]::OutputEncoding 设成 UTF-8：残余字节只会从"怪汉字"变成 U+FFFD，
+#     可读性没有任何改善，所以不保留这个设置 —— 免得给人"已经修好了"的错觉。）
+#   影响面：仅段标题行（"-- xxx --"）可读性差；判定与断言定位不受影响，
+#   因为断言名、pass/FAIL、检查数全部是 ASCII。
+#   真要可读的中文日志，得从 tb 侧解决（$display 只用英文，或让 vsim 以 UTF-8 输出），
+#   不在本次改动范围内。
+
 $ProjectRoot = Split-Path -Parent $PSScriptRoot          # sim\ 的上一级 = 工程根
 $VendorRoot  = Join-Path $ProjectRoot 'vendor\verilog-reusable-modules\modules'
 $UiIncDir    = Join-Path $ProjectRoot 'rtl\ui'           # ui_text_index.vh 所在目录
+$LogDir      = Join-Path $ProjectRoot 'logs'             # 完整测试输出落盘目录（.gitignore 已忽略 logs\）
+
+# ------------------------------------------------------------------
+# 运行一个原生命令并完整捕获 stdout+stderr，返回 { Output, ExitCode }
+#   ★ 为什么必须有这个包装（2026-10-16 加）：
+#     本脚本开头是 `$ErrorActionPreference = 'Stop'`，而 `2>&1` 会把子进程的
+#     stderr 行包装成 **ErrorRecord** —— 在 Stop 语义下第一行 stderr 就抛终止性
+#     异常，脚本直接崩掉：既看不到测试输出、也拿不到非零退出码。
+#     所以这些原生调用期间临时把偏好设为 'Continue'，调用结束再恢复；
+#     非零退出码由调用方判定成 FAIL（而不是让脚本崩）。
+# ------------------------------------------------------------------
+function Invoke-Capture {
+    param([scriptblock]$Command)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & $Command 2>&1
+        $code   = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+    return [pscustomobject]@{ Output = @($output); ExitCode = $code }
+}
 
 if ($Simulator -eq 'ModelSim') {
     $vlib = Join-Path $ModelSim 'vlib.exe'
     $vlog = Join-Path $ModelSim 'vlog.exe'
     $vsim = Join-Path $ModelSim 'vsim.exe'
+    # vdel 是"每次运行前清库"用的（见下面的建库段）。
+    #   ★ 它是**可选**的：不存在就回退成直接删库目录，所以不参与下面的存在性检查。
+    $vdel = Join-Path $ModelSim 'vdel.exe'
     foreach ($exe in @($vlib, $vlog, $vsim)) {
         if (-not (Test-Path $exe)) { throw "Missing $exe; specify -ModelSim or use -Simulator Icarus." }
     }
@@ -107,20 +153,34 @@ Write-Host ''
 Write-Host '================ 编译（FALCONS 仿真）================' -ForegroundColor Cyan
 
 $libraryPath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot $Library))
+# ★ 库的**逻辑名**：vsim 的 design 名必须写成 `<库逻辑名>.<top>`，
+#   不能拿 $Library 变量或整条路径去拼（路径形式在 -work 里能用，但 design 名不行）。
+$libName     = Split-Path -Leaf $libraryPath
 $simPrefix = [System.IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\') + '\'
 if (-not $libraryPath.StartsWith($simPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw 'Library must stay within sim/.'
 }
 if ($Simulator -eq 'ModelSim') {
-    # Reuse the library; recompile all listed sources, avoiding recursive deletion.
-    if (-not (Test-Path $libraryPath)) {
-        & $vlib $libraryPath | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'vlib failed' }
+    # ★ 2026-10-16：每次运行前**先清空、再重建**这个库（原来是"库存在就复用"）。
+    #   为什么必须清：复用会让库里留着**上一次运行编译出的旧模块**。实测
+    #   sim\work_sim\_info 里存在模块 `vfalcons_top`，而 $sources 里根本没有这个源文件
+    #   —— 历史遗留（顶层曾改名过一次）。危害是：以后把某个源文件从 $sources 里
+    #   **漏掉**时，vlog 照样成功、vsim 也照样能加载（库里还留着上次编出来的那份），
+    #   于是"漏列依赖"不再暴露 = **假通过**。
+    #   实现：优先用 vdel -lib <该库> -all 清空；vdel 不存在或没清干净时，
+    #   再直接删这一个库目录，然后 vlib 重建。
+    #   ★ 只清这一个仿真库目录（sim\work_sim），不动 work_synt / work_check 等其它产物。
+    if (Test-Path $vdel) {
+        # 同样用 Invoke-Capture：Stop 语义下原生命令的 stderr 会变成终止性异常
+        $null = Invoke-Capture { & $vdel -lib $libraryPath -all }
     }
+    if (Test-Path $libraryPath) { Remove-Item -Recurse -Force $libraryPath }
+    & $vlib $libraryPath | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'vlib failed' }
     foreach ($f in $sources) {
         if (-not (Test-Path $f)) { throw "Missing source: $f" }
-        $out = & $vlog -work $libraryPath "+incdir+$UiIncDir" $f 2>&1
-        if ($LASTEXITCODE -ne 0) { $out | ForEach-Object { Write-Host $_ }; throw "Compile failed: $f" }
+        $r = Invoke-Capture { & $vlog -work $libraryPath "+incdir+$UiIncDir" $f 2>&1 }
+        if ($r.ExitCode -ne 0) { $r.Output | ForEach-Object { Write-Host $_ }; throw "Compile failed: $f" }
     }
 } else {
     New-Item -ItemType Directory -Path $libraryPath -Force | Out-Null
@@ -136,34 +196,72 @@ foreach ($t in $tests) {
     Write-Host "  $($t.Desc)"
 
     if ($Simulator -eq 'ModelSim') {
-        $out = & $vsim -c -work $libraryPath -do "run -all; quit -f" "$Library.$($t.Top)" 2>&1
-        $testExit = $LASTEXITCODE
+        # design 名用**库逻辑名** $libName（原来用 $Library 变量拼，一旦 -Library
+        # 传的是"库名\子目录"这类形式就会拼错；现在统一从解析后的路径取名字）
+        $r = Invoke-Capture { & $vsim -c -work $libraryPath -do "run -all; quit -f" "$libName.$($t.Top)" 2>&1 }
     } else {
         $image = Join-Path $libraryPath "$($t.Top).out"
-        $compileOut = & $iverilog -g2012 -I $UiIncDir -s $t.Top -o $image @sources 2>&1
-        if ($LASTEXITCODE -ne 0) { $compileOut | ForEach-Object { Write-Host $_ }; throw "Compile failed: $($t.Top)" }
-        $out = & $vvp $image 2>&1
-        $testExit = $LASTEXITCODE
+        $c = Invoke-Capture { & $iverilog -g2012 -I $UiIncDir -s $t.Top -o $image @sources 2>&1 }
+        if ($c.ExitCode -ne 0) { $c.Output | ForEach-Object { Write-Host $_ }; throw "Compile failed: $($t.Top)" }
+        $r = Invoke-Capture { & $vvp $image 2>&1 }
     }
-    $text = ($out | ForEach-Object { $_.ToString() }) -join "`n"
+    $testExit = $r.ExitCode
+    $out      = @($r.Output)
+    $text     = ($out | ForEach-Object { $_.ToString() }) -join "`n"
 
-    # 只回显检查行与结论（tb 输出很多）
+    # ---------- 完整输出落盘 logs\sim_<test>.log（UTF-8 无 BOM）----------
+    #   ★ 原来只把匹配 'pass |FAIL|PASS:|FAIL:|-- ' 的行回显到屏幕，其余**全丢**：
+    #     "Error loading design"、"Module 'uart_tx_queue' is not defined"、
+    #     编译告警等**最关键的失败信息恰好都不匹配那几个模式** → 屏幕上什么都没有，
+    #     只剩一句 NO-RESULT，根本无从定位。
+    #     现在：完整输出一律落盘（logs\ 已被 .gitignore 忽略），屏幕仍只回显检查行。
+    if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
+    $logFile = Join-Path $LogDir "sim_$($t.Name).log"
+    $logText = "# 测试：$($t.Name)  top=$($t.Top)  模拟器=$Simulator  退出码=$testExit`n" +
+               "# 下面是完整输出（屏幕只回显了检查行与结论）`n" + $text + "`n"
+    [System.IO.File]::WriteAllText($logFile, $logText, (New-Object System.Text.UTF8Encoding($false)))
+
+    # 只回显检查行与结论（tb 输出很多；完整输出见上面的日志文件）
     $out | ForEach-Object {
         $s = $_.ToString().TrimStart('#',' ')
         if ($s -match '^\s*(pass |FAIL|PASS:|FAIL:|-- )') { Write-Host "  $s" }
     }
+    Write-Host "  （完整输出：$logFile）" -ForegroundColor DarkGray
 
-    if ($testExit -ne 0 -or $text -match '(?im)^\s*(?:#\s*)?(?:FAIL|FATAL|\*\* Error)') { $status = 'FAIL' }
-    elseif ($text -match 'PASS:') { $status = 'PASS' }
-    else                          { $status = 'NO-RESULT' }
+    # ---------- PASS / FAIL 判定（2026-10-16 收紧）----------
+    #   ① 匹配**必须锚行首**：原写法 `(?im)^\s*(?:#\s*)?(?:FAIL|FATAL|\*\* Error)`
+    #      能匹配任何"行首就是这些词"的内容（含 tb 里打印的说明句），
+    #      而 PASS 用的是**不锚行首**的 'PASS:' —— 只要输出里出现过 "PASS:" 就算过。
+    #      现在两边都锚行首：`(?m)^\s*#?\s*FAIL` 与 `(?m)^\s*#?\s*PASS:`。
+    #   ② 先做 zeroFail 抵消：形如 "0 FAIL" / "FAIL: 0 ..." 是**通过**的汇总句，
+    #      不能当失败，先在文本里剔掉再判。
+    #   ③ 解析 tb 自己打印的 `CHECKS: N`，与实测 pass 行数比对：不一致即 FAIL ——
+    #      防"断言被删/被跳过、但结论照样打印 PASS"。tb 不打印 CHECKS 时跳过这一项。
+    $textNZF = $text -replace '(?m)^\s*#?\s*(?:0\s+FAIL\b.*|FAIL:\s*0\b.*)$', ''
+    $passCount = ([regex]::Matches($textNZF, '(?m)^\s*#?\s*pass\b')).Count
+    $checksM   = [regex]::Match($textNZF, '(?m)^\s*#?\s*CHECKS:\s*(\d+)\s*$')
+    $checkTotal = if ($checksM.Success) { [int]$checksM.Groups[1].Value } else { -1 }
 
-    $results += [pscustomobject]@{ 测试 = $t.Name; 结果 = $status }
+    if ($testExit -ne 0) {
+        $status = 'FAIL'; $why = "退出码 $testExit"
+    } elseif ($textNZF -match '(?m)^\s*#?\s*(?:FAIL|FATAL|\*\* Error)') {
+        $status = 'FAIL'; $why = '输出里有 FAIL/FATAL/Error'
+    } elseif ($textNZF -notmatch '(?m)^\s*#?\s*PASS:') {
+        $status = 'NO-RESULT'; $why = '没有行首 PASS: 结论行'
+    } elseif ($checkTotal -ge 0 -and $checkTotal -ne $passCount) {
+        $status = 'FAIL'; $why = "CHECKS=$checkTotal 与实测 pass=$passCount 不一致"
+    } else {
+        $status = 'PASS'
+        $why = if ($checkTotal -ge 0) { "pass=$passCount / CHECKS=$checkTotal" } else { "pass=$passCount" }
+    }
+
+    $results += [pscustomobject]@{ 测试 = $t.Name; 结果 = $status; 检查数 = $passCount; 说明 = $why }
 }
 
 # ---------- 汇总 ----------
 Write-Host ''
 Write-Host '================ 汇总 ================' -ForegroundColor Cyan
-$results | Format-Table -AutoSize
+$results | Format-Table 测试, 结果, 检查数, 说明 -AutoSize
 
 $bad = @($results | Where-Object { $_.结果 -ne 'PASS' })
 if ($bad.Count -eq 0) {

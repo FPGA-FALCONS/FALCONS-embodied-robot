@@ -58,7 +58,29 @@ module num_text #(
     localparam [7:0] CH_MINUS = 8'd13;       // '-'
     localparam [7:0] CH_ZERO  = 8'd16;       // '0'
 
-    localparam integer REFRESH_DIV = (CLK_HZ / 1000) * REFRESH_MS;
+    // ★ REFRESH_DIV 的 27 位上限（2026-10-16 补）：
+    //   div 是 `reg [26:0]`、S_WAIT 里比较的也是 `REFRESH_DIV[26:0]`，
+    //   所以能表示的最大值是 2^27 − 1 = 134_217_727。
+    //   REFRESH_DIV = (CLK_HZ/1000) × REFRESH_MS，本工程 50 MHz 下：
+    //       REFRESH_MS = 2684 → 134_200_000（还在范围内）
+    //       REFRESH_MS = 2685 → 134_250_000（**越界**）
+    //   越界时**不会报错**：比较常量被位选截断、div 也数不到那么大 → 刷新周期静默变短，
+    //   属于"参数写错却毫无迹象"的一类问题（本工程的 tb 用 10 MHz × 1 ms，
+    //   REFRESH_DIV 只有 1 万，离该边界很远，测不出来）。
+    //   本车实际取 REFRESH_MS = 100 → REFRESH_DIV = 5_000_000（23 位），余量充足。
+    //   ★ 结论：要么保证 REFRESH_MS < 2685（50 MHz 时），要么同时加大 div 与
+    //     比较常量的位宽；下面的仿真期断言会在越界时直接报错退出。
+    localparam integer REFRESH_DIV     = (CLK_HZ / 1000) * REFRESH_MS;
+    localparam integer REFRESH_DIV_MAX = 134_217_727;   // 27 位能表示的最大值
+    // synopsys translate_off
+    initial begin
+        if (REFRESH_DIV > REFRESH_DIV_MAX) begin
+            $display("ERROR: num_text REFRESH_DIV=%0d 超过 27 位上限 %0d（REFRESH_MS=%0d 会被静默截断）",
+                     REFRESH_DIV, REFRESH_DIV_MAX, REFRESH_MS);
+            $finish;
+        end
+    end
+    // synopsys translate_on
 
     localparam [3:0] S_WAIT = 4'd0,
                      S_LOAD = 4'd1,
@@ -117,6 +139,8 @@ module num_text #(
             case (state)
                 // ---------------- 等刷新周期 ----------------
                 S_WAIT: begin
+                    // ★ 取 [26:0] 是与 div 的位宽对齐（超出 27 位的参数会在编译期
+                    //   被截断成"更短的刷新周期"且不报错 —— 上限与断言见参数区说明）
                     if (div >= REFRESH_DIV[26:0]) begin
                         div   <= 27'd0;
                         fidx  <= 4'd0;

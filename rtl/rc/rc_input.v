@@ -27,9 +27,16 @@ module rc_input #(
     // 通道映射：零起始的 **J6 槽位索引**，不是接收机通道号
     //   bit0 转向 / bit1 油门 / bit2 确认 / **bit3 select**（原"返回"键位）/ bit4 模式 / bit5 闲置
     parameter integer CH_STEER=0, CH_THROTTLE=1, CH_CONFIRM=2, CH_MODE=4, CH_SELECT=3,
-    // 参与"信号有效"判定的通道掩码（位 i = 通道 i）。本车 = 6'b101111（排除闲置的 bit5）。
+    // 参与"信号有效"判定的通道掩码（位 i = 通道 i）。本车 = 6'b011111（排除闲置的 bit5）。
+    //   ★ 2026-10-16 修正：原写成 6'b101111 —— 那是**排除 bit4（模式通道）**，
+    //     与本意的"排除闲置的 bit5"刚好错一位；按 6'b101111 接线上板时，
+    //     模式通道不参与判定、而未接的 bit5 反而参与，等于回到"未接通道拖死整车"的老问题。
+    //   ★ 默认值口径：这里按**本车五路**配置（bit0~bit4 参与）—— 板级层
+    //     （rtl\rc\ht10a_input.v，其默认值同样是 6'b011111）会显式覆盖；
+    //     给这个默认值的目的是：万一有人**直接例化 rc_input**（绕过板级层），
+    //     也不会退回"六路全有效"而与现场五路的实际情况不符。
     // 注意：integer 参数不能位选（vlog-13069），下面用 wire 截断取低位。
-    parameter integer SIG_VALID_MASK=63
+    parameter integer SIG_VALID_MASK=6'b011111
 )(
     input wire clk, rst_n,
     input wire [NUM_CH-1:0] rc_pwm,

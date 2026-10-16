@@ -78,7 +78,7 @@ module falcons_top (
     //     现改为正确的 I2C 四线；ToF 模块尚未做出，四线暂置安全空闲态。
     output wire        o_tof_scl,          // F16（J7.4 SCL）
     inout  wire        io_tof_sda,         // E17（J7.3 SDA，I2C 双向）
-    input  wire        i_tof_int,          // C20（J7.5 INT）
+    input  wire        i_tof_int,          // C20（J7.5 INT）；★ 预留、暂未使用（ToF 模块未做出）
     output wire        o_tof_shut,         // D20（J7.6 SHUT）
 
     // ---- 状态指示 ----
@@ -202,7 +202,8 @@ module falcons_top (
 
     // ToF 急停（模块未做出：保持 0；将来接上后由 distance < D_STOP 触发）
     wire tof_estop = 1'b0;
-    // 雷达 RX：本轮未接模块，引脚已在约束里分配，先接住避免悬空告警
+    // ★ 预留、暂未使用：雷达 RX（C14），本轮未接模块；引脚已在约束里分配。
+    //   它不再被任何逻辑消费 —— 未用信号交给综合优化即可（理由见文件末尾第 9 节）。
     wire radar_rx_unused = i_radar_rx;
 
     // ToF 尚未实现（模块没做出来）：四线置安全空闲态，等 tof_i2c 模块接入
@@ -262,7 +263,11 @@ module falcons_top (
             //      所以这里**不再重复**写 `cursor_mode` / `rc_signal_ok` —— 单一真源；
             //      要改门控请改 rc_input，不要在这里加第二道条件。
             //   ★ 需求方 2026-10-16："模式为接管时，手柄不做遥控车辆之外的任何交互"
-            //      —— 该语义由上面的 `!mode_manual && o_mode==1` 保证。
+            //      —— 该语义由 `rc_input` 的 `cursor_ready` 保证（定义在 `rtl\rc\rc_input.v`）：
+            //          cursor_ready = o_signal_valid & switch_ready[CH_MODE] & !mode_manual & (o_mode==1)
+            //      ★ 本层**没有** `mode_manual` / `o_mode` 这两个信号（顶层只把 `rc_mode`
+            //        即 o_mode 接出来，见第 2 节的 ht10a_input 例化）—— 原注释引用了本层
+            //        不存在的名字，已按实际重写。要看去处的看 rc_input.v，不要在这里找。
             //   select 按钮属于路径点导航页的逻辑（§33 辅助菜单换项），本层不接
             //   （顶层把 rc_select 显式接进 unused 汇总，等导航页实现后启用）。
             //   板载 S3 是板载按键、不经遥控链路，保留为"无遥控时的备用翻页"。
@@ -631,7 +636,11 @@ module falcons_top (
     //     u_reset_sync/key_stable → u_hdmi/…/u_OSER10_*/RESET）。
     //     这是**真实违规**（不是 CDC 伪违规）：复位释放不确定可能表现为
     //     **上电后 HDMI 偶发不点亮 / 花屏**。
-    //     vendor 文档 §3.1-2 也明确要求"由使用方在顶层自建像素域同步链"。
+    //     设计文档侧的要求见 `doc\设计落实待办.md` 的 §3.1-2（= 3.1 节第 2 条，
+    //     条款编号回溯自 `doc\使用FPGA实现的差速小车功能设计_ai优化版.md`）：
+    //     像素域复位链由使用方在顶层自建。
+    //     ★ 2026-10-16 核对：vendor 包内两份 README 里**没有**这一节 —— 原注释写
+    //       "vendor 文档 §3.1-2 也明确要求…"是引错了出处，已改为引本工程的文档。
     //
     //   【像素域复位为什么能完全在域内自产】
     //     PLL 的 lock 只取决于参考时钟与配置 —— `display_pll` 例化里**没有 reset 端口**
@@ -644,9 +653,27 @@ module falcons_top (
     //     另：不能靠 SDC 写 `set_false_path -to [get_clocks {pixel_clk}]` 绕过：
     //     pixel_clk 是内部 PLL 的派生时钟，约束解析阶段还不是时钟对象，
     //     写了会报 ERROR (TA2004) 让综合直接失败。
+    //   ★★ 2026-10-16 修正：`pll_lock` 是 **50 MHz 侧**产生的信号（display_pll 的参考
+    //      时钟就是 clk_50m），原来直接拿它当 pixel 域计数条件 = **跨域未同步直接用**。
+    //      它虽然只影响"释放早/晚一拍"，但它的下游 `pixel_rst_n` 又驱动 u_hdmi 的复位端
+    //      —— 未同步的异步输入进复位路径，正是上面刚说过的那类 recovery/removal 风险。
+    //      所以先用**两级同步器**把 pll_lock 同步到 pixel_clk，再用同步后的版本
+    //      作为 pixel_pwr_cnt 的计数条件。
+    //   ★ 注意：同步器与 pixel_pwr_cnt 都**不设异步复位端**（保留本 always 原有的性质）：
+    //      它们等的就是"PLL 锁定"这件事本身；若给它们挂异步复位，就又要回答
+    //      "这个复位从哪来" —— 最终会绕回 sys 域的 sys_rst_n，形成新的跨域复位路径，
+    //      等于把刚修掉的问题换个地方再引入一次。
+    //      上电时 DFF 初值为 0 → pll_lock 同步为 1 之后才开始计数释放，安全。
+    reg pll_lock_px1, pll_lock_px2;
+    always @(posedge pixel_clk) begin
+        pll_lock_px1 <= pll_lock;
+        pll_lock_px2 <= pll_lock_px1;
+    end
+    wire pll_lock_px = pll_lock_px2;
+
     reg [3:0] pixel_pwr_cnt;
     always @(posedge pixel_clk) begin
-        if (!pll_lock)                  pixel_pwr_cnt <= 4'd0;
+        if (!pll_lock_px)               pixel_pwr_cnt <= 4'd0;   // ★ 用同步后的 lock
         else if (pixel_pwr_cnt != 4'hF) pixel_pwr_cnt <= pixel_pwr_cnt + 4'd1;
     end
     wire pixel_rst_n = pixel_pwr_cnt[3];
@@ -674,23 +701,31 @@ module falcons_top (
     //     STA 会把 sys→pixel 当成同步关系分析（PLL 派生时钟名无法用 get_clocks 引用，
     //     写 set_false_path 会报 TA2004，见上面注释）。若跨域源是**组合逻辑**，
     //     组合深度会直接算进 slack：
-    //       * arm_hint  = ~run_en & rc_signal_ok & ~throttle_centered & ~estop_latch
-    //                     （含一个 12 位比较器）→ 实测 slack = −2.473 ns
-    //       * rc_signal_ok = 参与判定通道的 timed_out 相或（在 rc_input 内部）→ −2.199 ns
+    //       * arm_hint —— 由 `rtl\rc\rc_drive_guard.v` **组合**产生：
+    //                     i_manual & i_signal_valid & !i_estop & !stopped & !armed & !centered
+    //                     （其中 centered 是一个 12 位比较器）→ 实测 slack = −2.473 ns
+    //       * rc_signal_ok —— = `rc_input` 的 o_signal_valid
+    //                     = all_good & command_ready[3]，而 all_good 是"参与判定通道的
+    //                       valid & ~expired 全体相与"（见 rtl\rc\rc_input.v）→ −2.199 ns
+    //     ★ 2026-10-16 核对：原注释把 arm_hint 写成
+    //       `~run_en & rc_signal_ok & ~throttle_centered & ~estop_latch`、把 rc_signal_ok
+    //       写成"参与判定通道的 timed_out 相或" —— 两者都与现状不符（回中解锁逻辑早已
+    //       搬进 rc_drive_guard，「信号有效」也早已改成"掩码内通道健康"的相与）。已按实际重写。
     //     这里先在 sys 域寄存一拍，源就变成 DFF 输出、组合深度归零，
     //     同步器第一级的 slack 回落到与纯 DFF→DFF（estop_latch，−0.404 ns）同一量级。
     //   代价：延迟 1 个 50 MHz 周期（20 ns）。这些都是"人操作级别"的慢变量，无影响。
     reg [1:0] page_s, mode_s, menu_s;
-    reg       run_s, estop_s, sig_s, arm_s;
+    //   ★ 2026-10-16：`run_s`（= chassis_running）已删 —— 它唯一的下游是 ui_render 的
+    //     i_run，而该端口已删（模块内从不使用）。sys 域这一拍现在只剩 estop/sig/arm。
+    reg       estop_s, sig_s, arm_s;
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
             page_s  <= 2'd0; mode_s  <= 2'd0; menu_s <= 2'd0;
-            run_s   <= 1'b0; estop_s <= 1'b0; sig_s <= 1'b0; arm_s <= 1'b0;
+            estop_s <= 1'b0; sig_s <= 1'b0; arm_s <= 1'b0;
         end else begin
             page_s  <= page;
             mode_s  <= rc_mode;
             menu_s  <= menu_sel;
-            run_s   <= chassis_running;
             estop_s <= estop_latch;
             sig_s   <= rc_signal_ok;
             arm_s   <= arm_hint;
@@ -700,14 +735,13 @@ module falcons_top (
     // sys → pixel 跨域：状态位两级同步（慢变量，间隔远大于同步器延迟）
     //   源一律用上面打过一拍的 *_s（纯 DFF 输出）
     reg [1:0] page_ps1, page_ps2, mode_ps1, mode_ps2, menu_ps1, menu_ps2;
-    reg       run_ps1, run_ps2, estop_ps1, estop_ps2, sig_ps1, sig_ps2;
+    reg       estop_ps1, estop_ps2, sig_ps1, sig_ps2;
     reg       arm_ps1, arm_ps2;                          // A1："请回中位"提示
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
             page_ps1  <= 2'd0; page_ps2  <= 2'd0;
             mode_ps1  <= 2'd0; mode_ps2  <= 2'd0;
             menu_ps1  <= 2'd0; menu_ps2  <= 2'd0;
-            run_ps1   <= 1'b0; run_ps2   <= 1'b0;
             estop_ps1 <= 1'b0; estop_ps2 <= 1'b0;
             sig_ps1   <= 1'b0; sig_ps2   <= 1'b0;
             arm_ps1   <= 1'b0; arm_ps2   <= 1'b0;
@@ -715,7 +749,6 @@ module falcons_top (
             page_ps1  <= page_s;          page_ps2  <= page_ps1;
             mode_ps1  <= mode_s;          mode_ps2  <= mode_ps1;
             menu_ps1  <= menu_s;          menu_ps2  <= menu_ps1;
-            run_ps1   <= run_s;           run_ps2   <= run_ps1;
             estop_ps1 <= estop_s;         estop_ps2 <= estop_ps1;
             sig_ps1   <= sig_s;           sig_ps2   <= sig_ps1;
             arm_ps1   <= arm_s;           arm_ps2   <= arm_ps1;
@@ -787,7 +820,10 @@ module falcons_top (
         .i_page         (page_ps2),
         .i_menu_sel     (menu_ps2),
         .i_ui_mode      (mode_ps2),
-        .i_run          (run_ps2),
+        // ★ 2026-10-16：ui_render 的 i_run 端口已**删除**（模块内从不使用它，
+        //   状态栏也没有"运行中"这一档）。其上游 sys 域 run_s 与 pixel 域
+        //   run_ps1/run_ps2 整条跨域链随之删除；底盘运行指示仍由第 8 节的
+        //   `assign o_led[0] = chassis_running;` 提供（chassis_running 未失去消费者）。
         .i_estop        (estop_ps2),
         .i_signal_ok    (sig_ps2),
         .i_arm_hint     (arm_ps2),
@@ -812,17 +848,27 @@ module falcons_top (
     assign o_led[6] = run_en;                          // 使能
     assign o_led[7] = hb_cnt[23];                      // 心跳（约 0.34 s 翻转）
 
-    // 未使用的信号显式接住，避免综合器报"悬空网络"
-    wire unused_ok = (|rc_chan_us) | (|rc_timeout) | (|rc_valid) | (|count_flat) |
-                     (|enc_dir_vec) | (|pid_sat) | (|tgt_left) | (|tgt_right) |
-                     (|rpm0) | (|rpm1) | (|rpm2) | (|rpm3) |
-                     radar_rx_unused | i_tof_int |
-                     imu_err_flag | (|imu_err_code) | (|imu_state_dbg) |
-                     imu_init_done | imu_calib_done | imu_calib_fail |
-                     (|imu_gyro_x) | (|imu_gyro_y) | (|imu_acc_x) | (|imu_acc_y) | (|imu_acc_z) |
-                     (|tilt_gain) | tilt_fail | yaw_valid |
-                     frame_start | frame_sync | key1_hold | key2_hold |
-                     key3_hold | key4_hold | rc_select;
-    // rc_select：预留给路径点导航页的辅助菜单换项（§33），当前无功能，显式接住避免悬空告警
+    // ==================================================================
+    // 9. 未使用信号的处理（2026-10-16 修正）
+    // ==================================================================
+    //   ★ 这里原先有一条 `wire unused_ok = (|rc_chan_us) | ... ;`，把 30 多个未用
+    //     信号"接住"，注释写的是"避免综合器报悬空网络"。**它是错的，已删除**：
+    //       · 它本身是一个**没有任何消费者的死网**（全工程只出现 1 次）→ 依赖它的
+    //         那棵"接住"逻辑树被综合整体优化掉，一条告警也没消掉，反而制造误导；
+    //       · 实测综合告警：WARN (NL0002) … g_cap[5].u_cap is swept，
+    //         以及 2732 条 PA1001（悬空网络）。
+    //   ★ 正确认知：**未被使用的信号交给综合器优化即可**（综合按扇出自动裁掉，
+    //     不消费就不会进网表）。
+    //   ★ 确实需要"留在网表里"的信号（例如要上板用 Gowin Analyzer 抓波形、
+    //     或要保住某个触发器做时序分析），必须让它被**可观测端口**消费
+    //     （输出到 LED / 引脚，或写进可读 RAM），或给它加综合属性
+    //     （`/* synthesis syn_keep = 1 */`、`preserve` 之类）—— 光靠一条没人用的
+    //     wire 是接不住的，IO 上的悬空也照样报。
+    //   ★ 本文件里下列信号都属于**预留、暂未使用**，只保留定义与注释、不做伪消费：
+    //       radar_rx_unused（雷达 RX C14）/ i_tof_int（ToF 中断 C20）/
+    //       rc_select（路径点导航页辅助菜单换项 §33）/ rc_chan_us / rc_timeout /
+    //       rc_valid / count_flat / enc_dir_vec / pid_sat / yaw_valid /
+    //       frame_start / frame_sync / key1~key4_hold / IMU 状态与诊断位等。
+    //     将来要用它们时，直接把消费者接上即可（端口与 wire 都还在）。
 
 endmodule

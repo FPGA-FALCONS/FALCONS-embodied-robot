@@ -11,6 +11,7 @@
 //   3. 状态栏文字点亮（白色 FFFFFF），且**光标档文案**正确（"光标档"而非"请选择模式"）
 //   4. 数据页（i_page=2）：中文标签（白）+ **动态数值**（亮绿 7CFC98，来自字符 RAM）
 //   5. 数据页不该出现占位提示（占位只在页 0/1/3）
+//   6. ★ 急停 与"无信号"同时成立时，状态栏必须显示"急停"（优先级验证，见第 7c 段）
 //
 // 【本测试台覆盖不到的部分（如实记录）】
 //   "摇杆拨动只改 menu_sel、确认键才把 menu_sel 赋给 page"这条**状态机**逻辑在
@@ -29,7 +30,9 @@ module ui_render_tb;
 
     reg  [1:0]  page = 2'd0;
     reg  [1:0]  uimode = 2'd0;
-    reg         run_i = 1'b0, estop_i = 1'b0, sigok_i = 1'b1;
+    // ★ 2026-10-16：`run_i` 已删 —— ui_render 的 i_run 端口与其在顶层的
+    //   run_s/run_ps1/run_ps2 跨域链一并删除（模块内从不使用该信号）。
+    reg         estop_i = 1'b0, sigok_i = 1'b1;
     reg         armhint_i = 1'b0;           // A1：启动门禁提示（"请回中位"）
     reg  [1:0]  menusel = 2'd0;             // 菜单高亮项（两段式：摇杆改它、确认才换页）
 
@@ -41,6 +44,7 @@ module ui_render_tb;
     integer cnt_menu_text, cnt_sel_text, cnt_hl, cnt_status, cnt_label, cnt_num, cnt_ph, cnt_yaw;
     integer cnt_hl_win;                               // 单次 scan_hl 的高亮像素数
     integer px_manual, px_hint, px_estop, px_nosig;   // 状态栏文案切换对比
+    integer px_estop_nosig;                           // ★ 急停 + 无信号 同时成立时的对比
     integer px_cursor;                                // 光标档文案对比
 
     integer x, y;
@@ -55,7 +59,6 @@ module ui_render_tb;
         .o_pixel_rgb888 (rgb),
         .i_page         (page),
         .i_ui_mode      (uimode),
-        .i_run          (run_i),
         .i_estop        (estop_i),
         .i_signal_ok    (sigok_i),
         .i_arm_hint     (armhint_i),
@@ -178,7 +181,7 @@ module ui_render_tb;
 
         // ---------------- 页 0：菜单 + 状态栏 ----------------
         $display("-- 1/2/3. 页0：菜单文字、选中高亮、状态栏 --");
-        page = 2'd0; sigok_i = 1'b1; uimode = 2'd0; run_i = 1'b0; estop_i = 1'b0;
+        page = 2'd0; sigok_i = 1'b1; uimode = 2'd0; estop_i = 1'b0;
         repeat (4) @(posedge pixel_clk);
         scan(40, 130);                      // 覆盖菜单第 1 项（选中）与第 2 项（未选中）
         scan(550, 590);                     // 状态栏
@@ -259,6 +262,31 @@ module ui_render_tb;
             errors = errors + 1;
             $display("  FAIL  nosignal_over_hint: nosig=%0d >= hint=%0d px (priority wrong)", px_nosig, px_hint);
         end
+
+        // ---------------- 7c. ★ 急停 与 无信号 同时成立 → 必须显示"急停" ----------------
+        //   状态栏译码是 `if (i_estop) … else if (!i_signal_ok) …`（见 ui_render.v 的
+        //   status_text），即**急停优先**。原测试台只单独测过这两档，
+        //   **没测过两者同时置位** —— 而"接管档下丢信号 + 按下急停"正是现场最容易
+        //   同时出现的组合，若优先级写反就会给出错误的处置提示。
+        //   判据（不比较具体汉字，只比较字数，同第 7 段）：
+        //     ST_ESTOP    "急停"   = 2 字
+        //     ST_NOSIGNAL "无信号" = 3 字
+        //   所以像素数必须 ≈ 急停那一档、且 < 无信号那一档。
+        $display("-- 7c. estop=1 且 signal_ok=0 同时成立 → 应是 急停（2 字），不是 无信号（3 字）--");
+        estop_i = 1'b1; sigok_i = 1'b0;
+        cnt_status = 0;
+        repeat (4) @(posedge pixel_clk);
+        scan(550, 590);
+        px_estop_nosig = cnt_status;
+        if ((px_estop_nosig == px_estop) && (px_estop_nosig < px_nosig)) begin
+            $display("  pass  estop_beats_nosignal: both=%0d, estop=%0d, nosig=%0d px",
+                     px_estop_nosig, px_estop, px_nosig);
+        end else begin
+            errors = errors + 1;
+            $display("  FAIL  estop_beats_nosignal: both=%0d, estop=%0d, nosig=%0d px (priority wrong)",
+                     px_estop_nosig, px_estop, px_nosig);
+        end
+        estop_i = 1'b0; sigok_i = 1'b1;
 
         // ---------------- 8. ★ 高亮带跟随 i_menu_sel（两段式的"高亮"一半）----------------
         //   需求方 2026-10-16 明确："摇杆拨动后要按确认才切页" → 高亮项（i_menu_sel）

@@ -31,6 +31,28 @@ from PIL import Image, ImageDraw, ImageFont
 CELL = 16            # 点阵边长
 ADDR_BITS = 12       # 地址位宽（4096 项，够 256 字 x16 行 或 4096 个文本字符）
 ASCII_MIN, ASCII_MAX = 0x20, 0x7E
+# ★ 2026-10-16：单条文案的长度上限。
+#   UI_TXT_<名>_LEN 生成的是 `localparam [5:0]`（6 位），ui_render 的段描述符里
+#   长度字段也是 6 位 —— 超过 63 会被**静默截断**（65 → 1），屏幕上只显示开头一两个字，
+#   而本脚本 / vlog / 仿真都不会报错。所以生成前显式校验、越界直接报错退出。
+MAX_TEXT_LEN = 63
+
+
+def comment_text(text):
+    """把文案安全地内嵌进【生成的 Verilog 注释】里。
+
+    为什么要处理：
+      * 反斜杠与双引号先转义（`\\`、`\\"`）—— 注释里虽然不参与语法，但本工程生成物
+        是"人读的源文件"，原文里的引号若原样写进去，读者会分不清哪是注释哪是语法；
+        将来若有人把注释改成字符串字面量（$display 等），也不会因为引号而语法错。
+      * CR / LF / TAB 一律换成空格 —— 一条文案若含换行，注释会被断成两行，
+        多出来那行不是注释，直接变成语法错误（注释里内嵌原文最危险的就是这一条）。
+    """
+    return (text.replace("\\", "\\\\")
+                .replace('"', '\\"')
+                .replace("\r", " ")
+                .replace("\n", " ")
+                .replace("\t", " "))
 
 
 def parse_chars_file(path):
@@ -134,7 +156,7 @@ def write_font_rom(path, charset, glyphs):
     for idx, ch in enumerate(charset):
         code = ord(ch)
         for row in range(CELL):
-            a(f"        mem[{idx * CELL + row:5d}] = 16'h{glyphs[ch][row]:04X};  // U+{code:04X} '{ch}' 行{row}")
+            a(f"        mem[{idx * CELL + row:5d}] = 16'h{glyphs[ch][row]:04X};  // U+{code:04X} '{comment_text(ch)}' 行{row}")
     a("    end")
     a("")
     a("    always @(posedge i_clk) begin")
@@ -156,6 +178,24 @@ def write_ui_text_rom(path, index_path, charset, items):
     depth = max(1, len(stream))
     if depth > (1 << ADDR_BITS):
         raise SystemExit(f"[错误] 文本字符总数 {depth} 超过 2^{ADDR_BITS}，请加大 ADDR_BITS")
+
+    # ---- ★ 长度校验（必须在生成 UI_TXT_*_LEN 之前）----
+    #   UI_TXT_<名>_LEN 是 `localparam [5:0]`，ui_render 段描述符的长度字段同样是 6 位：
+    #   文案长度 > 63 会被静默截断（65 → 1），屏幕只显示开头一两个字，
+    #   而本脚本、vlog、仿真都不会报错 —— 属于"改了文案、看不出问题"的一类坑。
+    too_long = [(name, text, length) for name, text, start, length in table
+                if length > MAX_TEXT_LEN]
+    if too_long:
+        detail = "；".join(
+            "{}（{} 字符: {}）".format(n, length, comment_text(t))
+            for n, t, length in too_long
+        )
+        raise SystemExit(
+            "[错误] 有 {} 条文案超过 {} 个字符，UI_TXT_*_LEN 是 6 位装不下：\n        {}\n"
+            "        处理办法：把长文案拆成两条，或加大 LEN 的位宽"
+            "（本脚本的 MAX_TEXT_LEN 与 ui_render.v 的段格式 [11:6] 必须同步改）。".format(
+                len(too_long), MAX_TEXT_LEN, detail)
+        )
 
     lines = []
     a = lines.append
@@ -205,7 +245,8 @@ def write_ui_text_rom(path, index_path, charset, items):
     b("// {名, 文案, 起始地址, 字符数}")
     for name, text, start, length in table:
         # 注意：绝不能在标识符里插入对齐空格（Verilog 标识符不允许空格）
-        b(f"localparam [11:0] UI_TXT_{name}_ADDR = 12'd{start};  // {text}")
+        #       文案内嵌进注释前先转义（引号/反斜杠/换行，见 comment_text）
+        b(f"localparam [11:0] UI_TXT_{name}_ADDR = 12'd{start};  // {comment_text(text)}")
         b(f"localparam [5:0] UI_TXT_{name}_LEN  = 6'd{length};")   # 长度用 6 位：与 ADDR 拼起来正好 18 位
     b("")
     write_text(index_path, "\n".join(h) + "\n")

@@ -2,7 +2,7 @@
 // Integration: actual HT10A profile + unchanged vendor pulse capture + manual interlock.
 // ★ 2026-10-16 合并裁定：
 //   ① 无"返回"按钮 —— CH7/J6.4/bit3 改作 **select**，CH8/J6.6/bit5 **闲置**（本台已删 back）。
-//   ② "信号有效"用掩码 SIG_VALID_MASK=6'b101111（排除闲置的 bit5）：
+//   ② "信号有效"用掩码 SIG_VALID_MASK=6'b011111（排除闲置的 bit5）：
 //      闲置通道超时**不得**拖死整车，而**参与判定**的通道超时**必须**失效并停车。
 //      两个方向在下面各有用例（原实现只测了"任一路超时即全失效"这一个方向）。
 module ht10a_input_tb;
@@ -134,6 +134,25 @@ module ht10a_input_tb;
         check("CH5 confirm one click",confirms-before_c,1);
         check("CH7 select one click (was back)",selects-before_s,1);
         settled(1500,1500,2000,2000,2000,2000);check("held button no repeat",selects-before_s,1);
+        // ★ 2026-10-16 补测：两个按钮**互不串扰**。
+        //   上面那条用例把 CH5/CH7 同时拉高，只能证明"各自产生一次脉冲"，
+        //   拿不到"按一个不会带出另一个"的结论 —— 两者共用同一套 armed 状态机，
+        //   译码写错很容易串台。所以下面两个方向分别锁住：
+        //     (a) 只按 select（CH7）→ selects +1、confirms 不变
+        //     (b) 只按 confirm（CH5）→ confirms +1、selects 不变
+        //   （settled 的参数顺序：w4=CH4 转向 / w2=CH2 油门 / w5=CH5 确认 /
+        //     w7=CH7 select / w6=CH6 模式 / w8=CH8 闲置）
+        settled(1500,1500,1000,1000,2000,1000);          // 先回中：让两个按钮都回到"未按"
+        before_s=selects;before_c=confirms;
+        settled(1500,1500,1000,2000,2000,1000);          // 只按 CH7 = select
+        check("select press does not click confirm",confirms-before_c,0);
+        check("select press still clicks select",selects-before_s,1);
+        settled(1500,1500,1000,1000,2000,1000);          // 释放 select
+        before_s=selects;before_c=confirms;
+        settled(1500,1500,2000,1000,2000,1000);          // 只按 CH5 = confirm
+        check("confirm press does not click select",selects-before_s,0);
+        check("confirm press still clicks confirm",confirms-before_c,1);
+        settled(1500,1500,1000,1000,2000,1000);          // 释放 confirm
         settled(1500,1500,1000,1000,2000,1000);
         before_c=confirms;
         frame(1500,1500,2000,1000,2000,1000);
@@ -171,7 +190,8 @@ module ht10a_input_tb;
         settled(1480,1520,1000,1000,1000,1000);
         check("active low select",cal_selects-before_s,1);
         settled(1480,1520,1000,1000,2000,1000);check("mode reverse high is manual",cal_mode,0);
-        // ★ 2026-10-16 措施②：CH8（bit5）**闲置未接**，已由 SIG_VALID_MASK=6'b101111 排除出判定。
+        // ★ 2026-10-16 措施②：CH8（bit5）**闲置未接**，已由 SIG_VALID_MASK=6'b011111 排除出判定。
+        //   （原写 6'b101111 —— 那排除的是 bit4 模式通道，与本意差一位，已改正。）
         //   它超时**不能**再拖死整车（否则 o_signal_valid 恒 0 → 车永不能动、只报"无信号"）。
         settled(1500,1500,1000,1000,1000,1000);
         repeat(7) frame(1500,2000,1000,1000,1000,0);

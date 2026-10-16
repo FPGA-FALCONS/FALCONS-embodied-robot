@@ -9,13 +9,21 @@
 //   2. 板载时钟/按键/串口/LED：手册 §2.3 板载资源表
 //   3. HDMI：模块库 modules\hdmi_1024x600\constraints\acg720_hdmi.cst
 //      （DVI_TX_Top 内部创建 LVDS25 输出单元，故只需 IO_LOC）
-//   4. 遥控 6 路：J6 整排 D19 E19 E18 F18 F20 F19
-//      （依据 ai 优化版 §2.4 的板卡引脚表；需求原文 37 行里没有章节号）
-//      ★ 2026-10-16：遥控器**实际只用 5 路**（2 摇杆 + 确认 + select + 模式拨杆），
-//        接口保留 6 路，**J6.4/F18（i_rc_pwm[3]）预留未接**；
-//        该路已由 `SIG_VALID_MASK=55` 排除在"信号有效"判定之外（否则整车不能使能）。
-//      ★ 电平待确认：接收机若 5 V 供电，5 V 高电平灌 3.3 V bank 有过压风险
-//        （见 doc\上板指南_v1.md 第二节第 5 条与 vendor README 的"信号电压仍需确认"）。
+//   4. 遥控 6 路（J6 整排）：D19 E19 E18 F18 F20 F19
+//      （引脚依据 ai 优化版 §2.4 的板卡引脚表；需求原文 37 行里没有章节号）
+//      ★★ 2026-10-16 最终口径 —— **接线请以 doc\HT10A接线与验收.md §2 为唯一真源**：
+//        遥控器只用到 5 路，**J6 槽位 ↔ 接收机通道** 的对应关系是：
+//          J6.1/bit0 = CH4 转向        | J6.2/bit1 = CH2 油门     | J6.3/bit2 = CH5 确认
+//          J6.4/bit3 = CH7 **select**  | J6.5/bit4 = CH6 模式拨杆 | J6.6/bit5 = CH8 **闲置不接**
+//        · **没有独立的"返回"按钮**（需求方 2026-10-16 裁定）：原"返回"那个物理键位
+//          就是 J6.4，现改作 **select**；原来的 select 位（J6.6）闲置。
+//        · 闲置的 **bit5** 已由 `SIG_VALID_MASK = 6'b011111` 排除出"信号有效"判定。
+//          ★ 位序：MSB 才是 bit5 → 0 = 排除。**写成 55（6'b110111）会排错通道**，
+//            那样 bit5 悬空时 timed_out 恒 1 → 整车永不能使能。
+//        · `CH_*` 是**零起始的 J6 槽位索引**，不是接收机通道号（别把丝印 CHn 直接等同）。
+//      ★ 电平待确认：6 路统一 3.3 V bank + 上拉；接收机经**电平转换模块**接入，
+//        模块型号/输出电平**未实测**（输出 >3.3 V 有过压风险；若为开漏则必须保留上拉）
+//        —— 见 doc\HT10A接线与验收.md §2/§6 的实测表。
 //   5. 雷达 RX：C14 = J3.3（★ 详见下方说明）
 //   6. ToF：J7 排针（SDA=E17 / SCL=F16 / INT=C20 / SHUT=D20）；模块未做出，四线置安全空闲态
 //
@@ -55,19 +63,21 @@ IO_LOC  "i_uart_rx" J21;
 IO_PORT "i_uart_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
 
 // ---------------- 遥控接收机 6 路 PWM 接口（J6；实际用 5 路）----------------
-//   用到的 5 路：转向 / 油门 / 确认 / 模式拨杆 / select
-//   预留未接：i_rc_pwm[3]（J6.4/F18）—— 已排除在"信号有效"判定外，插不插线都不影响开车
-IO_LOC  "i_rc_pwm[0]" D19;                                 // J6.1  CH1 转向（左右摇杆）
+//   用到的 5 路：转向(CH4) / 油门(CH2) / 确认(CH5) / 模式拨杆(CH6) / select(CH7)
+//   ★ 闲置的是 **bit5（J6.6/F19，原 CH8/SWD）** —— 已由 SIG_VALID_MASK=6'b011111 排除出判定，
+//     插不插线都不影响开车；而 **bit3（J6.4/F18）是 select：在用、参与判定**
+//   ★ 顶层 i_rc_pwm[i] ↔ J6.(i+1)；完整映射与标定参数见 doc\HT10A接线与验收.md
+IO_LOC  "i_rc_pwm[0]" D19;                                 // J6.1  CH4 转向（左摇杆左右）
 IO_PORT "i_rc_pwm[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
-IO_LOC  "i_rc_pwm[1]" E19;                                 // J6.2  CH2 油门（前后摇杆；兼菜单上下拨动）
+IO_LOC  "i_rc_pwm[1]" E19;                                 // J6.2  CH2 油门（右摇杆上下；兼菜单上下拨动）
 IO_PORT "i_rc_pwm[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
-IO_LOC  "i_rc_pwm[2]" E18;                                 // J6.3  CH3 确认按钮
+IO_LOC  "i_rc_pwm[2]" E18;                                 // J6.3  CH5 确认按钮
 IO_PORT "i_rc_pwm[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
-IO_LOC  "i_rc_pwm[3]" F18;                                 // J6.4  ★ 预留未接（原"返回"按钮位置）
+IO_LOC  "i_rc_pwm[3]" F18;                                 // J6.4  CH7 ★ select（原"返回"键位，在用）
 IO_PORT "i_rc_pwm[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
-IO_LOC  "i_rc_pwm[4]" F20;                                 // J6.5  CH5 模式拨杆（两档）
+IO_LOC  "i_rc_pwm[4]" F20;                                 // J6.5  CH6 模式拨杆（两档）
 IO_PORT "i_rc_pwm[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
-IO_LOC  "i_rc_pwm[5]" F19;                                 // J6.6  CH6 select 按钮
+IO_LOC  "i_rc_pwm[5]" F19;                                 // J6.6  CH8 ★ 闲置不接（已排除出判定）
 IO_PORT "i_rc_pwm[5]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
 
 // ---------------- 电机驱动（WHEELTEC D24A，J4/J5 排线直连）----------------

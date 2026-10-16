@@ -34,7 +34,10 @@ module speed_report_tb;
     reg         rst_n   = 1'b0;
     reg         force_i = 1'b0;
 
-    reg signed [31:0] v_tgt, v_act, v_duty, v_kp, v_ki, v_kd, v_flags, v_err;
+    reg signed [31:0] v_tgt, v_act, v_duty, v_flags, v_err;
+    // ★ 2026-10-16：kp/ki/kd 与 DUT 端口同宽（[15:0]）—— 原来写 [31:0] 会报
+    //   3 条 WARN (EX3670) 端口位宽不匹配。本台用到的值 |v| ≤ 256，不会截断。
+    reg signed [15:0] v_kp, v_ki, v_kd;
     reg signed [31:0] v_steer, v_throttle, v_mode, v_sigok;
 
     wire        uart_tx;
