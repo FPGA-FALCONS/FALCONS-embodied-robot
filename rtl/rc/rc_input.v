@@ -4,31 +4,44 @@
 // 【它做什么】
 //   把 N 路遥控接收机的 PWM 脉宽（1000~2000 µs）翻译成工程单位：
 //     * 两路模拟量：转向 / 油门（signed 12 位，−1000…+1000，中位 0，带死区）
-//     * 一路三档开关：模式（手动接管 / 屏幕光标 / 自动）
-//     * 三路按钮：选择(select) / 确认 / 返回 —— 按下产生单周期脉冲
-//   并给出"信号是否有效"（任一路超时即视为丢信号）。
+//     * 一路拨杆开关：模式（两档：手动接管 / 屏幕光标）
+//     * 两路按钮：确认 / 选择(select) —— 按下产生单周期脉冲
+//     * 摇杆"向上/向下拨到位"→ o_menu_up / o_menu_down 单周期脉冲（菜单换项）
+//   并给出"信号是否有效"（参与判定的通道都超时才视为丢信号）。
+//
+// 【遥控器实际用到的输入 = 5 个（需求方 2026-10-16 明确）】
+//   两个摇杆（前后 / 左右） + 两个按钮（确认 / select） + 一个拨杆开关（模式）。
+//   ★ 全部都是 PWM 通道（需求方明确"遥控器所有输入都是 pwm"），没有 GPIO 电平型的开关。
+//   ★ 没有独立的"返回"按钮 —— 需求原文 §33 里的"返回"是路径点导航页**辅助菜单的一个菜单项**
+//     （用 select 键切换、确认键执行），不是硬件键。
 //
 // 【为什么用库里的单路捕获 + 多路实例化】
 //   库里 `rc_pwm_capture` 是**单路**模块（CLK_HZ / MIN_PULSE_US / MAX_PULSE_US /
 //   TIMEOUT_US 四个参数），可以独立实例化任意路数；`rc_receiver` 只是把两路
-//   包成 steering/throttle。本车需要 6 路（2 摇杆 + 模式 + select + 确认 + 返回），
-//   所以直接例化 6 个 `rc_pwm_capture`，并把映射做成参数（换接线只改参数）。
+//   包成 steering/throttle。本车保留 **6 路硬件接口**（J6 整排），其中 5 路对应上面
+//   5 个控件、第 3 路（CH_BACK 原位）**预留未接**，所以直接例化 6 个
+//   `rc_pwm_capture`，并把映射做成参数（换接线只改参数）。
 //
 // 【单位与定点】
 //   归一化：|us − 1500| ≤ DEADZONE_US → 0；否则线性映射到 ±1000
 //     标度 = 1000 / (HALF_RANGE_US − DEADZONE_US)，以 Q10 常量在综合期算好
 //     （零除法、零浮点）
 //
-// 【三档判定】
-//   us < SW_LO_US          → 位置 0（低位）
-//   SW_LO_US…SW_HI_US      → 位置 1（中位）
-//   us > SW_HI_US          → 位置 2（高位）
-//   "按下"定义为"位置 2"的上升沿 → 单周期脉冲；开关拨到高位同样算一次触发。
+// 【开关位置判定（两档）】
+//   us < SW_LO_US  → 位置 0（低位）= **手动接管档**
+//   其余（含中位与高位）→ 位置 1 = **屏幕光标档**
+//   需求原文 §13 只描述两档（接管车辆控制 / 控制屏幕光标），"自动"档 2026-10-16 已删。
+//   `SW_HI_US` 参数保留是为了兼容三档型开关，但**不再参与判定**。
+//   "按钮按下"定义为"位置 2"的上升沿 → 单周期脉冲。
 //
-// 【丢信号】
-//   任一路 timed_out 拉高 → o_signal_valid = 0。上层的安全策略是
-//   200 ms 内停车（依据功能设计文档 §9 L4 判据），所以 TIMEOUT_US 取 100 ms，
-//   留出一半余量。
+// 【丢信号】★ 2026-10-16 修正：由"全部通道都要刷新"改为"**只看参与判定的通道**"
+//   原实现是 `~(|flat_to)`，即任何一路超时 → o_signal_valid = 0。因为本工程保留了
+//   6 路接口但只用 5 路，若"预留未接"的那一路没有脉冲（引脚内部上拉 → 恒高 →
+//   永远不产生合法脉冲），`timed_out` 会恒 1，于是 o_signal_valid 恒 0 →
+//   顶层 run_en 恒 0 → **整车永不能动**，且症状只是"无信号"，无法定位是哪一路。
+//   现在用 `SIG_VALID_MASK` 选择参与判定的通道：`o_signal_valid = ~(|(flat_to & sig_mask))`。
+//   上层的安全策略是 200 ms 内停车（依据 ai 优化版 §9 L4 判据；需求原文 37 行里没有 §9），
+//   本工程把检测阈值取 100 ms，留出一半余量。
 //////////////////////////////////////////////////////////////////////////////////
 
 `timescale 1ns/1ps
@@ -42,8 +55,8 @@ module rc_input #(
     parameter integer MIN_PULSE_US  = 900,        // 合法脉宽下限（库默认）
     parameter integer MAX_PULSE_US  = 2100,       // 合法脉宽上限（库默认）
     parameter integer TIMEOUT_US    = 100_000,    // 单路超时（100 ms）
-    parameter integer SW_LO_US      = 1300,       // 三档：低位阈值
-    parameter integer SW_HI_US      = 1700,       // 三档：高位阈值
+    parameter integer SW_LO_US      = 1300,       // 两档：低于它 = 手动接管档
+    parameter integer SW_HI_US      = 1700,       // 仅兼容三档型开关，**已不参与判定**
     // 方向取反（换接收机/换接线时用参数解决，不必动线）
     parameter integer STEER_REVERSE    = 0,       // 1 = 转向取反
     parameter integer THROTTLE_REVERSE = 0,       // 1 = 油门取反
@@ -58,12 +71,21 @@ module rc_input #(
     parameter integer MENU_REVERSE = 0,           // 1 = 上下方向取反（实测方向反了就改它）
 
     // ---- 通道映射（按实际接线改这里，不要改逻辑）----
+    //   ★ 第 3 路（原 CH_BACK）已按需求方 2026-10-16 的裁定"保留接口、删除返回逻辑、
+    //     标记为预留未接"处理：本参数已删除，该通道仍在硬件接口里（NUM_CH = 6）。
     parameter integer CH_STEER      = 0,
     parameter integer CH_THROTTLE   = 1,
     parameter integer CH_CONFIRM    = 2,
-    parameter integer CH_BACK       = 3,
+    // CH 3 = 预留未接（不要在这里加角色）
     parameter integer CH_MODE       = 4,
-    parameter integer CH_SELECT     = 5
+    parameter integer CH_SELECT     = 5,
+
+    // ---- 参与"信号有效"判定的通道掩码（位 i = 通道 i）----
+    //   ★ 默认全 1 = 6 路全参与（与旧行为一致）。顶层会把它改成"实际接线的通道"，
+    //     这样"预留未接"的通道不会把 o_signal_valid 拖成恒 0（详见文件头【丢信号】）。
+    //   注意：integer 参数【不能做位选】（vlog-13069），所以下面用 wire 截断，不要写成
+    //   SIG_VALID_MASK[NUM_CH-1:0]。
+    parameter integer SIG_VALID_MASK = 63
 )(
     input  wire                    clk,
     input  wire                    rst_n,
@@ -71,14 +93,13 @@ module rc_input #(
 
     output reg  signed [11:0]      o_steer,         // −1000…+1000（右为正）
     output reg  signed [11:0]      o_throttle,      // −1000…+1000（前为正）
-    output reg  [1:0]              o_mode,          // 0=手动接管 1=屏幕光标 2=自动
+    output reg  [1:0]              o_mode,          // 0=手动接管 1=屏幕光标（两档，无"自动"档）
     output reg                     o_btn_select,    // 单周期脉冲
     output reg                     o_btn_confirm,
-    output reg                     o_btn_back,
     output reg                     o_menu_up,       // 单周期脉冲：摇杆向上拨一次（菜单上一项）
     output reg                     o_menu_down,     // 单周期脉冲：摇杆向下拨一次（菜单下一项）
 
-    output wire                    o_signal_valid,  // 1 = 全部通道都在刷新
+    output wire                    o_signal_valid,  // 1 = 参与判定的通道都在刷新
     output wire [NUM_CH*16-1:0]    o_chan_us,       // 各路脉宽（调试/显示）
     output wire [NUM_CH-1:0]       o_chan_timeout,
     output wire [NUM_CH-1:0]       o_chan_valid
@@ -125,8 +146,9 @@ module rc_input #(
     assign o_chan_us      = flat_us;
     assign o_chan_valid   = flat_vld;
     assign o_chan_timeout = flat_to;
-    // 全部通道都没超时才算"信号有效"
-    assign o_signal_valid = ~(|flat_to);
+    // 参与判定的通道都没超时才算"信号有效"（预留未接的通道不参与，见文件头【丢信号】）
+    wire [NUM_CH-1:0] sig_mask = SIG_VALID_MASK;      // integer → 向量（不能直接对参数位选）
+    assign o_signal_valid = ~(|(flat_to & sig_mask));
 
     // ------------------------------------------------------------------
     // 取某通道脉宽（参数索引，综合期常量）
@@ -134,7 +156,6 @@ module rc_input #(
     wire [15:0] us_steer    = flat_us[CH_STEER    * 16 +: 16];
     wire [15:0] us_throttle = flat_us[CH_THROTTLE * 16 +: 16];
     wire [15:0] us_confirm  = flat_us[CH_CONFIRM  * 16 +: 16];
-    wire [15:0] us_back     = flat_us[CH_BACK     * 16 +: 16];
     wire [15:0] us_mode     = flat_us[CH_MODE     * 16 +: 16];
     wire [15:0] us_select   = flat_us[CH_SELECT   * 16 +: 16];
 
@@ -179,7 +200,7 @@ module rc_input #(
     wire signed [11:0] throttle_now = THROTTLE_REVERSE ? (-throttle_raw) : throttle_raw;
 
     // ------------------------------------------------------------------
-    // 三档判定 + 按钮上升沿
+    // 开关位置判定（两档）+ 按钮上升沿
     // ------------------------------------------------------------------
     function [1:0] sw_pos;
         input [15:0] us;
@@ -195,7 +216,6 @@ module rc_input #(
     wire [1:0] pos_mode    = sw_pos(us_mode,    flat_vld[CH_MODE]    & ~flat_to[CH_MODE]);
     wire [1:0] pos_select  = sw_pos(us_select,  flat_vld[CH_SELECT]  & ~flat_to[CH_SELECT]);
     wire [1:0] pos_confirm = sw_pos(us_confirm, flat_vld[CH_CONFIRM] & ~flat_to[CH_CONFIRM]);
-    wire [1:0] pos_back    = sw_pos(us_back,    flat_vld[CH_BACK]    & ~flat_to[CH_BACK]);
 
     // 位置 2 的上升沿 = 一次"按下"
     function btn_edge;
@@ -206,7 +226,7 @@ module rc_input #(
         end
     endfunction
 
-    reg [1:0] prev_select, prev_confirm, prev_back;
+    reg [1:0] prev_select, prev_confirm;
 
     // 菜单拨动状态：0 = 已回中（可触发）/ 1 = 已向上拨出 / 2 = 已向下拨出
     reg [1:0] menu_state;
@@ -219,13 +239,11 @@ module rc_input #(
             o_mode        <= 2'd0;
             o_btn_select  <= 1'b0;
             o_btn_confirm <= 1'b0;
-            o_btn_back    <= 1'b0;
             o_menu_up     <= 1'b0;
             o_menu_down   <= 1'b0;
             menu_state    <= 2'd0;
             prev_select   <= 2'd1;
             prev_confirm  <= 2'd1;
-            prev_back     <= 2'd1;
         end else begin
             o_steer    <= steer_now;
             o_throttle <= throttle_now;
@@ -239,7 +257,6 @@ module rc_input #(
 
             o_btn_select  <= btn_edge(pos_select,  prev_select);
             o_btn_confirm <= btn_edge(pos_confirm, prev_confirm);
-            o_btn_back    <= btn_edge(pos_back,    prev_back);
 
             // ---- 菜单上下拨动：三态 + 边沿（必须回中后才能再次触发）----
             //   不在 idle 态时即使杆一直停在端点也只算"一次"，不会连翻。
@@ -264,7 +281,6 @@ module rc_input #(
 
             prev_select   <= pos_select;
             prev_confirm  <= pos_confirm;
-            prev_back     <= pos_back;
         end
     end
 

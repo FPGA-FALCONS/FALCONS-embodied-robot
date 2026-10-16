@@ -6,13 +6,18 @@
 //   10 万拍/毫秒级的仿真，太慢。把 CLK_HZ 设为 1 MHz（周期 1 µs）后逻辑完全等价，
 //   仿真时间缩短 50 倍 —— 这是本工程里"参数化时钟"带来的好处。
 //
-// 【覆盖】
+// 【覆盖】（2026-10-16 更新：模式两档、去掉"返回"通道、新增信号掩码有效性）
 //   1. 中位 1500 µs          → steer/throttle = 0
 //   2. 端点 2000 / 1000 µs   → +1000 / −1000（含归一化标度 2.125 的误差检查）
 //   3. 死区 1500±25 µs 内    → 0
-//   4. 模式通道三档          → o_mode = 0/1/2
-//   5. 按钮通道高位上升沿    → 单周期脉冲
-//   6. 停止刷新超过超时      → o_signal_valid 拉低
+//   4. 模式通道两档          → o_mode = 0（接管）/ 1（光标）
+//   5. 按钮通道高位上升沿    → 单周期脉冲（select 与 **confirm** 都测）
+//   6. 停止刷新超过超时      → o_signal_valid 拉低、o_mode 退回光标档
+//   7. 方向取反参数的对照实例（STEER_REVERSE / THROTTLE_REVERSE）
+//   8. 摇杆上下拨动 → 菜单脉冲（恰好一次 / 停住不连翻 / 回中后可再拨）
+//   9. ★ 信号有效性掩码 SIG_VALID_MASK：被掩码排除的通道即使一直无脉冲，
+//      也不能把 o_signal_valid 拖成 0 —— 对应"第 3 路预留未接"的现场情况
+//      （若不隔离，整车 run_en 会恒 0：车永远不动，且只报"无信号"，无法定位）
 //////////////////////////////////////////////////////////////////////////////////
 
 `timescale 1ns/1ps
@@ -32,7 +37,7 @@ module rc_input_tb;
 
     wire signed [11:0] steer, throttle;
     wire [1:0]         mode;
-    wire               btn_sel, btn_conf, btn_back;
+    wire               btn_sel, btn_conf;
     wire               menu_up, menu_down;          // 摇杆上下拨动 → 菜单切换脉冲
     wire               sig_ok;
     wire [6*16-1:0]    chan_us;
@@ -55,7 +60,6 @@ module rc_input_tb;
         .CH_STEER      (0),
         .CH_THROTTLE   (1),
         .CH_CONFIRM    (2),
-        .CH_BACK       (3),
         .CH_MODE       (4),
         .CH_SELECT     (5)
     ) dut (
@@ -67,7 +71,6 @@ module rc_input_tb;
         .o_mode         (mode),
         .o_btn_select   (btn_sel),
         .o_btn_confirm  (btn_conf),
-        .o_btn_back     (btn_back),
         .o_menu_up      (menu_up),
         .o_menu_down    (menu_down),
         .o_signal_valid (sig_ok),
@@ -84,7 +87,7 @@ module rc_input_tb;
     // ------------------------------------------------------------------
     wire signed [11:0] steer_rev, throttle_rev;
     wire [1:0]         mode_rev;
-    wire               sel_rev, conf_rev, back_rev, sig_rev;
+    wire               sel_rev, conf_rev, sig_rev;
 
     rc_input #(
         .CLK_FREQ_HZ   (CLK_HZ),
@@ -100,7 +103,6 @@ module rc_input_tb;
         .CH_STEER      (0),
         .CH_THROTTLE   (1),
         .CH_CONFIRM    (2),
-        .CH_BACK       (3),
         .CH_MODE       (4),
         .CH_SELECT     (5),
         .STEER_REVERSE    (1),          // ← 与主实例唯一的差别
@@ -114,10 +116,52 @@ module rc_input_tb;
         .o_mode         (mode_rev),
         .o_btn_select   (sel_rev),
         .o_btn_confirm  (conf_rev),
-        .o_btn_back     (back_rev),
         .o_menu_up      (),
         .o_menu_down    (),
         .o_signal_valid (sig_rev),
+        .o_chan_us      (),
+        .o_chan_timeout (),
+        .o_chan_valid   ()
+    );
+
+    // ------------------------------------------------------------------
+    // ★ 信号有效性掩码对照实例（2026-10-16 新增，验证 A-1 的修法）
+    //   与主实例唯一差别：SIG_VALID_MASK 排除 bit3（第 3 路 = 预留未接）。
+    //   用途：在"第 3 路一直无脉冲、其余 5 路正常"的场景下，本实例仍报"信号有效"，
+    //         而主实例（6 路全参与）报"无效" —— 两者对比即证明掩码生效。
+    //   背景：若不做这个隔离，现场少插一根线就会让 run_en 恒 0（车永远不动）。
+    // ------------------------------------------------------------------
+    wire sig_mask_ok;
+
+    rc_input #(
+        .CLK_FREQ_HZ    (CLK_HZ),
+        .NUM_CH         (6),
+        .CENTER_US      (1500),
+        .HALF_RANGE_US  (500),
+        .DEADZONE_US    (25),
+        .MIN_PULSE_US   (900),
+        .MAX_PULSE_US   (2100),
+        .TIMEOUT_US     (5000),
+        .SW_LO_US       (1300),
+        .SW_HI_US       (1700),
+        .CH_STEER       (0),
+        .CH_THROTTLE    (1),
+        .CH_CONFIRM     (2),
+        .CH_MODE        (4),
+        .CH_SELECT      (5),
+        .SIG_VALID_MASK (6'b110111)     // bit3 = 0：第 3 路不参与"信号有效"判定
+    ) dut_mask (
+        .clk            (clk),
+        .rst_n          (rst_n),
+        .rc_pwm         (rc_pwm),
+        .o_steer        (),
+        .o_throttle     (),
+        .o_mode         (),
+        .o_btn_select   (),
+        .o_btn_confirm  (),
+        .o_menu_up      (),
+        .o_menu_down    (),
+        .o_signal_valid (sig_mask_ok),
         .o_chan_us      (),
         .o_chan_timeout (),
         .o_chan_valid   ()
@@ -144,6 +188,25 @@ module rc_input_tb;
             // ★ 帧间隔必须留够：rc_pwm_capture 在下降沿后还要数拍才更新
             //   pulse_width_us / pulse_valid（只等 2 µs 会读到旧值 → 假 FAIL）
             #(10000);                   // 10 µs = 10 拍
+        end
+    endtask
+
+    // ------------------------------------------------------------------
+    // 只刷新 5 路（跳过第 3 路）—— 用于"预留通道未接"场景
+    //   p3 恒低：rc_pwm_capture 永远等不到上升沿 → TIMEOUT_US 后 timed_out = 1
+    // ------------------------------------------------------------------
+    task send_frame_skip3;
+        input integer w0, w1, w2, w4, w5;
+        begin
+            p0 = 1'b1; p1 = 1'b1; p2 = 1'b1; p3 = 1'b0; p4 = 1'b1; p5 = 1'b1;
+            fork
+                #(w0 * 1000) p0 = 1'b0;
+                #(w1 * 1000) p1 = 1'b0;
+                #(w2 * 1000) p2 = 1'b0;
+                #(w4 * 1000) p4 = 1'b0;
+                #(w5 * 1000) p5 = 1'b0;
+            join
+            #(10000);
         end
     endtask
 
@@ -235,10 +298,33 @@ module rc_input_tb;
             check_int("select_pulse_count", pulses, 1, 0);
         end
 
+        // ---------------- 5b. 确认键（第二个按钮）同样应产生单周期脉冲 ----------------
+        //   需求方明确"两个按钮（确认和 select）"，而"按确认才切页 / 确认路径点"
+        //   完全依赖它 —— 原测试台只测了 select，确认通道没有断言。
+        $display("-- 5b. confirm 通道拉到高位 → 应产生一次脉冲 --");
+        begin : btn2_wait
+            integer pulses;
+            integer k;
+            pulses = 0;
+            fork
+                send_frame(1500, 1500, 1800, 1500, 1500, 1500);   // confirm 拨到高位
+                begin
+                    for (k = 0; k < 6000; k = k + 1) begin
+                        @(posedge clk);
+                        if (btn_conf) pulses = pulses + 1;
+                    end
+                end
+            join
+            check_int("confirm_pulse_count", pulses, 1, 0);
+        end
+
         // ---------------- 6. 超时 → 信号无效 ----------------
         $display("-- 6. 停止刷新 > 5 ms → o_signal_valid 应拉低 --");
         #(6_000_000);                                       // 6 ms 不发脉冲（timescale 1ns → 必须写 6e6，不是 8000）
         check_int("signal_valid_0", sig_ok, 0, 0);
+        // ★ 超时/无效时"开关位置"按中位处理 → 也是屏幕光标档（不驱动底盘的安全默认）。
+        //   这条语义是安全链的一部分（接管档丢信号 → run_en 必须为 0），必须锁住。
+        check_int("mode_on_timeout_cursor", mode, 1, 0);
         send_frame(1500, 1500, 1500, 1500, 1500, 1500);
         send_frame(1500, 1500, 1500, 1500, 1500, 1500);
         check_int("signal_valid_1", sig_ok, 1, 0);
@@ -335,6 +421,22 @@ module rc_input_tb;
             check_int("menu_up_stays_2", up_cnt, 2, 0);
         end
 
+        // ---------------- 9. 信号有效性掩码（A-1 修正的验证）----------------
+        //   场景：第 3 路（预留未接）一直没有脉冲，其余 5 路正常刷新。
+        //   期望：dut（6 路全参与）sig_ok = 0 —— 旧行为；
+        //         dut_mask（排除 bit3）sig_mask_ok = 1 —— 整车仍能被使能。
+        //   这是"保留 6 路接口 + 只接 5 路"能够真正开动的前提。
+        $display("-- 9. 掩码：第 3 路无脉冲、其余 5 路正常 → 全参与=0，掩码=1 --");
+        begin : mask_test
+            integer k;
+            for (k = 0; k < 8; k = k + 1) begin
+                send_frame_skip3(1500, 1500, 1500, 1500, 1500);
+            end
+            #20000;
+            check_int("sig_all6_ok",      sig_ok,      0, 0);   // 6 路全参与 → 判为丢信号
+            check_int("sig_mask_ch3_off", sig_mask_ok, 1, 0);   // 排除第 3 路 → 仍有效
+        end
+
         // ---------------- 汇总 ----------------
         $display("======== 结果 ========");
         if (errors == 0) $display("PASS: rc_input 全部检查通过");
@@ -344,7 +446,7 @@ module rc_input_tb;
 
     // 超时保护
     initial begin
-        #120_000_000;                       // 120 ms 仿真时间上限（加了菜单拨动 4 段 × 5 ms）
+        #150_000_000;                       // 150 ms 仿真时间上限（菜单拨动 4 段 × 5 ms + 掩码段 8 帧 + 各按钮段）
         $display("FAIL: 仿真超时（120 ms）");
         $finish;
     end

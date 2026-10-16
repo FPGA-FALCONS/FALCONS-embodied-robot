@@ -48,8 +48,11 @@ module ui_render #(
 
     // ---- 界面状态（sys 域送来，已在顶层两级同步）----
     input  wire [1:0]  i_page,          // 0=摄像头 1=雷达 2=车身数据 3=路径点导航
-    input  wire [1:0]  i_ui_mode,       // 0=手动接管 1=屏幕光标 2=自动
+    input  wire [1:0]  i_ui_mode,       // 0=手动接管 1=屏幕光标（两档，"自动"档已删）
     input  wire        i_run,           // 1 = 底盘正在输出
+                                        //   ★ 当前【未参与渲染】：状态栏没有"运行中"这一档，
+                                        //     顶层仍在连它。保留端口是为将来加"运行中"指示，
+                                        //     若确认不需要可连同顶层与 tb 一起删（见待办台账）
     input  wire        i_estop,         // 1 = 急停
     input  wire        i_signal_ok,     // 1 = 遥控信号有效
     input  wire        i_arm_hint,      // 1 = 想启动但油门不在中位（提示"请回中位"）
@@ -101,8 +104,9 @@ module ui_render #(
         // A1：启动被门禁拒绝时给出明确原因，否则用户只会看到"按 S1 没反应"
         else if (i_arm_hint)        status_text = {UI_TXT_ST_ARM_DENY_ADDR,    UI_TXT_ST_ARM_DENY_LEN};
         else if (i_ui_mode == 2'd0) status_text = {UI_TXT_ST_MANUAL_ADDR,      UI_TXT_ST_MANUAL_LEN};
-        else if (i_ui_mode == 2'd2) status_text = {UI_TXT_ST_AUTO_ADDR,        UI_TXT_ST_AUTO_LEN};
-        else                        status_text = {UI_TXT_ST_SELECT_MODE_ADDR, UI_TXT_ST_SELECT_MODE_LEN};
+        // ★ 2026-10-16：模式只有两档。原先光标档落到 else 显示"请选择模式"（语义错，
+        //   用户已经在光标档了），且 `== 2'd2`（自动档）是永不成立的死分支 → 一并改掉。
+        else                        status_text = {UI_TXT_ST_CURSOR_ADDR,      UI_TXT_ST_CURSOR_LEN};
     end
 
     reg [17:0] placeholder_text;

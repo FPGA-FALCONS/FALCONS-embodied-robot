@@ -11,18 +11,18 @@
 
 # ---- 当前已接入（整车顶层 falcons_top 在用）----
 motor_tb6612     四路 TB6612 驱动 / 正交编码器解码 / 定窗口测速 / 堵转保护（motor_top 四路集成）
-uart             串口字节收发（调试命令接收；CSV 上报下一版接入）
+uart             串口字节收发（调试命令接收 + CSV 上报发送队列；两者都已接入）
 sync_fifo        单时钟同步 FIFO（uart_tx_queue / rx_queue 的公共依赖）
 hdmi_1024x600    1024x600 HDMI/DVI 输出（中文界面的显示通路）
 imu660ra         ★ IMU660RA（BMI270）六轴 SPI 驱动：初始化 + 1 kHz 读取 + 开机零偏标定
 gyro_tilt_comp   陀螺 Z 轴固定安装倾斜补偿（k = |a|/a_z，自动带符号）
 yaw_integrate    偏航角积分（1024 Hz 定点，±180° 回绕，零乘法器）
-rc_pwm_receiver  ★ 只实例化包内的 rc_pwm_capture（单路捕获）×6 → 6 通道，见 rtl/rc/rc_input.v；
-#                 不使用包内的 rc_receiver（它把两路固定包成 steering/throttle，不够 6 路用）
+rc_pwm_receiver  ★ 只实例化包内的 rc_pwm_capture（单路捕获）×6 → 6 路接口，见 rtl/rc/rc_input.v；
+#                 ★ 遥控器实际只用 5 路（2 摇杆+确认+select+模式拨杆），第 3 路预留未接；
+#                   不使用包内的 rc_receiver（它把两路固定包成 steering/throttle，不够用）
 
 # ---- 已就位、按阶段接入（把包名移出注释即进入编译）----
-# imu660ra         逐飞 IMU660RA（BMI270）六轴 SPI 驱动（下一阶段：偏航角链路）
-# gyro_tilt_comp   陀螺 Z 轴固定安装倾斜补偿（下一阶段）
-# yaw_integrate    偏航角积分（下一阶段）
+# 注：imu660ra / gyro_tilt_comp / yaw_integrate 已在上面"当前已接入"段生效，
+#     这里的重复条目已删除（2026-10-16 文档复查）
 # m10_radar        M10 雷达包解析 + 点云显示（雷达页，待接入；RX 接 C14）
 # ov5640_capture   并行 DVP OV5640 初始化与采集（摄像头页，待接入，依赖 DDR3 帧缓存）

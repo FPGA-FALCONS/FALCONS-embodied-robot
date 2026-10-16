@@ -4,7 +4,7 @@
 // 【它做什么】只做例化与连线（依据功能设计文档 §4.1：「car_top.v —— 只做例化与连线」）
 //
 //   系统时钟/复位    50 MHz 板载时钟（Y18）+ 复位同步
-//   输入            4 个板载按键、6 路遥控 PWM、4 路编码器、串口 RX、雷达 RX(C14)
+//   输入            4 个板载按键、6 路遥控 PWM 接口（实际用 5 路）、4 路编码器、串口 RX、雷达 RX(C14)
 //   输出            4 路电机（IN1/IN2/PWM）+ STBY、串口 TX、HDMI TMDS、8 个 LED
 //   显示            1024x600 HDMI，中文四页界面（ui_render）
 //   预留            ToF（J7 的 I2C 四线，模块未做出）、雷达（C14）；RK3588 通路待选型（J1 GPIO 已用尽）
@@ -30,16 +30,21 @@ module falcons_top (
     input  wire        i_key_reset_n,      // F15（S0），低有效复位
 
     // ---- 板载按键（S1~S4，低有效）----
-    input  wire        i_key1_n,           // A20：启动 / 停止（切换）
-    input  wire        i_key2_n,           // B20：编码器计数清零 + 堵转清除
-    input  wire        i_key3_n,           // A21：切换界面页面
-    input  wire        i_key4_n,           // B21：急停（锁存切换）
+    input  wire        i_key1_n,           // A20：接管档内的"停机锁存"（按一次停、再按解除）
+    input  wire        i_key2_n,           // B20：编码器计数清零 + 堵转清除 + 航向角清零
+    input  wire        i_key3_n,           // A21：备用翻页（无遥控时用；同时移高亮与页面）
+    input  wire        i_key4_n,           // B21：急停（锁存切换）★ 实物是否为板上复位键待核
 
     // ---- 串口（板载 USB 转串口）----
     output wire        o_uart_tx,          // M15
     input  wire        i_uart_rx,          // J21
 
-    // ---- 遥控接收机（6 路 PWM，通道映射见 rc_input 参数）----
+    // ---- 遥控接收机（6 路 PWM 接口，实际用 5 路；通道映射见 rc_input 参数）----
+    //   实际控件（需求方 2026-10-16 明确，全部是 PWM 通道）：
+    //     2 摇杆（前后 / 左右） + 2 按钮（确认 / select） + 1 拨杆开关（模式）
+    //   ★ 没有独立"返回"按钮（§33 的"返回"是导航页辅助菜单项）
+    //   ★ 保留 6 路接口，第 3 路（原"返回"）预留未接 —— 因此 `SIG_VALID_MASK` 要把
+    //     它排除在"信号有效"判定之外，否则未接通道的 timed_out 恒 1 → 整车永不能动
     input  wire [5:0]  i_rc_pwm,
 
     // ---- 电机驱动（WHEELTEC D24A，J4/J5 排线直连）----
@@ -144,7 +149,7 @@ module falcons_top (
     // ==================================================================
     wire signed [11:0] rc_steer, rc_throttle;
     wire [1:0]         rc_mode;
-    wire               rc_select, rc_confirm, rc_back;
+    wire               rc_select, rc_confirm;
     wire               rc_menu_up, rc_menu_down;      // 摇杆上下拨动（需求原文 §17）
     wire               rc_signal_ok;
     wire [6*16-1:0]    rc_chan_us;
@@ -156,9 +161,11 @@ module falcons_top (
         .CH_STEER    (0),
         .CH_THROTTLE (1),
         .CH_CONFIRM  (2),
-        .CH_BACK     (3),
         .CH_MODE     (4),
-        .CH_SELECT   (5)
+        .CH_SELECT   (5),
+        // ★ 6'b110111 = 55：排除 bit3（第 3 路，预留未接）。
+        //   若上板把 6 路都插满（空闲通道接收机也会输出中位脉冲），改成 63 亦可。
+        .SIG_VALID_MASK (55)
     ) u_rc (
         .clk            (i_clk_50m),
         .rst_n          (sys_rst_n),
@@ -168,7 +175,6 @@ module falcons_top (
         .o_mode         (rc_mode),
         .o_btn_select   (rc_select),
         .o_btn_confirm  (rc_confirm),
-        .o_btn_back     (rc_back),
         .o_menu_up      (rc_menu_up),
         .o_menu_down    (rc_menu_down),
         .o_signal_valid (rc_signal_ok),
@@ -197,8 +203,11 @@ module falcons_top (
     assign o_tof_shut = 1'b1;
     assign io_tof_sda = 1'bz;
 
-    // 遥控模式：0=手动接管 1=屏幕光标 2=自动
-    //   光标模式下摇杆用于操作界面，不能开车 → 把油门/转向强制为 0
+    // 遥控模式：**两档**（"自动"档 2026-10-16 已按需求方要求删除）
+    //   §13 只描述两档：接管车辆控制 / 控制屏幕光标。
+    //   ★ 需求方 2026-10-16 明确的模式语义（本文件的全部交互门控都以此为准）：
+    //      · 接管档：手柄**只**遥控车辆，不做任何屏幕交互（不切页、不切菜单）
+    //      · 光标档：手柄**不**控制车辆，只操控屏幕的选项/设置/选择/开始任务
     //   ★ 本组 wire 必须在下面的 always 之前声明：always 里按 B2 要用 cursor_mode
     wire        manual_drive = (rc_mode == 2'd0);
     wire        cursor_mode  = (rc_mode == 2'd1);
@@ -217,9 +226,8 @@ module falcons_top (
     localparam integer ARM_THROTTLE_DEADZONE = 100;
     wire        throttle_centered = (rc_throttle <= ARM_THROTTLE_DEADZONE) &&
                                     (rc_throttle >= -ARM_THROTTLE_DEADZONE);
-    // 允许启动：油门在中位死区内 且 遥控信号有效（急停由下面的强制停机兜住）
-    wire        arm_ready = throttle_centered & rc_signal_ok;
     // 提示"请回中位"：没在运行、信号正常、油门却没回中位、也没急停
+    //   （这里不再单独声明 arm_ready —— 原先它是死信号，判定直接写在 run_en 里）
     wire        arm_hint  = ~run_en & rc_signal_ok & ~throttle_centered & ~estop_latch;
 
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
@@ -247,8 +255,11 @@ module falcons_top (
             else if (key4_press)  estop_latch <= ~estop_latch;
             // ---- 菜单：摇杆只移动【高亮】，按确认才切页（需求方 2026-10-16 明确）----
             //   §17"使用摇杆上下拨动来切换选项" + §21"选中该项**并确认时**…显示"
-            //   → 两段式：menu_sel 由摇杆改；rc_confirm 把 menu_sel 赋给 page。
-            //   select / back 两个按钮属于路径点导航页的逻辑（§33），本层不接。
+            //   两段式：menu_sel 由摇杆改；rc_confirm 把 menu_sel 赋给 page。
+            //   ★ 需求方 2026-10-16 明确："模式为接管时，手柄不做遥控车辆之外的任何交互"
+            //     → 摇杆拨动与**确认键**都必须限定在光标档；否则开车时会误按确认键切页。
+            //   select 按钮属于路径点导航页的逻辑（§33 辅助菜单换项），本层不接
+            //   （顶层把 rc_select 显式接进 unused 汇总，等导航页实现后启用）。
             //   板载 S3 保留为"无遥控时的备用翻页"（同时移动高亮与页面，避免两者不一致）。
             if (key3_press) begin
                 menu_sel <= (menu_sel == 2'd3) ? 2'd0 : (menu_sel + 2'd1);
@@ -257,8 +268,8 @@ module falcons_top (
                 menu_sel <= (menu_sel == 2'd0) ? 2'd3 : (menu_sel - 2'd1);
             end else if (cursor_mode && rc_menu_down) begin
                 menu_sel <= (menu_sel == 2'd3) ? 2'd0 : (menu_sel + 2'd1);
-            end else if (rc_confirm) begin
-                page <= menu_sel;                      // ★ 确认才进入该项页面
+            end else if (cursor_mode && rc_confirm) begin
+                page <= menu_sel;                      // ★ 光标档下按确认才进入该项页面
             end
         end
     end
@@ -602,9 +613,42 @@ module falcons_top (
     wire [11:0] pixel_x, pixel_y;
     wire [23:0] ui_rgb;
 
+    // ---- 像素域复位：等 PLL 锁定后在**像素域内**同步释放 ----
+    //   ★ 必须声明在 u_hdmi 例化【之前】：u_hdmi 的 `reset_n` 就用它。
+    //
+    //   【为什么 u_hdmi 的 reset_n 必须接这个、不能接 sys_rst_n】(2026-10-16 修正)
+    //     vendor 模块内部把 reset_n 同时送给两个**像素/串行域**的模块：
+    //         disp_driver.Rst_n  = reset_n & pll_lock   （clk_pixel 域）
+    //         DVI_TX_Top.I_rst_n = reset_n & pll_lock   （clk_serial_5x 域）
+    //     把 sys 域的 sys_rst_n 直接接过去，等于让一个**异步释放**的复位去驱动
+    //     pixel 域的触发器复位端 → 复位释放相对像素时钟沿的位置不确定，
+    //     实测就是那 25 条 RECOVERY 违规（最差 −4.282 ns：
+    //     u_reset_sync/key_stable → u_hdmi/…/u_OSER10_*/RESET）。
+    //     这是**真实违规**（不是 CDC 伪违规）：复位释放不确定可能表现为
+    //     **上电后 HDMI 偶发不点亮 / 花屏**。
+    //     vendor 文档 §3.1-2 也明确要求"由使用方在顶层自建像素域同步链"。
+    //
+    //   【像素域复位为什么能完全在域内自产】
+    //     PLL 的 lock 只取决于参考时钟与配置 —— `display_pll` 例化里**没有 reset 端口**
+    //     （只有 .lock/.clkout0/.clkout1/.clkin），所以"复位依赖 pll_lock、
+    //     pll_lock 又不依赖复位"不构成环路，不会死锁。
+    //     做法：只要 PLL 锁定就计数，数到 bit3 置位时释放复位 ——
+    //     释放沿由 pixel_clk 域 DFF 输出决定，对像素域而言是**同步释放**，
+    //     recovery/removal 检查自然满足。
+    //   ★ 原来只把它给了 ui_render 与跨域同步器，漏掉了 u_hdmi —— 本次补上。
+    //     另：不能靠 SDC 写 `set_false_path -to [get_clocks {pixel_clk}]` 绕过：
+    //     pixel_clk 是内部 PLL 的派生时钟，约束解析阶段还不是时钟对象，
+    //     写了会报 ERROR (TA2004) 让综合直接失败。
+    reg [3:0] pixel_pwr_cnt;
+    always @(posedge pixel_clk) begin
+        if (!pll_lock)                  pixel_pwr_cnt <= 4'd0;
+        else if (pixel_pwr_cnt != 4'hF) pixel_pwr_cnt <= pixel_pwr_cnt + 4'd1;
+    end
+    wire pixel_rst_n = pixel_pwr_cnt[3];
+
     hdmi_1024x600 u_hdmi (
         .clk_50m       (i_clk_50m),
-        .reset_n       (sys_rst_n),
+        .reset_n       (pixel_rst_n),     // ★ 像素域同步释放（原为 sys_rst_n，见上方说明）
         .pixel_rgb888  (ui_rgb),
         .pixel_clk     (pixel_clk),
         .pixel_req     (pixel_req),
@@ -620,22 +664,6 @@ module falcons_top (
         .tmds_data_n   (o_tmds_data_n)
     );
 
-    // 像素域复位：等 PLL 锁定后在像素域同步释放
-    //   （hdmi_1024x600 顶层内部直接用 reset_n & pll_lock，按文档 §3.1-2
-    //     要求由使用方在顶层自建像素域同步链）
-    // ★ 像素域复位【完全在域内自产】：只要 PLL 锁定就计数，数满后释放复位。
-    //   不把 sys_rst_n 引到 pixel 域的复位端 —— 那会形成一条跨时钟域路径
-    //   （实测 SETUP slack = −0.616 ns：u_reset_sync/key_stable_s0 → pixel_rst_sync_0_s0），
-    //   而 SDC 里又无法用 get_clocks 引用 PLL 派生时钟名（约束解析阶段它还不存在，
-    //   会报 TA2004 "Cannot get clock with name 'pixel_clk'"）。
-    //   域内自产后该路径不复存在，时序自然满足。
-    reg [3:0] pixel_pwr_cnt;
-    always @(posedge pixel_clk) begin
-        if (!pll_lock)                  pixel_pwr_cnt <= 4'd0;
-        else if (pixel_pwr_cnt != 4'hF) pixel_pwr_cnt <= pixel_pwr_cnt + 4'd1;
-    end
-    wire pixel_rst_n = pixel_pwr_cnt[3];
-
     // ---- sys 域先打一拍，再跨到 pixel 域（2026-10-15 加，为消掉 CDC 的深组合路径）----
     //   为什么要多这一级：
     //     STA 会把 sys→pixel 当成同步关系分析（PLL 派生时钟名无法用 get_clocks 引用，
@@ -643,7 +671,7 @@ module falcons_top (
     //     组合深度会直接算进 slack：
     //       * arm_hint  = ~run_en & rc_signal_ok & ~throttle_centered & ~estop_latch
     //                     （含一个 12 位比较器）→ 实测 slack = −2.473 ns
-    //       * rc_signal_ok = 6 路 timed_out 相或（在 rc_input 内部）→ −2.199 ns
+    //       * rc_signal_ok = 参与判定通道的 timed_out 相或（在 rc_input 内部）→ −2.199 ns
     //     这里先在 sys 域寄存一拍，源就变成 DFF 输出、组合深度归零，
     //     同步器第一级的 slack 回落到与纯 DFF→DFF（estop_latch，−0.404 ns）同一量级。
     //   代价：延迟 1 个 50 MHz 周期（20 ns）。这些都是"人操作级别"的慢变量，无影响。
@@ -789,6 +817,7 @@ module falcons_top (
                      (|imu_gyro_x) | (|imu_gyro_y) | (|imu_acc_x) | (|imu_acc_y) | (|imu_acc_z) |
                      (|tilt_gain) | tilt_fail | yaw_valid |
                      frame_start | frame_sync | key1_hold | key2_hold |
-                     key3_hold | key4_hold | rc_back;
+                     key3_hold | key4_hold | rc_select;
+    // rc_select：预留给路径点导航页的辅助菜单换项（§33），当前无功能，显式接住避免悬空告警
 
 endmodule

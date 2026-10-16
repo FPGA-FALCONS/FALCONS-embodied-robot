@@ -17,15 +17,15 @@ FPGA 四驱差速小车（具身机器人）的**主工程**。板卡：高云 *
 
 ---
 
-## 〇、当前状态一览（2026-10-15）
+## 〇、当前状态一览（2026-10-16）
 
 | 项 | 状态 |
 | --- | --- |
-| 进度 | 骨架 + 中文四页界面（含实时数值）+ 遥控 6 路 + 四路速度闭环 + IMU 偏航角链路 + 串口 CSV 上报（12 列）；**上板前补全 A/B 六项已完成**（启动门禁+油门中位死区、堵转启动宽限、方向取反、切页门禁、烧录脚本）；ToF/雷达/导航为预留 |
-| 仿真 | **5 个自检 tb / 93 项检查全 PASS**（rc_input 26 / chassis_ctrl 23 / num_text 28 / ui_render 12 / speed_report 4；`sim\run_sim.ps1` 一条命令） |
-| 综合 | **ERROR 0**；比特流 `impl\pnr\falcons.fs`（**34.2 MB**，未入库） |
-| 资源 | Logic **9136**/138240（7%）、Register 4243（4%）、BSRAM 9/340（3%）、DSP 39/298（13%） |
-| 时序 | **SETUP 0 条 / REMOVAL 0 条**（同域最差 **+0.569 ns**，全部满足）+ HOLD 13 条（最差 −1.019 ns）+ RECOVERY 25 条（最差 −4.282 ns），**负 slack 全部在跨时钟域与上电复位路径上**（口径说明见 `doc\工作记录.md` §15.10） |
+| 进度 | 骨架 + 中文四页界面（含实时数值）+ 遥控输入（**5 个控件 / 6 路接口**）+ 四路速度闭环 + IMU 偏航角链路 + 串口 CSV 上报（12 列）；**上板前补全 A/B 六项已完成**；**2026-10-16 按需求原文与需求方裁定整改**（删自动档、模式驱动使能、两段式切页、数据页 9 字段、确认键加光标档门控、**信号有效性掩码**、字表 `ST_CURSOR`）；ToF/雷达/**导航页**为预留 |
+| 仿真 | **5 个自检 tb / 114 项检查全 PASS**（rc_input 30 / chassis_ctrl 23 / num_text 36 / ui_render 21 / speed_report 4；`sim\run_sim.ps1` 一条命令）；★ **顶层集成测试仍缺**（`falcons_top` 不在仿真源列表里） |
+| 综合 | **ERROR 0**；比特流 `impl\pnr\falcons.fs`（**34.2 MB**、**2026-10-16 18:36:19**，未入库） |
+| 资源 | Logic **8705**/138240（7%）、Register 4113（3%）、BSRAM 9/340（3%）、DSP 39/298（14%） |
+| 时序 | **SETUP 0 条（最差 +0.092 ns）/ REMOVAL 0 条（+0.267 ns）**；HOLD **13** 条（最差 −1.026 ns，sys→pixel 同步器第一级）；RECOVERY **8** 条（最差 −5.869 ns，复位释放 → HDMI 245 MHz 串行域）。**性质与口径见 `doc\工作记录.md` §20.7** |
 | 模块库 | `vendor\` 里 10 个包 / 144 文件；来源 commit `c9b8025`（**2026-10-15 起本项目直接维护**，见 `vendor\ORIGIN.md`） |
 | Git | 首次提交 `bb9ea07`（199 文件 / 72107 行），当前 `main` 已推送到远程并建立跟踪 |
 | 上板 | **尚未做过**（本轮所有结论来自编译、仿真、综合与时序报告） |
@@ -58,19 +58,19 @@ FALCONS-embodied-robot\
 │    ├─ build.ps1                     一键构建（调 gw_sh）
 │    ├─ run_all_modules.ps1           跑 vendor 里各模块自带的测试（改了模块后回归用）
 │    ├─ gen_font_rom.py               中文字库生成器（字表 → 点阵 ROM，数据内嵌）
-│    ├─ font_chars.txt                UI 文案字表（74 条）
+│    ├─ font_chars.txt                UI 文案字表（76 条）
 │    ├─ program_flash.ps1             位流下载/固化（封装 programmer_cli）
 │    └─ check_pin_constraints.py      ★ 引脚约束逐针复验（对手册 PDF 原文比对）
 ├─ scripts\vendor_sources.tcl         Tcl 侧源文件清单（从 modules.list 派生）
 ├─ rtl\
 │    ├─ top\falcons_top.v             整车顶层（例化为主；★ 目前还含启动门禁、切页、跨域同步、
 │    │                                 数值换算 —— 与功能设计文档"顶层只连线"的要求不符，待整改）
-│    ├─ rc\rc_input.v                 遥控 6 路输入 + 模式仲裁
+│    ├─ rc\rc_input.v                 遥控输入：5 个控件（6 路接口，第 3 路预留未接）+ 归一化/两档模式/按钮/信号掩码
 │    ├─ motor\chassis_ctrl.v          差速分解 + 4×增量式 PID；speed_pid.v（搬自 car_fpga）
 │    ├─ ui\ui_render.v                中文界面渲染；num_text.v 数值格式化；dyn_text_ram.v 跨域字符缓冲
 │    ├─ debug\uart_cmd_rx.v           串口命令解析（搬自 car_fpga）；speed_report.v（待接线）
 │    └─ common\                       按键去抖、复位同步、字库与字符串 ROM
-├─ constr\falcons.cst / .sdc          板级与电气约束（成对给出；44 个 IO_LOC）
+├─ constr\falcons.cst / .sdc          板级与电气约束（成对给出；60 个 IO_LOC）
 ├─ sim\                               5 个自检测试台 + run_sim.ps1 批量入口
 ├─ doc\                               文档目录（索引与优先级见 doc\README.md）
 │    ├─ 使用FPGA实现的差速小车功能设计.md          ★★★ 需求原文（宏观设计与功能行为的最高依据）
@@ -109,8 +109,10 @@ powershell -ExecutionPolicy Bypass -File tools\program_flash.ps1 -Action Sram   
 powershell -ExecutionPolicy Bypass -File tools\program_flash.ps1 -Action Program   # 验证无误再固化
 ```
 
-✅ **最近一次构建**（含上板前补全 A/B 六项）：**ERROR 0**、比特流 `impl\pnr\falcons.fs`（**34.2 MB**）、
-Logic 7% / BSRAM 9 块 / DSP 39；仿真 **5 个 tb / 93 项全 PASS**。
+✅ **最近一次完整构建**（**2026-10-16 18:36**，含本轮全部整改）：**ERROR 0**、比特流 `impl\pnr\falcons.fs`（**34.2 MB**）、
+Logic 8705（7%）/ BSRAM 9 块 / DSP 39；仿真 **5 个 tb / 114 项全 PASS**。
+该位流**晚于最后一次 RTL 改动** ✓ 可以直接烧；改动前的旧位流另存为
+`impl\pnr\falcons_before_cdcfix_20261016_0221.fs` 备查。
 上板步骤、按键/LED/遥控映射、**启动门禁行为**、IMU 现象判据、已知限制见 **`doc\上板指南_v1.md`**。
 
 ---
@@ -168,9 +170,9 @@ Logic 7% / BSRAM 9 块 / DSP 39；仿真 **5 个 tb / 93 项全 PASS**。
 | ModelSim | `D:\Apps\modeltech64_10.6d\win64`（`vlib` / `vlog` / `vsim`） |
 | 源库（已归档，不参与构建） | `D:\Programs\FPGA Projects\verilog-reusable-modules` —— 只读存档，本工程只读 `vendor\` |
 | 串口 | 板载 USB 转串口：TX=**M15**，RX=**J21**，115200 8N1 |
-| 板载按键 | S0=**F15**（复位）、S1=**A20**（启动/停止）、S2=**B20**（计数+航向角清零）、S3=**A21**（切页）、S4=**B21**（急停锁存） |
+| 板载按键 | S0=**F15**（复位）、S1=**A20**（接管档内停机锁存）、S2=**B20**（计数+堵转+航向角清零）、S3=**A21**（备用翻页）、S4=**B21**（急停锁存；★ 实物是否为板上复位键待核，见 `doc\上板指南_v1.md`） |
 | IMU 接线 | **J2** 排针：SCL→**A14**、SDA→**A13**、SA0/SDO→**A16**、CS→**A15** |
-| 遥控 | **J6** 整排：**D19 E19 E18 F18 F20 F19**（6 路单路捕获实例化） |
+| 遥控 | **J6**：**D19 E19 E18 F18 F20 F19**（**6 路接口，实际用 5 路**：2 摇杆 + 确认 + select + 模式拨杆；**第 3 路 / F18 预留未接**，已排除在"信号有效"判定外） |
 | 雷达 | RX = **C14**（J3.3）—— ★ **绝不能接 A15**，那是 J2.6 IMU CS 且与 J1 同网络 |
 | 电机驱动 | WHEELTEC **D24A**（2×TB6612FNG），经主板 **J4/J5** 排线直连 |
 | 电机 | MG513P30_12V ×4（减速比 30；堵转 3.2 A；空载 366 rpm） |
@@ -196,9 +198,9 @@ Logic 7% / BSRAM 9 块 / DSP 39；仿真 **5 个 tb / 93 项全 PASS**。
 | --- | --- | --- |
 | **L0 底盘闭环** | 4×`speed_pid` + `motor_tb6612` 整定；目标 300 rpm 稳态误差 ≤5%，堵转与急停有效 | **代码已就位**（`chassis_ctrl` + `rtl\motor\speed_pid.v`），仿真通过；**待上板整定** |
 | L1 估计层 | `odom` + 编码器互补 + 侧滑标定；静止 60 s 漂移 <1°、直行 5 m 横向偏差 <10 cm | 未开始；几何参数已到位（轮距/轮径/减速比/线数） |
-| L2 显示与交互 | `hdmi_1024x600` + UI；四页可切换、无撕裂、数据与串口一致 | **基本完成**：中文四页 + 状态栏 + 数据页实时数值（航向角/目标轮速/四路实际轮速）；页 0/1/3 为占位 |
+| L2 显示与交互 | `hdmi_1024x600` + UI；四页可切换、无撕裂、数据与串口一致 | **基本完成**：中文四页 + 状态栏 + 数据页 5 行实时数值（航向角 / 车轮转速 ×4 / 角速度 / 中心速度 / 航位）；页 0/1/3 为占位；**导航页（§33）整体未实现** |
 | L3 感知 | ToF 急停 + 雷达建图；30 cm 内 100 ms 刹停、雷达图 ≥10 Hz | 雷达模块已内嵌、**未接入**（RX=C14）；ToF 模块库里没有，需新建；急停通路已在顶层预留 |
-| L4 遥控接管 | `rc_input`（遥控输入 + 模式判定，无独立 rc_rx）；接管/让出无扰切换、丢信号 100 ms 内停车 | **已实现**：6 路 `rc_pwm_capture` 实例化 + 两档模式 + 丢信号保护（`rc_input`） |
+| L4 遥控接管 | `rc_input`（遥控输入 + 模式判定，无独立 rc_rx）；接管/让出无扰切换、丢信号 100 ms 内停车 | **已实现**：6 路 `rc_pwm_capture` 实例化（实际用 5 路）+ 两档模式 + 丢信号保护 + **信号有效性掩码**（预留通道不拖死整车使能）（`rc_input`） |
 | L5 导航 | 路径点跟踪 + 局部绕障；3~5 个点误差 <30 cm | 未开始；底盘侧接口已预留（`i_auto_valid/center/diff`） |
 | L6 预留 | RK3588 通路（USB2.0 / 以太网） | **引脚未分配**：J1 的 11 个 GPIO 已被遥控(6)+ToF(4)+雷达(1)占满 → 需走 USB2.0/以太网（待 Q9 选型） |
 
@@ -239,24 +241,32 @@ Logic 7% / BSRAM 9 块 / DSP 39；仿真 **5 个 tb / 93 项全 PASS**。
 - **工程骨架**：`vendor\` 模块库（10 包 / 144 文件）+ `deps\modules.list` + 工具脚本 + Tcl 侧源文件派生
   （原先的同步机制 —— `VENDOR.lock` / `vendor_manifest.sha256` / `sync_vendor.ps1` / `check_vendor.ps1` /
   `模块库升级流程.md` —— 已于 **2026-10-15 删除**，改为 vendor 直接维护，见第四节）
-- **应用层 RTL**：`falcons_top`（顶层）、`chassis_ctrl`（差速分解 + 4×增量式 PID）、`rc_input`（6 路遥控）、
+- **应用层 RTL**：`falcons_top`（顶层）、`chassis_ctrl`（差速分解 + 4×增量式 PID）、`rc_input`（遥控输入）、
   `app_key`（按键去抖）、`ui_render` + `num_text` + `dyn_text_ram`（中文界面与实时数值）；
   从 `car_fpga` 搬入 `speed_pid` / `reset_sync` / `uart_cmd_rx` / `speed_report`
-- **遥控控制**（`rtl\rc\rc_input.v`）：库内**单路** `rc_pwm_capture` 实例化 **×6**；转向/油门归一化到 ±1000
-  （中位 1500 µs、死区 ±25 µs）；**方向取反参数** `STEER_REVERSE` / `THROTTLE_REVERSE`（换接收机/接线不动线）；
-  模式开关**两档**（手动接管 / 屏幕光标）；3 个按钮（select/确认/返回）
-  上升沿脉冲；丢信号 **100 ms** 检测 → 摇杆归零 + 状态栏提示；**模式两档**（接管 / 屏幕光标）+ 摇杆拨动切菜单（两段式：确认才切页）。**已验证**：仿真 **26 项** PASS、综合通过。
-  **未验证**：通道角色映射是按设计文档语义**假设**的（待实测核对）；光标模式的界面交互未做（依赖 L5 导航页）
-- **启动门禁 + 油门中位死区**（2026-10-15 上板前补全，★ 用户点名）：`ARM_THROTTLE_DEADZONE = 100`，
-  按 S1 启动需"油门在中位死区内 + 遥控信号有效"，**停止不受限制**；状态栏提示 `请回中位`
+- **遥控控制**（`rtl\rc\rc_input.v`）：库内**单路** `rc_pwm_capture` 实例化 **×6**（**实际用 5 路**，第 3 路预留未接）；
+  转向/油门归一化到 ±1000（中位 1500 µs、死区 ±25 µs）；**方向取反参数** `STEER_REVERSE` / `THROTTLE_REVERSE`；
+  模式拨杆**两档**（手动接管 / 屏幕光标）；**2 个按钮**（确认 / select）边沿脉冲；
+  丢信号 **100 ms** 检测 → `run_en` 归零 + 状态栏提示；摇杆拨动切菜单 + **确认才切页**（两段式，且**仅光标档**）；
+  ★ **`SIG_VALID_MASK`**（2026-10-16 新增）：信号有效性只由"参与判定的通道"决定 ——
+  否则第 3 路预留未接时 `timed_out` 恒 1 会把整车使能拖死（车永远不动，且只报"无信号"）。
+  **已验证**：仿真 **30 项** PASS、综合通过。**未验证**：通道角色映射是按设计文档语义**假设**的（待实测核对）；
+  **导航页（准心/辅助菜单）未实现**
+- **启动门禁 + 油门中位死区**（2026-10-15 加、2026-10-16 改为模式驱动）：`ARM_THROTTLE_DEADZONE = 100`，
+  **切到"手动接管"档**时需"油门在中位死区内 + 遥控信号有效"底盘才使能（不再需要先按 S1）；
+  **S1 变为"停机锁存"**；状态栏提示 `请回中位`
 - **IMU 链路**：`imu660ra` → `gyro_tilt_comp` → `yaw_integrate` → 数据页航向角（三个包已进 `modules.list`）
-- **中文点阵字库**：**223 字 / 74 条文案**，由 `tools\gen_font_rom.py` 生成并**内嵌**（不用 `$readmemh`）。
-  本轮加 `ST_ARM_DENY:请回中位` 时**字库字符数没变** —— "请/回/中/位"四个字在该字库里都已存在
-  （分别来自"请选择模式""返回""标定中""航位"），所以 `font_rom.v` 内容不变，只有 `ui_text_rom.v` 与 `ui_text_index.vh` 变化（git 可证）
-- **板级约束**：`constr\falcons.cst`（44 个 `IO_LOC`，逐针抄手册；雷达 RX=C14）+ `falcons.sdc`
-- **仿真**：5 个自检测试台 / **93 项检查全 PASS**（`rc_input` 26 / `chassis_ctrl` 23 / `num_text` 28 / `ui_render` 12 / `speed_report` 4）
+- **中文点阵字库**：**227 字 / 76 条文案**，由 `tools\gen_font_rom.py` 生成并**内嵌**（不用 `$readmemh`）。
+  2026-10-16 新增 `ST_CURSOR:光标档`、把 `HINT_MOVE_MAP:摇杆移图` 改名为 `HINT_MOVE_CURSOR:摇杆移准心`
+  （旧名与"地图不动、准心动"的新需求**语义相反**）→ 新增字形"光/档/准"，字符数 224 → 227
+- **板级约束**：`constr\falcons.cst`（**60 个 `IO_LOC`**，逐针抄手册；雷达 RX=C14）+ `falcons.sdc`
+- **仿真**：5 个自检测试台 / **114 项检查全 PASS**（`rc_input` 30 / `chassis_ctrl` 23 / `num_text` 36 / `ui_render` 21 / `speed_report` 4）
 - **综合与布局布线**：ERROR 0、比特流 **34.2 MB**（**2026-10-16 02:21:19**，含 PID 初值 0/64/0、两档模式、两段式切页、数据页 9 字段）；**SETUP 同域 0 违规**（最差 **+0.569 ns**），
   负 slack 全在跨时钟域同步器与上电复位路径上（HOLD 13 / RECOVERY 25，详见 `doc\工作记录.md` §15.10）
+- ⚠ **位流与 RTL 的时间关系（上板前必看）**：现有位流 `impl\pnr\falcons.fs` 综合于 **2026-10-16 02:21:19**，
+  **早于本轮下午的 RTL 修改**（`rc_input` / `falcons_top` / `ui_render` / `num_text` / `uart_cmd_rx` 均有改动，
+  字库也已重新生成）→ **直接烧现在这个位流不含本轮整改**（无 `SIG_VALID_MASK`、无确认键光标档门控、
+  无"光标档"状态栏文案），上板前必须重新综合出新的 `.fs`
 - **上板前补全 A/B 六项**（2026-10-15）：启动门禁+油门死区、CSV 12 列、堵转启动宽限 50、`program_flash.ps1` 迁入、
   遥控方向取反、切页限定光标档；并**消除了一条本轮引入的 CDC 深组合路径**（−2.473 → −0.998 ns）
 - **文档**：功能设计（权威）、工作记录、上板指南、参数总表与待定清单、模块库接口速查、设计落实待办

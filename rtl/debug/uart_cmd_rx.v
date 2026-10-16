@@ -24,8 +24,16 @@
 //   （想更细就取整到最近的整数，256 档分辨率对调试足够）
 //
 // 【单位】串口用 rpm（人看得懂），本模块内部转成"计数/测速窗口"：
-//   本车标定 1 rpm = 10 计数/10ms，故内部目标 = rpm × 10（移位相加实现，零乘法器）
-//   ⚠ 若换编码器/减速比/窗口长度，这个 10 倍关系要跟着改（参数 TGT_SCALE_LG）
+//   本车标定 1 rpm = **10.24** 计数/10ms（512 线 ×4 倍频 ×30 减速比 = 61440 计数/转），
+//   故内部目标 = rpm × 10.25（移位相加实现 = ×8 + ×2 + ×0.25，零乘法器，残差 0.1%）
+//   ★ 2026-10-16 修正：旧实现按 ×10 换算，与 chassis_ctrl 的换算（delta = rpm × 10.24）
+//     和顶层显示/上报的 (delta × 100) >>> 10 相差 2.4% —— 串口发 T300 实际只有 292.9 rpm。
+//   ⚠ 若换编码器/减速比/窗口长度，这里的换算要跟着改（现在不再由参数控制，见下方注释）
+//
+// 【⚠ 尚未接线的命令】顶层只接了 P/I/D（在线调参）、Z（计数清零）、X（堵转清除）与
+//   o_cmd_error；**T / 1 / 2 / 3 / 4（目标转速）、E（闭环使能）、U（开环占空比）、
+//   R（立即回读）的输出端口目前在 falcons_top 里悬空** —— 也就是这几条命令实际无效。
+//   接入前请先看 falcons_top.v 的 u_cmd 例化。
 //
 // 【设计要点】
 //   * 每个输出都是"单周期 valid + 数值保持"，顶层用 valid 锁存，不会重复触发
@@ -38,7 +46,8 @@
 module uart_cmd_rx #(
     parameter integer PWM_BITS    = 11,
     parameter integer DUTY_MAX    = (1 << PWM_BITS) - 1,
-    parameter integer TGT_SCALE_LG = 3,      // rpm → 内部单位：×10 = ×8 + ×2
+    // 注：原 TGT_SCALE_LG 参数已删除 —— rpm→计数/窗口 的换算改为固定 ×10.25
+    //     （与 chassis_ctrl 的 10.24 口径一致，见文件头【单位】）
     parameter integer MAG_LIMIT   = 2_000_000
 )(
     input  wire        i_clock,
@@ -88,9 +97,9 @@ module uart_cmd_rx #(
     wire signed [31:0] mag = (acc > MAG_LIMIT[31:0]) ? MAG_LIMIT[31:0] : acc[31:0];
     wire signed [31:0] sval = neg ? -mag : mag;
 
-    // rpm → 计数/窗口：×10 = (×8 + ×2)
+    // rpm → 计数/窗口：×10.25 = (×8) + (×2) + (×0.25)，全移位、零乘法器
     wire signed [31:0] tgt_counts =
-        (sval <<< TGT_SCALE_LG) + (sval <<< (TGT_SCALE_LG - 2));
+        (sval <<< 3) + (sval <<< 1) + (sval >>> 2);
 
     // 参数限幅到 int16
     wire signed [15:0] kval =

@@ -8,7 +8,7 @@
 | `build.ps1` | 一键构建：调 `gw_sh.exe` 综合 + 布局布线，最后列出 `impl\pnr\*.fs` | 日常构建 |
 | `run_all_modules.ps1` | 把 `vendor\` 里各模块自带的测试跑一遍（**模块自带测试当门槛**），日志落 `logs\` | **改了 vendor 里某个模块之后**做回归 |
 | `gen_font_rom.py` | 中文字库生成器：从 `font_chars.txt` 渲染 16×16 点阵 + 字符串索引，**数据内嵌**进 Verilog（不用 `$readmemh`） | 改了界面文案后 |
-| `font_chars.txt` | UI 文案字表（74 条），`gen_font_rom.py` 的输入 | 加 / 改界面文案时 |
+| `font_chars.txt` | UI 文案字表（76 条，2026-10-16 加 `ST_CURSOR:光标档`、改名 `HINT_MOVE_CURSOR`），`gen_font_rom.py` 的输入 | 加 / 改界面文案时 |
 | `check_pin_constraints.py` | ★ **引脚约束逐针复验**：从手册 PDF 原文解析「针号→网络→J1正式Pin」，与 `constr\falcons.cst` 里实际生效的 `IO_LOC` 逐针比对（覆盖手册 J2/J4/J5/J6/J7 五张表，共 35 根信号），并查引脚唯一性与注释一致性 | **改约束 / 换接线 / 拿到新版手册后必跑** |
 | `program_flash.ps1` | ★ **位流下载与固化**（`programmer_cli.exe` 封装）：`-Action Cables/Scan/DetectId/Sram/Program/Verify`，`-DryRun` 只打印命令；内置"位流文件时间是否晚于最后一次改 RTL"的提醒 | **上板测试第一步**：先 `-Action Sram`（掉电即失）验证功能，确认无误再 `-Action Program` 固化 |
 

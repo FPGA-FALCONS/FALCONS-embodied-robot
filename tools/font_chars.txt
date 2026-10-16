@@ -70,6 +70,7 @@ ST_RADAR_LOST:雷达丢失
 ST_CAM_LOST:摄像头未就绪
 ST_SELECT_MODE:请选择模式
 ST_ARM_DENY:请回中位
+ST_CURSOR:光标档
 
 # ---- 单位 ----
 UNIT_DEG:度
@@ -88,7 +89,9 @@ HINT_CONFIRM:确认
 HINT_CANCEL:取消
 HINT_ZOOM_IN:放大
 HINT_ZOOM_OUT:缩小
-HINT_MOVE_MAP:摇杆移图
+# ★ 2026-10-16 改名：需求已把选点方式改为"摇杆移动准心、地图不动"
+#   （原文 §33），旧名 HINT_MOVE_MAP:摇杆移图 语义正好相反，已废弃
+HINT_MOVE_CURSOR:摇杆移准心
 TITLE_SYSTEM:小车控制系统
 TITLE_NAV_SETUP:路径点设置
 HINT_NO_TASK:无任务

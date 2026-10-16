@@ -5,12 +5,12 @@
 #   把多个 tb 串在同一个 do 脚本里跑，只有第一个会执行，后面静默跳过且不报错 ——
 #   极易误判成"全部通过"（这是模块库 README 与本工程交接文档都强调过的坑）。
 #
-# 覆盖的测试（都是自检 tb，末尾打印 PASS:/FAIL:）：
-#   rc_input_tb      6 路遥控捕获、归一化/死区/模式三档/按钮/丢信号  （12 项）
-#   chassis_ctrl_tb  差速分解、限幅、安全逻辑、闭环方向、rpm 换算      （23 项）
-#   num_text_tb      实时数值格式化（含负数与前导空格）                （22 项）
-#   ui_render_tb     中文界面渲染（菜单/高亮/状态栏/门禁提示/动态数值/占位）
-#   speed_report_tb  串口 CSV 上行 12 列格式（整行逐字符比对）          （4 行）
+# 覆盖的测试（都是自检 tb，末尾打印 PASS:/FAIL:；**项数以 tb 实际打印为准，此处不再写死数字**）：
+#   rc_input_tb      遥控捕获、归一化/死区/模式两档/按钮(select+confirm)/丢信号/取反/摇杆拨动/★掩码有效性
+#   chassis_ctrl_tb  差速分解、限幅、安全逻辑、闭环方向、rpm 换算
+#   num_text_tb      实时数值格式化（9 字段、负数、前导空格、字段边界、>999 饱和）
+#   ui_render_tb     中文界面渲染（菜单/★高亮随 menu_sel/状态栏/★光标档文案/门禁提示/动态数值/占位）
+#   speed_report_tb  串口 CSV 上行 12 列格式（整行逐字符比对）
 #
 # 编码：本文件必须保存为 UTF-8 with BOM（PowerShell 5.1 靠 BOM 判编码）。
 #
@@ -84,10 +84,10 @@ $sources = @(
 )
 
 $tests = @(
-    @{ Name = 'rc_input';     Top = 'rc_input_tb';     Desc = '遥控 6 路：归一化/死区/模式三档/按钮/丢信号' },
+    @{ Name = 'rc_input';     Top = 'rc_input_tb';     Desc = '遥控：归一化/死区/模式两档/按钮 select+confirm/丢信号/取反/摇杆拨动/掩码有效性' },
     @{ Name = 'chassis_ctrl'; Top = 'chassis_ctrl_tb'; Desc = '★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算' },
-    @{ Name = 'num_text';     Top = 'num_text_tb';     Desc = '实时数值格式化（负数、前导空格、字段边界）' },
-    @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮/状态栏/动态数值/占位页' },
+    @{ Name = 'num_text';     Top = 'num_text_tb';     Desc = '实时数值格式化（9 字段、负数、前导空格、饱和）' },
+    @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮随 menu_sel/状态栏/光标档文案/动态数值/占位页' },
     @{ Name = 'speed_report'; Top = 'speed_report_tb'; Desc = '串口 CSV 上行：12 列格式/负数/边界/大数' }
 )
 
@@ -127,9 +127,13 @@ foreach ($t in $tests) {
         if ($s -match '^\s*(pass |FAIL|PASS:|FAIL:|-- )') { Write-Host "  $s" }
     }
 
-    if     ($text -match 'PASS:') { $status = 'PASS' }
-    elseif ($text -match 'FAIL:') { $status = 'FAIL' }
-    else                          { $status = 'NO-RESULT' }
+    # ★ 除文本匹配外还检查 vsim 退出码：tb 打完 "PASS:" 之后若异常退出，也必须算失败
+    #   （只匹配文本会在这种情况下误记 PASS）
+    if (($null -ne $LASTEXITCODE) -and ($LASTEXITCODE -ne 0)) {
+        $status = "FAIL (vsim exit $LASTEXITCODE)"
+    } elseif ($text -match 'PASS:') { $status = 'PASS' }
+    elseif ($text -match 'FAIL:')   { $status = 'FAIL' }
+    else                            { $status = 'NO-RESULT' }
 
     $results += [pscustomobject]@{ 测试 = $t.Name; 结果 = $status }
 }
