@@ -7,7 +7,8 @@
 #
 # ★ 零覆盖保证：output_base_name 用 falcons_sta（不是 falcons），所以全部产物都是
 #   impl/pnr/falcons_sta* / impl/gwsynthesis/falcons_sta.vg，
-#   impl/pnr/falcons.fs（当前上板那一版位流）与 falcons_tr_content.html（已有证据）
+#   impl/pnr/falcons.fs（当前【正式】位流；★ 本工程尚未上板过，别写成"已上板验证"）
+#   与 falcons_tr_content.html（已有证据）
 #   【不会被改动】。这是刻意的：位流不可逐字节复现，覆盖即永久丢失。
 #
 # 用法（在工程根目录执行）：
