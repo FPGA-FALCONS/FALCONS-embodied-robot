@@ -1,3 +1,5 @@
+// HT-10A: J6 slots 1..6 receive CH4,CH2,CH5,CH7,CH6,CH8 respectively.
+// CH labels in the connector manual are SLOT labels, not mandatory receiver CH numbers.
 // ============================================================================
 // falcons.cst —— FALCONS-embodied-robot 整车管脚约束
 //

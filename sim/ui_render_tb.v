@@ -135,6 +135,8 @@ module ui_render_tb;
     // ------------------------------------------------------------------
     initial begin
         $display("======== ui_render 界面渲染测试 ========");
+        // Explicit stimulus initializes reset-independent combinational status on both simulators.
+        #1; uimode = 2'd1; #1; uimode = 2'd0;
         cnt_menu_text = 0; cnt_sel_text = 0; cnt_hl = 0; cnt_status = 0;
         cnt_label = 0; cnt_num = 0; cnt_ph = 0;
 

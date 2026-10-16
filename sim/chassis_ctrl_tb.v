@@ -239,11 +239,11 @@ module chassis_ctrl_tb;
         // 反馈跟上目标 → 输出不再上升
         $display("-- 9b. 反馈=目标 → 输出应停止上升（增量式 PID 特性）--");
         begin : hold
-            integer before;
+            integer duty_before;
             integer k;
-            before = d0;
+            duty_before = d0;
             for (k = 0; k < 4; k = k + 1) fb_window(32'sd3072, 32'sd3072, 32'sd3072, 32'sd3072);
-            check_int("duty_holds_at_target", (d0 > before) ? 1 : 0, 0, 0);
+            check_int("duty_holds_at_target", (d0 > duty_before) ? 1 : 0, 0, 0);
         end
 
         // ---------------- 10. rpm 换算 ----------------

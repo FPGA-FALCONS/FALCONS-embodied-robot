@@ -17,6 +17,7 @@
 
 | 目录 | 放什么 |
 | --- | --- |
+| `rc\` | 本车手柄配置ht10a_input、输入适配rc_input、手动解锁rc_drive_guard；只复用vendor捕获，不维护副本 |
 | `top\` | 顶层与上板测试顶层（管脚进出、按键/LED/串口接线）。`build*.tcl` 的 `-top_module` 指这里的模块 |
 | `motor\` | 本工程特有的电机侧逻辑：速度闭环 PID、相位/方向仲裁、未来的位置环 |
 | `imu\` | IMU 侧的应用层逻辑（航向保持、直行纠偏等）；纯驱动在 vendor 的 `imu660ra` / `gyro_tilt_comp` / `yaw_integrate` |

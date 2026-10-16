@@ -132,7 +132,7 @@ def manual_lines() -> list:
     except ImportError:
         sys.exit("找不到 pdftotext，也没装 pymupdf，无法提取手册 PDF。")
     doc = pymupdf.open(str(MANUAL))
-    return "\n".join(p.get_text() for p in doc).splitlines()
+    return "\n".join(p.get_text(sort=True) for p in doc).splitlines()
 
 
 ROW_RE = re.compile(
@@ -218,6 +218,9 @@ def main() -> int:
         TOF_PORTS[row["sig"]]: (row["net"], row["j1"])
         for row in man["J7"].values() if row["sig"] in TOF_PORTS
     }
+    for name, expected_count in (("J2", 6), ("J4", 12), ("J5", 12), ("J6", 6), ("J7", 6)):
+        if len(man[name]) != expected_count:
+            failures.append(f"{name}: parsed {len(man[name])} pins, expected {expected_count}")
     rc_expect = {}
     for row in man["J6"].values():
         port = rc_port(row["sig"])

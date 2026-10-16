@@ -1,271 +1,170 @@
-//////////////////////////////////////////////////////////////////////////////////
-// 模块：rc_input —— 遥控接收机多路 PWM 输入（单路捕获模块多路实例化）
-//
-// 【它做什么】
-//   把 N 路遥控接收机的 PWM 脉宽（1000~2000 µs）翻译成工程单位：
-//     * 两路模拟量：转向 / 油门（signed 12 位，−1000…+1000，中位 0，带死区）
-//     * 一路三档开关：模式（手动接管 / 屏幕光标 / 自动）
-//     * 三路按钮：选择(select) / 确认 / 返回 —— 按下产生单周期脉冲
-//   并给出"信号是否有效"（任一路超时即视为丢信号）。
-//
-// 【为什么用库里的单路捕获 + 多路实例化】
-//   库里 `rc_pwm_capture` 是**单路**模块（CLK_HZ / MIN_PULSE_US / MAX_PULSE_US /
-//   TIMEOUT_US 四个参数），可以独立实例化任意路数；`rc_receiver` 只是把两路
-//   包成 steering/throttle。本车需要 6 路（2 摇杆 + 模式 + select + 确认 + 返回），
-//   所以直接例化 6 个 `rc_pwm_capture`，并把映射做成参数（换接线只改参数）。
-//
-// 【单位与定点】
-//   归一化：|us − 1500| ≤ DEADZONE_US → 0；否则线性映射到 ±1000
-//     标度 = 1000 / (HALF_RANGE_US − DEADZONE_US)，以 Q10 常量在综合期算好
-//     （零除法、零浮点）
-//
-// 【三档判定】
-//   us < SW_LO_US          → 位置 0（低位）
-//   SW_LO_US…SW_HI_US      → 位置 1（中位）
-//   us > SW_HI_US          → 位置 2（高位）
-//   "按下"定义为"位置 2"的上升沿 → 单周期脉冲；开关拨到高位同样算一次触发。
-//
-// 【丢信号】
-//   任一路 timed_out 拉高 → o_signal_valid = 0。上层的安全策略是
-//   200 ms 内停车（依据功能设计文档 §9 L4 判据），所以 TIMEOUT_US 取 100 ms，
-//   留出一半余量。
-//////////////////////////////////////////////////////////////////////////////////
-
+// Application RC adapter. Channel indices refer to FPGA input slots, NOT receiver CH numbers.
+// Board-specific HT-10A wiring/calibration lives in ht10a_input and falcons_top.
+// Vendor rc_pwm_capture is reused unchanged. All commands/events require every input valid.
 `timescale 1ns/1ps
-
 module rc_input #(
-    parameter integer CLK_FREQ_HZ   = 50_000_000,
-    parameter integer NUM_CH        = 6,          // 实际使用的通道数
-    parameter integer CENTER_US     = 1500,       // 摇杆中位脉宽
-    parameter integer HALF_RANGE_US = 500,        // 中位到端点（1000/2000）
-    parameter integer DEADZONE_US   = 25,         // 中位死区（±25 µs）
-    parameter integer MIN_PULSE_US  = 900,        // 合法脉宽下限（库默认）
-    parameter integer MAX_PULSE_US  = 2100,       // 合法脉宽上限（库默认）
-    parameter integer TIMEOUT_US    = 100_000,    // 单路超时（100 ms）
-    parameter integer SW_LO_US      = 1300,       // 三档：低位阈值
-    parameter integer SW_HI_US      = 1700,       // 三档：高位阈值
-    // 方向取反（换接收机/换接线时用参数解决，不必动线）
-    parameter integer STEER_REVERSE    = 0,       // 1 = 转向取反
-    parameter integer THROTTLE_REVERSE = 0,       // 1 = 油门取反
-
-    // ---- 菜单上下拨动判定 ----
-    //   依据：需求原文《使用FPGA实现的差速小车功能设计.md》§17
-    //         "左侧占屏幕约 1/5 或 1/6 宽度为菜单列表…**使用摇杆上下拨动来切换选项**"
-    //   ★ 上一版用遥控 select/confirm 或板载 S3 切页，**与需求原文不符**，这里改回摇杆。
-    //   用【油门通道】做"上下"（左右那路是转向）。必须有回中区，否则杆停在端点会连续翻页。
-    parameter integer MENU_STEP_TH = 400,         // 归一化值超过它 = "拨到位"（±1000 的 40%）
-    parameter integer MENU_IDLE_TH = 150,         // 回到这个范围内才算松手，之后才能再次触发
-    parameter integer MENU_REVERSE = 0,           // 1 = 上下方向取反（实测方向反了就改它）
-
-    // ---- 通道映射（按实际接线改这里，不要改逻辑）----
-    parameter integer CH_STEER      = 0,
-    parameter integer CH_THROTTLE   = 1,
-    parameter integer CH_CONFIRM    = 2,
-    parameter integer CH_BACK       = 3,
-    parameter integer CH_MODE       = 4,
-    parameter integer CH_SELECT     = 5
+    parameter integer CLK_FREQ_HZ=50_000_000, NUM_CH=6,
+    parameter integer CENTER_US=1500, HALF_RANGE_US=500, DEADZONE_US=25,
+    parameter integer STEER_CENTER_US=CENTER_US, THROTTLE_CENTER_US=CENTER_US,
+    parameter integer STEER_HALF_RANGE_US=HALF_RANGE_US, THROTTLE_HALF_RANGE_US=HALF_RANGE_US,
+    parameter integer STEER_DEADZONE_US=DEADZONE_US, THROTTLE_DEADZONE_US=DEADZONE_US,
+    parameter integer MIN_PULSE_US=900, MAX_PULSE_US=2100, TIMEOUT_US=100_000,
+    parameter integer SW_LO_US=1300, SW_HI_US=1700, SW_HYST_US=30, SW_CONFIRM_FRAMES=2,
+    parameter integer STEER_REVERSE=0, THROTTLE_REVERSE=0,
+    parameter integer MODE_REVERSE=0, SELECT_ACTIVE_LOW=0, CONFIRM_ACTIVE_LOW=0, BACK_ACTIVE_LOW=0,
+    parameter integer MENU_STEP_TH=400, MENU_IDLE_TH=150, MENU_REVERSE=0,
+    parameter integer CH_STEER=0, CH_THROTTLE=1, CH_CONFIRM=2, CH_BACK=3, CH_MODE=4, CH_SELECT=5
 )(
-    input  wire                    clk,
-    input  wire                    rst_n,
-    input  wire [NUM_CH-1:0]       rc_pwm,          // 各通道 PWM 输入（异步）
-
-    output reg  signed [11:0]      o_steer,         // −1000…+1000（右为正）
-    output reg  signed [11:0]      o_throttle,      // −1000…+1000（前为正）
-    output reg  [1:0]              o_mode,          // 0=手动接管 1=屏幕光标 2=自动
-    output reg                     o_btn_select,    // 单周期脉冲
-    output reg                     o_btn_confirm,
-    output reg                     o_btn_back,
-    output reg                     o_menu_up,       // 单周期脉冲：摇杆向上拨一次（菜单上一项）
-    output reg                     o_menu_down,     // 单周期脉冲：摇杆向下拨一次（菜单下一项）
-
-    output wire                    o_signal_valid,  // 1 = 全部通道都在刷新
-    output wire [NUM_CH*16-1:0]    o_chan_us,       // 各路脉宽（调试/显示）
-    output wire [NUM_CH-1:0]       o_chan_timeout,
-    output wire [NUM_CH-1:0]       o_chan_valid
+    input wire clk, rst_n,
+    input wire [NUM_CH-1:0] rc_pwm,
+    output reg signed [11:0] o_steer, o_throttle,
+    output reg [1:0] o_mode,
+    output reg o_btn_select, o_btn_confirm, o_btn_back,
+    output reg o_menu_up, o_menu_down,
+    output wire o_signal_valid,
+    output wire [NUM_CH*16-1:0] o_chan_us,
+    output wire [NUM_CH-1:0] o_chan_timeout, o_chan_valid
 );
+    wire [15:0] us [0:NUM_CH-1];
+    wire [NUM_CH-1:0] updated, valid, expired;
+    wire all_good = rst_n && (&valid) && !(|expired);
+    genvar g;
+    generate for (g=0; g<NUM_CH; g=g+1) begin: g_cap
+        rc_pwm_capture #(.CLK_HZ(CLK_FREQ_HZ), .MIN_PULSE_US(MIN_PULSE_US),
+            .MAX_PULSE_US(MAX_PULSE_US), .TIMEOUT_US(TIMEOUT_US)) u_cap (
+            .clk(clk), .rst_n(rst_n), .rc_pwm(rc_pwm[g]), .pulse_width_us(us[g]),
+            .pulse_valid(valid[g]), .timed_out(expired[g]), .pulse_update(updated[g]));
+        assign o_chan_us[g*16 +: 16] = us[g];
+    end endgenerate
+    assign o_chan_valid=valid;
+    assign o_chan_timeout=expired;
 
-    // 标度：1000 / (HALF_RANGE_US − DEADZONE_US)，Q10
-    localparam integer NORM_SPAN = (HALF_RANGE_US > DEADZONE_US) ? (HALF_RANGE_US - DEADZONE_US) : 1;
-    localparam integer SCALE_Q10 = (1000 * 1024) / NORM_SPAN;
-
-    // ------------------------------------------------------------------
-    // 单路捕获 × NUM_CH（库里 rc_pwm_capture 无 i_/o_ 前缀，按名连接）
-    // ------------------------------------------------------------------
-    wire [15:0] chan_us   [0:NUM_CH-1];
-    wire        chan_upd  [0:NUM_CH-1];
-    wire        chan_vld  [0:NUM_CH-1];
-    wire        chan_to   [0:NUM_CH-1];
-    wire [NUM_CH*16-1:0] flat_us;   // ★ 必须 NUM_CH×16 位；写成 [15:0] 时 ModelSim 容忍、Gowin 报 EX3784 越界
-    wire [NUM_CH-1:0] flat_to;
-    wire [NUM_CH-1:0] flat_vld;
-
-    genvar gi;
-    generate
-        for (gi = 0; gi < NUM_CH; gi = gi + 1) begin : g_cap
-            rc_pwm_capture #(
-                .CLK_HZ       (CLK_FREQ_HZ),
-                .MIN_PULSE_US (MIN_PULSE_US),
-                .MAX_PULSE_US (MAX_PULSE_US),
-                .TIMEOUT_US   (TIMEOUT_US)
-            ) u_cap (
-                .clk             (clk),
-                .rst_n           (rst_n),
-                .rc_pwm          (rc_pwm[gi]),
-                .pulse_width_us  (chan_us[gi]),
-                .pulse_valid     (chan_vld[gi]),
-                .timed_out       (chan_to[gi]),
-                .pulse_update    (chan_upd[gi])
-            );
-            assign flat_us[gi*16 +: 16]   = chan_us[gi];
-            assign flat_vld[gi]           = chan_vld[gi];
-            assign flat_to[gi]            = chan_to[gi];
-        end
-    endgenerate
-
-    assign o_chan_us      = flat_us;
-    assign o_chan_valid   = flat_vld;
-    assign o_chan_timeout = flat_to;
-    // 全部通道都没超时才算"信号有效"
-    assign o_signal_valid = ~(|flat_to);
-
-    // ------------------------------------------------------------------
-    // 取某通道脉宽（参数索引，综合期常量）
-    // ------------------------------------------------------------------
-    wire [15:0] us_steer    = flat_us[CH_STEER    * 16 +: 16];
-    wire [15:0] us_throttle = flat_us[CH_THROTTLE * 16 +: 16];
-    wire [15:0] us_confirm  = flat_us[CH_CONFIRM  * 16 +: 16];
-    wire [15:0] us_back     = flat_us[CH_BACK     * 16 +: 16];
-    wire [15:0] us_mode     = flat_us[CH_MODE     * 16 +: 16];
-    wire [15:0] us_select   = flat_us[CH_SELECT   * 16 +: 16];
-
-    // ------------------------------------------------------------------
-    // 归一化：脉宽 → ±1000（带死区，零除法）
-    // ------------------------------------------------------------------
-    // 归一化：脉宽 → ±1000（带死区）
-    // ★ 用【移位加法】而不是通用乘法：1000/(HALF_RANGE_US−DEADZONE_US) ≈ 2.105，
-    //   取 2 + 1/8 = 2.125（误差 0.95%）→ 只需两级加法，既省 DSP 又把组合路径缩短。
-    //   教训：这里原来写 (delta*SCALE_Q10)>>>10，综合后 setup slack = −7.02 ns
-    //   （关键路径 u_rc/o_steer → chassis 乘法链），换成移位加法后满足时序。
-    function signed [11:0] norm_cmd;
-        input [15:0] us;
-        input        valid;
-        integer d;
-        integer m;
-        integer scaled;
+    // Calibration is real: each stick has its own center, travel and deadzone.
+    // Offset, constant-Q10 multiply and clipping occupy separate registers.
+    localparam integer SS=(STEER_HALF_RANGE_US>STEER_DEADZONE_US) ? STEER_HALF_RANGE_US-STEER_DEADZONE_US : 1;
+    localparam integer TS=(THROTTLE_HALF_RANGE_US>THROTTLE_DEADZONE_US) ? THROTTLE_HALF_RANGE_US-THROTTLE_DEADZONE_US : 1;
+    localparam signed [31:0] SK=(1024000+SS-1)/SS, TK=(1024000+TS-1)/TS;
+    function signed [31:0] offset_us;
+        input [15:0] width;
+        input integer center, deadzone, span;
+        integer delta, mag;
         begin
-            if (!valid) begin
-                norm_cmd = 12'sd0;
-            end else begin
-                d = us - CENTER_US;
-                if (d > DEADZONE_US) begin
-                    m = (d - DEADZONE_US);
-                end else if (d < -DEADZONE_US) begin
-                    m = -((-d) - DEADZONE_US);
-                end else begin
-                    m = 0;
-                end
-                scaled = (m << 1) + (m >>> 3);      // ×2.125
-                if (scaled >  1000) scaled =  1000;
-                if (scaled < -1000) scaled = -1000;
-                norm_cmd = scaled[11:0];
-            end
+            delta=$signed({1'b0,width})-center;
+            mag=(delta<0) ? -delta : delta;
+            if (mag<=deadzone) mag=0;
+            else mag=mag-deadzone;
+            if (mag>span) mag=span;
+            offset_us=(delta<0) ? -mag : mag;
         end
     endfunction
-
-    wire signed [11:0] steer_raw    = norm_cmd(us_steer,    flat_vld[CH_STEER]    & ~flat_to[CH_STEER]);
-    wire signed [11:0] throttle_raw = norm_cmd(us_throttle, flat_vld[CH_THROTTLE] & ~flat_to[CH_THROTTLE]);
-    // 方向取反：上板实测若"推油门车往后走"或"打右舵车往左转"，把对应参数置 1 即可
-    wire signed [11:0] steer_now    = STEER_REVERSE    ? (-steer_raw)    : steer_raw;
-    wire signed [11:0] throttle_now = THROTTLE_REVERSE ? (-throttle_raw) : throttle_raw;
-
-    // ------------------------------------------------------------------
-    // 三档判定 + 按钮上升沿
-    // ------------------------------------------------------------------
-    function [1:0] sw_pos;
-        input [15:0] us;
-        input        valid;
+    function signed [11:0] clip_cmd;
+        input signed [31:0] product;
+        reg signed [31:0] value;
         begin
-            if (!valid)               sw_pos = 2'd1;      // 无效时按中位处理
-            else if (us > SW_HI_US)   sw_pos = 2'd2;
-            else if (us < SW_LO_US)   sw_pos = 2'd0;
-            else                      sw_pos = 2'd1;
+            value=(product<0) ? -((-product) >>> 10) : (product >>> 10);
+            if (value>1000) clip_cmd=12'sd1000;
+            else if (value< -1000) clip_cmd=-12'sd1000;
+            else clip_cmd=value[11:0];
         end
     endfunction
-
-    wire [1:0] pos_mode    = sw_pos(us_mode,    flat_vld[CH_MODE]    & ~flat_to[CH_MODE]);
-    wire [1:0] pos_select  = sw_pos(us_select,  flat_vld[CH_SELECT]  & ~flat_to[CH_SELECT]);
-    wire [1:0] pos_confirm = sw_pos(us_confirm, flat_vld[CH_CONFIRM] & ~flat_to[CH_CONFIRM]);
-    wire [1:0] pos_back    = sw_pos(us_back,    flat_vld[CH_BACK]    & ~flat_to[CH_BACK]);
-
-    // 位置 2 的上升沿 = 一次"按下"
-    function btn_edge;
-        input [1:0] now;
-        input [1:0] prev;
-        begin
-            btn_edge = (now == 2'd2) && (prev != 2'd2);
-        end
-    endfunction
-
-    reg [1:0] prev_select, prev_confirm, prev_back;
-
-    // 菜单拨动状态：0 = 已回中（可触发）/ 1 = 已向上拨出 / 2 = 已向下拨出
-    reg [1:0] menu_state;
-    wire signed [11:0] menu_thr = throttle_raw;   // 用未取反的原始油门判"上下"（见参数注释）
-
+    reg signed [31:0] steer_delta, throttle_delta, steer_product, throttle_product;
+    reg signed [11:0] throttle_unreversed;
+    reg [3:0] command_ready;
+    // Prevent a temporary zero from the arithmetic pipeline authorizing startup.
+    assign o_signal_valid=all_good && command_ready[3];
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            o_steer       <= 12'sd0;
-            o_throttle    <= 12'sd0;
-            o_mode        <= 2'd0;
-            o_btn_select  <= 1'b0;
-            o_btn_confirm <= 1'b0;
-            o_btn_back    <= 1'b0;
-            o_menu_up     <= 1'b0;
-            o_menu_down   <= 1'b0;
-            menu_state    <= 2'd0;
-            prev_select   <= 2'd1;
-            prev_confirm  <= 2'd1;
-            prev_back     <= 2'd1;
+            steer_delta<=0; throttle_delta<=0; steer_product<=0; throttle_product<=0;
+            o_steer<=0; o_throttle<=0; throttle_unreversed<=0; command_ready<=0;
+        end else if (!all_good) begin
+            steer_delta<=0; throttle_delta<=0; steer_product<=0; throttle_product<=0;
+            o_steer<=0; o_throttle<=0; throttle_unreversed<=0; command_ready<=0;
         end else begin
-            o_steer    <= steer_now;
-            o_throttle <= throttle_now;
-
-            // 模式开关 → **两档**（2026-10-16 按需求方要求删掉"自动"档）
-            //   需求原文 §13 只描述两档：「接管车辆控制」与「控制屏幕光标」。
-            //   判定：脉宽低于 SW_LO_US(1300) = 手动接管；其余（含中位与高位）= 屏幕光标。
-            //   这样二档开关（1000/2000）与三档开关都能用；SW_HI_US 保留但不再参与判定。
-            //   无效/超时按中位处理 → 也是"屏幕光标"档（安全的默认：不驱动底盘）。
-            o_mode <= (pos_mode == 2'd0) ? 2'd0 : 2'd1;
-
-            o_btn_select  <= btn_edge(pos_select,  prev_select);
-            o_btn_confirm <= btn_edge(pos_confirm, prev_confirm);
-            o_btn_back    <= btn_edge(pos_back,    prev_back);
-
-            // ---- 菜单上下拨动：三态 + 边沿（必须回中后才能再次触发）----
-            //   不在 idle 态时即使杆一直停在端点也只算"一次"，不会连翻。
-            o_menu_up   <= 1'b0;
-            o_menu_down <= 1'b0;
-            case (menu_state)
-                2'd0: begin
-                    if (menu_thr > MENU_STEP_TH) begin
-                        menu_state  <= 2'd1;
-                        o_menu_up   <= MENU_REVERSE ? 1'b0 : 1'b1;
-                        o_menu_down <= MENU_REVERSE ? 1'b1 : 1'b0;
-                    end else if (menu_thr < -MENU_STEP_TH) begin
-                        menu_state  <= 2'd2;
-                        o_menu_up   <= MENU_REVERSE ? 1'b1 : 1'b0;
-                        o_menu_down <= MENU_REVERSE ? 1'b0 : 1'b1;
-                    end
-                end
-                2'd1: if (menu_thr < MENU_IDLE_TH)  menu_state <= 2'd0;   // 回到中位区 → 可再次触发
-                2'd2: if (menu_thr > -MENU_IDLE_TH) menu_state <= 2'd0;
-                default: menu_state <= 2'd0;
-            endcase
-
-            prev_select   <= pos_select;
-            prev_confirm  <= pos_confirm;
-            prev_back     <= pos_back;
+            command_ready<={command_ready[2:0],1'b1};
+            steer_delta<=offset_us(us[CH_STEER],STEER_CENTER_US,STEER_DEADZONE_US,SS);
+            throttle_delta<=offset_us(us[CH_THROTTLE],THROTTLE_CENTER_US,THROTTLE_DEADZONE_US,TS);
+            steer_product<=steer_delta*SK;
+            throttle_product<=throttle_delta*TK;
+            o_steer<=command_ready[2] ? (STEER_REVERSE ? -clip_cmd(steer_product) : clip_cmd(steer_product)) : 12'sd0;
+            o_throttle<=command_ready[2] ? (THROTTLE_REVERSE ? -clip_cmd(throttle_product) : clip_cmd(throttle_product)) : 12'sd0;
+            throttle_unreversed<=command_ready[2] ? clip_cmd(throttle_product) : 12'sd0;
         end
     end
 
+    // Schmitt thresholds + consecutive completed frames, not consecutive clocks.
+    // Stable positions: 0=low, 1=middle/invalid, 2=high. MODE uses low vs others.
+    function [1:0] classify;
+        input [15:0] width;
+        input [1:0] previous;
+        begin
+            if ((previous==0 && width<SW_LO_US+SW_HYST_US) || width<SW_LO_US-SW_HYST_US) classify=0;
+            else if ((previous==2 && width>SW_HI_US-SW_HYST_US) || width>SW_HI_US+SW_HYST_US) classify=2;
+            else classify=1;
+        end
+    endfunction
+    reg [1:0] position [0:NUM_CH-1];
+    reg [1:0] candidate [0:NUM_CH-1];
+    reg [7:0] frames [0:NUM_CH-1];
+    reg [NUM_CH-1:0] switch_ready;
+    generate for (g=0; g<NUM_CH; g=g+1) begin: g_switch
+        wire [1:0] next_position=classify(us[g],position[g]);
+        always @(posedge clk or negedge rst_n) begin
+            if (!rst_n) begin
+                position[g]<=1; candidate[g]<=1; frames[g]<=0; switch_ready[g]<=0;
+            end else if (!all_good) begin
+                position[g]<=1; candidate[g]<=1; frames[g]<=0; switch_ready[g]<=0;
+            end else if (updated[g]) begin
+                if (next_position!=candidate[g]) begin
+                    candidate[g]<=next_position;
+                    frames[g]<=1;
+                    if (SW_CONFIRM_FRAMES==1) begin position[g]<=next_position; switch_ready[g]<=1; end
+                end else if (frames[g]<SW_CONFIRM_FRAMES) begin
+                    frames[g]<=frames[g]+1'b1;
+                    if (frames[g]>=SW_CONFIRM_FRAMES-1) begin position[g]<=next_position; switch_ready[g]<=1; end
+                end
+            end
+        end
+    end endgenerate
+    wire select_down=SELECT_ACTIVE_LOW ? position[CH_SELECT]==0 : position[CH_SELECT]==2;
+    wire confirm_down=CONFIRM_ACTIVE_LOW ? position[CH_CONFIRM]==0 : position[CH_CONFIRM]==2;
+    wire back_down=BACK_ACTIVE_LOW ? position[CH_BACK]==0 : position[CH_BACK]==2;
+    reg select_armed, confirm_armed, back_armed;
+    reg menu_armed;
+    wire signed [11:0] menu_value=MENU_REVERSE ? -throttle_unreversed : throttle_unreversed;
+    wire mode_manual=MODE_REVERSE ? (position[CH_MODE]==2) : (position[CH_MODE]==0);
+    wire cursor_ready=o_signal_valid && switch_ready[CH_MODE] && !mode_manual && o_mode==1;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            o_mode<=1; o_btn_select<=0; o_btn_confirm<=0; o_btn_back<=0;
+            o_menu_up<=0; o_menu_down<=0;
+            select_armed<=0; confirm_armed<=0; back_armed<=0; menu_armed<=0;
+        end else begin
+            o_btn_select<=0; o_btn_confirm<=0; o_btn_back<=0;
+            o_menu_up<=0; o_menu_down<=0;
+            if (!o_signal_valid || !switch_ready[CH_MODE]) o_mode<=1;
+            else if (MODE_REVERSE) o_mode<=(position[CH_MODE]==2) ? 0 : 1;
+            else o_mode<=(position[CH_MODE]==0) ? 0 : 1;
+            if (!cursor_ready) begin
+                select_armed<=0; confirm_armed<=0; back_armed<=0; menu_armed<=0;
+            end else begin
+                // Require a verified release after reset/loss/mode entry; held buttons never create phantom clicks.
+                if (switch_ready[CH_SELECT]) begin
+                    if (!select_down) select_armed<=1;
+                    else if (select_armed) begin o_btn_select<=1; select_armed<=0; end
+                end
+                if (switch_ready[CH_CONFIRM]) begin
+                    if (!confirm_down) confirm_armed<=1;
+                    else if (confirm_armed) begin o_btn_confirm<=1; confirm_armed<=0; end
+                end
+                if (switch_ready[CH_BACK]) begin
+                    if (!back_down) back_armed<=1;
+                    else if (back_armed) begin o_btn_back<=1; back_armed<=0; end
+                end
+                // A sampled center is required; jumping directly between endpoints is NOT a release.
+                if (menu_value>=-MENU_IDLE_TH && menu_value<=MENU_IDLE_TH) menu_armed<=1;
+                else if (menu_armed && menu_value>MENU_STEP_TH) begin o_menu_up<=1; menu_armed<=0; end
+                else if (menu_armed && menu_value< -MENU_STEP_TH) begin o_menu_down<=1; menu_armed<=0; end
+            end
+        end
+    end
 endmodule

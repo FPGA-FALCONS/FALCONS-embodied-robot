@@ -35,10 +35,11 @@
    表现是**整体滞后一行且每行长度都对不上**（实测 39/42/42/42）。
    同理 `i_force` 在 `S_IDLE` 里是**或**条件：保持高电平会连续上报，触发请给脉冲。
 
-## 本工程现有的测试（2026-10-15）
+## 本工程现有的测试（2026-10-16）
 
 | 文件 | 覆盖 | 检查项 |
 | --- | --- | --- |
+| `ht10a_input_tb.v` | HT10A接线配置/独立标定/开关滤波/失效/菜单事件/手动解锁集成 | 77 |
 | `rc_input_tb.v` | 遥控 6 路归一化 / 死区 / **模式两档** / 按钮 / 丢信号 / **方向取反对照实例** / **摇杆拨动菜单** | 26 |
 | `chassis_ctrl_tb.v` | 差速分解 / 限幅 / 安全逻辑 / 闭环方向 / rpm 换算 | 23 |
 | `num_text_tb.v` | 实时数值格式化 | 28 |
@@ -47,7 +48,7 @@
 | `debug_rc_tb.v` | 最小调试台：单个 `rc_pwm_capture`（排查多路例化问题时用） | — |
 | `run_sim.ps1` | 命令行批量入口：每测试独立 vsim 进程 + PASS/FAIL 汇总 | — |
 
-> 上表"检查项"是 `sim\run_sim.ps1` 实测统计的 `pass` 行数（**合计 93 项，全 PASS**），
+> 上表"检查项"是 `sim\run_sim.ps1` 实测统计的 `pass` 行数（**合计170项（含HT10A 77项），Icarus全PASS**），
 > 不是手写的估计值 —— 2026-10-15 统计时发现旧文档里 `num_text` 标 22、主 README 标 26，
 > 两个都不等于实测的 28。**口径以实测为准**。
 
@@ -64,3 +65,8 @@ powershell -File sim\run_sim.ps1
 | `<对象>_model.v` | 行为级模型（如电机对象模型），不要放进 `rtl\` |
 
 日志与仿真库（`work*\`、`transcript`、`*.log`）都被 `.gitignore` 忽略，不会进仓库。
+
+## Icarus与ModelSim
+
+`powershell -ExecutionPolicy Bypass -File sim/run_sim.ps1 -Simulator Icarus` 在PATH中查找iverilog；默认不传Simulator时保持ModelSim入口。两种方式运行相同测试清单，每个测试独立进程。
+本机仅实跑Icarus；ModelSim未安装，本轮不声称已实跑。Icarus兼容修正：chassis测试把SystemVerilog保留字before改为duty_before；UI测试给出实际模式输入跳变，使无复位的组合状态逻辑确定初始化，未降低原断言。

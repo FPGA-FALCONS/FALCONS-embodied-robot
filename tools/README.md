@@ -82,3 +82,7 @@ $c = [System.IO.File]::ReadAllText($p, [System.Text.Encoding]::UTF8)
 > `imu_demo.fs → falcons.fs`，脚本主体（含"必须展开 `@cliArgs` 而不是 `@args`"的修正）
 > 原样保留 —— 旧写法 `& $cli @args` 里的 `$args` 是自动变量，脚本用了 `param()` 后它恒为空，
 > 等于不带参数执行 `programmer_cli`。
+
+### 2026-10-16引脚复核兼容修正
+
+无pdftotext时，PyMuPDF回退使用`get_text(sort=True)`保留表格行布局；旧回退逐单元格换行导致解析出0针。新增J2/J4/J5/J6/J7计数门槛，避免空表被当成通过。本轮与RevI逐针比较35根信号通过；J6含义以HT10A接线与验收为准，板上CH标签是输入槽位。

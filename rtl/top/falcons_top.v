@@ -150,15 +150,17 @@ module falcons_top (
     wire [6*16-1:0]    rc_chan_us;
     wire [5:0]         rc_timeout, rc_valid;
 
-    rc_input #(
-        .CLK_FREQ_HZ (CLK_HZ),
-        .NUM_CH      (6),
-        .CH_STEER    (0),
-        .CH_THROTTLE (1),
-        .CH_CONFIRM  (2),
-        .CH_BACK     (3),
-        .CH_MODE     (4),
-        .CH_SELECT   (5)
+    // HT-10A calibration defaults, NOT measured endpoints. Wiring is defined in ht10a_input.
+    ht10a_input #(
+        .CLK_FREQ_HZ(CLK_HZ),
+        .STEER_CENTER_US(1500), .THROTTLE_CENTER_US(1500),
+        .STEER_HALF_RANGE_US(500), .THROTTLE_HALF_RANGE_US(500),
+        .STEER_DEADZONE_US(25), .THROTTLE_DEADZONE_US(25),
+        .STEER_REVERSE(0), .THROTTLE_REVERSE(0), .MENU_REVERSE(0),
+        .MODE_REVERSE(0), .CONFIRM_ACTIVE_LOW(0), .BACK_ACTIVE_LOW(0), .SELECT_ACTIVE_LOW(0),
+        .MIN_PULSE_US(900), .MAX_PULSE_US(2100), .TIMEOUT_US(100_000),
+        .SW_LO_US(1300), .SW_HI_US(1700), .SW_HYST_US(30), .SW_CONFIRM_FRAMES(2),
+        .MENU_STEP_TH(400), .MENU_IDLE_TH(150)
     ) u_rc (
         .clk            (i_clk_50m),
         .rst_n          (sys_rst_n),
@@ -180,9 +182,8 @@ module falcons_top (
     // ==================================================================
     // 3. 运行状态：启动开关、急停锁存、页面选择
     // ==================================================================
-    reg run_en;          // 底盘使能（★ 由"接管档 + 油门中位 + 信号有效 + 非急停"决定，见下）
+    wire run_en;          // 底盘使能：回中解锁后保持；失效/急停/切档重新锁定
     reg estop_latch;     // 急停锁存（S4 切换；ToF 触发也会置位）
-    reg key1_stop;       // S1：接管档内的"停机锁存"（按一次停、再按解除）
     reg [1:0] page;      // 界面【已确认进入】的页面 0=摄像头 1=雷达 2=车身数据 3=路径点导航
     reg [1:0] menu_sel;  // 菜单【高亮选中项】（摇杆拨动改它，按确认才赋给 page）
 
@@ -197,7 +198,7 @@ module falcons_top (
     assign o_tof_shut = 1'b1;
     assign io_tof_sda = 1'bz;
 
-    // 遥控模式：0=手动接管 1=屏幕光标 2=自动
+    // 遥控模式：0=手动接管 1=屏幕光标（无自动档）
     //   光标模式下摇杆用于操作界面，不能开车 → 把油门/转向强制为 0
     //   ★ 本组 wire 必须在下面的 always 之前声明：always 里按 B2 要用 cursor_mode
     wire        manual_drive = (rc_mode == 2'd0);
@@ -208,40 +209,22 @@ module falcons_top (
     // 手动接管时才允许底盘接收摇杆；自动模式下由导航给定（未接入 → 0）
     wire chassis_manual = manual_drive;
 
-    // ---- 启动门禁（A1，2026-10-15 加）----
-    //   ★ 用户要求"油门中位要有死区"：归一化油门是连续量，摇杆回弹误差与接收机
-    //     中位漂移都会让"精确等于 0"永远不成立，所以按死区判定而不是判 ==0。
-    //   量程：rc_input 输出的油门是 −1000…+1000，死区 100 = 满行程的 10%，
-    //   与 rc_input 自身的 DEADZONE_US(25 µs) 叠加后，允许的中位误差约 ±15% 行程。
-    //   上板实测若"杆已回中却启动不了"→ 调大此值；若"轻轻一碰就启动"→ 调小。
-    localparam integer ARM_THROTTLE_DEADZONE = 100;
-    wire        throttle_centered = (rc_throttle <= ARM_THROTTLE_DEADZONE) &&
-                                    (rc_throttle >= -ARM_THROTTLE_DEADZONE);
-    // 允许启动：油门在中位死区内 且 遥控信号有效（急停由下面的强制停机兜住）
-    wire        arm_ready = throttle_centered & rc_signal_ok;
-    // 提示"请回中位"：没在运行、信号正常、油门却没回中位、也没急停
-    wire        arm_hint  = ~run_en & rc_signal_ok & ~throttle_centered & ~estop_latch;
+    // Center is an ARMING condition, not a continuous throttle limit.
+    // The previous continuous gate disabled driving as soon as the stick left center.
+    wire arm_hint;
+    rc_drive_guard #(.ARM_DEADZONE(100)) u_rc_guard (
+        .clk(i_clk_50m), .rst_n(sys_rst_n), .i_manual(manual_drive),
+        .i_signal_valid(rc_signal_ok), .i_estop(estop_latch | tof_estop | key4_press),
+        .i_stop_pulse(key1_press), .i_throttle(rc_throttle),
+        .o_enable(run_en), .o_arm_hint(arm_hint)
+    );
 
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
-            run_en      <= 1'b0;
             estop_latch <= 1'b0;
-            key1_stop   <= 1'b0;
             page        <= 2'd0;
             menu_sel    <= 2'd0;      // 需求原文 §17：初始化默认选中"摄像头画面"
         end else begin
-            // ---- 底盘使能：★ 2026-10-16 按需求方要求改为"模式驱动" ----
-            //   需求原文 §13："当模式开关选择接管车辆控制时，通过遥控器直接控制车辆行走以及转向"
-            //   → 不再需要先按 S1：**切到接管档就算"开"**，但必须满足
-            //     · 油门在中位死区内（|throttle| ≤ 100）—— 防止切档瞬间杆在半位就窜车
-            //     · 遥控信号有效（丢信号时不许动）
-            //     · 未急停、且没有按过 S1 的"停机锁存"
-            //   → 离开接管档时清掉停机锁存，这样再切回接管档又是"即可开"。
-            //   → 【自动档已删去】：需求原文只描述两档（接管 / 控制屏幕光标）。
-            if (key1_press) key1_stop <= ~key1_stop;   // S1：停机锁存 / 解除
-            if (!manual_drive) key1_stop <= 1'b0;      // 切出接管档 → 清锁存
-            run_en <= manual_drive & throttle_centered & rc_signal_ok &
-                      ~estop_latch & ~key1_stop;
             // 急停锁存：S4 或 ToF 触发置位；再按 S4 清除
             if (tof_estop)        estop_latch <= 1'b1;
             else if (key4_press)  estop_latch <= ~estop_latch;
@@ -257,7 +240,7 @@ module falcons_top (
                 menu_sel <= (menu_sel == 2'd0) ? 2'd3 : (menu_sel - 2'd1);
             end else if (cursor_mode && rc_menu_down) begin
                 menu_sel <= (menu_sel == 2'd3) ? 2'd0 : (menu_sel + 2'd1);
-            end else if (rc_confirm) begin
+            end else if (cursor_mode && rc_signal_ok && rc_confirm) begin
                 page <= menu_sel;                      // ★ 确认才进入该项页面
             end
         end

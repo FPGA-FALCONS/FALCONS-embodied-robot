@@ -6,9 +6,10 @@
 #   极易误判成"全部通过"（这是模块库 README 与本工程交接文档都强调过的坑）。
 #
 # 覆盖的测试（都是自检 tb，末尾打印 PASS:/FAIL:）：
-#   rc_input_tb      6 路遥控捕获、归一化/死区/模式三档/按钮/丢信号  （12 项）
+#   ht10a_input_tb  HT10A 通道/标定/开关/失效/启动门禁集成
+#   rc_input_tb      6 路遥控捕获、归一化/死区/模式两档/按钮/丢信号  （26 项）
 #   chassis_ctrl_tb  差速分解、限幅、安全逻辑、闭环方向、rpm 换算      （23 项）
-#   num_text_tb      实时数值格式化（含负数与前导空格）                （22 项）
+#   num_text_tb      实时数值格式化（含负数与前导空格）                （28 项）
 #   ui_render_tb     中文界面渲染（菜单/高亮/状态栏/门禁提示/动态数值/占位）
 #   speed_report_tb  串口 CSV 上行 12 列格式（整行逐字符比对）          （4 行）
 #
@@ -21,7 +22,8 @@
 [CmdletBinding()]
 param(
     [string]$ModelSim = 'D:\Apps\modeltech64_10.6d\win64',
-    [string]$Library  = 'work_sim'
+    [string]$Library  = 'work_sim',
+    [ValidateSet('ModelSim','Icarus')][string]$Simulator = 'ModelSim'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -30,12 +32,17 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot          # sim\ 的上一级 = �
 $VendorRoot  = Join-Path $ProjectRoot 'vendor\verilog-reusable-modules\modules'
 $UiIncDir    = Join-Path $ProjectRoot 'rtl\ui'           # ui_text_index.vh 所在目录
 
-$vlib = Join-Path $ModelSim 'vlib.exe'
-$vlog = Join-Path $ModelSim 'vlog.exe'
-$vsim = Join-Path $ModelSim 'vsim.exe'
-
-foreach ($exe in @($vlib, $vlog, $vsim)) {
-    if (-not (Test-Path $exe)) { throw "找不到 $exe`n用 -ModelSim 指定 ModelSim 的 win64 目录。" }
+if ($Simulator -eq 'ModelSim') {
+    $vlib = Join-Path $ModelSim 'vlib.exe'
+    $vlog = Join-Path $ModelSim 'vlog.exe'
+    $vsim = Join-Path $ModelSim 'vsim.exe'
+    foreach ($exe in @($vlib, $vlog, $vsim)) {
+        if (-not (Test-Path $exe)) { throw "Missing $exe; specify -ModelSim or use -Simulator Icarus." }
+    }
+} else {
+    $iverilog = (Get-Command iverilog -ErrorAction Stop).Source
+    $vvp = Join-Path (Split-Path -Parent $iverilog) 'vvp.exe'
+    if (-not (Test-Path $vvp)) { throw "Missing $vvp" }
 }
 
 Set-Location $PSScriptRoot
@@ -69,6 +76,8 @@ $sources = @(
     "$ProjectRoot\rtl\common\app_key.v",
     "$ProjectRoot\rtl\common\reset_sync.v",
     "$ProjectRoot\rtl\rc\rc_input.v",
+    "$ProjectRoot\rtl\rc\ht10a_input.v",
+    "$ProjectRoot\rtl\rc\rc_drive_guard.v",
     "$ProjectRoot\rtl\motor\speed_pid.v",
     "$ProjectRoot\rtl\motor\chassis_ctrl.v",
     "$ProjectRoot\rtl\ui\dyn_text_ram.v",
@@ -77,6 +86,7 @@ $sources = @(
     "$ProjectRoot\rtl\ui\ui_render.v",
     # 测试平台
     "$PSScriptRoot\rc_input_tb.v",
+    "$PSScriptRoot\ht10a_input_tb.v",
     "$PSScriptRoot\chassis_ctrl_tb.v",
     "$PSScriptRoot\num_text_tb.v",
     "$PSScriptRoot\ui_render_tb.v",
@@ -84,7 +94,8 @@ $sources = @(
 )
 
 $tests = @(
-    @{ Name = 'rc_input';     Top = 'rc_input_tb';     Desc = '遥控 6 路：归一化/死区/模式三档/按钮/丢信号' },
+    @{ Name = 'ht10a_input'; Top = 'ht10a_input_tb'; Desc = 'HT10A mapping/calibration/switches/loss/manual drive integration' },
+    @{ Name = 'rc_input';     Top = 'rc_input_tb';     Desc = '遥控 6 路：归一化/死区/模式两档/按钮/丢信号' },
     @{ Name = 'chassis_ctrl'; Top = 'chassis_ctrl_tb'; Desc = '★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算' },
     @{ Name = 'num_text';     Top = 'num_text_tb';     Desc = '实时数值格式化（负数、前导空格、字段边界）' },
     @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮/状态栏/动态数值/占位页' },
@@ -95,20 +106,26 @@ $tests = @(
 Write-Host ''
 Write-Host '================ 编译（FALCONS 仿真）================' -ForegroundColor Cyan
 
-if (Test-Path $Library) { Remove-Item -Recurse -Force $Library }
-& $vlib $Library | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'vlib 建库失败' }
-
-foreach ($f in $sources) {
-    if (-not (Test-Path $f)) { throw "源文件缺失：$f" }
-    $out = & $vlog -work $Library "+incdir+$UiIncDir" $f 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "编译失败：$f" -ForegroundColor Red
-        $out | ForEach-Object { Write-Host "  $_" }
-        exit 1
-    }
+$libraryPath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot $Library))
+$simPrefix = [System.IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\') + '\'
+if (-not $libraryPath.StartsWith($simPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Library must stay within sim/.'
 }
-Write-Host "编译通过（$($sources.Count) 个文件，无错误）" -ForegroundColor Green
+if ($Simulator -eq 'ModelSim') {
+    # Reuse the library; recompile all listed sources, avoiding recursive deletion.
+    if (-not (Test-Path $libraryPath)) {
+        & $vlib $libraryPath | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'vlib failed' }
+    }
+    foreach ($f in $sources) {
+        if (-not (Test-Path $f)) { throw "Missing source: $f" }
+        $out = & $vlog -work $libraryPath "+incdir+$UiIncDir" $f 2>&1
+        if ($LASTEXITCODE -ne 0) { $out | ForEach-Object { Write-Host $_ }; throw "Compile failed: $f" }
+    }
+} else {
+    New-Item -ItemType Directory -Path $libraryPath -Force | Out-Null
+}
+Write-Host "Source list: $($sources.Count) files; simulator: $Simulator" -ForegroundColor Green
 
 # ---------- 逐个测试（每个独立进程）----------
 $results = @()
@@ -118,7 +135,16 @@ foreach ($t in $tests) {
     Write-Host "================ 测试：$($t.Name) ================" -ForegroundColor Cyan
     Write-Host "  $($t.Desc)"
 
-    $out  = & $vsim -c -work $Library -do "run -all; quit -f" "$Library.$($t.Top)" 2>&1
+    if ($Simulator -eq 'ModelSim') {
+        $out = & $vsim -c -work $libraryPath -do "run -all; quit -f" "$Library.$($t.Top)" 2>&1
+        $testExit = $LASTEXITCODE
+    } else {
+        $image = Join-Path $libraryPath "$($t.Top).out"
+        $compileOut = & $iverilog -g2012 -I $UiIncDir -s $t.Top -o $image @sources 2>&1
+        if ($LASTEXITCODE -ne 0) { $compileOut | ForEach-Object { Write-Host $_ }; throw "Compile failed: $($t.Top)" }
+        $out = & $vvp $image 2>&1
+        $testExit = $LASTEXITCODE
+    }
     $text = ($out | ForEach-Object { $_.ToString() }) -join "`n"
 
     # 只回显检查行与结论（tb 输出很多）
@@ -127,8 +153,8 @@ foreach ($t in $tests) {
         if ($s -match '^\s*(pass |FAIL|PASS:|FAIL:|-- )') { Write-Host "  $s" }
     }
 
-    if     ($text -match 'PASS:') { $status = 'PASS' }
-    elseif ($text -match 'FAIL:') { $status = 'FAIL' }
+    if ($testExit -ne 0 -or $text -match '(?im)^\s*(?:#\s*)?(?:FAIL|FATAL|\*\* Error)') { $status = 'FAIL' }
+    elseif ($text -match 'PASS:') { $status = 'PASS' }
     else                          { $status = 'NO-RESULT' }
 
     $results += [pscustomobject]@{ 测试 = $t.Name; 结果 = $status }
