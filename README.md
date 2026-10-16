@@ -28,9 +28,9 @@ FPGA 四驱差速小车（具身机器人）的**主工程**。板卡：高云 *
 | 仿真 | **6 个自检 tb / 203 项检查全 PASS**（ht10a_input 83 / rc_input 32 / chassis_ctrl 23 / num_text 39 / ui_render 22 / speed_report 4；`sim\run_sim.ps1` 一条命令，`-Simulator ModelSim\|Icarus` 双引擎）；★ **顶层集成测试仍缺**（`falcons_top` 不在仿真源列表里） |
 | 综合 | **ERROR 0**；比特流 `impl\pnr\falcons.fs`（**34.2 MB**、**2026-10-16 20:51:52**、SHA256 `4FA40D37…3493`，未入库） |
 | 资源 | Logic **9112**/138240（7%）、Register **4227**/139095（4%）、BSRAM 9/340（3%）、DSP 43/298（15%）、IOLOGIC 8/285（3%） |
-| 时序 | **SETUP 路径 0 条负 slack（最差 +0.032 ns）/ REMOVAL 0 条（+0.269 ns）**；HOLD **13** 条（最差 −1.026 ns，sys→pixel 同步器第一级）；RECOVERY **8** 条（最差 −5.983 ns，复位释放 → HDMI 245 MHz 串行域）。★ 报告头部 `Numbers of Setup Violated Endpoints` 与路径表**口径不一致，本轮未查清、待全量 `report_timing`** —— **不要写成"0 违规端点"**；性质见 `doc\工作记录.md` §20.7、§21.4 |
+| 时序 | **SETUP 上升沿路径 0 条负 slack（最差 +0.032 ns）/ REMOVAL 0 条（+0.269 ns）**；HOLD **13** 条（最差 −1.026 ns，sys→pixel 同步器第一级）；RECOVERY **8** 条（最差 −5.983 ns，复位释放 → HDMI 245 MHz 串行域）；**SETUP 下降沿 4 条**（= `Numbers of Setup Violated Endpoints` = `Numbers of Falling Endpoints`，即 `u_OSER10_{clk,b,r,g}/RESET` 这 4 个 245 MHz 下降沿捕获端点，**结构性伪违规**）。★ **口径已于 2026-10-16 21:18 查清**（两次独立布线统计逐项相同 + 排他性推理，见 `doc\工作记录.md` §21.9） |
 | 模块库 | `vendor\` 里 10 个包 / 144 文件；来源 commit `c9b8025`（**2026-10-15 起本项目直接维护**，见 `vendor\ORIGIN.md`） |
-| Git | 首次提交 `bb9ea07`（199 文件 / 72107 行）；当前 `main` = **`43be57a`**（全项目审查修复 + 重新综合）—— 相对远程 **ahead 1、未推送**（实测 `git status -sb` = `## main...origin/main [ahead 1]`）；远程跟踪已建立；队友的 `feat/ht10a-channel-integration`（基点 `701144b`）**已合并进 `main`** |
+| Git | 首次提交 `bb9ea07`（199 文件 / 72107 行）；`main` 上依次是 **`43be57a`**（全项目审查修复）→ **`05677e1`**（复查后 17 项修复）→ **本次"时序口径查清 + 文档同步"**；相对远程 **ahead 3、未推送**；远程跟踪已建立；队友的 `feat/ht10a-channel-integration`（基点 `701144b`）**已合并进 `main`**（push 需用户明确指令） |
 | 上板 | **尚未做过**（本轮所有结论来自编译、仿真、综合与时序报告） |
 
 ---
@@ -274,9 +274,11 @@ Logic 9112（7%）/ BSRAM 9 块 / DSP 43；仿真 **6 个 tb / 203 项全 PASS**
 - **板级约束**：`constr\falcons.cst`（**60 个 `IO_LOC`**，逐针抄手册；雷达 RX=C14）+ `falcons.sdc`
 - **仿真**：6 个自检测试台 / **203 项检查全 PASS**（`ht10a_input` 83 / `rc_input` 32 / `chassis_ctrl` 23 / `num_text` 39 / `ui_render` 22 / `speed_report` 4）
 - **综合与布局布线**：ERROR 0、比特流 **34.2 MB**（**2026-10-16 20:51:52**，SHA256 `4FA40D37…3493`，含 PID 初值 0/64/0、两档模式、两段式切页、数据页 9 字段、配置层 `ht10a_input` + 解锁守卫 `rc_drive_guard`）；
-  **SETUP 路径表 0 条负 slack**（最差 **+0.032 ns**）、REMOVAL 0 条（+0.269 ns）；负 slack 全在跨时钟域同步器与上电复位路径上
-  （HOLD 13 条 −1.026 ns / RECOVERY 8 条 −5.983 ns，详见 `doc\工作记录.md` §21.4）。
-  ★ 报告头部 `Numbers of Setup Violated Endpoints` 与路径表**口径不一致，本轮未查清、待全量 `report_timing`** —— **不要写成"0 违规端点"**
+  **SETUP 上升沿路径表 0 条负 slack**（最差 **+0.032 ns**）、REMOVAL 0 条（+0.269 ns）；负 slack 全在跨时钟域同步器、
+  **245 MHz 下降沿端点**与上电复位路径上（HOLD 13 条 −1.026 ns / RECOVERY 8 条 −5.983 ns / **SETUP 下降沿 4 条**，详见 `doc\工作记录.md` §21.4、§21.9）。
+  ★ 报告头部 `Numbers of Setup Violated Endpoints = 4` 的**口径已查清**：它统计的就是 `Numbers of Falling Endpoints = 4`
+  —— 即 4 个由 **245 MHz CLKOUT1 下降沿**捕获的 `u_OSER10_{clk,b,r,g}/RESET`（**结构性伪违规**，与 HOLD 13 条同类）；
+  路径表只列上升沿（`[R]→[R]`）关系，故这 4 条不在其中，两者**不矛盾**（证据见 §21.9）
 - **位流与 RTL 的时间关系（上板前必看）**：现有位流 `impl\pnr\falcons.fs` 综合于 **2026-10-16 20:51:52**，
   **晚于本轮全部 RTL 改动**（含下午的需求原文整改与晚间的 HT-10A 分支合并）→ **可以直接烧**；
   时间关系由 `tools\program_flash.ps1` 打印，上板前顺手核一眼。

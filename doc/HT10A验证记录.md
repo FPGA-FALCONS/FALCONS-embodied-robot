@@ -68,6 +68,13 @@
 | Recovery | 25 | 25 | -4.502 |
 | Removal | 25 | 0 | 0.28 |
 
+> ★ **2026-10-16 21:18 后注（口径已查清；下文原样保留作历史证据）**：
+> 本文件是**合并前分支基线**，其中 `Numbers of Setup Violated Endpoints=98` 是队友那轮更早提交的数字；
+> 合并后（20:51 / 21:18 两次独立布线）该值稳定为 **4**，且**已查明身份**：
+> 就是 `Numbers of Falling Endpoints = 4` 的那 4 个**下降沿捕获端点** ——
+> `u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_{clk,b,r,g}/RESET`（由 245 MHz CLKOUT1 下降沿捕获），
+> 属**结构性伪违规**；**上升沿数据路径 0 条违规**。证据与完整推理见 `doc\工作记录.md` §21.9。
+
 报告同时仍显示`Numbers of Setup Violated Endpoints=98`，与所列Setup路径统计口径不同。本轮没有验证其形成原因，不能凭前25条Setup为正就认定全部端点通过。Hold最差路径在跨域同步级；Recovery最差路径在复位到HDMI OSER10。未经跨域/复位结构及约束专项审查，不能将这些直接视为无风险。原仓库已有此类遗留，本轮未改vendor/HDMI，也未添加false path隐藏它们。
 
 ## 必须留待实物验证

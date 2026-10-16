@@ -30,6 +30,10 @@ create_clock -name i_clk_50m -period 20.000 [get_ports {i_clk_50m}]
 //     SETUP   0 条（最差 +0.032 ns）/ REMOVAL 0 条（+0.269 ns）
 //     HOLD   13 条（最差 −1.026 ns，sys→pixel 同步器第一级，**结构性伪违规**）
 //     RECOVERY 8 条（最差 −5.983 ns，复位释放进 **245 MHz 串行域**）
+//     ★ SETUP 另有 **4 个下降沿违规端点**（= 报告头部 Numbers of Setup Violated Endpoints
+//       = Numbers of Falling Endpoints）—— 即 4 个由 245 MHz CLKOUT1 **下降沿**捕获的
+//       u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_{clk,b,r,g}/RESET，属**结构性伪违规**；
+//       上升沿数据路径 0 条违规。（口径 2026-10-16 21:18 查清，见 doc\工作记录.md §21.9）
 //   ★ RECOVERY 已按方案 A 改善：`u_hdmi.reset_n` 由 `sys_rst_n` 改接**域内自产**的 `pixel_rst_n`，
 //     违规条数 **25 → 8**；剩下的 8 条源自"49 MHz 与 245 MHz 同源、相位固定"造成的**确定**偏移
 //     （已超过一个 245 MHz 周期 → 物理上更接近"复位晚一拍释放"，见上板指南第六节的说明）。
