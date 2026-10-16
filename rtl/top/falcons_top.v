@@ -145,8 +145,13 @@ module falcons_top (
     );
 
     // ==================================================================
-    // 2. 遥控输入（6 路单路捕获实例化）
+    // 2. 遥控输入（板级配置层 ht10a_input → 通用适配层 rc_input）
     // ==================================================================
+    //   ★ 2026-10-16 合并：通道映射与全部标定参数集中在 `ht10a_input`（板级配置层），
+    //     顶层只传"本车取值"。J6 槽位 ↔ 接收机通道的对应关系见该文件头注释与
+    //     doc\HT10A接线与验收.md：
+    //       bit0 转向(CH4) / bit1 油门(CH2) / bit2 确认(CH5) /
+    //       bit3 select(CH7，原"返回"键位) / bit4 模式(CH6) / bit5 闲置(CH8)
     wire signed [11:0] rc_steer, rc_throttle;
     wire [1:0]         rc_mode;
     wire               rc_select, rc_confirm;
@@ -155,17 +160,21 @@ module falcons_top (
     wire [6*16-1:0]    rc_chan_us;
     wire [5:0]         rc_timeout, rc_valid;
 
-    rc_input #(
-        .CLK_FREQ_HZ (CLK_HZ),
-        .NUM_CH      (6),
-        .CH_STEER    (0),
-        .CH_THROTTLE (1),
-        .CH_CONFIRM  (2),
-        .CH_MODE     (4),
-        .CH_SELECT   (5),
-        // ★ 6'b110111 = 55：排除 bit3（第 3 路，预留未接）。
-        //   若上板把 6 路都插满（空闲通道接收机也会输出中位脉冲），改成 63 亦可。
-        .SIG_VALID_MASK (55)
+    // ★ 下面全部是【开发默认值 / 未实测】，标定方法见 doc\HT10A接线与验收.md §3
+    ht10a_input #(
+        .CLK_FREQ_HZ(CLK_HZ),
+        .STEER_CENTER_US(1500), .THROTTLE_CENTER_US(1500),
+        .STEER_HALF_RANGE_US(500), .THROTTLE_HALF_RANGE_US(500),
+        .STEER_DEADZONE_US(25), .THROTTLE_DEADZONE_US(25),
+        .STEER_REVERSE(0), .THROTTLE_REVERSE(0), .MENU_REVERSE(0),
+        .MODE_REVERSE(0), .CONFIRM_ACTIVE_LOW(0), .SELECT_ACTIVE_LOW(0),
+        .MIN_PULSE_US(900), .MAX_PULSE_US(2100), .TIMEOUT_US(100_000),
+        .SW_LO_US(1300), .SW_HI_US(1700), .SW_HYST_US(30), .SW_CONFIRM_FRAMES(2),
+        .MENU_STEP_TH(400), .MENU_IDLE_TH(150),
+        // 6'b011111：bit5（J6.6，闲置未接）不参与"信号有效"判定 ——
+        //   否则该路 timed_out 恒 1 → 整车永不能动（详见 rc_input.v 头注释②）
+        //   ★ 位序：MSB=bit5 → 0 表示排除；其余 bit4..bit0 = 1 表示参与。
+        .SIG_VALID_MASK(6'b011111)
     ) u_rc (
         .clk            (i_clk_50m),
         .rst_n          (sys_rst_n),
@@ -184,11 +193,10 @@ module falcons_top (
     );
 
     // ==================================================================
-    // 3. 运行状态：启动开关、急停锁存、页面选择
+    // 3. 运行状态：解锁守卫、急停锁存、页面选择
     // ==================================================================
-    reg run_en;          // 底盘使能（★ 由"接管档 + 油门中位 + 信号有效 + 非急停"决定，见下）
+    wire run_en;         // 底盘使能（由 rc_drive_guard 产生：回中解锁后保持，见下）
     reg estop_latch;     // 急停锁存（S4 切换；ToF 触发也会置位）
-    reg key1_stop;       // S1：接管档内的"停机锁存"（按一次停、再按解除）
     reg [1:0] page;      // 界面【已确认进入】的页面 0=摄像头 1=雷达 2=车身数据 3=路径点导航
     reg [1:0] menu_sel;  // 菜单【高亮选中项】（摇杆拨动改它，按确认才赋给 page）
 
@@ -217,59 +225,56 @@ module falcons_top (
     // 手动接管时才允许底盘接收摇杆；自动模式下由导航给定（未接入 → 0）
     wire chassis_manual = manual_drive;
 
-    // ---- 启动门禁（A1，2026-10-15 加）----
-    //   ★ 用户要求"油门中位要有死区"：归一化油门是连续量，摇杆回弹误差与接收机
-    //     中位漂移都会让"精确等于 0"永远不成立，所以按死区判定而不是判 ==0。
-    //   量程：rc_input 输出的油门是 −1000…+1000，死区 100 = 满行程的 10%，
-    //   与 rc_input 自身的 DEADZONE_US(25 µs) 叠加后，允许的中位误差约 ±15% 行程。
-    //   上板实测若"杆已回中却启动不了"→ 调大此值；若"轻轻一碰就启动"→ 调小。
-    localparam integer ARM_THROTTLE_DEADZONE = 100;
-    wire        throttle_centered = (rc_throttle <= ARM_THROTTLE_DEADZONE) &&
-                                    (rc_throttle >= -ARM_THROTTLE_DEADZONE);
-    // 提示"请回中位"：没在运行、信号正常、油门却没回中位、也没急停
-    //   （这里不再单独声明 arm_ready —— 原先它是死信号，判定直接写在 run_en 里）
-    wire        arm_hint  = ~run_en & rc_signal_ok & ~throttle_centered & ~estop_latch;
+    // ---- 手动解锁守卫（`rc_drive_guard`，2026-10-16 合并自队友分支）----
+    //   ★ 修的是一个**功能错误**：原实现把"油门在中位"当成**持续条件**
+    //       run_en <= manual_drive & throttle_centered & rc_signal_ok & ...
+    //     结果一推油门 `throttle_centered` 立刻变 0 → `run_en` 变 0 → **车根本不会动**。
+    //     需求方的原话是"切到接管档即可开**但需要油门在中位**"，语义是**切档那一刻**
+    //     的准入条件，不是持续约束。
+    //   ★ 正确做法：回中**解锁一次**并锁存，之后推杆保持使能；
+    //     切出接管档 / 丢信号 / 急停 / 按 S1 停机 → 撤销解锁，恢复后须**重新回中**。
+    //   ARM_DEADZONE=100 = 归一化 ±1000 的 10%（需求方要求的"油门中位死区"）；
+    //   "请回中位"提示只在**未解锁**时给（已解锁就不再提示）。
+    wire arm_hint;
+    rc_drive_guard #(.ARM_DEADZONE(100)) u_rc_guard (
+        .clk(i_clk_50m), .rst_n(sys_rst_n), .i_manual(manual_drive),
+        .i_signal_valid(rc_signal_ok), .i_estop(estop_latch | tof_estop | key4_press),
+        .i_stop_pulse(key1_press), .i_throttle(rc_throttle),
+        .o_enable(run_en), .o_arm_hint(arm_hint)
+    );
 
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
-            run_en      <= 1'b0;
             estop_latch <= 1'b0;
-            key1_stop   <= 1'b0;
             page        <= 2'd0;
             menu_sel    <= 2'd0;      // 需求原文 §17：初始化默认选中"摄像头画面"
         end else begin
-            // ---- 底盘使能：★ 2026-10-16 按需求方要求改为"模式驱动" ----
-            //   需求原文 §13："当模式开关选择接管车辆控制时，通过遥控器直接控制车辆行走以及转向"
-            //   → 不再需要先按 S1：**切到接管档就算"开"**，但必须满足
-            //     · 油门在中位死区内（|throttle| ≤ 100）—— 防止切档瞬间杆在半位就窜车
-            //     · 遥控信号有效（丢信号时不许动）
-            //     · 未急停、且没有按过 S1 的"停机锁存"
-            //   → 离开接管档时清掉停机锁存，这样再切回接管档又是"即可开"。
-            //   → 【自动档已删去】：需求原文只描述两档（接管 / 控制屏幕光标）。
-            if (key1_press) key1_stop <= ~key1_stop;   // S1：停机锁存 / 解除
-            if (!manual_drive) key1_stop <= 1'b0;      // 切出接管档 → 清锁存
-            run_en <= manual_drive & throttle_centered & rc_signal_ok &
-                      ~estop_latch & ~key1_stop;
+            // 底盘使能与 S1 停机锁存都搬进了 `rc_drive_guard`（见第 3 节开头说明）
             // 急停锁存：S4 或 ToF 触发置位；再按 S4 清除
             if (tof_estop)        estop_latch <= 1'b1;
             else if (key4_press)  estop_latch <= ~estop_latch;
-            // ---- 菜单：摇杆只移动【高亮】，按确认才切页（需求方 2026-10-16 明确）----
+            // ---- 菜单：摇杆只移动【高亮】，按确认才切页 ----
             //   §17"使用摇杆上下拨动来切换选项" + §21"选中该项**并确认时**…显示"
             //   两段式：menu_sel 由摇杆改；rc_confirm 把 menu_sel 赋给 page。
-            //   ★ 需求方 2026-10-16 明确："模式为接管时，手柄不做遥控车辆之外的任何交互"
-            //     → 摇杆拨动与**确认键**都必须限定在光标档；否则开车时会误按确认键切页。
+            //   ★★ 门控**全部在下层**：`rc_input` 的 `cursor_ready` 已要求
+            //      「信号有效 + 模式通道档位连续 2 帧已确认 + 处于光标档」，
+            //      不满足时按钮/菜单事件**根本不会产生**（见 rtl\rc\rc_input.v 头注释③）。
+            //      所以这里**不再重复**写 `cursor_mode` / `rc_signal_ok` —— 单一真源；
+            //      要改门控请改 rc_input，不要在这里加第二道条件。
+            //   ★ 需求方 2026-10-16："模式为接管时，手柄不做遥控车辆之外的任何交互"
+            //      —— 该语义由上面的 `!mode_manual && o_mode==1` 保证。
             //   select 按钮属于路径点导航页的逻辑（§33 辅助菜单换项），本层不接
             //   （顶层把 rc_select 显式接进 unused 汇总，等导航页实现后启用）。
-            //   板载 S3 保留为"无遥控时的备用翻页"（同时移动高亮与页面，避免两者不一致）。
+            //   板载 S3 是板载按键、不经遥控链路，保留为"无遥控时的备用翻页"。
             if (key3_press) begin
                 menu_sel <= (menu_sel == 2'd3) ? 2'd0 : (menu_sel + 2'd1);
                 page     <= (page     == 2'd3) ? 2'd0 : (page     + 2'd1);
-            end else if (cursor_mode && rc_menu_up) begin
+            end else if (rc_menu_up) begin
                 menu_sel <= (menu_sel == 2'd0) ? 2'd3 : (menu_sel - 2'd1);
-            end else if (cursor_mode && rc_menu_down) begin
+            end else if (rc_menu_down) begin
                 menu_sel <= (menu_sel == 2'd3) ? 2'd0 : (menu_sel + 2'd1);
-            end else if (cursor_mode && rc_confirm) begin
-                page <= menu_sel;                      // ★ 光标档下按确认才进入该项页面
+            end else if (rc_confirm) begin
+                page <= menu_sel;                      // ★ 确认才进入该项页面（门控在下层）
             end
         end
     end

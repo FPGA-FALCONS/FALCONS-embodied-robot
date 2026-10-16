@@ -21,11 +21,11 @@ FPGA 四驱差速小车（具身机器人）的**主工程**。板卡：高云 *
 
 | 项 | 状态 |
 | --- | --- |
-| 进度 | 骨架 + 中文四页界面（含实时数值）+ 遥控输入（**5 个控件 / 6 路接口**）+ 四路速度闭环 + IMU 偏航角链路 + 串口 CSV 上报（12 列）；**上板前补全 A/B 六项已完成**；**2026-10-16 按需求原文与需求方裁定整改**（删自动档、模式驱动使能、两段式切页、数据页 9 字段、确认键加光标档门控、**信号有效性掩码**、字表 `ST_CURSOR`）；ToF/雷达/**导航页**为预留 |
-| 仿真 | **5 个自检 tb / 114 项检查全 PASS**（rc_input 30 / chassis_ctrl 23 / num_text 36 / ui_render 21 / speed_report 4；`sim\run_sim.ps1` 一条命令）；★ **顶层集成测试仍缺**（`falcons_top` 不在仿真源列表里） |
-| 综合 | **ERROR 0**；比特流 `impl\pnr\falcons.fs`（**34.2 MB**、**2026-10-16 18:36:19**，未入库） |
-| 资源 | Logic **8705**/138240（7%）、Register 4113（3%）、BSRAM 9/340（3%）、DSP 39/298（14%） |
-| 时序 | **SETUP 0 条（最差 +0.092 ns）/ REMOVAL 0 条（+0.267 ns）**；HOLD **13** 条（最差 −1.026 ns，sys→pixel 同步器第一级）；RECOVERY **8** 条（最差 −5.869 ns，复位释放 → HDMI 245 MHz 串行域）。**性质与口径见 `doc\工作记录.md` §20.7** |
+| 进度 | 骨架 + 中文四页界面（含实时数值）+ 遥控输入（**HT-10A：5 个控件 / 6 路接口**）+ 四路速度闭环 + IMU 偏航角链路 + 串口 CSV 上报（12 列）；**上板前补全 A/B 六项已完成**；**2026-10-16 按需求原文与需求方裁定整改**（删自动档、两段式切页、数据页 9 字段、信号有效性掩码、字表 `ST_CURSOR`）；**2026-10-16 晚合并队友的 HT-10A 遥控分支**（配置层 `ht10a_input` + 手动解锁守卫 `rc_drive_guard` + 修掉"推油门即失能"的功能错误）；ToF/雷达/**导航页**为预留 |
+| 仿真 | **6 个自检 tb / 193 项检查全 PASS**（ht10a_input 79 / rc_input 30 / chassis_ctrl 23 / num_text 36 / ui_render 21 / speed_report 4；`sim\run_sim.ps1` 一条命令，`-Simulator ModelSim\|Icarus` 双引擎）；★ **顶层集成测试仍缺**（`falcons_top` 不在仿真源列表里） |
+| 综合 | **ERROR 0**；比特流 `impl\pnr\falcons.fs`（**34.2 MB**、**2026-10-16 20:13:17**、SHA256 `3A3949A3…9947`，未入库） |
+| 资源 | Logic **9137**/138240（7%）、Register 4261（4%）、BSRAM 9/340（3%）、DSP 43/298（15%） |
+| 时序 | **SETUP 0 条（最差 +0.089 ns）/ REMOVAL 0 条（+0.256 ns）**；HOLD **13** 条（最差 −1.019 ns，sys→pixel 同步器第一级）；RECOVERY **8** 条（最差 −6.45 ns，复位释放 → HDMI 245 MHz 串行域）。**性质与口径见 `doc\工作记录.md` §20.7、§21.5** |
 | 模块库 | `vendor\` 里 10 个包 / 144 文件；来源 commit `c9b8025`（**2026-10-15 起本项目直接维护**，见 `vendor\ORIGIN.md`） |
 | Git | 首次提交 `bb9ea07`（199 文件 / 72107 行），当前 `main` 已推送到远程并建立跟踪 |
 | 上板 | **尚未做过**（本轮所有结论来自编译、仿真、综合与时序报告） |
@@ -109,11 +109,13 @@ powershell -ExecutionPolicy Bypass -File tools\program_flash.ps1 -Action Sram   
 powershell -ExecutionPolicy Bypass -File tools\program_flash.ps1 -Action Program   # 验证无误再固化
 ```
 
-✅ **最近一次完整构建**（**2026-10-16 18:36**，含本轮全部整改）：**ERROR 0**、比特流 `impl\pnr\falcons.fs`（**34.2 MB**）、
-Logic 8705（7%）/ BSRAM 9 块 / DSP 39；仿真 **5 个 tb / 114 项全 PASS**。
-该位流**晚于最后一次 RTL 改动** ✓ 可以直接烧；改动前的旧位流另存为
-`impl\pnr\falcons_before_cdcfix_20261016_0221.fs` 备查。
-上板步骤、按键/LED/遥控映射、**启动门禁行为**、IMU 现象判据、已知限制见 **`doc\上板指南_v1.md`**。
+✅ **最近一次完整构建**（**2026-10-16 20:13**，含本轮整改 + 队友 HT-10A 分支合并）：**ERROR 0**、比特流 `impl\pnr\falcons.fs`（**34.2 MB**）、
+Logic 9137（7%）/ BSRAM 9 块 / DSP 43；仿真 **6 个 tb / 193 项全 PASS**。
+该位流**晚于最后一次 RTL 改动** ✓ 可以直接烧。两份历史位流留作对照：
+`impl\pnr\falcons_before_ht10a_merge_20261016_1836.fs`（合并前）、
+`impl\pnr\falcons_before_cdcfix_20261016_0221.fs`（复位修正前）。
+上板步骤、按键/LED/遥控映射、**启动门禁行为**、IMU 现象判据、已知限制见 **`doc\上板指南_v1.md`**；
+**HT-10A 接线表、标定参数与实物验收清单见 `doc\HT10A接线与验收.md`**（以那份为准）。
 
 ---
 

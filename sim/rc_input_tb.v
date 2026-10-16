@@ -15,7 +15,7 @@
 //   6. 停止刷新超过超时      → o_signal_valid 拉低、o_mode 退回光标档
 //   7. 方向取反参数的对照实例（STEER_REVERSE / THROTTLE_REVERSE）
 //   8. 摇杆上下拨动 → 菜单脉冲（恰好一次 / 停住不连翻 / 回中后可再拨）
-//   9. ★ 信号有效性掩码 SIG_VALID_MASK：被掩码排除的通道即使一直无脉冲，
+//   9. ★ 信号有效性掩码 SIG_VALID_MASK：被排除的通道（bit5，J6.6 闲置未接）即使一直无脉冲，
 //      也不能把 o_signal_valid 拖成 0 —— 对应"第 3 路预留未接"的现场情况
 //      （若不隔离，整车 run_en 会恒 0：车永远不动，且只报"无信号"，无法定位）
 //////////////////////////////////////////////////////////////////////////////////
@@ -61,7 +61,7 @@ module rc_input_tb;
         .CH_THROTTLE   (1),
         .CH_CONFIRM    (2),
         .CH_MODE       (4),
-        .CH_SELECT     (5)
+        .CH_SELECT     (3)          // ★ 措施1：bit3（原"返回"键位）= select
     ) dut (
         .clk            (clk),
         .rst_n          (rst_n),
@@ -104,7 +104,7 @@ module rc_input_tb;
         .CH_THROTTLE   (1),
         .CH_CONFIRM    (2),
         .CH_MODE       (4),
-        .CH_SELECT     (5),
+        .CH_SELECT     (3),
         .STEER_REVERSE    (1),          // ← 与主实例唯一的差别
         .THROTTLE_REVERSE (1)
     ) dut_rev (
@@ -126,8 +126,8 @@ module rc_input_tb;
 
     // ------------------------------------------------------------------
     // ★ 信号有效性掩码对照实例（2026-10-16 新增，验证 A-1 的修法）
-    //   与主实例唯一差别：SIG_VALID_MASK 排除 bit3（第 3 路 = 预留未接）。
-    //   用途：在"第 3 路一直无脉冲、其余 5 路正常"的场景下，本实例仍报"信号有效"，
+    //   与主实例唯一差别：SIG_VALID_MASK 排除 bit5（第 6 路 = J6.6 闲置未接）。
+    //   用途：在"bit5 一直无脉冲、其余 5 路正常"的场景下，本实例仍报"信号有效"，
     //         而主实例（6 路全参与）报"无效" —— 两者对比即证明掩码生效。
     //   背景：若不做这个隔离，现场少插一根线就会让 run_en 恒 0（车永远不动）。
     // ------------------------------------------------------------------
@@ -148,8 +148,8 @@ module rc_input_tb;
         .CH_THROTTLE    (1),
         .CH_CONFIRM     (2),
         .CH_MODE        (4),
-        .CH_SELECT      (5),
-        .SIG_VALID_MASK (6'b110111)     // bit3 = 0：第 3 路不参与"信号有效"判定
+        .CH_SELECT      (3),
+        .SIG_VALID_MASK (6'b011111)     // bit5 = 0：J6.6（闲置未接）不参与"信号有效"判定
     ) dut_mask (
         .clk            (clk),
         .rst_n          (rst_n),
@@ -192,19 +192,19 @@ module rc_input_tb;
     endtask
 
     // ------------------------------------------------------------------
-    // 只刷新 5 路（跳过第 3 路）—— 用于"预留通道未接"场景
-    //   p3 恒低：rc_pwm_capture 永远等不到上升沿 → TIMEOUT_US 后 timed_out = 1
+    // 只刷新 5 路（跳过 bit5 / J6.6）—— 用于"闲置通道未接"场景
+    //   p5 恒低：rc_pwm_capture 永远等不到上升沿 → TIMEOUT_US 后 timed_out = 1
     // ------------------------------------------------------------------
-    task send_frame_skip3;
-        input integer w0, w1, w2, w4, w5;
+    task send_frame_skip5;
+        input integer w0, w1, w2, w3, w4;
         begin
-            p0 = 1'b1; p1 = 1'b1; p2 = 1'b1; p3 = 1'b0; p4 = 1'b1; p5 = 1'b1;
+            p0 = 1'b1; p1 = 1'b1; p2 = 1'b1; p3 = 1'b1; p4 = 1'b1; p5 = 1'b0;
             fork
                 #(w0 * 1000) p0 = 1'b0;
                 #(w1 * 1000) p1 = 1'b0;
                 #(w2 * 1000) p2 = 1'b0;
+                #(w3 * 1000) p3 = 1'b0;
                 #(w4 * 1000) p4 = 1'b0;
-                #(w5 * 1000) p5 = 1'b0;
             join
             #(10000);
         end
@@ -287,9 +287,18 @@ module rc_input_tb;
             integer k;
             pulses = 0;
             fork
-                send_frame(1500, 1500, 1500, 1500, 1500, 1800);   // select 拨到高位
+                // ★ 新实现的两条要求：① 该通道**连续 2 帧**确认才算"按下"；
+                //   ② 必须**先见到释放**再按下（幽灵点击防护）。所以这里连发 3 帧。
+                //   bit3（J6.4，原"返回"键位）= select
+                // ★ 注意：fork 里的多个 task 调用是【并行】的 —— 必须用 begin…end 串起来，
+                //   否则三个分支同时拉高/拉低，等价于只发了一帧（本项目踩过这个坑）。
                 begin
-                    for (k = 0; k < 6000; k = k + 1) begin
+                    send_frame(1500, 1500, 1500, 1800, 1500, 1500);
+                    send_frame(1500, 1500, 1500, 1800, 1500, 1500);
+                    send_frame(1500, 1500, 1500, 1800, 1500, 1500);
+                end
+                begin
+                    for (k = 0; k < 8000; k = k + 1) begin      // 覆盖 3 帧（帧确认需 ≥2 帧）
                         @(posedge clk);
                         if (btn_sel) pulses = pulses + 1;
                     end
@@ -307,9 +316,15 @@ module rc_input_tb;
             integer k;
             pulses = 0;
             fork
-                send_frame(1500, 1500, 1800, 1500, 1500, 1500);   // confirm 拨到高位
+                // 同上：连发 3 帧以满足"连续 2 帧确认"（bit2 = 确认）；
+                //   同样必须包在 begin…end 里才是顺序发送
                 begin
-                    for (k = 0; k < 6000; k = k + 1) begin
+                    send_frame(1500, 1500, 1800, 1500, 1500, 1500);
+                    send_frame(1500, 1500, 1800, 1500, 1500, 1500);
+                    send_frame(1500, 1500, 1800, 1500, 1500, 1500);
+                end
+                begin
+                    for (k = 0; k < 8000; k = k + 1) begin      // 覆盖 3 帧（帧确认需 ≥2 帧）
                         @(posedge clk);
                         if (btn_conf) pulses = pulses + 1;
                     end
@@ -403,14 +418,17 @@ module rc_input_tb;
             join
             check_int("menu_up_again", up_cnt, 2, 0);
 
-            // (d) 向下拨 −1000 → down 脉冲 1 个
+            // (d) ★ 新实现要求"必须先观察到回中"：**直接从正端跳到负端不算回中** ——
+            //     所以先发回中帧（回中过程不出脉冲），再向下拨 −1000 → down 恰好 1 个
             fork
                 begin
+                    send_frame(1500, 1500, 1500, 1500, 1500, 1500);
+                    send_frame(1500, 1500, 1500, 1500, 1500, 1500);
                     send_frame(1500, 1000, 1500, 1500, 1500, 1500);
                     send_frame(1500, 1000, 1500, 1500, 1500, 1500);
                 end
                 begin
-                    for (k = 0; k < 5000; k = k + 1) begin
+                    for (k = 0; k < 7000; k = k + 1) begin
                         @(posedge clk);
                         if (menu_up)   up_cnt = up_cnt + 1;
                         if (menu_down) dn_cnt = dn_cnt + 1;
@@ -421,20 +439,20 @@ module rc_input_tb;
             check_int("menu_up_stays_2", up_cnt, 2, 0);
         end
 
-        // ---------------- 9. 信号有效性掩码（A-1 修正的验证）----------------
-        //   场景：第 3 路（预留未接）一直没有脉冲，其余 5 路正常刷新。
-        //   期望：dut（6 路全参与）sig_ok = 0 —— 旧行为；
-        //         dut_mask（排除 bit3）sig_mask_ok = 1 —— 整车仍能被使能。
+        // ---------------- 9. 信号有效性掩码（措施②的验证）----------------
+        //   场景：bit5（J6.6 闲置未接）一直没有脉冲，其余 5 路正常刷新。
+        //   期望：dut（默认掩码 63 = 6 路全参与）sig_ok = 0 —— 旧行为，会把整车拖死；
+        //         dut_mask（排除 bit5）sig_mask_ok = 1 —— 整车仍能被使能。
         //   这是"保留 6 路接口 + 只接 5 路"能够真正开动的前提。
-        $display("-- 9. 掩码：第 3 路无脉冲、其余 5 路正常 → 全参与=0，掩码=1 --");
+        $display("-- 9. 掩码：bit5 无脉冲、其余 5 路正常 → 全参与=0，掩码=1 --");
         begin : mask_test
             integer k;
             for (k = 0; k < 8; k = k + 1) begin
-                send_frame_skip3(1500, 1500, 1500, 1500, 1500);
+                send_frame_skip5(1500, 1500, 1500, 1500, 1500);
             end
             #20000;
-            check_int("sig_all6_ok",      sig_ok,      0, 0);   // 6 路全参与 → 判为丢信号
-            check_int("sig_mask_ch3_off", sig_mask_ok, 1, 0);   // 排除第 3 路 → 仍有效
+            check_int("sig_all6_ok",       sig_ok,      0, 0);   // 6 路全参与 → 判为丢信号
+            check_int("sig_mask_bit5_off", sig_mask_ok, 1, 0);   // 排除闲置 bit5 → 仍有效
         end
 
         // ---------------- 汇总 ----------------

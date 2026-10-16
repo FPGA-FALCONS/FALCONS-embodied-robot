@@ -1,0 +1,194 @@
+{
+  "date": "2026-10-16",
+  "base_commit": "701144bb2dce4109c5c859bdb782037bddd45a0c",
+  "test_checks": {
+    "ht10a_input": 77,
+    "rc_input": 26,
+    "chassis_ctrl": 23,
+    "num_text": 28,
+    "ui_render": 12,
+    "speed_report": 4
+  },
+  "total_checks": 170,
+  "simulator": "Icarus 12",
+  "vendor_capture": {
+    "groups": 17,
+    "assertions": 502,
+    "clock_hz": 50000000
+  },
+  "pin_check": {
+    "matched_signals": 35,
+    "unique_pins": 60
+  },
+  "resources": {
+    "Logic": "9096/138240",
+    "Register": "4267/139095",
+    "BSRAM": "9/340",
+    "DSP": "43/298"
+  },
+  "timing_reported_paths": {
+    "Setup": {
+      "reported_paths": 25,
+      "negative": 0,
+      "worst_ns": 0.325,
+      "worst_path": {
+        "slack_ns": 0.325,
+        "from": "u_imu/rx_buf[6]_7_s0/Q",
+        "to": "u_imu/calib_cnt_8_s2/CE"
+      }
+    },
+    "Hold": {
+      "reported_paths": 25,
+      "negative": 13,
+      "worst_ns": -1.019,
+      "worst_path": {
+        "slack_ns": -1.019,
+        "from": "mode_s_0_s0/Q",
+        "to": "mode_ps1_0_s0/D"
+      }
+    },
+    "Recovery": {
+      "reported_paths": 25,
+      "negative": 25,
+      "worst_ns": -4.502,
+      "worst_path": {
+        "slack_ns": -4.502,
+        "from": "u_reset_sync/key_stable_s0/Q",
+        "to": "u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_clk/RESET"
+      }
+    },
+    "Removal": {
+      "reported_paths": 25,
+      "negative": 0,
+      "worst_ns": 0.28,
+      "worst_path": {
+        "slack_ns": 0.28,
+        "from": "u_reset_sync/key_stable_s0/Q",
+        "to": "u_hdmi/u_disp_driver/vcount_r_1_s0/CLEAR"
+      }
+    }
+  },
+  "fs_bytes": 35882493,
+  "fs_sha256": "4b3b3a7ed139fc316c56cc59f130e29d0127efd4384d4db6c73cfdf15fb4fd4a",
+  "input_sha256": {
+    "build.tcl": "c9571b83e63f2e11b8750a73c80ef4a54292b0b3f9cc92cc882d38af13db85b9",
+    "constr/falcons.cst": "61d97b12412f0ef95bf7a502ba948a710ce66c2501e646884cf411222c392e75",
+    "constr/falcons.sdc": "017c76b553f127720261afd6415bb9e1be835d80749f3593f17711d87c046812",
+    "deps/modules.list": "af050ec61031e4ffa40eac1d77480e728d9590a74ce528c19ce4cc92ab2f077b",
+    "rtl/common/app_key.v": "0b13c7fe71d1468d84c27a958eea2786e8a9838e6f328b6daa5b34bf1e0cdf2b",
+    "rtl/common/font_rom.v": "1f4c34c54c789ee1a74ef0a8419ed8e826c289b50811ddd89d56c4972288675d",
+    "rtl/common/reset_sync.v": "414fc6dba323bea0ca1dadc5b9fd3cc397c838b29dccbd4020f8819c0f69a5bb",
+    "rtl/common/ui_text_rom.v": "09c097c98de6cbce818764124bdd5e029e376c6787930ec960ca302c118b32f9",
+    "rtl/debug/speed_report.v": "e05c07d68eb8730735ba030bf157e3ca83ca19c1eed1cf6c4abfc999f947fe89",
+    "rtl/debug/uart_cmd_rx.v": "17a2a33ee7424693b0ae876e34f2198bfc5b90da53b6ba85dd35da6740a32f97",
+    "rtl/motor/chassis_ctrl.v": "6136303cebd29edf708f5d805afc2643174ff5cfac786af7977f470b530f109e",
+    "rtl/motor/speed_pid.v": "baacb1a87a706b0574fd73123e5b4fd65870ce571dee7d12257b88ab8b9f884f",
+    "rtl/rc/ht10a_input.v": "f2c4b54d56853ccaf983709597e7a8dfb797a3550b6f4bac68c8f6dd1320abbf",
+    "rtl/rc/rc_drive_guard.v": "dabe11424e7ff681dc30744a36d8175672c158afda399db1a210dbb03edc5c6c",
+    "rtl/rc/rc_input.v": "b1d7e1d499f33283ab953aebe03ca233207520a769b39b0cbf015ecb382d758f",
+    "rtl/top/falcons_top.v": "f70a6805ce214649816599d624e998da0ef711d64d4032b10048f5a366c145b5",
+    "rtl/ui/dyn_text_ram.v": "11834faec98084b8b7e7d5e96a841d3fa64f8e844e63ae269c082f447ee57c90",
+    "rtl/ui/num_text.v": "a2635ce654d7f842af92210ed515273c5387813151589d26389c5807338859db",
+    "rtl/ui/ui_render.v": "6987d2ff1cd0731874037b2a3b39cb50ad028e45121949c8f465234c00e54e37",
+    "rtl/ui/ui_text_index.vh": "c488b050d708a7c88dae9e56c496ce9d92c99c60e7d5d86f5b2868103f08fcf1",
+    "scripts/vendor_sources.tcl": "a8e1a2b0b2fc8fb49998f1f5272b9b8110ce9a97c6cffd0e2af0ca876c535e55",
+    "vendor/verilog-reusable-modules/modules/gyro_tilt_comp/rtl/gyro_tilt_comp.v": "d064f4afdebdec39cb66bc144b39d8097b1d76c68566b538f7260179255889f4",
+    "vendor/verilog-reusable-modules/modules/gyro_tilt_comp/sim/gyro_tilt_comp_tb.v": "5171c0544ea10fc9dca6a1d2ecb9567199096379bb038f82af980049d1235f71",
+    "vendor/verilog-reusable-modules/modules/gyro_tilt_comp/sim/tilt_integration_tb.v": "f42f98d3cf3e835e758d12c84d5a076db781d2690a2ae67fbea8ca0deb468b28",
+    "vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/disp_driver.v": "60fc2800d6a1ccf9b0df01aa8f76030e8850da7a5e7779d3184d49abccb30592",
+    "vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/disp_parameter_cfg.vh": "20de670514f0397edb613dd367874b869efc555b5c7647445ec428ce9a86f659",
+    "vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/display_pll.v": "6148b69d2e487cafe7205d7aa9c52a480ee65584c7cf4f14dc594ac24962eaa2",
+    "vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/dvi_tx.v": "7393b54e0d7553b037b80e87582601bbe878435c6aeb0b32d04663add810fd6f",
+    "vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/hdmi_1024x600.v": "62a9056a38980646e13adc0d8f57cb6ec082cc1ac02893cce8e23a4719ada6f6",
+    "vendor/verilog-reusable-modules/modules/hdmi_1024x600/sim/disp_driver_tb.v": "ff11a47640fea4c019fdad640118bec88daaa94093c692358a74e27cf343816c",
+    "vendor/verilog-reusable-modules/modules/imu660ra/examples/acg720_imu_uart/imu_uart_top.v": "28706db3c5b43b04388f13efe4494c8aa8dd1ed8389cfb1d9c6890a0620944ee",
+    "vendor/verilog-reusable-modules/modules/imu660ra/examples/acg720_imu_uart/uart_report.v": "73b9b0dd3831060cc1887da8cdc0f0574b1b7f59c689bfbc2b4118e1816c0e64",
+    "vendor/verilog-reusable-modules/modules/imu660ra/rom/imu660ra_config_file.mem": "6ae7601f7e7961b1fed08e3cf4ef881c808e6a75e26175d99562a246a76fcb3b",
+    "vendor/verilog-reusable-modules/modules/imu660ra/rtl/bmi270_cfg_rom.v": "da013edbe5038ea4af85bbda7043a9d7b6d5801fabcfa21d5a115f3d09b64609",
+    "vendor/verilog-reusable-modules/modules/imu660ra/rtl/imu_top.v": "451a7a78c6783b0566060e6a484cd54031e5d62b89c2bd60bc5a03fb53d582be",
+    "vendor/verilog-reusable-modules/modules/imu660ra/rtl/spi_master_mode0.v": "cae9b6e20e6fcc1e5be059a76f4a3be307815781c4a67f7516cf51a1a79eb5da",
+    "vendor/verilog-reusable-modules/modules/imu660ra/sim/bmi270_model.v": "c68f769bebd56956895c13b86b93561c412e68a4354cf7407a539002a14a2b5f",
+    "vendor/verilog-reusable-modules/modules/imu660ra/sim/imu_top_tb.v": "fa1bd60acb142147c76599ebd054bf5b0e7808e22408eeec67eb9b4c7d897404",
+    "vendor/verilog-reusable-modules/modules/imu660ra/sim/spi_master_mode0_tb.v": "4316158a810576f1b97ce79a55deecc63f62a5a1df2d8f2628cc336e1b8e30b4",
+    "vendor/verilog-reusable-modules/modules/m10_radar/examples/acg720_m10_hdmi/rtl/acg720_m10_hdmi_top.v": "7fe39a4a6c1fa5195f172e0651332055096e46fa28ae2cdc763931e699ee5c3c",
+    "vendor/verilog-reusable-modules/modules/m10_radar/rtl/m10_packet_parser.v": "2e43a0192b733089198c8a799669b465f58085bf278e6ddef7650cfcaae4cc27",
+    "vendor/verilog-reusable-modules/modules/m10_radar/rtl/m10_point_cloud_core.v": "aa79bcd2561f9f0927cea8ba687db46929e0c953a624df2a5ecc728118e6234b",
+    "vendor/verilog-reusable-modules/modules/m10_radar/rtl/m10_radar.v": "412edebdd0cb22fe8c9d0755f78ad03e2cf609211457fcbeeb7cd3a4877c4768",
+    "vendor/verilog-reusable-modules/modules/m10_radar/rtl/point_bitmap.v": "7d1183679cb0f440eb4cd4334264459f467e54db582a3b857264bca92335754d",
+    "vendor/verilog-reusable-modules/modules/m10_radar/rtl/point_cloud_video.v": "c6882a84761665fdb70c3d556ac340de844c5b35c8003050e85607132e1d7569",
+    "vendor/verilog-reusable-modules/modules/m10_radar/rtl/polar_to_xy.v": "639db8b0892b29c1c2ee9fcca1bd0f9e3b9be4a555dcfe68f20b61faf9fc1b4b",
+    "vendor/verilog-reusable-modules/modules/m10_radar/rtl/sin_lut.vh": "b13890b19a9dc5ad9362a300fa024fd95a94dbf7aab65de5ca98b7ebc593caa3",
+    "vendor/verilog-reusable-modules/modules/m10_radar/rtl/zoom_control.v": "737b09bc47bd9a02aca3d8e3cf722cc46f8e1edc16ec9f7bd31c04e7f46762ac",
+    "vendor/verilog-reusable-modules/modules/m10_radar/sim/m10_gps_packet_parser_tb.v": "6c4cb6a8362e4da630a2f78ef0fbef3146556eb5b82c5cf6dff5e2580af15b90",
+    "vendor/verilog-reusable-modules/modules/m10_radar/sim/m10_point_cloud_core_tb.v": "f1af021eb4f8e85d8d556ef4bebc361d18a12b5d83fbc60f90d93ee617aa638d",
+    "vendor/verilog-reusable-modules/modules/m10_radar/sim/m10_radar_tb.v": "cc0688d31d3bc5604f28a6f2f8a446cb9f23e108773722aab0d8647dd60e29db",
+    "vendor/verilog-reusable-modules/modules/m10_radar/sim/point_bitmap_tb.v": "189605f4331ec38b674273dafa5c5a29a81045c43ca1a21d93249f1abe159fd0",
+    "vendor/verilog-reusable-modules/modules/m10_radar/sim/point_cloud_video_tb.v": "1596450af175a02bf4e966ba24335f1684d822246b08df8d792eadcb071f1509",
+    "vendor/verilog-reusable-modules/modules/m10_radar/sim/polar_to_xy_tb.v": "a875c863b8479a43b57335c5bdb287f601e7dc5ea341403e1cbc0e0705a497b6",
+    "vendor/verilog-reusable-modules/modules/m10_radar/sim/uart_rx_recovery_tb.v": "493233ec125aefead599a7390839fa2c15061220f449cf60d733e248094f21c3",
+    "vendor/verilog-reusable-modules/modules/m10_radar/sim/zoom_control_tb.v": "22ad0ad5f479c9c37236bb4f4ba265b865bed51e21d8c11a8e3fe92f74372b45",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/motor_pwm.v": "33b263cebfb655c702fc32061ae1dfa2f4feb43e8a08d6079d72541d09835892",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/motor_top.v": "48ee00f0bed3f902b8cc938ccb6f9734deb59a88482ff3fbc4eb193f0327d58f",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/motor_unit.v": "7b8ba795419bd895656c92bd3be4996306ec79d208d6fafd72782b4cadee6c8e",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/quad_decoder.v": "58f01e67c6ca7ce452c39ce70d938e1f376aba68fa655148ccdd620fe114376b",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/speed_measure.v": "bec1d1128787e4c7f44af2b69bca42ddd2706bb8482fd0c358b282a4496bd7b7",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/stall_detect.v": "ee5b1decfa0c1de35150d66c749fa88921b124c4984f83b6bd1ee638eaf31678",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/sim/motor_pwm_tb.v": "5103766eda1e962cddb7f71127a7c459213980e5aab581d7d2417b74105b3663",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/sim/motor_top_tb.v": "579e6122dd8a3aebbdfda6f9861fd88e197b7fe38c84882e9bce8ef76fcf8bdb",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/sim/quad_decoder_tb.v": "fc61a89eb8a08cdf2c9424958be1056d6414e08e848451aed0f448e93bd72376",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/sim/speed_measure_tb.v": "97dfd44ac5c4b4a02d23acf6c9e513e78cb8ea6f063fb185aab819ab0f43c441",
+    "vendor/verilog-reusable-modules/modules/motor_tb6612/sim/stall_detect_tb.v": "69a41199103cc63eede97d591df0e49692daa8bdb739a258b32bee7e16e82c1f",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/ip/ddr3_ctrl_2port/ddr3_ctrl_2port.v": "de3ab3ac7599f8eade5ae67c21e4d37b50c0a0ff21d90159fabfdead44c11517",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/ip/ddr3_ctrl_2port/fifo_ddr3_adapter.v": "fdf4327c8c2f4da8bcaac63982e90e2fa1bbac422873964ee4f70384201340c8",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/ip/ddr3_memory_interface/ddr3_memory_interface.v": "dac0b9e6ac7258c6f587aba2d295260fbeec6f43c2cf586ebd48c611a4d8fc86",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/ip/ddr_pll/ddr_pll.v": "b98c29795e5300345631678f37756fd833e2ba99820b44bd169e64b5b96af719",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/ip/rd_data_fifo/rd_data_fifo.v": "f844e5bc8b35d8e8afc41b5e5d0d27702bf56d3de66294be124b8fe6b509373b",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/ip/system_pll/gowin_pll.v": "6e00b15dc58d8e59f223baf832b2ca988aedb168080b18146adf8d14f187871b",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/ip/wr_data_fifo/wr_data_fifo.v": "fb19f456247b3ee8bf74ae2d0f174d3ab4e07146c55c4cc83b220c43d74c263a",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/rtl/acg720_ov5640_ddr3_hdmi_top.v": "f58539490fc0ead8ec3336339ce700320a211d3ecac32c5abbf1d884b70f9cdc",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/camera_init.v": "0ea507a00c0d25b65f951ba55fef578835a0774522db5e691195a402eaf52229",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/DVP_Capture.v": "2f76676ced19a0cd49350ae2ce2e091345a7286b8f49c044a1ec2012c803316c",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/i2c_bit_shift.v": "10a70a37d64bfaaee6db28392e2530e85fa75d2a67f1a78a6bdad1b342fd93d5",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/i2c_control.v": "83318c8b2e61e89462d0e4de873ca66cbbaf7c7c5365cc3df6b46a1a5a520dbb",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/ov5640_capture.v": "cb43496434c86855f8d8d43c685c0a9a7c760ccb5c45a340dc722c7a23f05b6a",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/ov5640_init_table_rgb.v": "31221f6a7f76cbf4b10d20d9ab1156784cd13d6768bb9183874d5d2c3432313a",
+    "vendor/verilog-reusable-modules/modules/ov5640_capture/sim/i2c_bit_shift_tb.v": "dcb0d356617138fa33d7994c5d58ee3533ad24ccf8de159c9ee68125b7494a1f",
+    "vendor/verilog-reusable-modules/modules/rc_pwm_receiver/rtl/rc_pwm_capture.v": "377bc4af9ce2a8090acbc2b417f291377ed97a512643832178a3b4344a1b788d",
+    "vendor/verilog-reusable-modules/modules/rc_pwm_receiver/rtl/rc_receiver.v": "530dcac20705762ca941da5a5226890d72f1aab47a3e18c06182c95e5f4aa854",
+    "vendor/verilog-reusable-modules/modules/rc_pwm_receiver/sim/rc_receiver_tb.v": "bb5c3c7248b33117af84e5f69d728ea734fd3b914920c32449f31c9712771c4d",
+    "vendor/verilog-reusable-modules/modules/sync_fifo/rtl/sync_fifo.v": "3434fa65f5c13625af0e4b9e5317c1e9d40ababc09c856e9d27c0637285b3956",
+    "vendor/verilog-reusable-modules/modules/sync_fifo/sim/sync_fifo_tb.v": "8b1f16857e3facec99c2debe26c3b8cb5e4cc4a9fab05defaad75a6ab63ac15a",
+    "vendor/verilog-reusable-modules/modules/uart/examples/uart_echo_top.v": "082c9e2e8e06ea4b98540240c535336b84d773d8398034654a1e121cc94c1313",
+    "vendor/verilog-reusable-modules/modules/uart/rtl/uart_byte_rx.v": "5d50c50daecea3c2f9ddad79acb9fd6135f83677db3e712c8b82008dc2f4b169",
+    "vendor/verilog-reusable-modules/modules/uart/rtl/uart_byte_tx.v": "4d507592ed26ecebee58062e946b90ad7e7aebe86d0a2327e8e7afd9688bed2d",
+    "vendor/verilog-reusable-modules/modules/uart/rtl/uart_rx_queue.v": "8d8a74d1cfe3bb736f596d68e64cf70646872c44b51e17812261cf5399319869",
+    "vendor/verilog-reusable-modules/modules/uart/rtl/uart_tx_queue.v": "9d507786a17af68258f14135866e4bfe4ddeec675112639ef07636baf4489e9e",
+    "vendor/verilog-reusable-modules/modules/uart/sim/uart_queue_loopback_tb.v": "65f888a4e4b7928c78f59f29f64c1864dcd1ea8979c539752a59cee8567850ce",
+    "vendor/verilog-reusable-modules/modules/yaw_integrate/rtl/yaw_integrate.v": "71df14c97fd82789b751a939313606e6099b32afa0b3ad310abac4c0c800a703",
+    "vendor/verilog-reusable-modules/modules/yaw_integrate/sim/yaw_integrate_tb.v": "79ad8f4c76c48e94191bd0f4f0ac8cab125e141249d176f488b2d989c9ff9cb0"
+  },
+  "hardware_tested": false,
+  "mutation_checks": [
+    {
+      "mutation": "swapped_sticks",
+      "detected": true
+    },
+    {
+      "mutation": "continuous_center_gate",
+      "detected": true
+    }
+  ],
+  "build_report_time": "Fri Oct 16 13:41:28 2026",
+  "test_sha256": {
+    "sim/chassis_ctrl_tb.v": "b3c32ffa7cdffef26443c545561e0205203a02c8b80059291971b03732c1ec03",
+    "sim/debug_rc_tb.v": "b2407e7963399fd2b8e4f57be3f698f8e2491112e4f0a14676d73adaaafd13fc",
+    "sim/ht10a_input_tb.v": "d1c00662a8f92d0cddef575aa5dc096a6e138442266c7b26dcb4d076eafc9a15",
+    "sim/num_text_tb.v": "11953e81d2e5645a9361941716bdcfbebf2c9773585543cdb3cca57b96d5d6ec",
+    "sim/rc_input_tb.v": "5db2a49f1d2ecb27337e2181c8645db007e5708a71b437de837a97c7d479cfee",
+    "sim/run_sim.ps1": "a3301c5c6e1d48daceee78c98489b4d81b8f72f3309c0f8e872a7c17705ff67a",
+    "sim/speed_report_tb.v": "f851aefdd9fe03cdb974f7913624df3e3119047e36507ddcff417650e2436fcf",
+    "sim/ui_render_tb.v": "f1c6d8cb870a06fc2dc18f5ef6c7fa17c45a738339302163c77cca70e36653d0"
+  },
+  "programmer_dry_run": true,
+  "programmed_hardware": false
+}
