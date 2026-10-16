@@ -32,10 +32,11 @@ proc read_referenced_packages {} {
 }
 
 # 内嵌模块库侧：每个引用包的 rtl\*.v（按包名排序，保证构建可复现）
-proc get_vendor_sources {} {
+proc get_vendor_sources {{packages {}}} {
     global VENDOR_ROOT
     set out {}
-    foreach pkg [lsort [read_referenced_packages]] {
+    if {[llength $packages] == 0} { set packages [read_referenced_packages] }
+    foreach pkg [lsort $packages] {
         set dir "$VENDOR_ROOT/modules/$pkg/rtl"
         if {![file isdirectory $dir]} {
             puts "ERROR: deps/modules.list references '$pkg' but $dir does not exist (check vendor/verilog-reusable-modules)."

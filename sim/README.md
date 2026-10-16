@@ -84,3 +84,7 @@ powershell -File sim\run_sim.ps1
 | `<对象>_model.v` | 行为级模型（如电机对象模型），不要放进 `rtl\` |
 
 日志与仿真库（`work*\`、`transcript`、`*.log`）都被 `.gitignore` 忽略，不会进仓库。
+
+## 2026-10-17 当前回归
+
+本轮保留上面的历史基线并新增：rc_led_test_tb（27项，真实测试顶层/PWM到LED/所有电机输出持续为零）、rc_probe_report_tb（5项，逐字节UART解码/整行快照/边界65535）、reset_sync_tb（6项，无初始按键的冷启动/去抖）。共9个测试台241项，本机Icarus实跑。未安装ModelSim，因此不声称本轮在ModelSim实跑。UI测试恢复合并时丢失的初始模式跳变激励，原断言未降低。当前数据统一见doc/审查与上板验证_20261017.md；上述较早的203项属于合并时基线。

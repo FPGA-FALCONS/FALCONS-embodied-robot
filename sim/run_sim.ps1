@@ -6,6 +6,9 @@
 #   极易误判成"全部通过"（这是模块库 README 与本工程交接文档都强调过的坑）。
 #
 # 覆盖的测试（都是自检 tb，末尾打印 PASS:/FAIL:）：
+#   rc_led_test_tb    RC测试顶层：真实PWM/按键/LED/电机恒禁能
+#   rc_probe_report_tb 诊断CSV：逐字节UART接收/快照/边界
+#   reset_sync_tb      冷启动与复位去抖
 #   ht10a_input_tb  HT10A 通道/标定/开关/失效/启动门禁集成
 #   rc_input_tb      遥控槽位映射、归一化/死区/模式两档/按钮(select+confirm)/丢信号/取反/摇杆拨动/掩码有效性
 #   chassis_ctrl_tb  差速分解、限幅、安全逻辑、闭环方向、rpm 换算      （23 项）
@@ -19,7 +22,7 @@
 #       logs\sim_<test>.log（UTF-8 无 BOM，logs\ 已被 .gitignore 忽略）。
 #       ★ 判 PASS 的三条硬条件（2026-10-16 收紧，见判定段注释）：
 #         ① PASS:/FAIL 都**锚行首**匹配；② 先做 zeroFail 抵消（"0 FAIL" 不算失败）；
-#         ③ tb 打印的 `CHECKS: N` 必须与实测 pass 行数一致（**仅对打印 CHECKS 的 tb 生效** —— 当前 6 台中只有 `ht10a_input_tb`）。
+#         ③ tb 打印的 `CHECKS: N` 必须与实测 pass 行数一致（**仅对打印 CHECKS 的 tb 生效** —— 当前新增诊断与复位测试及ht10a测试均打印CHECKS）。
 #       ★ 每次运行前会**清空并重建**仿真库（**ModelSim 引擎**；Icarus 分支每台全量重编，不建库；只清 sim\work_sim 这一个目录）——
 #         防止库里残留上次编译的旧模块，把"漏列源文件"掩盖成假通过。
 #
@@ -124,6 +127,9 @@ $sources = @(
     "$ProjectRoot\rtl\rc\rc_input.v",
     "$ProjectRoot\rtl\rc\ht10a_input.v",
     "$ProjectRoot\rtl\rc\rc_drive_guard.v",
+    "$ProjectRoot\rtl\rc\rc_led_observer.v",
+    "$ProjectRoot\rtl\debug\rc_probe_report.v",
+    "$ProjectRoot\rtl\top\rc_led_test_top.v",
     "$ProjectRoot\rtl\motor\speed_pid.v",
     "$ProjectRoot\rtl\motor\chassis_ctrl.v",
     "$ProjectRoot\rtl\ui\dyn_text_ram.v",
@@ -132,6 +138,9 @@ $sources = @(
     "$ProjectRoot\rtl\ui\ui_render.v",
     # 测试平台
     "$PSScriptRoot\rc_input_tb.v",
+    "$PSScriptRoot\rc_led_test_tb.v",
+    "$PSScriptRoot\rc_probe_report_tb.v",
+    "$PSScriptRoot\reset_sync_tb.v",
     "$PSScriptRoot\ht10a_input_tb.v",
     "$PSScriptRoot\chassis_ctrl_tb.v",
     "$PSScriptRoot\num_text_tb.v",
@@ -140,6 +149,9 @@ $sources = @(
 )
 
 $tests = @(
+    @{ Name = 'rc_led_test'; Top = 'rc_led_test_tb'; Desc = 'RC-only board top: PWM to LEDs, keys and permanent motor inhibit' },
+    @{ Name = 'rc_probe_report'; Top = 'rc_probe_report_tb'; Desc = 'RC diagnostic CSV: real UART decode and atomic snapshot' },
+    @{ Name = 'reset_sync'; Top = 'reset_sync_tb'; Desc = 'Cold boot and key debounce without prior reset press' },
     @{ Name = 'ht10a_input'; Top = 'ht10a_input_tb'; Desc = 'HT10A mapping/calibration/switches/loss/manual drive integration' },
     @{ Name = 'rc_input';     Top = 'rc_input_tb';     Desc = '遥控槽位映射：归一化/死区/模式两档/按钮 select+confirm/丢信号/取反/摇杆拨动/掩码有效性' },
     @{ Name = 'chassis_ctrl'; Top = 'chassis_ctrl_tb'; Desc = '★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算' },

@@ -53,3 +53,7 @@ J6.1..6 分别接接收机 CH4/CH2/CH5/CH7/CH6/CH8，先经电平转换；**顶�
 **bit5（J6.6 / CH8）闲置**，已由 `SIG_VALID_MASK = 6'b011111` 排除出"信号有效"判定（该路悬空不影响开车）；
 **bit3（J6.4 / CH7）是 select** —— 在用、参与判定，别把它当预留位。
 详细表见 `doc/HT10A接线与验收.md` §2（**接线唯一真源**）。IO_LOC/IO_PORT 未改，不能将 J6 丝印 CHn 直接等同于接收机 CHn。
+
+## 独立手柄测试约束
+
+`build_rc_led.tcl`从主falcons.cst按顶层端口筛选31个引脚，生成到`impl/rc_led_test/rc_led_test.cst`，与独立50MHz时序约束配套。不要把生成文件复制进constr，否则主工程的glob会重复加入约束。

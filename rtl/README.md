@@ -41,3 +41,7 @@
 搬的时候注意：`car_fpga` 的应用层模块是**在模块库副本旁边**写的，个别文件可能在参数默认值里
 带了本车标定值。搬进本工程前先核对一遍（本车标定值应当写在 `rtl\top\` 的例化参数里，
 不要写进 vendor 的模块）。
+
+## 独立手柄测试（2026-10-17）
+
+`top/rc_led_test_top.v`只例化生产HT10A配置、按键/复位、`rc/rc_led_observer.v`与`debug/rc_probe_report.v`。13个电机输出恒为0，未例化电机或HDMI。只通过`build_rc_led.tcl`选择这个顶层，正常build.tcl仍选择falcons_top。

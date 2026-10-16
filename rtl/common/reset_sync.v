@@ -33,13 +33,14 @@ module reset_sync #(
     localparam integer DBNC_TICKS = MS_TICKS * DEBOUNCE_MS;
 
     // 两级同步
-    reg [1:0] key_sync;
+    // Explicit startup values match key_stable=0; do not depend on simulator/tool FF defaults.
+    reg [1:0] key_sync = 2'b00;
     always @(posedge i_clock) begin
         key_sync <= {key_sync[0], i_key_n};
     end
 
     // 去抖计数
-    reg [31:0] dbnc_cnt;
+    reg [31:0] dbnc_cnt = 32'd0;
     reg        key_stable = 1'b0;    // 上电默认处于复位态，去抖确认后释放
 
     always @(posedge i_clock) begin

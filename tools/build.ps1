@@ -13,7 +13,8 @@
 [CmdletBinding()]
 param(
     [string]$Tcl = 'build.tcl',
-    [string]$GowinSh
+    [string]$GowinSh,
+    [string]$ArtifactDirectory = 'impl\pnr'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,7 +39,7 @@ try {
 
 # ---------- 报告产物 ----------
 Write-Host ''
-$pnr = Join-Path $ProjectRoot 'impl\pnr'
+$pnr = Join-Path $ProjectRoot $ArtifactDirectory
 if (Test-Path $pnr) {
     $fs = @(Get-ChildItem $pnr -Filter '*.fs' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
     if ($fs.Count -gt 0) {

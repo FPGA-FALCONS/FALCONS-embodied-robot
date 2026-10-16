@@ -84,3 +84,7 @@ $c = [System.IO.File]::ReadAllText($p, [System.Text.Encoding]::UTF8)
 > `imu_demo.fs → falcons.fs`，脚本主体（含"必须展开 `@cliArgs` 而不是 `@args`"的修正）
 > 原样保留 —— 旧写法 `& $cli @args` 里的 `$args` 是自动变量，脚本用了 `param()` 后它恒为空，
 > 等于不带参数执行 `programmer_cli`。
+
+## 独立手柄构建
+
+`build.ps1 -Tcl build_rc_led.tcl -ArtifactDirectory impl/rc_led_test/impl/pnr`构建并报告独立手柄位流；默认不传参数仍构建整车。测试约束由规范约束筛选生成，详见`doc/手柄LED上板测试.md`。文件和日志都落在已有忽略的impl/logs目录，不重复提交生成物。
