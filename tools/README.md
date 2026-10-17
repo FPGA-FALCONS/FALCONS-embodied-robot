@@ -7,7 +7,7 @@
 | `lib_paths.ps1` | **所有路径的唯一定义处**（工程根、vendor 根、`deps\modules.list`、外部工具路径）+ 三个公共函数 | 被其它脚本 `dot-source`，不单独运行 |
 | `build.ps1` | 一键构建：调 `gw_sh.exe` 综合 + 布局布线，最后列出 `impl\pnr\*.fs` | 日常构建 |
 | `run_all_modules.ps1` | 把 `vendor\` 里各模块自带的测试跑一遍（**模块自带测试当门槛**），日志落 `logs\` | **改了 vendor 里某个模块之后**做回归 |
-| `gen_font_rom.py` | 中文字库生成器：从 `font_chars.txt` 渲染 16×16 点阵 + 字符串索引，**数据内嵌**进 Verilog（不用 `$readmemh`） | 改了界面文案后 |
+| `gen_font_rom.py` | 字库生成器：从 `font_chars.txt` 一次生成**三套点阵**——小字 `font_rom.v`（16×16，3632×16）、大字 `font_rom_lg.v`（24×24，5448×24）、紧凑数字 `font_num.v`（16 宽×24 高，5448×16），外加字符串 ROM 与索引；**数据内嵌**进 Verilog（不用 `$readmemh`） | 改了界面文案或字号后 |
 | `font_chars.txt` | UI 文案字表（76 条，2026-10-16 加 `ST_CURSOR:光标档`、改名 `HINT_MOVE_CURSOR`），`gen_font_rom.py` 的输入 | 加 / 改界面文案时 |
 | `check_pin_constraints.py` | ★ **引脚约束逐针复验**：从手册 PDF 原文解析「针号→网络→J1正式Pin」，与 `constr\falcons.cst` 里实际生效的 `IO_LOC` 逐针比对（覆盖手册 J2/J4/J5/J6/J7 五张表，共 35 根信号），并查引脚唯一性与注释一致性。★ **2026-10-16 队友那轮修过一个真缺陷**：PyMuPDF 回退路径原按**逐单元格**提取文本，五张表会被解析成 **0 针**（静默"全过"）；已改为 `sort=True` **保留行布局**，并增加**各连接器针数门槛**（针数不足即报错，不再假装通过）。比对用的手册已拷入本工程：`doc\ACG720_引脚接线手册_RevI.pdf` | **改约束 / 换接线 / 拿到新版手册后必跑** |
 | `sta_timing_probe.tcl` | ★ **时序统计口径的"探针"构建**（一次性调查用）：用 `-output_base_name falcons_sta` 把整套报告落到**新文件名**（`impl\pnr\falcons_sta*`），**一个字节都不动** `impl\pnr\falcons.*`（当前**正式位流**与报告 —— ★ 注意本工程**尚未上板过**，别写成"已上板验证的位流"）。用途：对**同一份 RTL 再独立布一次线**，用来区分"结构性统计"与"随机落点"。⚠ 结论：本项目需要它时只在复核时序口径时跑；`gw_sh` 的 tcl **没有** `report_timing` 命令（详见 `doc\工作记录.md` §21.9） | 复核时序统计口径时（**非日常构建**）。★ 2026-10-16 首跑后已按需求方授权**清理产物（142.4 MB）**，只留 `impl\pnr\falcons_sta_tr_content.html` + `impl\pnr\falcons_sta.timing_paths` 两份证据；需要时重跑本脚本即可复现（约 2 分钟） |
