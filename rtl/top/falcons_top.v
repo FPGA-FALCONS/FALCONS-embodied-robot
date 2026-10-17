@@ -166,14 +166,21 @@ module falcons_top (
         .STEER_CENTER_US(1500), .THROTTLE_CENTER_US(1500),
         .STEER_HALF_RANGE_US(500), .THROTTLE_HALF_RANGE_US(500),
         .STEER_DEADZONE_US(25), .THROTTLE_DEADZONE_US(25),
-        // ★ 2026-10-17 上板实测标定：**推杆向前（油门为正）时车反而后退** → 油门通道取反。
-        //   为什么只改这一处（别改错地方）：
-        //     · 不反 `STEER_REVERSE` —— 左右方向实测正确（右拨 = 右转）；
-        //     · 不动 `u_motor` 的 `INV_DIR_VEC` —— 四路全反会把**差速转向一起带反**
-        //       （左右轮差速关系随前进方向整体翻转），修好前进、坏掉转向；
-        //     · 闭环自洽性已核：油门反号后 `tgt` 反号，编码器符号定义未变，
-        //       轮子物理转向也随之反 → `act` 与 `tgt` 仍**同号**，PID 不会变成正反馈。
-        .STEER_REVERSE(0), .THROTTLE_REVERSE(1), .MENU_REVERSE(0),
+        // ★ 2026-10-17 上板实测标定（两项，均由实测直接得出）：
+        //   ① `.THROTTLE_REVERSE(1)`：推杆向前时车反而**后退** → 油门通道取反。
+        //   ② `.STEER_REVERSE(1)`：反了油门之后**左右也跟着反了** → 转向通道同样取反。
+        //
+        //   ★ 为什么不动 `u_motor` 的 `INV_DIR_VEC`：四路电机方向全反属于"整体翻转"，
+        //     会把前进与转向一起改掉，无法只修其中一项。
+        //   ★ 闭环自洽性：这两项只改**归一化符号**；`act` 由编码器符号定义（未改动）决定，
+        //     所以 `tgt` 与 `act` 的相对符号关系不变，PID 不会变成正反馈。
+        //   ⚠ **待查的矛盾（重要，别忽略）**：按代码推导 `tgt_right − tgt_left = 2×diff`，
+        //     与 `center` 无关 —— 即"改油门"理论上**不该**让转向翻转，但实测翻转了。
+        //     最可能的解释：**A/B 通道到物理左右轮的映射与文档假设不符**
+        //     （`INV_DIR_VEC=4'b0000` / `ENC_INV_DIR_VEC=4'b1010` 是旧飞线标定值）。
+        //     → 上板必看 CSV 第 1/2/8 列 `tgt`/`act`/`err` 是否**同号**；
+        //       若不同号，说明反馈符号也要动（`ENC_INV_DIR_VEC`），否则闭环是正反馈。
+        .STEER_REVERSE(1), .THROTTLE_REVERSE(1), .MENU_REVERSE(0),
         .MODE_REVERSE(0), .CONFIRM_ACTIVE_LOW(0), .SELECT_ACTIVE_LOW(0),
         .MIN_PULSE_US(900), .MAX_PULSE_US(2100), .TIMEOUT_US(100_000),
         .SW_LO_US(1300), .SW_HI_US(1700), .SW_HYST_US(30), .SW_CONFIRM_FRAMES(2),
