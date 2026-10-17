@@ -94,17 +94,16 @@ module ui_render #(
         end
     endfunction
 
-    // 数据页的 5 行标签（按需求原文 §29 的信息项排）
-    //   0 航向角 / 1 车轮转速 / 2 角速度 / 3 中心速度 / 4 航位
+    // 数据页的 4 个列表标签（2026-10-17 改版：车图 + 轮旁转速 + 右侧列表）
+    //   0 角速度 / 1 中心速度 / 2 航位x / 3 航位y
     function [17:0] label_text;
-        input [2:0] idx;
+        input [1:0] idx;
         begin
             case (idx)
-                3'd0:    label_text = {UI_TXT_LBL_YAW_ADDR,   UI_TXT_LBL_YAW_LEN};
-                3'd1:    label_text = {UI_TXT_LBL_WHEEL_ADDR, UI_TXT_LBL_WHEEL_LEN};
-                3'd2:    label_text = {UI_TXT_LBL_GYRO_ADDR,  UI_TXT_LBL_GYRO_LEN};
-                3'd3:    label_text = {UI_TXT_LBL_VEL_ADDR,   UI_TXT_LBL_VEL_LEN};
-                default: label_text = {UI_TXT_LBL_POSE_ADDR,  UI_TXT_LBL_POSE_LEN};
+                2'd0:    label_text = {UI_TXT_LBL_GYRO_ADDR,   UI_TXT_LBL_GYRO_LEN};
+                2'd1:    label_text = {UI_TXT_LBL_VEL_ADDR,    UI_TXT_LBL_VEL_LEN};
+                2'd2:    label_text = {UI_TXT_LBL_POSE_X_ADDR, UI_TXT_LBL_POSE_X_LEN};
+                default: label_text = {UI_TXT_LBL_POSE_Y_ADDR, UI_TXT_LBL_POSE_Y_LEN};
             endcase
         end
     endfunction
@@ -153,13 +152,15 @@ module ui_render #(
         end
     endfunction
 
-    // 数据页数值段列位置（每段 4 字符 = 4 字组；字组 = 16 px）
-    localparam [5:0] VX_L  = 6'd20,     // x = 320（单值行）
-                     VX_R  = 6'd26,     // x = 416
-                     VX_E0 = 6'd20,     // x = 320  ┐
-                     VX_E1 = 6'd25,     // x = 400  │ 一行放 4 个轮速，段间留 16 px 间隙
-                     VX_E2 = 6'd30,     // x = 480  │ （4 字符 = 64 px，步进 80 px）
-                     VX_E3 = 6'd35;     // x = 560  ┘
+    // 数据页各元素的列位置（字组号，16 px/组）—— 2026-10-17 车图改版后的布局
+    //   左侧轮速 x=416（组 26）/ 右侧轮速 x=704（组 44）
+    //   车头偏航角 x=560（组 35，4 字符宽 64 px，中心 592 = 车身水平中心）
+    //   右侧列表：标签 x=800（组 50）/ 数值 x=880（组 55）
+    localparam [5:0] PX_YAW = 6'd35,
+                     PX_WL  = 6'd26,
+                     PX_WR  = 6'd44,
+                     PX_LBL = 6'd50,
+                     PX_VAL = 6'd55;
 
     // 段描述符打包 —— 大字（24 px 组，左侧菜单条）
     //   ★ 位段（从左到右拼，务必与下方 lg_sel[...] 的取位一致）：
@@ -198,41 +199,47 @@ module ui_render #(
     always @(*) begin
         for (si = 0; si < 6; si = si + 1) seg[si] = 32'd0;   // 默认全部无效
 
-        // ---------------- 数据页（页 2）----------------
-        //   字段映射（num_text，每字段 4 字符 = 4 字组，基址 = 字段号 × 4）：
+        // ---------------- 数据页（页 2）：车图居中 + 轮旁转速 + 右侧列表 ----------------
+        //   依据需求原文 §29："菜单右侧画面中心为一辆小车俯视示意图，小车前端（即画面上方）
+        //   实时显示车辆朝向（航向角），四个轮子旁实时显示每个轮子转速，右侧单独竖向排列
+        //   显示角速度、中心速度、航位等信息。"
+        //   ★ 布局约束（也是 TB 断言的判据）：
+        //     - 车图占 x 492..692 / y 185..415（200x230，1:1 照 doc/小车俯视简笔.svg）
+        //     - 车图水平中心 592 与车头偏航角数值中心对齐；图之外不与任何文字重叠
+        //     - 轮速贴轮子外侧（左 x=416..479，右 x=704..767），右侧列表从 x=800 起
+        //   ★ 字段号即 num_text 的字段（每字段 4 字符，基址 = 字段号 × 4）：
         //     0 航向角 / 1~4 四轮转速 A,B,C,D / 5 角速度 / 6 中心速度 / 7,8 航位 x,y
-        //   ★ 需求原文 §29 的完整布局是"中心小车俯视图 + 车轮旁标转速 + 右侧竖排"，
-        //     本轮先把【数据项与标签】对齐（下面这 5 行），车体示意图的绘制是下一步。
-        //     车轮旁显示的以转速（rpm，±400）为准 —— 不是编码器累计计数。
         if (i_page == 2'd2) begin
-            // 行0：航向角（整数度）—— 字段 0
-            if ((i_pixel_y >= 80) && (i_pixel_y < 96)) begin
-                seg[0] = seg_rom(label_text(3'd0), PAGEXW[5:0]);
-                seg[1] = seg_ram(6'd0, 6'd4, VX_L);
-            end
-            // 行1：四个车轮的转速 A/B/C/D —— 字段 1~4（§29"四个轮子旁显示每个轮子转速"）
-            if ((i_pixel_y >= 120) && (i_pixel_y < 136)) begin
-                seg[0] = seg_rom(label_text(3'd1), PAGEXW[5:0]);
-                seg[1] = seg_ram(6'd4,  6'd4, VX_E0);
-                seg[2] = seg_ram(6'd8,  6'd4, VX_E1);
-                seg[3] = seg_ram(6'd12, 6'd4, VX_E2);
-                seg[4] = seg_ram(6'd16, 6'd4, VX_E3);
-            end
-            // 行2：角速度 —— 字段 5（单位：整数 °/s）
+            // 车头：偏航角（字段 0）
             if ((i_pixel_y >= 160) && (i_pixel_y < 176)) begin
-                seg[0] = seg_rom(label_text(3'd2), PAGEXW[5:0]);
-                seg[1] = seg_ram(6'd20, 6'd4, VX_L);
+                seg[0] = seg_ram(6'd0, 6'd4, PX_YAW);
             end
-            // 行3：中心速度 —— 字段 6（rpm）
-            if ((i_pixel_y >= 200) && (i_pixel_y < 216)) begin
-                seg[0] = seg_rom(label_text(3'd3), PAGEXW[5:0]);
-                seg[1] = seg_ram(6'd24, 6'd4, VX_L);
+            // 右侧列表 第 1 行：角速度（字段 5）
+            if ((i_pixel_y >= 176) && (i_pixel_y < 192)) begin
+                seg[0] = seg_rom(label_text(2'd0), PX_LBL);
+                seg[1] = seg_ram(6'd20, 6'd4, PX_VAL);
             end
-            // 行4：航位 x / y —— 字段 7、8（odom 未实现 → 暂恒 0）
+            // 右侧列表 第 2 行：中心速度（字段 6）
+            if ((i_pixel_y >= 208) && (i_pixel_y < 224)) begin
+                seg[0] = seg_rom(label_text(2'd1), PX_LBL);
+                seg[1] = seg_ram(6'd24, 6'd4, PX_VAL);
+            end
+            // ★ 这一行同时有 4 段：左前轮速 / 右前轮速 / 航位x 标签 / 航位x 数值
             if ((i_pixel_y >= 240) && (i_pixel_y < 256)) begin
-                seg[0] = seg_rom(label_text(3'd4), PAGEXW[5:0]);
-                seg[1] = seg_ram(6'd28, 6'd4, VX_L);
-                seg[2] = seg_ram(6'd32, 6'd4, VX_R);
+                seg[0] = seg_ram(6'd4,  6'd4, PX_WL);    // 左前轮速
+                seg[1] = seg_ram(6'd8,  6'd4, PX_WR);    // 右前轮速
+                seg[2] = seg_rom(label_text(2'd2), PX_LBL);
+                seg[3] = seg_ram(6'd28, 6'd4, PX_VAL);
+            end
+            // 右侧列表 第 4 行：航位y（字段 8）
+            if ((i_pixel_y >= 272) && (i_pixel_y < 288)) begin
+                seg[0] = seg_rom(label_text(2'd3), PX_LBL);
+                seg[1] = seg_ram(6'd32, 6'd4, PX_VAL);
+            end
+            // 后轮转速（字段 3、4）
+            if ((i_pixel_y >= 368) && (i_pixel_y < 384)) begin
+                seg[0] = seg_ram(6'd12, 6'd4, PX_WL);    // 左后轮速
+                seg[1] = seg_ram(6'd16, 6'd4, PX_WR);    // 右后轮速
             end
         end
 
@@ -365,6 +372,44 @@ module ui_render #(
     wire        lg_glyph   = lg_in_text_d1 && (i_pixel_x < MENU_W) && lg_row_bits[lg_bit_sel];
 
     // ------------------------------------------------------------------
+    // 数据页：小车俯视简笔图（实时几何生成，不占 BSRAM）
+    //   图形 1:1 照 `doc/小车俯视简笔.svg`：
+    //     车体 = 45° 斜切凸六边形 (360,170)(330,200)(330,400)(470,400)(470,200)(440,170)，描边 3 px
+    //     四轮 = 25x48 实心矩形，x=300/475，y=215/335
+    //   屏幕 = SVG + (192, 15) → 整幅占 x 492..692 / y 185..415（200x230）
+    //   ★ 为什么用几何而不是位图 ROM：图形只有矩形与 45° 斜边，判定是几次常数比较；
+    //     位图则要一块 200x230 的 ROM + 地址运算 + 额外的流水线延迟，反而更贵、更难对齐。
+    //   ★ 边界一律写成【屏幕绝对坐标】常数，不做 x-192 这类减法 ——
+    //     无符号数在 x<192 时会回绕成大正数，图形会跑到屏幕左边去。
+    // ------------------------------------------------------------------
+    // 车体外轮廓（凸六边形）：矩形 [522,662]x[185,415]，y<215 处左右各收 (215-y)
+    wire car_out = (i_pixel_x >= 12'd522) && (i_pixel_x <= 12'd662) &&
+                   (i_pixel_y >= 12'd185) && (i_pixel_y <= 12'd415) &&
+                   ((i_pixel_y >= 12'd215) ||
+                    ((i_pixel_x >= (12'd737 - i_pixel_y)) &&
+                     (i_pixel_x <= (12'd447 + i_pixel_y))));
+    // 车体内轮廓（外轮廓向内收 3 px）：[525,659]x[188,412]，y<218 处左右各收 (218-y)
+    wire car_in  = (i_pixel_x >= 12'd525) && (i_pixel_x <= 12'd659) &&
+                   (i_pixel_y >= 12'd188) && (i_pixel_y <= 12'd412) &&
+                   ((i_pixel_y >= 12'd218) ||
+                    ((i_pixel_x >= (12'd743 - i_pixel_y)) &&
+                     (i_pixel_x <= (12'd441 + i_pixel_y))));
+    wire car_frame = car_out && !car_in;          // 描边 3 px = 外轮廓 − 内轮廓
+
+    // 四轮（实心矩形 25x48）
+    wire wh_lf = (i_pixel_x >= 12'd492) && (i_pixel_x <= 12'd516) &&
+                 (i_pixel_y >= 12'd230) && (i_pixel_y <= 12'd277);
+    wire wh_rf = (i_pixel_x >= 12'd667) && (i_pixel_x <= 12'd691) &&
+                 (i_pixel_y >= 12'd230) && (i_pixel_y <= 12'd277);
+    wire wh_lr = (i_pixel_x >= 12'd492) && (i_pixel_x <= 12'd516) &&
+                 (i_pixel_y >= 12'd350) && (i_pixel_y <= 12'd397);
+    wire wh_rr = (i_pixel_x >= 12'd667) && (i_pixel_x <= 12'd691) &&
+                 (i_pixel_y >= 12'd350) && (i_pixel_y <= 12'd397);
+
+    wire car_pix = (i_page == 2'd2) &&
+                   (car_frame || wh_lf || wh_rf || wh_lr || wh_rr);
+
+    // ------------------------------------------------------------------
     // 图层与颜色
     // ------------------------------------------------------------------
     wire in_menu_bar = (i_pixel_x < MENU_W);
@@ -399,6 +444,9 @@ module ui_render #(
             if (sm_src_d)                          rgb = 24'h7CFC98;   // 动态数值：亮绿
             else                                   rgb = 24'hFFFFFF;   // 标签/占位：白
         end
+
+        // 5) 数据页小车俯视简笔图（白色 = 与标签文字同色；放最后 = 最上层）
+        if (car_pix)                               rgb = 24'hFFFFFF;
     end
 
     // pixel_req 为高的那一拍，hdmi_1024x600 会采样本信号 → 必须组合输出

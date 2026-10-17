@@ -47,6 +47,8 @@ module ui_render_tb;
 
     integer errors = 0;
     integer cnt_menu_text, cnt_sel_text, cnt_hl, cnt_status, cnt_label, cnt_num, cnt_ph, cnt_yaw;
+    integer cnt_car;                                  // 车图包围盒内的白色像素数
+    integer cnt_car_spill;                            // ★ 车图包围盒【外】的白色像素数（应为 0）
     integer cnt_hl_win;                               // 单次 scan_hl 的高亮像素数
     integer px_manual, px_hint, px_estop, px_nosig;   // 状态栏文案切换对比
     integer px_estop_nosig;                           // ★ 急停 + 无信号 同时成立时的对比
@@ -68,8 +70,13 @@ module ui_render_tb;
     localparam integer LG_XW_SLOT   = 1;       // 菜单/状态栏文字起始大字组（x=24）
     localparam integer MENU_W_PX    = 208;     // 菜单条宽度（不变）
     // 小字（右侧）
-    localparam integer PAGE_XW_SLOT = 13;      // 内容区文字起始小字组（x=208）
-    localparam integer VX_L_SLOT    = 20;      // 数据页单值列（x=320）
+    localparam integer PAGE_XW_SLOT = 13;      // 内容区文字起始小字组（x=208，占位提示用）
+    // 数据页（2026-10-17 车图改版）各元素列位置，与 ui_render 的 PX_* 一一对应
+    localparam integer PX_YAW_SLOT  = 35;      // 车头偏航角数值 x=560
+    localparam integer PX_WL_SLOT   = 26;      // 左侧轮速 x=416
+    localparam integer PX_WR_SLOT   = 44;      // 右侧轮速 x=704
+    localparam integer PX_LBL_SLOT  = 50;      // 右侧列表标签 x=800
+    localparam integer PX_VAL_SLOT  = 55;      // 右侧列表数值 x=880
 
     // ★ 文案地址一律来自生成的头文件，**不再硬编码**：
     //   本次把「车身运行数据显示」缩短为「运行数据显示」（8→6 字）后，其后所有文案的
@@ -136,15 +143,19 @@ module ui_render_tb;
                         (y >= LG_STATUS_Y) && (y < (LG_STATUS_Y + LG_CELL)) &&
                         (rgb == 24'hFFFFFF))
                         cnt_status = cnt_status + 1;
-                    // 数据页标签（白）：x 208..304, y 120..136
-                    if ((x >= 208) && (x < 304) && (y >= 120) && (y < 136) && (rgb == 24'hFFFFFF))
+                    // ★ 2026-10-17 数据页改版：车图居中 + 轮旁转速 + 右侧列表
+                    // 右侧列表标签（白）：x 800..864, y 208..224（「中心速度」4 字）
+                    if ((x >= 800) && (x < 864) && (y >= 208) && (y < 224) && (rgb == 24'hFFFFFF))
                         cnt_label = cnt_label + 1;
-                    // 航向角行的动态数值（亮绿）：x 320..384, y 80..96
-                    if ((x >= 320) && (x < 384) && (y >= 80) && (y < 96) && (rgb == 24'h7CFC98))
+                    // 车头偏航角数值（亮绿）：x 560..624, y 160..176
+                    if ((x >= 560) && (x < 624) && (y >= 160) && (y < 176) && (rgb == 24'h7CFC98))
                         cnt_yaw = cnt_yaw + 1;
-                    // 数据页数值（亮绿）：x 320..384, y 120..136
-                    if ((x >= 320) && (x < 384) && (y >= 120) && (y < 136) && (rgb == 24'h7CFC98))
+                    // 右侧列表数值（亮绿）：x 880..944, y 208..224
+                    if ((x >= 880) && (x < 944) && (y >= 208) && (y < 224) && (rgb == 24'h7CFC98))
                         cnt_num = cnt_num + 1;
+                    // 小车俯视简笔图（白色）：包围盒 x 492..692, y 185..415
+                    if ((x >= 492) && (x <= 692) && (y >= 185) && (y <= 415) && (rgb == 24'hFFFFFF))
+                        cnt_car = cnt_car + 1;
                     // 占位提示（白）：页 2 时此处应为 0
                     if ((x >= 208) && (x < 400) && (y >= 256) && (y < 272) && (rgb == 24'hFFFFFF))
                         cnt_ph = cnt_ph + 1;
@@ -204,6 +215,77 @@ module ui_render_tb;
             end else begin
                 $display("  pass  %0s = 0", name);
             end
+        end
+    endtask
+
+    // ==================================================================
+    // ★ 数据页小车俯视简笔图：黄金参考 + 越界检查（2026-10-17 新增）
+    //
+    //   期望值**从 SVG 原始坐标独立重算**，不复用 ui_render 里的屏幕坐标常数 ——
+    //   否则 RTL 常数写错时，TB 用同一套错常数也会"一致通过"，断言就白写了。
+    //
+    //   SVG 事实（doc/小车俯视简笔.svg，画布 800x600）：
+    //     车体 = 45° 斜切凸六边形 (360,170)(330,200)(330,400)(470,400)(470,200)(440,170)，
+    //            stroke-width=3、fill=none → 屏幕上表现为 3 px 描边
+    //     四轮 = 25x48 实心矩形，x=300 / 474.81，y=215 / 335
+    //   屏幕 = SVG + (CAR_DX, CAR_DY) = SVG + (192, 15)
+    // ==================================================================
+    localparam integer CAR_DX = 192;
+    localparam integer CAR_DY = 15;
+
+    function car_expect;
+        input integer xs;          // 屏幕 x
+        input integer ys;          // 屏幕 y
+        integer sx, sy;
+        reg out_, in_;
+        begin
+            sx = xs - CAR_DX;
+            sy = ys - CAR_DY;
+            // 车体外轮廓
+            out_ = (sx >= 330) && (sx <= 470) && (sy >= 170) && (sy <= 400) &&
+                   ((sy >= 200) ||
+                    ((sx >= (330 + (200 - sy))) && (sx <= (470 - (200 - sy)))));
+            // 车体内轮廓（外轮廓向内收 3 px）
+            in_  = (sx >= 333) && (sx <= 467) && (sy >= 173) && (sy <= 397) &&
+                   ((sy >= 203) ||
+                    ((sx >= (333 + (203 - sy))) && (sx <= (467 - (203 - sy)))));
+            car_expect = (out_ && !in_) ||
+                         ((sx >= 300) && (sx <= 324) && (sy >= 215) && (sy <= 262)) ||
+                         ((sx >= 475) && (sx <= 499) && (sy >= 215) && (sy <= 262)) ||
+                         ((sx >= 300) && (sx <= 324) && (sy >= 335) && (sy <= 382)) ||
+                         ((sx >= 475) && (sx <= 499) && (sy >= 335) && (sy <= 382));
+        end
+    endfunction
+
+    // 车图扫描：包围盒内逐像素对黄金参考；同时统计包围盒【外】的白色像素（越界）
+    integer err_car;
+    task scan_car;
+        integer yy, xx;
+        reg actual_on, expect_on;
+        begin
+            err_car = 0;
+            cnt_car = 0;
+            cnt_car_spill = 0;
+            for (yy = 150; yy <= 430; yy = yy + 1) begin
+                for (xx = 400; xx <= 780; xx = xx + 1) begin
+                    px = xx[11:0];
+                    py = yy[11:0];
+                    vact = 1'b1;
+                    preq = 1'b1;
+                    @(posedge pixel_clk);
+                    #1;
+                    actual_on = (rgb === 24'hFFFFFF);
+                    if ((xx >= 492) && (xx <= 692) && (yy >= 185) && (yy <= 415)) begin
+                        expect_on = car_expect(xx, yy);
+                        if (actual_on) cnt_car = cnt_car + 1;
+                        if (actual_on !== expect_on) err_car = err_car + 1;
+                    end else if (actual_on) begin
+                        cnt_car_spill = cnt_car_spill + 1;
+                    end
+                end
+            end
+            vact = 1'b0;
+            preq = 1'b0;
         end
     endtask
 
@@ -327,7 +409,8 @@ module ui_render_tb;
         begin
             for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
             for (yy = 0; yy < 16; yy = yy + 1) begin
-                for (xx = 2; xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
+                for (xx = ((xw > 2) ? ((xw - 2) * 16) : 2);
+                     xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
                     px = xx[11:0];
                     py = (ybase + yy);
                     vact = 1'b1;
@@ -367,7 +450,8 @@ module ui_render_tb;
             err_left  = 0;
             err_other = 0;
             for (yy = 0; yy < 16; yy = yy + 1) begin
-                for (xx = 2; xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
+                for (xx = ((xw > 2) ? ((xw - 2) * 16) : 2);
+                     xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
                     px = xx[11:0];
                     py = (ybase + yy);
                     vact = 1'b1;
@@ -413,7 +497,8 @@ module ui_render_tb;
         begin
             for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
             for (yy = 0; yy < 16; yy = yy + 1) begin
-                for (xx = 2; xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
+                for (xx = ((xw > 2) ? ((xw - 2) * 16) : 2);
+                     xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
                     px = xx[11:0];
                     py = (ybase + yy);
                     vact = 1'b1;
@@ -451,7 +536,8 @@ module ui_render_tb;
             err_left  = 0;
             err_other = 0;
             for (yy = 0; yy < 16; yy = yy + 1) begin
-                for (xx = 2; xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
+                for (xx = ((xw > 2) ? ((xw - 2) * 16) : 2);
+                     xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
                     px = xx[11:0];
                     py = (ybase + yy);
                     vact = 1'b1;
@@ -511,7 +597,8 @@ module ui_render_tb;
             for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
             // ---- 第一遍：只用段中部像素探测采样偏移 ----
             for (yy = 0; yy < LG_CELL; yy = yy + 1) begin
-                for (xx = 2; xx <= (xw + len) * LG_CELL + 10; xx = xx + 1) begin
+                for (xx = ((xw > 2) ? ((xw - 2) * LG_CELL) : 2);
+                     xx <= (xw + len) * LG_CELL + 10; xx = xx + 1) begin
                     px = xx[11:0];
                     py = (ybase + yy);
                     vact = 1'b1;
@@ -546,7 +633,8 @@ module ui_render_tb;
             err_left  = 0;
             err_other = 0;
             for (yy = 0; yy < LG_CELL; yy = yy + 1) begin
-                for (xx = 2; xx <= (xw + len) * LG_CELL + 10; xx = xx + 1) begin
+                for (xx = ((xw > 2) ? ((xw - 2) * LG_CELL) : 2);
+                     xx <= (xw + len) * LG_CELL + 10; xx = xx + 1) begin
                     px = xx[11:0];
                     py = (ybase + yy);
                     vact = 1'b1;
@@ -607,9 +695,9 @@ module ui_render_tb;
         page = 2'd2;
         repeat (4) @(posedge pixel_clk);
         cnt_yaw = 0;
-        scan(80, 96);                       // 航向角行（IMU 链路接入后为实测偏航角）
+        scan(160, 176);                     // 车头偏航角行（IMU 链路接入后为实测偏航角）
         check_pos ("yaw_number_px", cnt_yaw);
-        scan(120, 136);
+        scan(208, 224);                     // 右侧列表「中心速度」行（标签 + 数值）
         check_pos ("data_label_px", cnt_label);
         check_pos ("data_number_px", cnt_num);
 
@@ -777,15 +865,42 @@ module ui_render_tb;
                      UI_TXT_MENU_CAMERA_LEN, UI_TXT_MENU_CAMERA_ADDR,
                      24'hE5E7EB, "menu_item0_boundary");
 
-        // ---------------- 10. ★ 段边界回归：数据页标签（ROM）+ 动态数值（RAM）----------------
-        //   标签段 x=208..255（3 字），数值段 x=320..383（4 字，字符索引 = i_dyn_rdata）。
-        $display("-- 10. 数据页边界：标签段 + 数值段 整段黄金参考（起点左侧 2 列必须无字）--");
+        // ---------------- 10. ★ 段边界回归：数据页右侧列表 + 车头偏航角 ----------------
+        //   2026-10-17 车图改版后：列表标签 x=800（组 50）、列表数值 x=880（组 55）、
+        //   车头偏航角 x=560（组 35）。三者都是 16 px 小字，判据同前。
+        $display("-- 10. 数据页边界：右侧列表标签 + 列表数值 + 车头偏航角 黄金参考 --");
         page = 2'd2;
         repeat (4) @(posedge pixel_clk);
-        check_seg_rom(80, PAGE_XW_SLOT,
-                      UI_TXT_LBL_YAW_LEN, UI_TXT_LBL_YAW_ADDR,
+        check_seg_rom(208, PX_LBL_SLOT,
+                      UI_TXT_LBL_VEL_LEN, UI_TXT_LBL_VEL_ADDR,
                       24'hFFFFFF, "data_label_boundary");
-        check_seg_ram(80, VX_L_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_number_boundary");
+        check_seg_ram(208, PX_VAL_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_number_boundary");
+        check_seg_ram(160, PX_YAW_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_yaw_boundary");
+
+        // ---------------- 11. ★ 数据页车图：黄金参考逐像素 + 不得越界 ----------------
+        //   需求方明确"不要太大导致挤占其他数据的空间"，所以除了形状对不对，
+        //   还必须断言"包围盒之外一个白色像素都没有"。
+        $display("-- 11. 车图：逐像素对 SVG 黄金参考；包围盒外不得有白色像素 --");
+        scan_car;
+        if (err_car == 0) begin
+            $display("  pass  car_shape: %0d px 与 SVG 黄金参考完全一致", cnt_car);
+        end else begin
+            errors = errors + 1;
+            $display("  FAIL  car_shape: %0d 像素与 SVG 黄金参考不符", err_car);
+        end
+        if (cnt_car > 500) begin
+            $display("  pass  car_present: %0d px", cnt_car);
+        end else begin
+            errors = errors + 1;
+            $display("  FAIL  car_present: 只有 %0d px（车图没画出来）", cnt_car);
+        end
+        if (cnt_car_spill == 0) begin
+            $display("  pass  car_bounds: 包围盒外白色像素 = 0");
+        end else begin
+            errors = errors + 1;
+            $display("  FAIL  car_bounds: 包围盒外有 %0d 个白色像素（越界，会挤占数据区）",
+                     cnt_car_spill);
+        end
 
         $display("======== 结果 ========");
         if (errors == 0) $display("PASS: ui_render all checks passed");
