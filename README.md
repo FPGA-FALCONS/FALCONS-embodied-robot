@@ -91,3 +91,14 @@ python tools/check_pin_constraints.py
 8. 推送需要用户明确授权。本轮用户要求在现有`main`整理、不新建分支；远端是否同步以`git status -sb`为准，提交信息用`git log`查询。
 
 模块来源与维护细节见[vendor/ORIGIN.md](vendor/ORIGIN.md)；过去每轮的资源、时序和测试数量保留在工作记录中，不在首页并排列作“当前值”。
+
+## 2026-10-18：遥控器与ToF更新入口
+
+**以后仅更新本仓库main**，不再向旧模块库或其他仓库推送。本次同步保留现有整车通道映射、设备设置和控制行为。
+
+- [当前遥控/ToF TODO](TODO_RC_CAR.md)、[同步与回归记录](doc/遥控与ToF模块同步_20261018.md)
+- [四轴10秒轮换数码管](vendor/verilog-reusable-modules/modules/rc_pwm_receiver/examples/acg720_rc_4ch/README.md)
+- [CH5/CH6独立LED](vendor/verilog-reusable-modules/modules/rc_pwm_receiver/examples/acg720_rc_6ch_led/README.md)：已仿真，P&R及实板按键映射待验证。
+- [TOF200C/VL53L0X](vendor/verilog-reusable-modules/modules/tof_vl53l0x/README.md)、[SAFE/WARN/STOP数码管](vendor/verilog-reusable-modules/modules/tof_vl53l0x/examples/acg720_tof_debug/README.md)：独立实板已由用户确认，尚未接入整车电机仲裁。
+
+独立观察例程采用138C及自身接线；主工程当前138B设置与J6槽位映射保持不变，整车接线继续以[HT10A接线与验收](doc/HT10A接线与验收.md)为准。

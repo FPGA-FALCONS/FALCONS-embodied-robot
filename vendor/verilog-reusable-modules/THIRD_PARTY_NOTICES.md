@@ -54,3 +54,7 @@
 M10 HDMI 示例直接引用 `modules/hdmi_1024x600/rtl/` 中现有显示时序、PLL 和 DVI 文件，保留本文件列出的原作者说明和 Gowin IP 条款。
 
 `modules/uart/rtl/uart_byte_rx.v` 增加可选 `RECOVERY_EN` 参数：默认 0 保留既有起收和帧错误处理；设为 1 时在复位/帧错误后等待连续 1.5 位高电平并以下降沿起收。M10 读取模块显式启用该模式。接口及原有参数保留，公共 UART 回环与 M10 启动恢复测试均已执行。
+
+## TOF200C / VL53L0X
+
+modules/tof_vl53l0x的初始化/tuning依据Pololu和ST实现转写；来源及指纹见该包docs/SOURCES.md，Pololu/ST许可原文保留在third_party/Pololu_ST_LICENSE.txt。该包在本项目vendor内直接维护，不再向旧源仓库推送。

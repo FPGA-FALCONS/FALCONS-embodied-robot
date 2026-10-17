@@ -1,0 +1,17 @@
+{
+  "board": "ACG720 GW5AT-138C",
+  "adapter": "Rev I",
+  "page": 3,
+  "source_name": "ACG720_引脚接线手册_RevI.pdf",
+  "source_sha256": "cf1984671c6a1e08bccbc99edef8275d21888b44cbc438c93acab9008e53a6bc",
+  "j7": {
+    "1": "3V3 VIN",
+    "2": "GND",
+    "3": "SDA / E17",
+    "4": "SCL / F16",
+    "5": "INT / C20 (unused)",
+    "6": "SHUT / D20"
+  },
+  "electrical_verified": false,
+  "note": "Official FPGA pin table independently confirms E17/F16/D20 as Bank2 GPIO. Verify actual VCCIO and module pull-up compatibility before wiring."
+}

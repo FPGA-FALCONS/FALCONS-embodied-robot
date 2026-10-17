@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-138C" pn="GW5AT-LV138PG484AC1/I0">gw5at138c-007</Device>
+    <FileList>
+        <File path="../../rtl/rc_pwm_capture.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/rc_axis_normalize.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/rc_receiver.v" type="file.verilog" enable="1"/>
+        <File path="rc_hc595_display.v" type="file.verilog" enable="1"/>
+        <File path="rc_debug_top.v" type="file.verilog" enable="1"/>
+        <File path="rc_debug.cst" type="file.cst" enable="1"/>
+        <File path="rc_debug.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>

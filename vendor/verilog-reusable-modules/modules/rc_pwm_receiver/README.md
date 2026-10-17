@@ -1,6 +1,6 @@
 # rc_pwm_receiver — RC PWM 捕获与双通道遥控命令
 
-把航模接收机的两路 RC PWM 转换成有符号 `steering`、`throttle` 和 `signal_valid`。可直接在主工程中实例化；只需要两个 RTL 文件，不依赖其他公共模块或厂商 IP。
+把航模接收机的两路 RC PWM 转换成有符号 `steering`、`throttle` 和 `signal_valid`。可直接在主工程中实例化；需要三个 RTL 文件，不依赖其他公共模块或厂商 IP。附 ACG720 数码管与 LED 调试工程，无车也能观察真实命令。
 
 接收的是 GPIO 上的 PWM 脉宽，默认 50 MHz 系统时钟。输出命令为无量纲的 −1000…+1000，上层再换算成机器人速度、角速度。
 
@@ -10,19 +10,23 @@
 rc_pwm_receiver/
 ├── rtl/
 │   ├── rc_pwm_capture.v       单路捕获，可单独实例化扩展通道
-│   └── rc_receiver.v          两路捕获、标定、死区、反向、失效归零
+│   ├── rc_axis_normalize.v    多周期归一化，避免长组合除法路径
+│   └── rc_receiver.v          两路捕获、原子提交、失效归零
 ├── sim/
 │   ├── rc_receiver_tb.v       自检测试平台，17 组测试
+│   ├── rc_axis_normalize_tb.v 全部 65536 种输入、两种标定穷举
+│   ├── rc_receiver_pipeline_tb.v 更新/取消/恢复跨模块安全测试
 │   ├── run_test.do            ModelSim GUI 入口
 │   └── run_test.ps1           Icarus 命令行入口
 ├── constraints/
 │   └── rc_receiver.sdc        50 MHz 顶层时钟约束示例
-└── VERIFICATION.md            验证范围、实物结果与已知限制
+├── examples/acg720_rc_debug/  Gowin 工程、LED/数码管、约束与自检
+└── VERIFICATION.md            验证范围、时序结果与实物边界
 ```
 
 ## 直接接入
 
-把 `rtl/rc_pwm_capture.v`、`rtl/rc_receiver.v` 加入工程，在主顶层实例化：
+把 `rtl/rc_pwm_capture.v`、`rtl/rc_axis_normalize.v`、`rtl/rc_receiver.v` 全部加入工程，在主顶层实例化：
 
 ```verilog
 wire signed [11:0] steering;
@@ -61,7 +65,7 @@ rc_receiver #(
 | `rst_n` | 输入，1 bit | 低有效复位，内部异步拉低、同步释放 |
 | `rc_ch1` / `rc_ch2` | 输入，1 bit | 异步 RC PWM，模块内部两级同步 |
 | `steering` / `throttle` | 输出，signed [11:0] | −1000…+1000，任一路无效时两者均为 0 |
-| `signal_valid` | 输出，1 bit | 两路脉宽合法且均未超时；不代表已确认射频在线 |
+| `signal_valid` | 输出，1 bit | 两路捕获有效、均未超时且已有本次有效会话的归一化结果；不代表射频在线 |
 | `ch1_width_us` / `ch2_width_us` | 输出，[15:0] | 最近合法脉宽，单位 μs，向下取整；失效后保留历史值 |
 | `ch1_valid` / `ch2_valid` | 输出，1 bit | 独立通道脉宽有效且新鲜 |
 | `ch1_timeout` / `ch2_timeout` | 输出，1 bit | 对应通道超过指定时间没有合法更新 |
@@ -113,19 +117,34 @@ Linux / macOS / Icarus，在本模块根目录执行：
 
 ```sh
 mkdir -p build
-iverilog -g2012 -Wall -s rc_receiver_tb -o build/rc_receiver_tb.vvp rtl/rc_pwm_capture.v rtl/rc_receiver.v sim/rc_receiver_tb.v
+iverilog -g2012 -Wall -s rc_receiver_tb -o build/rc_receiver_tb.vvp rtl/rc_pwm_capture.v rtl/rc_axis_normalize.v rtl/rc_receiver.v sim/rc_receiver_tb.v
 cd build
 vvp rc_receiver_tb.vvp
 ```
 
-ModelSim GUI：进入 `sim` 后执行 `do run_test.do`。生产 RTL 为 Verilog-2001，测试平台因使用 `$fatal` 按 SystemVerilog 编译。ModelSim 入口已提供，实际复验使用 Icarus，详见验证记录。
+PowerShell 入口依次运行全部三个自检，Linux 示例只运行基础自检；另两项可用同样命令替换顶层名和 TB 文件。ModelSim GUI：进入 `sim` 后执行 `do run_test.do`。生产 RTL 为 Verilog-2001，测试平台因使用 `$fatal` 按 SystemVerilog 编译。ModelSim 入口已提供，实际复验使用 Icarus，详见验证记录。
+
+## 没有车时观察控制命令
+
+打开 [examples/acg720_rc_debug/rc_debug.gprj](examples/acg720_rc_debug/rc_debug.gprj)，顶层 `rc_debug_top`。默认接收机物理 CH4 为转向、CH2 为油门；替代 CST 支持 CH1 转向。具体已核验引脚、构建步骤及信号接法见 [例程说明](examples/acg720_rc_debug/README.md)。
+
+SW0=0 显示左右两路原始 μs；SW0=1 显示最终命令绝对值，符号由 D0/D1（转向负/正）和 D2/D3（油门负/正）表示。D4 是命令模式，D5 是超时，D6 是命令有效，D7 是心跳。无效数码管显示横杠。例程使用真实接收和归一化链路，覆盖全部 12 位命令，不需要电机。
 
 ## 时序与安全接入
 
 单个时钟域，无派生时钟。约束文件仅在本模块独立作为顶层且端口名为 `clk` 时可直接使用；集成到主工程时使用主工程的时钟与 GPIO 约束。
 
-归一化函数含组合乘除运算，加入系统后必须检查输出命令路径的综合和布局布线时序；捕获/数码管演示的 Fmax 不能代替该路径的时序签核。
+归一化改为两路并行的迭代除法。接受一次快照后第 27 个时钟完成单轴计算，第 28 个时钟原子提交两路命令（50 MHz 下 560 ns，从归一化接受沿算起，不包含 PWM 捕获时间）。普通有效更新计算期间保持上一组命令及 valid；首次捕获或真实失效后恢复，须等待新计算完成才置 valid。新更新优先于旧结果完成；非法脉宽、超时及复位会取消旧计算并将两路输出归零。
+
+包含完整命令路径的本例程已在 GW5AT-LV138PG484AC1/I0 完成 50 MHz P&R，报告 Fmax 83.358 MHz，setup/hold 违例端点均为 0。移入更大的主工程后仍应重新跑时序，不能复用此数值替代整车工程签核。
 
 正常供电、电平适配和共地由板级设计负责。F-10A 标称供电为 4–9V；目前 3.3V 低压试接成功只是实验结果，尚未测 PWM 高电平。GPIO 输入同步不会保护过压，按 FPGA IO 电压确认兼容或使用电平转换。
 
 接收机射频失联后可能继续输出合法的保持/失控保护 PWM；模块无法仅靠脉宽和超时识别这种无线失联。整车仍需独立急停、接收机失控保护测试与安全仲裁。
+
+## 四轴和遥控开关调试扩展（2026-10-17）
+
+- [四轴数码管例程](examples/acg720_rc_4ch/README.md)：CH1～CH4同时捕获，每10秒轮换显示，SW0冻结；用户确认四轴直连捕获工作。生产编译/lint及50MHz P&R通过，10秒版Fmax73.653MHz、setup/hold违例0，已执行SRAM下载。
+- [CH5/CH6独立LED例程](examples/acg720_rc_6ch_led/README.md)：D4对应CH5，D5对应CH6，默认高档点亮，可配置低档有效；其余四轴显示保留。新扩展的生产编译/lint通过，P&R和实板按键映射仍待验证，详见其VERIFICATION.md。
+
+只有映射到接收机通道的遥控按键/开关才可观察；这不是板载实体按键或电机急停实现。CH7～CH10尚未扩展。供电和GPIO兼容性沿用用户确认的当前接法，未补造电压测量数值。
