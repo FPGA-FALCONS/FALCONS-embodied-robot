@@ -77,9 +77,9 @@ module ui_render_tb;
     // ★ 数值走 16 px 组（紧凑数字 font_num 16x24），标签走 24 px 组（font_rom_lg 24x24）
     localparam integer NUM_W        = 16;      // 紧凑数字的字组宽/字模宽
     localparam integer PX_LBL_SLOT  = 33;      // 列表标签（24 组）x=792
-    localparam integer PX_YAW_SLOT  = 28;      // 车头偏航角（16 组）x=448
-    localparam integer PX_WL_SLOT   = 16;      // 左侧轮速（16 组）x=256（贴左轮外侧 16 px）
-    localparam integer PX_WR_SLOT   = 40;      // 右侧轮速（16 组）x=640（贴右轮外侧 16 px）
+    localparam integer PX_YAW_SLOT  = 29;      // 车头偏航角（16 组）x=464（中心 496 = 车体中心）
+    localparam integer PX_WL_SLOT   = 16;      // 左侧轮速（16 组）x=256（距左轮 32 px）
+    localparam integer PX_WR_SLOT   = 42;      // 右侧轮速（16 组）x=672（距右轮 31 px）
     localparam integer PX_VAL_SLOT  = 57;      // 列表数值（16 组）x=912
 
     // ★ 文案地址一律来自生成的头文件，**不再硬编码**：
@@ -151,14 +151,14 @@ module ui_render_tb;
                     // 右侧列表标签（白）：「中心速度」在 y=288，x 792..887
                     if ((x >= 792) && (x < 888) && (y >= 288) && (y < 312) && (rgb == 24'hFFFFFF))
                         cnt_label = cnt_label + 1;
-                    // 车头偏航角数值（亮绿，16px 组 ×4 = 64px）：x 448..511, y 120..143
-                    if ((x >= 448) && (x < 512) && (y >= 120) && (y < 144) && (rgb == 24'h7CFC98))
+                    // 车头偏航角数值（亮绿，16px 组 ×4 = 64px）：x 464..527, y 120..143
+                    if ((x >= 464) && (x < 528) && (y >= 120) && (y < 144) && (rgb == 24'h7CFC98))
                         cnt_yaw = cnt_yaw + 1;
                     // 右侧列表数值（亮绿）：x 912..975, y 288..311
                     if ((x >= 912) && (x < 976) && (y >= 288) && (y < 312) && (rgb == 24'h7CFC98))
                         cnt_num = cnt_num + 1;
-                    // 小车俯视简笔图（白色）：包围盒 x 336..616, y 160..482
-                    if ((x >= 336) && (x <= 624) && (y >= 160) && (y <= 491) && (rgb == 24'hFFFFFF))
+                    // 小车俯视简笔图（白色）：包围盒 x 352..640, y 160..491
+                    if ((x >= 352) && (x <= 640) && (y >= 160) && (y <= 491) && (rgb == 24'hFFFFFF))
                         cnt_car = cnt_car + 1;
                     // 占位提示（白）：页 2 时此处应为 0（24px 大字）
                     //   ★ 窗口只取 x 216..335（车图左边界 336 之前）：车图也是白色，
@@ -293,8 +293,10 @@ module ui_render_tb;
     // 结果，与 ui_render.v 里的屏幕常数**同源但独立计算**（RTL 直接写死结果）。
     //   x = round(SVG_x × 1.44) − 96      y = round(SVG_y × 1.44) − 85
     //   用 (v*144 + 50)/100 实现四舍五入（整数除法截断，加半再除）。
-    localparam integer CE_XL = (330 * 144 + 50) / 100 - 96;   // 车体外框左  379
-    localparam integer CE_XR = (470 * 144 + 50) / 100 - 96;   // 车体外框右  581
+    //   ★ 2026-10-18：车图整体右移 16 px（平移量 −96 → −80），故左/右界的 −96 改 −80。
+    //     CI_* 由 CE_* ± CE_STROKE 派生，会自动跟随。
+    localparam integer CE_XL = (330 * 144 + 50) / 100 - 80;   // 车体外框左  395
+    localparam integer CE_XR = (470 * 144 + 50) / 100 - 80;   // 车体外框右  597
     localparam integer CE_YT = (170 * 144 + 50) / 100 - 85;   // 车体外框上  160
     localparam integer CE_YB = (400 * 144 + 50) / 100 - 85;   // 车体外框下  491
     localparam integer CE_YS = (200 * 144 + 50) / 100 - 85;   // 斜边起点 y   203
@@ -325,13 +327,13 @@ module ui_render_tb;
                     ((xs >= (CI_XL + (CI_YS - ys))) && (xs <= (CI_XR - (CI_YS - ys)))));
             // 四轮：SVG 25×48 实心矩形，x=300/475，y=215/335
             car_expect = (out_ && !in_) ||
-                         ((xs >= (300 * 144 + 50) / 100 - 96) && (xs <= (325 * 144 + 50) / 100 - 96) &&
+                         ((xs >= (300 * 144 + 50) / 100 - 80) && (xs <= (325 * 144 + 50) / 100 - 80) &&
                           (ys >= (215 * 144 + 50) / 100 - 85) && (ys <= (263 * 144 + 50) / 100 - 85)) ||
-                         ((xs >= (475 * 144 + 50) / 100 - 96) && (xs <= (500 * 144 + 50) / 100 - 96) &&
+                         ((xs >= (475 * 144 + 50) / 100 - 80) && (xs <= (500 * 144 + 50) / 100 - 80) &&
                           (ys >= (215 * 144 + 50) / 100 - 85) && (ys <= (263 * 144 + 50) / 100 - 85)) ||
-                         ((xs >= (300 * 144 + 50) / 100 - 96) && (xs <= (325 * 144 + 50) / 100 - 96) &&
+                         ((xs >= (300 * 144 + 50) / 100 - 80) && (xs <= (325 * 144 + 50) / 100 - 80) &&
                           (ys >= (335 * 144 + 50) / 100 - 85) && (ys <= (383 * 144 + 50) / 100 - 85)) ||
-                         ((xs >= (475 * 144 + 50) / 100 - 96) && (xs <= (500 * 144 + 50) / 100 - 96) &&
+                         ((xs >= (475 * 144 + 50) / 100 - 80) && (xs <= (500 * 144 + 50) / 100 - 80) &&
                           (ys >= (335 * 144 + 50) / 100 - 85) && (ys <= (383 * 144 + 50) / 100 - 85));
         end
     endfunction
@@ -354,7 +356,7 @@ module ui_render_tb;
                     @(posedge pixel_clk);
                     #1;
                     actual_on = (rgb === 24'hFFFFFF);
-                    if ((xx >= 336) && (xx <= 624) && (yy >= 160) && (yy <= 491)) begin
+                    if ((xx >= 352) && (xx <= 640) && (yy >= 160) && (yy <= 491)) begin
                         expect_on = car_expect(xx, yy);
                         if (actual_on) cnt_car = cnt_car + 1;
                         if (actual_on !== expect_on) err_car = err_car + 1;
@@ -837,10 +839,10 @@ module ui_render_tb;
         $display("-- 10b. 轮速位置映射：左前=D(4) 右前=C(3) 左后=B(2) 右后=A(1) --");
         page = 2'd2;
         repeat (4) @(posedge pixel_clk);
-        check_wheel_field(240, PX_WL_SLOT, 4, "wheel_lf_eq_D");
-        check_wheel_field(240, PX_WR_SLOT, 3, "wheel_rf_eq_C");
-        check_wheel_field(408, PX_WL_SLOT, 2, "wheel_lr_eq_B");
-        check_wheel_field(408, PX_WR_SLOT, 1, "wheel_rr_eq_A");
+        check_wheel_field(248, PX_WL_SLOT, 4, "wheel_lf_eq_D");
+        check_wheel_field(248, PX_WR_SLOT, 3, "wheel_rf_eq_C");
+        check_wheel_field(420, PX_WL_SLOT, 2, "wheel_lr_eq_B");
+        check_wheel_field(420, PX_WR_SLOT, 1, "wheel_rr_eq_A");
 
         // ---------------- 11. ★ 数据页车图：黄金参考逐像素 + 不得越界 ----------------
         //   需求方明确"不要太大导致挤占其他数据的空间"，所以除了形状对不对，
