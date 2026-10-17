@@ -103,9 +103,9 @@ module num_text_tb;
         check_ch("f0[2]", cap[2],  CH_0 + 0);
         check_ch("f0[3]", cap[3],  CH_0 + 0);
 
-        $display("-- 字段 1：v1=-45 → '-' 空格 '4' '5' --");
-        check_ch("f1[0]", cap[4],  CH_MINUS);
-        check_ch("f1[1]", cap[5],  CH_SPACE);
+        $display("-- 字段 1：v1=-45 → 空格 '-' '4' '5'（负号贴最高位）--");
+        check_ch("f1[0]", cap[4],  CH_SPACE);
+        check_ch("f1[1]", cap[5],  CH_MINUS);
         check_ch("f1[2]", cap[6],  CH_0 + 4);
         check_ch("f1[3]", cap[7],  CH_0 + 5);
 
@@ -133,8 +133,9 @@ module num_text_tb;
         check_ch("f4[2]", cap[18], CH_0 + 1);
         check_ch("f4[3]", cap[19], CH_0 + 2);
 
-        $display("-- 字段 5：v5=-7 → '-' 空格 空格 '7' --");
-        check_ch("f5[0]", cap[20], CH_MINUS);
+        $display("-- 字段 5：v5=-7 → 空格 空格 '-' '7'（负号贴最高位）--");
+        check_ch("f5[0]", cap[20], CH_SPACE);
+        check_ch("f5[2]", cap[22], CH_MINUS);
         check_ch("f5[3]", cap[23], CH_0 + 7);
 
         $display("-- 字段 6：v6=-180 → '-' '1' '8' '0' --");

@@ -200,15 +200,19 @@ module ui_render #(
         //     0 航向角 / 1=A右后 / 2=B左后 / 3=C右前 / 4=D左前 / 5 角速度 / 6 中心速度 / 7,8 航位 x,y
         //   ★ 轮位映射（需求方 2026-10-17 确认真源）：A=右后 B=左后 C=右前 D=左前
         //   ★ 数据页的中文标签在这里（24 px 组）；数值在下面的 sm_seg（16 px 组）
+        //   ★★ 必须用【独立槽位】lg_seg[1..4]，不能挤进 lg_seg[0]：
+        //      菜单第 4 项「路径点导航」在 y=288..311，而「中心速度」行**正好也是** y=288..311。
+        //      两者若共用 lg_seg[0]，后者会把菜单项覆盖掉 —— 表现为"选中数据页后第 4 项消失"。
+        //      分开后同一扫描行两段并存，靠 slot 范围区分（菜单 xw=1，标签 xw=33）。
         if (i_page == 2'd2) begin
             if ((i_pixel_y >= 240) && (i_pixel_y < 264))
-                lg_seg[0] = seg_lg_rom(label_text(2'd0), PX_LBL, (i_pixel_y - 12'd240));
+                lg_seg[1] = seg_lg_rom(label_text(2'd0), PX_LBL, (i_pixel_y - 12'd240));
             if ((i_pixel_y >= 288) && (i_pixel_y < 312))
-                lg_seg[0] = seg_lg_rom(label_text(2'd1), PX_LBL, (i_pixel_y - 12'd288));
+                lg_seg[2] = seg_lg_rom(label_text(2'd1), PX_LBL, (i_pixel_y - 12'd288));
             if ((i_pixel_y >= 336) && (i_pixel_y < 360))
-                lg_seg[0] = seg_lg_rom(label_text(2'd2), PX_LBL, (i_pixel_y - 12'd336));
+                lg_seg[3] = seg_lg_rom(label_text(2'd2), PX_LBL, (i_pixel_y - 12'd336));
             if ((i_pixel_y >= 384) && (i_pixel_y < 408))
-                lg_seg[0] = seg_lg_rom(label_text(2'd3), PX_LBL, (i_pixel_y - 12'd384));
+                lg_seg[4] = seg_lg_rom(label_text(2'd3), PX_LBL, (i_pixel_y - 12'd384));
         end
 
         // ---- 占位提示（页 0/1/3）----
@@ -425,7 +429,10 @@ module ui_render #(
     wire menu_sel_band = in_menu_bar &&
                          (i_pixel_y >= (MENU_Y0 + i_menu_sel * MENU_STEP - 12)) &&
                          (i_pixel_y <  (MENU_Y0 + i_menu_sel * MENU_STEP + 36));
-    wire in_status_bar = (i_pixel_y >= (STATUS_Y - 12)) && (i_pixel_y < (STATUS_Y + 36));
+    //   ★ 状态栏底色**只覆盖菜单条宽度**（需求方 2026-10-18：原来横跨整页，与左侧菜单条不一致）。
+    //     文字本来就在 x=24 起、最长 6 字（144 px），全部落在 208 px 内，所以只改底色范围即可。
+    wire in_status_bar = (i_pixel_x < MENU_W) &&
+                         (i_pixel_y >= (STATUS_Y - 12)) && (i_pixel_y < (STATUS_Y + 36));
 
     reg [23:0] rgb;
     always @(*) begin

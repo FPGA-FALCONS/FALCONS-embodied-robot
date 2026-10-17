@@ -186,24 +186,39 @@ module num_text #(
                 end
 
                 // ---------------- 依次写 4 个字符 ----------------
+                // ★ 2026-10-18：负号改为"跟随数字最高位的左侧一格"，数字仍右对齐。
+                //   位数 ndigits = dig_h≠0 ? 3 : (dig_t≠0 ? 2 : 1)；负号位置 = 3 − ndigits。
+                //      -5  → "  -5"（负号在位置 2）
+                //      -45 → " -45"（位置 1）
+                //      -400→ "-400"（位置 0）
+                //   非负数不变：前 3 格空格 + 个位，数值右对齐。
+                //   字段宽度仍是 4 字符，所以 UI 布局不用改。
                 S_W0: begin
                     o_we   <= 1'b1;
                     o_addr <= base_addr + 6'd0;
-                    o_data <= sign ? CH_MINUS : CH_SPACE;
+                    // 3 位数（dig_h≠0）时负号才在位置 0
+                    o_data <= (sign && (dig_h != 4'd0)) ? CH_MINUS : CH_SPACE;
                     state  <= S_W1;
                 end
 
                 S_W1: begin
                     o_we   <= 1'b1;
                     o_addr <= base_addr + 6'd1;
-                    o_data <= (dig_h == 4'd0) ? CH_SPACE : (CH_ZERO + {4'd0, dig_h});
+                    // 2 位数（百位为 0、十位非 0）时负号在位置 1；否则该位是百位或空格
+                    o_data <= (sign && (dig_h == 4'd0) && (dig_t != 4'd0))
+                              ? CH_MINUS
+                              : ((dig_h == 4'd0) ? CH_SPACE : (CH_ZERO + {4'd0, dig_h}));
                     state  <= S_W2;
                 end
 
                 S_W2: begin
                     o_we   <= 1'b1;
                     o_addr <= base_addr + 6'd2;
-                    o_data <= ((dig_h == 4'd0) && (dig_t == 4'd0)) ? CH_SPACE : (CH_ZERO + {4'd0, dig_t});
+                    // 1 位数（百、十位都为 0）时负号在位置 2；否则该位是十位或空格
+                    o_data <= (sign && (dig_h == 4'd0) && (dig_t == 4'd0))
+                              ? CH_MINUS
+                              : (((dig_h == 4'd0) && (dig_t == 4'd0))
+                                 ? CH_SPACE : (CH_ZERO + {4'd0, dig_t}));
                     state  <= S_W3;
                 end
 
