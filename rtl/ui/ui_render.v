@@ -235,6 +235,10 @@ module ui_render #(
     wire [5:0]  ram_rd  = sel[17:12] + off;
 
     // 一级：字符索引（静态 ROM / 动态 RAM，各 1 拍）
+    //   ★ 地址 0 不是空白：ui_text_rom[0] 存的是**第一条文案的首字**（当前是"摄"）。
+    //     所以"段外"不能靠读地址 0 来得到空白 —— 那样会在段边界画出首字的残列。
+    //     这里仍喂合法地址 0（ROM 读端口要求地址有效），但在【选择之后】补 0：
+    //     字库 index 0 = ASCII 空格（字模全 0），这才是真正的空白。
     wire [7:0] rom_char;
     ui_text_rom u_text_rom (
         .i_clk        (i_pixel_clk),
@@ -248,7 +252,10 @@ module ui_render #(
     // 源选择也打一拍，与 ROM/RAM 的 1 拍延迟对齐
     reg src_d;
     always @(posedge i_pixel_clk) src_d <= sel[30];
-    wire [7:0] char_index = src_d ? ram_char : rom_char;
+    // in_text 打一拍：与 rom_char / ram_char 对齐在同一拍（T+1）
+    reg in_text_d1;
+    always @(posedge i_pixel_clk) in_text_d1 <= in_text;
+    wire [7:0] char_index = in_text_d1 ? (src_d ? ram_char : rom_char) : 8'd0;
 
     // 二级：点阵行（1 拍）；地址 = 字符索引 × 16 + 行号
     wire [11:0] font_rd_addr = {char_index, row_now};
@@ -259,9 +266,17 @@ module ui_render #(
         .o_row_bits (row_bits)
     );
 
-    // 数据 2 拍后有效，此刻 i_pixel_x 仍在同一字组内 → 直接取位
+    // ★★ 门控必须与点阵数据【同一时刻】对齐（2026-10-17 修正"label 左侧竖排白点"）★★
+    //   点阵数据是「2 拍前请求、请求的是 pixel_x+2 所在字组」，所以"这段文字是否覆盖当前
+    //   像素"的判定也要用【同一请求时刻】的 sel，而不是当前拍的 sel。
+    //   原缺陷：门控 in_text 用了当前拍的 sel —— 那对应像素 P+2 的字组，比数据早，
+    //   于是段起点左侧被误开（画出 ui_text_rom[0] 首字「摄」的残列）、
+    //   段末尾最右两列被误关（丢笔画）。
+    //   ★ bit_sel 保持【组合】用当前 pixel_x：它与 row_bits 的既有对齐关系是靠
+    //     "提前取数 + 当拍位选"共同形成的，一旦也打拍，整屏文字会整体平移
+    //     （实测位移 2 像素）—— 这是 2026-10-17 修正时踩到并已回退的坑。
     wire [3:0] bit_sel  = 4'd15 - i_pixel_x[3:0];
-    wire       glyph_on = row_bits[bit_sel];
+    wire       glyph_on = in_text_d1 && row_bits[bit_sel];
 
     // ------------------------------------------------------------------
     // 图层与颜色
@@ -285,12 +300,12 @@ module ui_render #(
         // 2) 菜单选中高亮
         if (menu_sel_band)      rgb = 24'h1D4ED8;
 
-        // 3) 文字
-        if (in_text && glyph_on) begin
+        // 3) 文字（★ glyph_on 已含 in_text_d1 门控；段源用同拍延迟的 src_d）
+        if (glyph_on) begin
             if (in_status_bar)                     rgb = 24'hFFFFFF;   // 状态栏：白
             else if (in_menu_bar && menu_sel_band) rgb = 24'hFFE066;   // 选中项：亮黄
             else if (in_menu_bar)                  rgb = 24'hE5E7EB;   // 未选中菜单：浅灰
-            else if (sel[30])                      rgb = 24'h7CFC98;   // 动态数值：亮绿
+            else if (src_d)                        rgb = 24'h7CFC98;   // 动态数值：亮绿
             else                                   rgb = 24'hFFFFFF;   // 标签：白
         end
     end

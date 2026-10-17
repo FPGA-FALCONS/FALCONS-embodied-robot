@@ -12,6 +12,11 @@
 //   4. 数据页（i_page=2）：中文标签（白）+ **动态数值**（亮绿 7CFC98，来自字符 RAM）
 //   5. 数据页不该出现占位提示（占位只在页 0/1/3）
 //   6. ★ 急停 与"无信号"同时成立时，状态栏必须显示"急停"（优先级验证，见第 7c 段）
+//   7. ★ 段边界（2026-10-17 新增）：把"文字段覆盖哪几个字组"的判定与点阵数据对齐，
+//      段起点左侧不得多出像素（原缺陷：每个 label 左边一串竖排白点，来自
+//      ui_text_rom[0] 首字「摄」的残列），段末尾最右两列不得丢笔画。
+//      判据用【字库/字符 ROM 本体】做黄金参考逐像素比对，偏移量自动探测并打印。
+//      覆盖两类数据源：静态文案 ROM（菜单/标签）与动态字符 RAM（数值）。
 //
 // 【本测试台覆盖不到的部分（如实记录）】
 //   "摇杆拨动只改 menu_sel、确认键才把 menu_sel 赋给 page"这条**状态机**逻辑在
@@ -48,6 +53,18 @@ module ui_render_tb;
     integer px_cursor;                                // 光标档文案对比
 
     integer x, y;
+
+    // 段边界回归用到的固定参数（与 ui_render.v / ui_text_index.vh 对应）：
+    //   MENU_XW = 1  → 菜单文字起始字组（x=16）
+    //   PAGEXW  = 13 → 内容区文字起始字组（x=208）
+    //   VX_L    = 20 → 数据页单值列（x=320）
+    //   ui_text_rom 地址 0 必为第一条文案（字表首条 MENU_CAMERA，故 ADDR=0）
+    //   LBL_YAW 的字符流起始地址 = 51（由 tools/gen_font_rom.py 按字表顺序分配）
+    localparam integer MENU_XW_SLOT  = 1;
+    localparam integer PAGE_XW_SLOT  = 13;
+    localparam integer VX_L_SLOT     = 20;
+    localparam integer MENU_CAM_ADDR = 0;
+    localparam integer LBL_YAW_ADDR  = 51;
 
     ui_render dut (
         .i_pixel_clk    (pixel_clk),
@@ -164,6 +181,264 @@ module ui_render_tb;
                 $display("  FAIL  %0s: %0d (expect 0)", name, v);
             end else begin
                 $display("  pass  %0s = 0", name);
+            end
+        end
+    endtask
+
+    // ------------------------------------------------------------------
+    // ★ 段边界黄金参考比对（2026-10-17 修正"label 左侧竖排白点"的回归）
+    //
+    //   缺陷形态（原实现）：门控 in_text 取的是【当前拍】的 sel，而点阵数据来自
+    //   "2 拍前请求、请求 pixel_x+2 所在字组"的那一条通路，两者不同拍：
+    //     → 段起点【左侧】被误开，画的是 ui_text_rom[0] 首字「摄」的残列
+    //       —— 所以每个 label 左边都是同一组竖排白点；
+    //     → 段末尾最右两列被误关（笔画缺失）。
+    //
+    //   判据：不重复实现渲染逻辑，而是直接查【字库/字符 ROM 本体】做黄金参考：
+    //       期望字符索引 = dut.u_text_rom.mem[txt_addr + (slot - xw)]
+    //       期望字模行   = dut.u_font_rom.mem[char_index*16 + (y & 15)]
+    //       期望点亮     = 该行 bit[15 - (x & 15)]
+    //   逐像素比对整段，并把"段起点左侧 2 列必须无字"单列成显式计数。
+    // ------------------------------------------------------------------
+    // 打印某扫描行的文字点亮序列（ASCII 0/1），用于比对图案是否整体错位
+    task dump_row;
+        input integer yy;
+        input [23:0]  text_rgb;
+        integer xx;
+        reg [8*96-1:0] s;
+        begin
+            s = {8*96{1'b0}};
+            for (xx = 8; xx < 104; xx = xx + 1) begin
+                px = xx[11:0];
+                py = yy[11:0];
+                vact = 1'b1;
+                preq = 1'b1;
+                @(posedge pixel_clk);
+                #1;
+                s = {s[8*96-9:0], ((rgb === text_rgb) ? 8'h31 : 8'h30)};
+            end
+            vact = 1'b0;
+            preq = 1'b0;
+            $display("  ROW y=%0d x=8..103: %0s", yy, s);
+        end
+    endtask
+
+    integer err_left;      // 段起点左侧 2 列被误点亮（本次缺陷的直接指标）
+    integer err_glyph;     // 段内与字模不符
+    integer err_other;     // 其它段外位置被点亮
+    integer probe_off;     // 自动探测到的"采样输出 ↔ 像素坐标"偏移
+    integer err_off [0:10];
+
+    // 段内期望：像素 xo 是否应点亮（查字库本体）
+    function glyph_expect_rom;
+        input integer xo;
+        input integer ybase_yy;
+        input integer xw;
+        input integer len;
+        input integer txt_addr;
+        integer slot, ci;
+        reg [15:0] frow;
+        begin
+            slot = xo >> 4;
+            if ((slot >= xw) && (slot < xw + len)) begin
+                ci   = dut.u_text_rom.mem[txt_addr + (slot - xw)];
+                frow = dut.u_font_rom.mem[ci * 16 + (ybase_yy & 15)];
+                glyph_expect_rom = frow[15 - (xo & 15)];
+            end else begin
+                glyph_expect_rom = 1'b0;
+            end
+        end
+    endfunction
+
+    // ------------------------------------------------------------------
+    // ★ 段边界黄金参考比对（2026-10-17 修正"label 左侧竖排白点"的回归）
+    //
+    //   缺陷形态（原实现）：门控 in_text 比点阵数据早 2 像素
+    //     → 段起点【左侧 2 像素】被点亮，画的是 ui_text_rom[0]
+    //       （= 第一条文案首字「摄」）的最右两列 —— 所以每个 label 左边
+    //       都是同一组竖排白点；
+    //     → 同时段末尾最右 2 列被漏掉（笔画缺失）。
+    //
+    //   判据：不重复实现渲染逻辑，直接查【字库/字符 ROM 本体】当黄金参考：
+    //       期望字符索引 = dut.u_text_rom.mem[txt_addr + (slot - xw)]
+    //       期望字模行   = dut.u_font_rom.mem[char_index*16 + (y & 15)]
+    //       期望点亮     = 该行 bit[15 - (x & 15)]
+    //
+    //   ★ 偏移自动探测：TB 采样的 rgb 与屏幕上"第几个像素"之间存在固定流水线
+    //     延迟，本台不硬编码这个数（否则一旦改流水线深度，断言会集体假红），
+    //     而是对 −5..+5 的偏移各统计一次不符数，取最小者作为真实偏移，
+    //     再在该偏移下单独统计"段左 2 列多字"。探测结果会打印出来备查。
+    // ------------------------------------------------------------------
+    task check_seg_rom;
+        input integer ybase;
+        input integer xw;
+        input integer len;
+        input integer txt_addr;
+        input [23:0]  text_rgb;
+        input [8*36-1:0] name;
+        integer yy, xx, xa, xo, oi, obest, obesterr;
+        reg expect_on, actual_on;
+        begin
+            for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
+            for (yy = 0; yy < 16; yy = yy + 1) begin
+                for (xx = 2; xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
+                    px = xx[11:0];
+                    py = (ybase + yy);
+                    vact = 1'b1;
+                    preq = 1'b1;
+                    @(posedge pixel_clk);
+                    #1;    // 沿后 1 ns 再采样：读的是本拍的寄存器值（与硬件 pixel_req 采样点一致），
+                           // 否则读到沿前值，会把组合/寄存信号的区别误当成像素错位
+
+                    xa = xx - 2;
+                    actual_on = (rgb === text_rgb);
+                    // ★ 偏移探测【只用段中部】像素（离两端各 ≥4 像素）：
+                    //   段边界缺陷（多点/少列）若也参与选择，会把最优偏移带偏，
+                    //   从而"吸收"掉缺陷 —— 这正是自动探测最容易掩盖问题的地方。
+                    for (oi = 0; oi <= 10; oi = oi + 1) begin
+                        xo = xa + (oi - 5);
+                        if ((xo >= xw * 16 + 4) && (xo < (xw + len) * 16 - 4)) begin
+                            expect_on = glyph_expect_rom(xo, ybase + yy, xw, len, txt_addr);
+                            if (actual_on !== expect_on) err_off[oi] = err_off[oi] + 1;
+                        end
+                    end
+                end
+            end
+            vact = 1'b0;
+            preq = 1'b0;
+
+            obest = 5; obesterr = err_off[5];
+            for (oi = 0; oi <= 10; oi = oi + 1) begin
+                if (err_off[oi] < obesterr) begin
+                    obesterr = err_off[oi];
+                    obest    = oi;
+                end
+            end
+            err_glyph  = obesterr;
+            probe_off  = obest - 5;
+
+            // 在最优偏移下单独统计"段起点左侧 2 列被误点亮"
+            err_left  = 0;
+            err_other = 0;
+            for (yy = 0; yy < 16; yy = yy + 1) begin
+                for (xx = 2; xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
+                    px = xx[11:0];
+                    py = (ybase + yy);
+                    vact = 1'b1;
+                    preq = 1'b1;
+                    @(posedge pixel_clk);
+                    #1;    // 沿后 1 ns 再采样：读的是本拍的寄存器值（与硬件 pixel_req 采样点一致），
+                           // 否则读到沿前值，会把组合/寄存信号的区别误当成像素错位
+                    actual_on = (rgb === text_rgb);
+                    xo = (xx - 2) + probe_off;
+                    if (xo >= 0) begin
+                        expect_on = glyph_expect_rom(xo, ybase + yy, xw, len, txt_addr);
+                        if (actual_on && !expect_on) begin
+                            if ((xo >= xw * 16 - 2) && (xo < xw * 16)) err_left  = err_left + 1;
+                            else                                            err_other = err_other + 1;
+                        end
+                    end
+                end
+            end
+            vact = 1'b0;
+            preq = 1'b0;
+
+            if ((err_left == 0) && (err_glyph == 0) && (err_other == 0)) begin
+                $display("  pass  %0s: 偏移=%0d 段内不符=0 段左2列多字=0", name, probe_off);
+            end else begin
+                errors = errors + 1;
+                $display("  FAIL  %0s: 偏移=%0d 段内不符=%0d 段左2列多字=%0d 其它段外多字=%0d",
+                         name, probe_off, err_glyph, err_left, err_other);
+            end
+        end
+    endtask
+
+    // 动态数值段（src=ram）：字符索引直接取 i_dyn_rdata（本台恒为 dyn_rdata）
+    task check_seg_ram;
+        input integer ybase;
+        input integer xw;
+        input integer len;
+        input [7:0]   charidx;
+        input [23:0]  text_rgb;
+        input [8*36-1:0] name;
+        integer yy, xx, xa, xo, oi, obest, obesterr;
+        reg expect_on, actual_on;
+        reg [15:0] frow;
+        begin
+            for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
+            for (yy = 0; yy < 16; yy = yy + 1) begin
+                for (xx = 2; xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
+                    px = xx[11:0];
+                    py = (ybase + yy);
+                    vact = 1'b1;
+                    preq = 1'b1;
+                    @(posedge pixel_clk);
+                    #1;    // 沿后 1 ns 再采样：读的是本拍的寄存器值（与硬件 pixel_req 采样点一致），
+                           // 否则读到沿前值，会把组合/寄存信号的区别误当成像素错位
+
+                    xa = xx - 2;
+                    actual_on = (rgb === text_rgb);
+                    frow = dut.u_font_rom.mem[charidx * 16 + ((ybase + yy) & 15)];
+                    // 同上：偏移探测只用段中部像素
+                    for (oi = 0; oi <= 10; oi = oi + 1) begin
+                        xo = xa + (oi - 5);
+                        if ((xo >= xw * 16 + 4) && (xo < (xw + len) * 16 - 4)) begin
+                            expect_on = frow[15 - (xo & 15)];
+                            if (actual_on !== expect_on) err_off[oi] = err_off[oi] + 1;
+                        end
+                    end
+                end
+            end
+            vact = 1'b0;
+            preq = 1'b0;
+
+            obest = 5; obesterr = err_off[5];
+            for (oi = 0; oi <= 10; oi = oi + 1) begin
+                if (err_off[oi] < obesterr) begin
+                    obesterr = err_off[oi];
+                    obest    = oi;
+                end
+            end
+            err_glyph = obesterr;
+            probe_off = obest - 5;
+
+            err_left  = 0;
+            err_other = 0;
+            for (yy = 0; yy < 16; yy = yy + 1) begin
+                for (xx = 2; xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
+                    px = xx[11:0];
+                    py = (ybase + yy);
+                    vact = 1'b1;
+                    preq = 1'b1;
+                    @(posedge pixel_clk);
+                    #1;    // 沿后 1 ns 再采样：读的是本拍的寄存器值（与硬件 pixel_req 采样点一致），
+                           // 否则读到沿前值，会把组合/寄存信号的区别误当成像素错位
+                    actual_on = (rgb === text_rgb);
+                    xo = (xx - 2) + probe_off;
+                    if (xo >= 0) begin
+                        // ★ 必须按当前行重新取字模行：frow 若沿用第一遍循环结束时的值，
+                        //   期望图案会整体错行（表现为"段内实际点亮全被判成段外多字"）
+                        frow = dut.u_font_rom.mem[charidx * 16 + ((ybase + yy) & 15)];
+                        if (((xo >> 4) >= xw) && ((xo >> 4) < xw + len))
+                            expect_on = frow[15 - (xo & 15)];
+                        else
+                            expect_on = 1'b0;
+                        if (actual_on && !expect_on) begin
+                            if ((xo >= xw * 16 - 2) && (xo < xw * 16)) err_left  = err_left + 1;
+                            else                                            err_other = err_other + 1;
+                        end
+                    end
+                end
+            end
+            vact = 1'b0;
+            preq = 1'b0;
+
+            if ((err_left == 0) && (err_glyph == 0) && (err_other == 0)) begin
+                $display("  pass  %0s: 偏移=%0d 段内不符=0 段左2列多字=0", name, probe_off);
+            end else begin
+                errors = errors + 1;
+                $display("  FAIL  %0s: 偏移=%0d 段内不符=%0d 段左2列多字=%0d 其它段外多字=%0d",
+                         name, probe_off, err_glyph, err_left, err_other);
             end
         end
     endtask
@@ -351,6 +626,27 @@ module ui_render_tb;
             errors = errors + 1;
             $display("  FAIL  cursor_status: cursor=%0d, manual=%0d px (文案不对：可能是 请选择模式)", px_cursor, px_manual);
         end
+
+        // ---------------- 9. ★ 段边界回归：菜单文字段（src = 静态 ROM）----------------
+        //   缺陷：段起点左侧 2 像素被点亮（画 ui_text_rom[0] 的残列）、段末尾最右 2 列丢失。
+        //   这里用字库黄金参考逐像素比对整段（x=16..95，5 个字），并单列
+        //   "起点左侧 2 列必须无字"。被测项必须【不被高亮】，否则文字色是 FFE066，
+        //   所以把高亮钉在第 4 项（menusel=3）。
+        $display("-- 9. 菜单段边界：整段对字库黄金参考；起点左侧 2 列必须无字 --");
+        page = 2'd0; uimode = 2'd0; estop_i = 1'b0; sigok_i = 1'b1; armhint_i = 1'b0;
+        menusel = 2'd3;
+        repeat (4) @(posedge pixel_clk);
+        dump_row(48, 24'hE5E7EB);       // 第 0 行点亮序列（诊断图案是否整体错位）
+        dump_row(52, 24'hE5E7EB);
+        check_seg_rom(48, MENU_XW_SLOT, 5, MENU_CAM_ADDR, 24'hE5E7EB, "menu_item0_boundary");
+
+        // ---------------- 10. ★ 段边界回归：数据页标签（ROM）+ 动态数值（RAM）----------------
+        //   标签段 x=208..255（3 字），数值段 x=320..383（4 字，字符索引 = i_dyn_rdata）。
+        $display("-- 10. 数据页边界：标签段 + 数值段 整段黄金参考（起点左侧 2 列必须无字）--");
+        page = 2'd2;
+        repeat (4) @(posedge pixel_clk);
+        check_seg_rom(80, PAGE_XW_SLOT, 3, LBL_YAW_ADDR, 24'hFFFFFF, "data_label_boundary");
+        check_seg_ram(80, VX_L_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_number_boundary");
 
         $display("======== 结果 ========");
         if (errors == 0) $display("PASS: ui_render all checks passed");
