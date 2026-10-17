@@ -124,6 +124,8 @@ $sources = @(
     # ★ 2026-10-17：24x24 大字库（左侧菜单条用）。ui_render 现在有大小两条并行通路，
     #   必须两个都编进来，否则 u_font_rom_lg 会 "not defined"。
     "$ProjectRoot\rtl\common\font_rom_lg.v",
+    # ★ 2026-10-17 晚：16x24 紧凑数字字库（数据页数值用）。不编进来 u_font_num 会 not defined。
+    "$ProjectRoot\rtl\common\font_num.v",
     "$ProjectRoot\rtl\common\ui_text_rom.v",
     "$ProjectRoot\rtl\common\app_key.v",
     "$ProjectRoot\rtl\common\reset_sync.v",

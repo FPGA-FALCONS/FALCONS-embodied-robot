@@ -102,31 +102,39 @@ def build_charset(items):
     return sorted(chars, key=lambda ch: (ord(ch) > ASCII_MAX, ord(ch)))
 
 
-def render_glyph(ch, font, cell):
-    """渲染单字到 cell x cell 点阵，返回 cell 个整数（每行 cell bit，最高位 = 最左）"""
-    canvas = cell * 2
-    img = Image.new("L", (canvas, canvas), 0)
+def render_glyph(ch, font, cell, cell_h=None):
+    """渲染单字到 cell x cell_h 点阵，返回 cell_h 个整数（每行 cell bit，最高位 = 最左）
+
+    cell_h 省略时按正方形处理（16x16 / 24x24）。
+    ★ 非正方形用于"紧凑数字字库"：16 宽 x 24 高。数字本来窄，横向压窄不会明显变形，
+      而纵向保持 24 与中文标签等高 —— 比"把数字拉宽撑满 24 格"自然得多。
+    """
+    if cell_h is None:
+        cell_h = cell
+
+    canvas_w, canvas_h = cell * 2, cell_h * 2
+    img = Image.new("L", (canvas_w, canvas_h), 0)
     draw = ImageDraw.Draw(img)
-    draw.text((canvas // 2, canvas // 2), ch, fill=255, font=font, anchor="mm")
+    draw.text((canvas_w // 2, canvas_h // 2), ch, fill=255, font=font, anchor="mm")
 
     bbox = img.getbbox()
     if bbox is None:
-        return [0] * cell      # 空白字符（空格）
+        return [0] * cell_h      # 空白字符（空格）
 
     glyph = img.crop(bbox)
     w, h = glyph.size
-    if w > cell or h > cell:
+    if w > cell or h > cell_h:
         # 缩小到能放下（保持宽高比）
-        scale = min(cell / w, cell / h)
+        scale = min(cell / w, cell_h / h)
         glyph = glyph.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.LANCZOS)
         w, h = glyph.size
 
-    out = Image.new("L", (cell, cell), 0)
-    out.paste(glyph, ((cell - w) // 2, (cell - h) // 2))
+    out = Image.new("L", (cell, cell_h), 0)
+    out.paste(glyph, ((cell - w) // 2, (cell_h - h) // 2))
 
     rows = []
     px = out.load()
-    for y in range(cell):
+    for y in range(cell_h):
         bits = 0
         for x in range(cell):
             if px[x, y] >= 100:
@@ -178,6 +186,58 @@ def write_font_rom(path, charset, glyphs, cell, module_name, title, usage_note):
         code = ord(ch)
         for row in range(cell):
             a(f"        mem[{idx * cell + row:5d}] = {cell}'h{glyphs[ch][row]:0{hexw}X};"
+              f"  // U+{code:04X} '{comment_text(ch)}' 行{row}")
+    a("    end")
+    a("")
+    a("    always @(posedge i_clk) begin")
+    a("        o_row_bits <= mem[i_addr];")
+    a("    end")
+    a("")
+    a("endmodule")
+    write_text(path, "\n".join(lines) + "\n")
+    return depth, bits
+
+
+def write_font_rom_wh(path, charset, glyphs, w, h, module_name, title, usage_note):
+    """写非正方形点阵字库（宽 w、高 h，行宽 w bit、每字符 h 行）。
+
+    与 write_font_rom 的唯一区别：行数与行宽分开。
+    地址约定保持 ci * h + row —— 与 font_rom_lg（ci*24+row）一致，便于 RTL 复用同一套寻址。
+    """
+    depth = len(charset) * h
+    bits = addr_bits_for(depth)
+    hexw = (w + 3) // 4
+
+    lines = []
+    a = lines.append
+    a(f"// {os.path.basename(path)} —— {title}（由 tools/gen_font_rom.py 自动生成，请勿手改）")
+    a("//")
+    a(f"// 字符数：{len(charset)}（与 ui_text_rom 的字符索引一致）")
+    a(f"// 深度  ：{depth} = 字符数 x {h} 行；宽度 {w} bit，bit{w-1} = 最左像素")
+    a(f"// 地址  ：char_index * {h} + row（row 0 = 最上面一行）")
+    a(f"// 位宽  ：地址需 {bits} 位（深度 {depth}）")
+    a("//")
+    a("// 字表来源：tools/font_chars.txt；字体：simhei（黑体）")
+    a(f"// {usage_note}")
+    a("")
+    a("`timescale 1ns/1ps")
+    a("")
+    a(f"module {module_name} (")
+    a("    input  wire             i_clk,")
+    a(f"    input  wire [{bits-1}:0] i_addr,")
+    a(f"    output reg  [{w-1}:0] o_row_bits")
+    a(");")
+    a("")
+    a(f"    localparam integer ROM_DEPTH = {depth};")
+    a(f"    localparam integer CHAR_COUNT = {len(charset)};")
+    a("")
+    a(f"    reg [{w-1}:0] mem [0:ROM_DEPTH-1];")
+    a("")
+    a("    initial begin")
+    for idx, ch in enumerate(charset):
+        code = ord(ch)
+        for row in range(h):
+            a(f"        mem[{idx * h + row:5d}] = {w}'h{glyphs[ch][row]:0{hexw}X};"
               f"  // U+{code:04X} '{comment_text(ch)}' 行{row}")
     a("    end")
     a("")
@@ -296,6 +356,8 @@ def main():
     ap.add_argument("--lg-size", type=int, default=CELL_LG,
                     help="大字渲染字号（默认 24，点阵 24x24）")
     ap.add_argument("--lg-cell", type=int, default=CELL_LG, help="大字点阵边长（默认 24）")
+    ap.add_argument("--num-w", type=int, default=16,
+                    help="紧凑数字字库的宽度（默认 16；高度沿用 --lg-cell=24）")
     ap.add_argument("--index-out", default=os.path.join(root, "rtl", "ui"),
                     help="ui_text_index.vh 的输出目录（默认 rtl/ui，与 ui_render.v 同目录）")
     args = ap.parse_args()
@@ -324,6 +386,19 @@ def main():
         "font_rom_lg", f"{args.lg_cell}x{args.lg_cell} 中文点阵字库（左侧菜单条用大字）",
         "用途：左侧菜单条（4 个菜单项 + 状态栏档位文字），约为小字的 1.5 倍。")
 
+    # ---- 紧凑数字字库（16 宽 x 24 高）----
+    #   需求方 2026-10-17："数字之间的间距可以紧密一点"。
+    #   24x24 里数字笔画只占 ~13 px，格宽 24 → 相邻数字空 ~11 px；改成 16 宽后空 ~3 px，
+    #   4 个字符 64 px（原 96 px），而高度仍 24，与中文标签等高。
+    #   ★ 用同一份字符集与同样的地址约定（ci × 24 + row），只是行宽变 16 bit，
+    #     所以与 ui_text_rom 的字符索引完全兼容。
+    glyphs_num = {ch: render_glyph(ch, font_lg, args.num_w, args.lg_cell) for ch in charset}
+    depth_num, bits_num = write_font_rom_wh(
+        os.path.join(args.out, "font_num.v"), charset, glyphs_num,
+        args.num_w, args.lg_cell, "font_num",
+        f"{args.num_w}x{args.lg_cell} 紧凑数字点阵字库（数值字段专用）",
+        f"用途：数据页的实时数值（数字/负号/空格）。宽 {args.num_w}、高 {args.lg_cell}："
+        "与大字库同高、更窄，用来收紧数字间距。")
     index_path = os.path.join(args.index_out, "ui_text_index.vh")
     table = write_ui_text_rom(os.path.join(args.out, "ui_text_rom.v"), index_path, charset, items)
 
@@ -331,6 +406,7 @@ def main():
     print(f"字符集   : {len(charset)} 个（含 ASCII 可打印字符 {ASCII_MAX - ASCII_MIN + 1} 个）")
     print(f"小字库   : {depth_sm} x {args.cell} bit（地址 {bits_sm} 位）->  rtl\\common\\font_rom.v")
     print(f"大字库   : {depth_lg} x {args.lg_cell} bit（地址 {bits_lg} 位）->  rtl\\common\\font_rom_lg.v")
+    print(f"数字库   : {depth_num} x {args.num_w} bit（地址 {bits_num} 位）->  rtl\\common\\font_num.v")
     print(f"文本 ROM : {sum(t[3] for t in table)} 字符           ->  rtl\\common\\ui_text_rom.v")
     print(f"索引     : {len(table)} 条 localparam          ->  {os.path.relpath(index_path, root)}")
     for name, text, start, length in table[:4]:

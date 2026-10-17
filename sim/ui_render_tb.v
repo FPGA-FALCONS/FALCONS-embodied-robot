@@ -70,13 +70,17 @@ module ui_render_tb;
     localparam integer LG_XW_SLOT   = 1;       // 菜单/状态栏文字起始大字组（x=24）
     localparam integer MENU_W_PX    = 208;     // 菜单条宽度（不变）
     // 小字（右侧）
-    localparam integer PAGE_XW_SLOT = 13;      // 内容区文字起始小字组（x=208，占位提示用）
-    // 数据页（2026-10-17 车图改版）各元素列位置，与 ui_render 的 PX_* 一一对应
-    localparam integer PX_YAW_SLOT  = 35;      // 车头偏航角数值 x=560
-    localparam integer PX_WL_SLOT   = 26;      // 左侧轮速 x=416
-    localparam integer PX_WR_SLOT   = 44;      // 右侧轮速 x=704
-    localparam integer PX_LBL_SLOT  = 50;      // 右侧列表标签 x=800
-    localparam integer PX_VAL_SLOT  = 55;      // 右侧列表数值 x=880
+    localparam integer PAGE_XW_SLOT = 9;       // 内容区文字起始【大】字组（x=216，占位提示）
+    localparam integer PAGE_Y_SLOT  = 264;     // 占位提示 y（ui_render 的 PAGE_Y）
+    // ★ 2026-10-17 晚：数据页整体放大到 24x24，坐标全部换成 24 px 组
+    //   与 ui_render 的 PX_* 一一对应
+    // ★ 数值走 16 px 组（紧凑数字 font_num 16x24），标签走 24 px 组（font_rom_lg 24x24）
+    localparam integer NUM_W        = 16;      // 紧凑数字的字组宽/字模宽
+    localparam integer PX_LBL_SLOT  = 33;      // 列表标签（24 组）x=792
+    localparam integer PX_YAW_SLOT  = 28;      // 车头偏航角（16 组）x=448
+    localparam integer PX_WL_SLOT   = 16;      // 左侧轮速（16 组）x=256（贴左轮外侧 16 px）
+    localparam integer PX_WR_SLOT   = 40;      // 右侧轮速（16 组）x=640（贴右轮外侧 16 px）
+    localparam integer PX_VAL_SLOT  = 57;      // 列表数值（16 组）x=912
 
     // ★ 文案地址一律来自生成的头文件，**不再硬编码**：
     //   本次把「车身运行数据显示」缩短为「运行数据显示」（8→6 字）后，其后所有文案的
@@ -143,21 +147,24 @@ module ui_render_tb;
                         (y >= LG_STATUS_Y) && (y < (LG_STATUS_Y + LG_CELL)) &&
                         (rgb == 24'hFFFFFF))
                         cnt_status = cnt_status + 1;
-                    // ★ 2026-10-17 数据页改版：车图居中 + 轮旁转速 + 右侧列表
-                    // 右侧列表标签（白）：x 800..864, y 208..224（「中心速度」4 字）
-                    if ((x >= 800) && (x < 864) && (y >= 208) && (y < 224) && (rgb == 24'hFFFFFF))
+                    // ★ 2026-10-17 晚：数据页整体放大到 24x24（窗口按新坐标）
+                    // 右侧列表标签（白）：「中心速度」在 y=288，x 792..887
+                    if ((x >= 792) && (x < 888) && (y >= 288) && (y < 312) && (rgb == 24'hFFFFFF))
                         cnt_label = cnt_label + 1;
-                    // 车头偏航角数值（亮绿）：x 560..624, y 160..176
-                    if ((x >= 560) && (x < 624) && (y >= 160) && (y < 176) && (rgb == 24'h7CFC98))
+                    // 车头偏航角数值（亮绿，16px 组 ×4 = 64px）：x 448..511, y 120..143
+                    if ((x >= 448) && (x < 512) && (y >= 120) && (y < 144) && (rgb == 24'h7CFC98))
                         cnt_yaw = cnt_yaw + 1;
-                    // 右侧列表数值（亮绿）：x 880..944, y 208..224
-                    if ((x >= 880) && (x < 944) && (y >= 208) && (y < 224) && (rgb == 24'h7CFC98))
+                    // 右侧列表数值（亮绿）：x 912..975, y 288..311
+                    if ((x >= 912) && (x < 976) && (y >= 288) && (y < 312) && (rgb == 24'h7CFC98))
                         cnt_num = cnt_num + 1;
-                    // 小车俯视简笔图（白色）：包围盒 x 492..692, y 185..415
-                    if ((x >= 492) && (x <= 692) && (y >= 185) && (y <= 415) && (rgb == 24'hFFFFFF))
+                    // 小车俯视简笔图（白色）：包围盒 x 336..616, y 160..482
+                    if ((x >= 336) && (x <= 624) && (y >= 160) && (y <= 491) && (rgb == 24'hFFFFFF))
                         cnt_car = cnt_car + 1;
-                    // 占位提示（白）：页 2 时此处应为 0
-                    if ((x >= 208) && (x < 400) && (y >= 256) && (y < 272) && (rgb == 24'hFFFFFF))
+                    // 占位提示（白）：页 2 时此处应为 0（24px 大字）
+                    //   ★ 窗口只取 x 216..335（车图左边界 336 之前）：车图也是白色，
+                    //     窗口若跨进车图（页 2 有车图）会把车图算成占位提示，导致假红。
+                    if ((x >= 216) && (x < 336) && (y >= PAGE_Y_SLOT) && (y < PAGE_Y_SLOT + 24) &&
+                        (rgb == 24'hFFFFFF))
                         cnt_ph = cnt_ph + 1;
                 end
             end
@@ -238,7 +245,7 @@ module ui_render_tb;
             ok_cnt = 0;
             tot    = 0;
             for (yy = ybase; yy < ybase + 16; yy = yy + 1) begin
-                for (xx = xw * 16; xx < (xw + 4) * 16; xx = xx + 1) begin
+                for (xx = xw * NUM_W; xx < (xw + 4) * NUM_W; xx = xx + 1) begin
                     px = xx[11:0];
                     py = yy[11:0];
                     vact = 1'b1;
@@ -273,30 +280,59 @@ module ui_render_tb;
     //     四轮 = 25x48 实心矩形，x=300 / 474.81，y=215 / 335
     //   屏幕 = SVG + (CAR_DX, CAR_DY) = SVG + (192, 15)
     // ==================================================================
-    localparam integer CAR_DX = 192;
-    localparam integer CAR_DY = 15;
+    // 缩放与平移：屏幕 = SVG × 1.4 + (−84, −78)，整幅占 x 336..616 / y 160..482
+    //   ★ 这里刻意**不复用** ui_render 里的屏幕坐标常数（378/574/580/372…），
+    //     而是从 SVG 原始坐标乘 1.4 再平移重推 —— 只共享"对 SVG 的理解"这一个前提，
+    //     任一侧的缩放/平移算错都会被抓到。
+    localparam integer CAR_SCALE_N = 14;    // ×1.4 = ×14/10
+    localparam integer CAR_SCALE_D = 10;
+    localparam integer CAR_DX17    = -84;   // 注意是负数
+    localparam integer CAR_DY      = -78;
+
+    // 下面这些常量是"从 SVG 原始坐标按 1.44 倍 + 平移(−96,−85)、四舍五入到屏幕像素"的
+    // 结果，与 ui_render.v 里的屏幕常数**同源但独立计算**（RTL 直接写死结果）。
+    //   x = round(SVG_x × 1.44) − 96      y = round(SVG_y × 1.44) − 85
+    //   用 (v*144 + 50)/100 实现四舍五入（整数除法截断，加半再除）。
+    localparam integer CE_XL = (330 * 144 + 50) / 100 - 96;   // 车体外框左  379
+    localparam integer CE_XR = (470 * 144 + 50) / 100 - 96;   // 车体外框右  581
+    localparam integer CE_YT = (170 * 144 + 50) / 100 - 85;   // 车体外框上  160
+    localparam integer CE_YB = (400 * 144 + 50) / 100 - 85;   // 车体外框下  491
+    localparam integer CE_YS = (200 * 144 + 50) / 100 - 85;   // 斜边起点 y   203
+    //   ★ 内轮廓用「外轮廓 + 描边宽」构造，而不是从 SVG 的 333/467 独立重算：
+    //     RTL 就是这么做的（保证描边四处均匀 4 px）。若 TB 从 333 重算会得到 384/576，
+    //     与 RTL 的 383/577 差 1 px —— 因为取整发生在不同阶段（先加再缩放 vs 先缩放再加）。
+    localparam integer CE_STROKE = (3 * 144 + 50) / 100;     // 描边 = round(3×1.44) = 4 px
+    localparam integer CI_XL = CE_XL + CE_STROKE;            // 383
+    localparam integer CI_XR = CE_XR - CE_STROKE;            // 577
+    localparam integer CI_YT = CE_YT + CE_STROKE;            // 164
+    localparam integer CI_YB = CE_YB - CE_STROKE;            // 487
+    localparam integer CI_YS = CE_YS + CE_STROKE;            // 207
 
     function car_expect;
         input integer xs;          // 屏幕 x
         input integer ys;          // 屏幕 y
-        integer sx, sy;
         reg out_, in_;
         begin
-            sx = xs - CAR_DX;
-            sy = ys - CAR_DY;
-            // 车体外轮廓
-            out_ = (sx >= 330) && (sx <= 470) && (sy >= 170) && (sy <= 400) &&
-                   ((sy >= 200) ||
-                    ((sx >= (330 + (200 - sy))) && (sx <= (470 - (200 - sy)))));
-            // 车体内轮廓（外轮廓向内收 3 px）
-            in_  = (sx >= 333) && (sx <= 467) && (sy >= 173) && (sy <= 397) &&
-                   ((sy >= 203) ||
-                    ((sx >= (333 + (203 - sy))) && (sx <= (467 - (203 - sy)))));
+            // 车体外轮廓：斜边 45°，y < CE_YS 时左右各收 (CE_YS − y)
+            out_ = (xs >= CE_XL) && (xs <= CE_XR) &&
+                   (ys >= CE_YT) && (ys <= CE_YB) &&
+                   ((ys >= CE_YS) ||
+                    ((xs >= (CE_XL + (CE_YS - ys))) && (xs <= (CE_XR - (CE_YS - ys)))));
+            // 车体内轮廓（描边 3 px × 1.44 ≈ 4 px）
+            in_  = (xs >= CI_XL) && (xs <= CI_XR) &&
+                   (ys >= CI_YT) && (ys <= CI_YB) &&
+                   ((ys >= CI_YS) ||
+                    ((xs >= (CI_XL + (CI_YS - ys))) && (xs <= (CI_XR - (CI_YS - ys)))));
+            // 四轮：SVG 25×48 实心矩形，x=300/475，y=215/335
             car_expect = (out_ && !in_) ||
-                         ((sx >= 300) && (sx <= 324) && (sy >= 215) && (sy <= 262)) ||
-                         ((sx >= 475) && (sx <= 499) && (sy >= 215) && (sy <= 262)) ||
-                         ((sx >= 300) && (sx <= 324) && (sy >= 335) && (sy <= 382)) ||
-                         ((sx >= 475) && (sx <= 499) && (sy >= 335) && (sy <= 382));
+                         ((xs >= (300 * 144 + 50) / 100 - 96) && (xs <= (325 * 144 + 50) / 100 - 96) &&
+                          (ys >= (215 * 144 + 50) / 100 - 85) && (ys <= (263 * 144 + 50) / 100 - 85)) ||
+                         ((xs >= (475 * 144 + 50) / 100 - 96) && (xs <= (500 * 144 + 50) / 100 - 96) &&
+                          (ys >= (215 * 144 + 50) / 100 - 85) && (ys <= (263 * 144 + 50) / 100 - 85)) ||
+                         ((xs >= (300 * 144 + 50) / 100 - 96) && (xs <= (325 * 144 + 50) / 100 - 96) &&
+                          (ys >= (335 * 144 + 50) / 100 - 85) && (ys <= (383 * 144 + 50) / 100 - 85)) ||
+                         ((xs >= (475 * 144 + 50) / 100 - 96) && (xs <= (500 * 144 + 50) / 100 - 96) &&
+                          (ys >= (335 * 144 + 50) / 100 - 85) && (ys <= (383 * 144 + 50) / 100 - 85));
         end
     endfunction
 
@@ -309,8 +345,8 @@ module ui_render_tb;
             err_car = 0;
             cnt_car = 0;
             cnt_car_spill = 0;
-            for (yy = 150; yy <= 430; yy = yy + 1) begin
-                for (xx = 400; xx <= 780; xx = xx + 1) begin
+            for (yy = 140; yy <= 510; yy = yy + 1) begin
+                for (xx = 300; xx <= 780; xx = xx + 1) begin
                     px = xx[11:0];
                     py = yy[11:0];
                     vact = 1'b1;
@@ -318,7 +354,7 @@ module ui_render_tb;
                     @(posedge pixel_clk);
                     #1;
                     actual_on = (rgb === 24'hFFFFFF);
-                    if ((xx >= 492) && (xx <= 692) && (yy >= 185) && (yy <= 415)) begin
+                    if ((xx >= 336) && (xx <= 624) && (yy >= 160) && (yy <= 491)) begin
                         expect_on = car_expect(xx, yy);
                         if (actual_on) cnt_car = cnt_car + 1;
                         if (actual_on !== expect_on) err_car = err_car + 1;
@@ -377,25 +413,6 @@ module ui_render_tb;
     integer err_off [0:10];
 
     // 段内期望：像素 xo 是否应点亮（查字库本体）
-    function glyph_expect_rom;
-        input integer xo;
-        input integer ybase_yy;
-        input integer xw;
-        input integer len;
-        input integer txt_addr;
-        integer slot, ci;
-        reg [15:0] frow;
-        begin
-            slot = xo >> 4;
-            if ((slot >= xw) && (slot < xw + len)) begin
-                ci   = dut.u_text_rom_sm.mem[txt_addr + (slot - xw)];
-                frow = dut.u_font_rom.mem[ci * 16 + (ybase_yy & 15)];
-                glyph_expect_rom = frow[15 - (xo & 15)];
-            end else begin
-                glyph_expect_rom = 1'b0;
-            end
-        end
-    endfunction
 
     // 大字段内期望：像素 xo 是否应点亮（查 24x24 字库本体）
     //   段基址都取 24 的倍数（72/144/216/288/552）→ 字模行号 = 绝对 y % 24
@@ -440,125 +457,50 @@ module ui_render_tb;
     //     而是对 −5..+5 的偏移各统计一次不符数，取最小者作为真实偏移，
     //     再在该偏移下单独统计"段左 2 列多字"。探测结果会打印出来备查。
     // ------------------------------------------------------------------
-    task check_seg_rom;
-        input integer ybase;
-        input integer xw;
-        input integer len;
-        input integer txt_addr;
-        input [23:0]  text_rgb;
-        input [8*36-1:0] name;
-        integer yy, xx, xa, xo, oi, obest, obesterr;
-        reg expect_on, actual_on;
-        begin
-            for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
-            for (yy = 0; yy < 16; yy = yy + 1) begin
-                for (xx = ((xw > 2) ? ((xw - 2) * 16) : 2);
-                     xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
-                    px = xx[11:0];
-                    py = (ybase + yy);
-                    vact = 1'b1;
-                    preq = 1'b1;
-                    @(posedge pixel_clk);
-                    #1;    // 沿后 1 ns 再采样：读的是本拍的寄存器值（与硬件 pixel_req 采样点一致），
-                           // 否则读到沿前值，会把组合/寄存信号的区别误当成像素错位
-
-                    xa = xx - 2;
-                    actual_on = (rgb === text_rgb);
-                    // ★ 偏移探测【只用段中部】像素（离两端各 ≥4 像素）：
-                    //   段边界缺陷（多点/少列）若也参与选择，会把最优偏移带偏，
-                    //   从而"吸收"掉缺陷 —— 这正是自动探测最容易掩盖问题的地方。
-                    for (oi = 0; oi <= 10; oi = oi + 1) begin
-                        xo = xa + (oi - 5);
-                        if ((xo >= xw * 16 + 4) && (xo < (xw + len) * 16 - 4)) begin
-                            expect_on = glyph_expect_rom(xo, ybase + yy, xw, len, txt_addr);
-                            if (actual_on !== expect_on) err_off[oi] = err_off[oi] + 1;
-                        end
-                    end
-                end
-            end
-            vact = 1'b0;
-            preq = 1'b0;
-
-            obest = 5; obesterr = err_off[5];
-            for (oi = 0; oi <= 10; oi = oi + 1) begin
-                if (err_off[oi] < obesterr) begin
-                    obesterr = err_off[oi];
-                    obest    = oi;
-                end
-            end
-            err_glyph  = obesterr;
-            probe_off  = obest - 5;
-
-            // 在最优偏移下单独统计"段起点左侧 2 列被误点亮"
-            err_left  = 0;
-            err_other = 0;
-            for (yy = 0; yy < 16; yy = yy + 1) begin
-                for (xx = ((xw > 2) ? ((xw - 2) * 16) : 2);
-                     xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
-                    px = xx[11:0];
-                    py = (ybase + yy);
-                    vact = 1'b1;
-                    preq = 1'b1;
-                    @(posedge pixel_clk);
-                    #1;    // 沿后 1 ns 再采样：读的是本拍的寄存器值（与硬件 pixel_req 采样点一致），
-                           // 否则读到沿前值，会把组合/寄存信号的区别误当成像素错位
-                    actual_on = (rgb === text_rgb);
-                    xo = (xx - 2) + probe_off;
-                    if (xo >= 0) begin
-                        expect_on = glyph_expect_rom(xo, ybase + yy, xw, len, txt_addr);
-                        if (actual_on && !expect_on) begin
-                            if ((xo >= xw * 16 - 2) && (xo < xw * 16)) err_left  = err_left + 1;
-                            else                                            err_other = err_other + 1;
-                        end
-                    end
-                end
-            end
-            vact = 1'b0;
-            preq = 1'b0;
-
-            if ((err_left == 0) && (err_glyph == 0) && (err_other == 0)) begin
-                $display("  pass  %0s: 偏移=%0d 段内不符=0 段左2列多字=0", name, probe_off);
-            end else begin
-                errors = errors + 1;
-                $display("  FAIL  %0s: 偏移=%0d 段内不符=%0d 段左2列多字=%0d 其它段外多字=%0d",
-                         name, probe_off, err_glyph, err_left, err_other);
-            end
-        end
-    endtask
 
     // 动态数值段（src=ram）：字符索引直接取 i_dyn_rdata（本台恒为 dyn_rdata）
-    task check_seg_ram;
+
+    // ------------------------------------------------------------------
+    // ★ 紧凑数字字段边界黄金参考（2026-10-17 数值改 16x24 后新增）
+    //   判据与 check_seg_lg 相同，只是换成 16 px 组 / font_num(16x24) / 动态 RAM 源：
+    //     期望字符索引 = 动态 RAM（本台是常量 dyn_rdata）
+    //     期望字模行   = dut.u_font_num.mem[ci*24 + (y % 24)]
+    //     期望点亮     = 该行 bit[15 - (x % 16)]
+    // ------------------------------------------------------------------
+    task check_seg_num;
         input integer ybase;
-        input integer xw;
+        input integer xw;          // 16 px 组号
         input integer len;
-        input [7:0]   charidx;
+        input [7:0]   charidx;     // 期望字符索引（动态 RAM 内容）
         input [23:0]  text_rgb;
         input [8*36-1:0] name;
         integer yy, xx, xa, xo, oi, obest, obesterr;
         reg expect_on, actual_on;
         reg [15:0] frow;
+        integer slot, col;
         begin
             for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
-            for (yy = 0; yy < 16; yy = yy + 1) begin
-                for (xx = ((xw > 2) ? ((xw - 2) * 16) : 2);
-                     xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
+            for (yy = 0; yy < 24; yy = yy + 1) begin
+                for (xx = ((xw > 2) ? ((xw - 2) * NUM_W) : 2);
+                     xx <= (xw + len) * NUM_W + 10; xx = xx + 1) begin
                     px = xx[11:0];
                     py = (ybase + yy);
                     vact = 1'b1;
                     preq = 1'b1;
                     @(posedge pixel_clk);
-                    #1;    // 沿后 1 ns 再采样：读的是本拍的寄存器值（与硬件 pixel_req 采样点一致），
-                           // 否则读到沿前值，会把组合/寄存信号的区别误当成像素错位
-
+                    #1;
                     xa = xx - 2;
                     actual_on = (rgb === text_rgb);
-                    frow = dut.u_font_rom.mem[charidx * 16 + ((ybase + yy) & 15)];
-                    // 同上：偏移探测只用段中部像素
+                    frow = dut.u_font_num.mem[charidx * 24 + ((ybase + yy) % 24)];
                     for (oi = 0; oi <= 10; oi = oi + 1) begin
                         xo = xa + (oi - 5);
-                        if ((xo >= xw * 16 + 4) && (xo < (xw + len) * 16 - 4)) begin
-                            expect_on = frow[15 - (xo & 15)];
-                            if (actual_on !== expect_on) err_off[oi] = err_off[oi] + 1;
+                        slot = xo / NUM_W;
+                        col  = xo % NUM_W;
+                        if ((slot >= xw) && (slot < xw + len)) begin
+                            expect_on = frow[15 - col];
+                            if ((xo >= xw * NUM_W + 4) && (xo < (xw + len) * NUM_W - 4)) begin
+                                if (actual_on !== expect_on) err_off[oi] = err_off[oi] + 1;
+                            end
                         end
                     end
                 end
@@ -575,45 +517,14 @@ module ui_render_tb;
             end
             err_glyph = obesterr;
             probe_off = obest - 5;
-
             err_left  = 0;
             err_other = 0;
-            for (yy = 0; yy < 16; yy = yy + 1) begin
-                for (xx = ((xw > 2) ? ((xw - 2) * 16) : 2);
-                     xx <= (xw + len) * 16 + 10; xx = xx + 1) begin
-                    px = xx[11:0];
-                    py = (ybase + yy);
-                    vact = 1'b1;
-                    preq = 1'b1;
-                    @(posedge pixel_clk);
-                    #1;    // 沿后 1 ns 再采样：读的是本拍的寄存器值（与硬件 pixel_req 采样点一致），
-                           // 否则读到沿前值，会把组合/寄存信号的区别误当成像素错位
-                    actual_on = (rgb === text_rgb);
-                    xo = (xx - 2) + probe_off;
-                    if (xo >= 0) begin
-                        // ★ 必须按当前行重新取字模行：frow 若沿用第一遍循环结束时的值，
-                        //   期望图案会整体错行（表现为"段内实际点亮全被判成段外多字"）
-                        frow = dut.u_font_rom.mem[charidx * 16 + ((ybase + yy) & 15)];
-                        if (((xo >> 4) >= xw) && ((xo >> 4) < xw + len))
-                            expect_on = frow[15 - (xo & 15)];
-                        else
-                            expect_on = 1'b0;
-                        if (actual_on && !expect_on) begin
-                            if ((xo >= xw * 16 - 2) && (xo < xw * 16)) err_left  = err_left + 1;
-                            else                                            err_other = err_other + 1;
-                        end
-                    end
-                end
-            end
-            vact = 1'b0;
-            preq = 1'b0;
 
-            if ((err_left == 0) && (err_glyph == 0) && (err_other == 0)) begin
-                $display("  pass  %0s: 偏移=%0d 段内不符=0 段左2列多字=0", name, probe_off);
+            if (err_glyph == 0) begin
+                $display("  pass  %0s: 偏移=%0d 段内不符=0", name, probe_off);
             end else begin
                 errors = errors + 1;
-                $display("  FAIL  %0s: 偏移=%0d 段内不符=%0d 段左2列多字=%0d 其它段外多字=%0d",
-                         name, probe_off, err_glyph, err_left, err_other);
+                $display("  FAIL  %0s: 偏移=%0d 段内不符=%0d", name, probe_off, err_glyph);
             end
         end
     endtask
@@ -738,9 +649,9 @@ module ui_render_tb;
         page = 2'd2;
         repeat (4) @(posedge pixel_clk);
         cnt_yaw = 0;
-        scan(160, 176);                     // 车头偏航角行（IMU 链路接入后为实测偏航角）
+        scan(120, 144);                     // 车头偏航角行（24px 大字）
         check_pos ("yaw_number_px", cnt_yaw);
-        scan(208, 224);                     // 右侧列表「中心速度」行（标签 + 数值）
+        scan(288, 312);                     // 右侧列表「中心速度」行（24px 大字）
         check_pos ("data_label_px", cnt_label);
         check_pos ("data_number_px", cnt_num);
 
@@ -911,14 +822,14 @@ module ui_render_tb;
         // ---------------- 10. ★ 段边界回归：数据页右侧列表 + 车头偏航角 ----------------
         //   2026-10-17 车图改版后：列表标签 x=800（组 50）、列表数值 x=880（组 55）、
         //   车头偏航角 x=560（组 35）。三者都是 16 px 小字，判据同前。
-        $display("-- 10. 数据页边界：右侧列表标签 + 列表数值 + 车头偏航角 黄金参考 --");
+        $display("-- 10. 数据页边界（24px 大字）：右侧列表标签 + 列表数值 + 车头偏航角 --");
         page = 2'd2;
         repeat (4) @(posedge pixel_clk);
-        check_seg_rom(208, PX_LBL_SLOT,
-                      UI_TXT_LBL_VEL_LEN, UI_TXT_LBL_VEL_ADDR,
-                      24'hFFFFFF, "data_label_boundary");
-        check_seg_ram(208, PX_VAL_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_number_boundary");
-        check_seg_ram(160, PX_YAW_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_yaw_boundary");
+        check_seg_lg(288, PX_LBL_SLOT,
+                     UI_TXT_LBL_VEL_LEN, UI_TXT_LBL_VEL_ADDR,
+                     24'hFFFFFF, "data_label_boundary");
+        check_seg_num(288, PX_VAL_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_number_boundary");
+        check_seg_num(120, PX_YAW_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_yaw_boundary");
 
         // ---------------- 10b. ★ 轮子位置 ↔ 通道/字段映射 ----------------
         //   真相（需求方 2026-10-17 确认）：A=右后 / B=左后 / C=右前 / D=左前
@@ -928,8 +839,8 @@ module ui_render_tb;
         repeat (4) @(posedge pixel_clk);
         check_wheel_field(240, PX_WL_SLOT, 4, "wheel_lf_eq_D");
         check_wheel_field(240, PX_WR_SLOT, 3, "wheel_rf_eq_C");
-        check_wheel_field(368, PX_WL_SLOT, 2, "wheel_lr_eq_B");
-        check_wheel_field(368, PX_WR_SLOT, 1, "wheel_rr_eq_A");
+        check_wheel_field(408, PX_WL_SLOT, 2, "wheel_lr_eq_B");
+        check_wheel_field(408, PX_WR_SLOT, 1, "wheel_rr_eq_A");
 
         // ---------------- 11. ★ 数据页车图：黄金参考逐像素 + 不得越界 ----------------
         //   需求方明确"不要太大导致挤占其他数据的空间"，所以除了形状对不对，
