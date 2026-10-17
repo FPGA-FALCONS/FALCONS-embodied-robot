@@ -253,29 +253,15 @@ module chassis_ctrl #(
         end
     endfunction
 
-    // ==================================================================
-    // ★ 2026-10-17 根治"停车时误判堵转"（需求方实测问题）
-    //   现象：车停下后，纯积分 PID（Ki = 0.25）的**积分残留**让 duty 稳定在
-    //         "克服静摩擦"的量级（≥ stall_detect 的 DUTY_TH），而车已静止、净位移为 0
-    //         → 判定窗口一过即被判堵转并**锁存**（需 S2 清除）。
-    //   做法：**该侧目标速度为 0 就视为"无驱动意图"**，duty 与方向一起强制归零。
-    //         这样 stall_detect 的 driving 判据不再成立，停车状态下根本不会进入判定。
-    //   注意：按【侧】判而不是按通道判 —— 同侧两轮的目标本来共用同一个
-    //         tgt_left / tgt_right，按通道判会多出 4 个比较器且语义冗余。
-    //   （积分残留本身未清；它在 tgt 刚变非 0 时会带来一次瞬态，属既有特性，见工作记录）
-    // ==================================================================
-    wire gate_l = run_en & (tgt_left  != 32'sd0);
-    wire gate_r = run_en & (tgt_right != 32'sd0);
+    assign o_duty[0*PWM_BITS +: PWM_BITS] = duty_of(u0, run_en);
+    assign o_duty[1*PWM_BITS +: PWM_BITS] = duty_of(u1, run_en);
+    assign o_duty[2*PWM_BITS +: PWM_BITS] = duty_of(u2, run_en);
+    assign o_duty[3*PWM_BITS +: PWM_BITS] = duty_of(u3, run_en);
 
-    assign o_duty[0*PWM_BITS +: PWM_BITS] = duty_of(u0, gate_l);
-    assign o_duty[1*PWM_BITS +: PWM_BITS] = duty_of(u1, gate_r);
-    assign o_duty[2*PWM_BITS +: PWM_BITS] = duty_of(u2, gate_l);
-    assign o_duty[3*PWM_BITS +: PWM_BITS] = duty_of(u3, gate_r);
-
-    assign o_dir[0] = gate_l & u0[31];
-    assign o_dir[1] = gate_r & u1[31];
-    assign o_dir[2] = gate_l & u2[31];
-    assign o_dir[3] = gate_r & u3[31];
+    assign o_dir[0] = run_en & u0[31];
+    assign o_dir[1] = run_en & u1[31];
+    assign o_dir[2] = run_en & u2[31];
+    assign o_dir[3] = run_en & u3[31];
 
     // ------------------------------------------------------------------
     // 5. 反馈 → rpm（显示/上报）：rpm = delta / 10.24 ≈ (delta × 100) >>> 10
