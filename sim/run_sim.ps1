@@ -121,6 +121,9 @@ $sources = @(
     "$VendorRoot\sync_fifo\rtl\sync_fifo.v",
     # 应用层
     "$ProjectRoot\rtl\common\font_rom.v",
+    # ★ 2026-10-17：24x24 大字库（左侧菜单条用）。ui_render 现在有大小两条并行通路，
+    #   必须两个都编进来，否则 u_font_rom_lg 会 "not defined"。
+    "$ProjectRoot\rtl\common\font_rom_lg.v",
     "$ProjectRoot\rtl\common\ui_text_rom.v",
     "$ProjectRoot\rtl\common\app_key.v",
     "$ProjectRoot\rtl\common\reset_sync.v",

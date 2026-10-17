@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""gen_font_rom.py —— 从字表生成中文 16x16 点阵字库与 UI 字符串 ROM（Verilog 源）
+"""gen_font_rom.py —— 从字表生成中文点阵字库（大小两套）与 UI 字符串 ROM（Verilog 源）
 
 为什么这么做：
   * 界面要中文（1024x600 屏，菜单/标签/状态词），FPGA 里必须有点阵字库；
@@ -8,28 +8,39 @@
     CR 混入等问题（class\\car_fpga 的 BMI270 配置 ROM 就是这么做并踩过坑的）。
   * 生成物可复现：改文案 → 重跑本脚本即可。
 
+★ 两套字模（2026-10-17 新增）：
+  需求方要求"左侧菜单文字与档位文字放大为原来 1.5 倍左右"，但 16x16 点阵无法无损放大，
+  所以同一份字符集渲染两遍：
+      font_rom.v     16x16  → 用于右侧内容区（数据页标签/数值、占位提示）
+      font_rom_lg.v  24x24  → 用于左侧菜单条（4 个菜单项 + 状态栏档位文字）
+  两者**共用同一个字符索引**（char_index 的含义一致），所以 ui_text_rom.v 与
+  ui_text_index.vh 只有一份，改字号不影响文案索引。
+
 用法：
     python tools/gen_font_rom.py
     python tools/gen_font_rom.py --chars tools/font_chars.txt --out rtl/common --font C:/Windows/Fonts/simhei.ttf
 
 产物（UTF-8 无 BOM）：
     rtl/common/font_rom.v        16x16 点阵字库 ROM（深度 = 字符数 x 16，宽度 16）
+    rtl/common/font_rom_lg.v     24x24 点阵字库 ROM（深度 = 字符数 x 24，宽度 24）
     rtl/common/ui_text_rom.v     字符串 ROM：按顺序存放每个文案的字符索引
     rtl/common/ui_text_index.vh  每个文案的 {起始地址, 长度} localparam + 总字符数
 
 地址约定：
-    font_rom 地址 = char_index * 16 + row   (row 0 = 最上面一行)
-    每行 16 bit，bit15 = 最左像素（1 = 点亮）
+    font_rom    地址 = char_index * 16 + row   (row 0 = 最上面一行)，每行 16 bit，bit15 = 最左
+    font_rom_lg 地址 = char_index * 24 + row   (row 0 = 最上面一行)，每行 24 bit，bit23 = 最左
 """
 
 import argparse
+import math
 import os
 import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
-CELL = 16            # 点阵边长
-ADDR_BITS = 12       # 地址位宽（4096 项，够 256 字 x16 行 或 4096 个文本字符）
+CELL = 16            # 小字点阵边长（右侧内容区）
+CELL_LG = 24         # 大字点阵边长（左侧菜单条，约 1.5 倍）
+ADDR_BITS = 12       # 小字库/文本 ROM 地址位宽（4096 项）
 ASCII_MIN, ASCII_MAX = 0x20, 0x7E
 # ★ 2026-10-16：单条文案的长度上限。
 #   UI_TXT_<名>_LEN 生成的是 `localparam [5:0]`（6 位），ui_render 的段描述符里
@@ -42,7 +53,7 @@ def comment_text(text):
     """把文案安全地内嵌进【生成的 Verilog 注释】里。
 
     为什么要处理：
-      * 反斜杠与双引号先转义（`\\`、`\\"`）—— 注释里虽然不参与语法，但本工程生成物
+      * 反斜杠与双引号先转义（`\\\\`、`\\\\"`）—— 注释里虽然不参与语法，但本工程生成物
         是"人读的源文件"，原文里的引号若原样写进去，读者会分不清哪是注释哪是语法；
         将来若有人把注释改成字符串字面量（$display 等），也不会因为引号而语法错。
       * CR / LF / TAB 一律换成空格 —— 一条文案若含换行，注释会被断成两行，
@@ -91,72 +102,83 @@ def build_charset(items):
     return sorted(chars, key=lambda ch: (ord(ch) > ASCII_MAX, ord(ch)))
 
 
-def render_glyph(ch, font):
-    """渲染单字到 16x16 点阵，返回 16 个整数（每行 16 bit，bit15 = 最左）"""
-    canvas = CELL * 2
+def render_glyph(ch, font, cell):
+    """渲染单字到 cell x cell 点阵，返回 cell 个整数（每行 cell bit，最高位 = 最左）"""
+    canvas = cell * 2
     img = Image.new("L", (canvas, canvas), 0)
     draw = ImageDraw.Draw(img)
     draw.text((canvas // 2, canvas // 2), ch, fill=255, font=font, anchor="mm")
 
     bbox = img.getbbox()
     if bbox is None:
-        return [0] * CELL      # 空白字符（空格）
+        return [0] * cell      # 空白字符（空格）
 
     glyph = img.crop(bbox)
     w, h = glyph.size
-    if w > CELL or h > CELL:
+    if w > cell or h > cell:
         # 缩小到能放下（保持宽高比）
-        scale = min(CELL / w, CELL / h)
+        scale = min(cell / w, cell / h)
         glyph = glyph.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.LANCZOS)
         w, h = glyph.size
 
-    cell = Image.new("L", (CELL, CELL), 0)
-    cell.paste(glyph, ((CELL - w) // 2, (CELL - h) // 2))
+    out = Image.new("L", (cell, cell), 0)
+    out.paste(glyph, ((cell - w) // 2, (cell - h) // 2))
 
     rows = []
-    px = cell.load()
-    for y in range(CELL):
+    px = out.load()
+    for y in range(cell):
         bits = 0
-        for x in range(CELL):
+        for x in range(cell):
             if px[x, y] >= 100:
-                bits |= 1 << (CELL - 1 - x)
+                bits |= 1 << (cell - 1 - x)
         rows.append(bits)
     return rows
 
 
-def write_font_rom(path, charset, glyphs):
-    depth = len(charset) * CELL
-    if depth > (1 << ADDR_BITS):
-        raise SystemExit(f"[错误] 字库深度 {depth} 超过 2^{ADDR_BITS}，请加大 ADDR_BITS")
+def addr_bits_for(depth):
+    """按深度算所需地址位宽（深度必须是 2 的幂以上）"""
+    bits = max(1, int(math.ceil(math.log2(max(2, depth)))))
+    return bits
+
+
+def write_font_rom(path, charset, glyphs, cell, module_name, title, usage_note):
+    """写一个点阵字库 ROM（cell x cell，行宽 cell bit）"""
+    depth = len(charset) * cell
+    bits = addr_bits_for(depth)
+    hexw = (cell + 3) // 4
+
     lines = []
     a = lines.append
-    a("// font_rom.v —— 16x16 中文点阵字库（由 tools/gen_font_rom.py 自动生成，请勿手改）")
+    a(f"// {os.path.basename(path)} —— {title}（由 tools/gen_font_rom.py 自动生成，请勿手改）")
     a("//")
     a(f"// 字符数：{len(charset)}（ASCII 可打印字符 + UI 文案用字）")
-    a(f"// 深度  ：{depth} = 字符数 x 16 行；宽度 16 bit，bit15 = 最左像素")
-    a("// 地址  ：char_index * 16 + row（row 0 = 最上面一行）")
+    a(f"// 深度  ：{depth} = 字符数 x {cell} 行；宽度 {cell} bit，bit{cell-1} = 最左像素")
+    a(f"// 地址  ：char_index * {cell} + row（row 0 = 最上面一行）")
+    a(f"// 位宽  ：地址需 {bits} 位（深度 {depth}）")
     a("//")
     a("// 字表来源：tools/font_chars.txt；字体：simhei（黑体）")
+    a(f"// {usage_note}")
     a("// 字体数据内嵌，不使用 $readmemh —— 避免综合工作目录与外部文件的依赖。")
     a("")
     a("`timescale 1ns/1ps")
     a("")
-    a("module font_rom (")
+    a(f"module {module_name} (")
     a("    input  wire             i_clk,")
-    a(f"    input  wire [{ADDR_BITS-1}:0] i_addr,")
-    a("    output reg  [15:0]      o_row_bits")
+    a(f"    input  wire [{bits-1}:0] i_addr,")
+    a(f"    output reg  [{cell-1}:0] o_row_bits")
     a(");")
     a("")
     a(f"    localparam integer ROM_DEPTH = {depth};")
     a(f"    localparam integer CHAR_COUNT = {len(charset)};")
     a("")
-    a("    reg [15:0] mem [0:ROM_DEPTH-1];")
+    a(f"    reg [{cell-1}:0] mem [0:ROM_DEPTH-1];")
     a("")
     a("    initial begin")
     for idx, ch in enumerate(charset):
         code = ord(ch)
-        for row in range(CELL):
-            a(f"        mem[{idx * CELL + row:5d}] = 16'h{glyphs[ch][row]:04X};  // U+{code:04X} '{comment_text(ch)}' 行{row}")
+        for row in range(cell):
+            a(f"        mem[{idx * cell + row:5d}] = {cell}'h{glyphs[ch][row]:0{hexw}X};"
+              f"  // U+{code:04X} '{comment_text(ch)}' 行{row}")
     a("    end")
     a("")
     a("    always @(posedge i_clk) begin")
@@ -165,6 +187,7 @@ def write_font_rom(path, charset, glyphs):
     a("")
     a("endmodule")
     write_text(path, "\n".join(lines) + "\n")
+    return depth, bits
 
 
 def write_ui_text_rom(path, index_path, charset, items):
@@ -203,6 +226,7 @@ def write_ui_text_rom(path, index_path, charset, items):
     a("//")
     a("// 内容：把 tools/font_chars.txt 里每个文案拆成字符，按顺序存放其【字库索引】")
     a("//       配合 ui_text_index.vh 给出的 ADDR/LEN，即可逐字取点阵渲染")
+    a("//       ★ 大小两套字库（font_rom / font_rom_lg）共用这里的字符索引")
     a(f"// 深度：{depth}（所有文案的字符总数），宽度 8 bit")
     a("")
     a("`timescale 1ns/1ps")
@@ -237,7 +261,8 @@ def write_ui_text_rom(path, index_path, charset, items):
     b("// ui_text_index.vh —— UI 文案的地址/长度索引（由 tools/gen_font_rom.py 自动生成，请勿手改）")
     b("//")
     b("// 用法：text_renderer 用 UI_TXT_<名>_ADDR / UI_TXT_<名>_LEN 从 ui_text_rom 取字符索引，")
-    b("//       再用 char_index*16+row 从 font_rom 取 16bit 行点阵。")
+    b("//       再用 char_index*16+row 从 font_rom（16x16）取 16bit 行点阵，")
+    b("//       或 char_index*24+row 从 font_rom_lg（24x24）取 24bit 行点阵。")
     b("")
     b(f"localparam integer UI_FONT_CHAR_COUNT = {len(charset)};")
     b(f"localparam integer UI_TEXT_TOTAL_CHARS = {depth};")
@@ -260,13 +285,17 @@ def write_text(path, text):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="生成中文点阵字库与 UI 字符串 ROM")
+    ap = argparse.ArgumentParser(description="生成中文点阵字库（大小两套）与 UI 字符串 ROM")
     here = os.path.dirname(os.path.abspath(__file__))
     root = os.path.dirname(here)
     ap.add_argument("--chars", default=os.path.join(here, "font_chars.txt"))
     ap.add_argument("--font", default=r"C:\Windows\Fonts\simhei.ttf")
     ap.add_argument("--out", default=os.path.join(root, "rtl", "common"))
-    ap.add_argument("--size", type=int, default=16, help="渲染字号（默认 16，点阵仍是 16x16）")
+    ap.add_argument("--size", type=int, default=16, help="小字渲染字号（默认 16，点阵 16x16）")
+    ap.add_argument("--cell", type=int, default=CELL, help="小字点阵边长（默认 16）")
+    ap.add_argument("--lg-size", type=int, default=CELL_LG,
+                    help="大字渲染字号（默认 24，点阵 24x24）")
+    ap.add_argument("--lg-cell", type=int, default=CELL_LG, help="大字点阵边长（默认 24）")
     ap.add_argument("--index-out", default=os.path.join(root, "rtl", "ui"),
                     help="ui_text_index.vh 的输出目录（默认 rtl/ui，与 ui_render.v 同目录）")
     args = ap.parse_args()
@@ -278,19 +307,35 @@ def main():
 
     items = parse_chars_file(args.chars)
     charset = build_charset(items)
-    font = ImageFont.truetype(args.font, args.size)
-    glyphs = {ch: render_glyph(ch, font) for ch in charset}
 
-    write_font_rom(os.path.join(args.out, "font_rom.v"), charset, glyphs)
+    # ---- 小字库（16x16）----
+    font_sm = ImageFont.truetype(args.font, args.size)
+    glyphs_sm = {ch: render_glyph(ch, font_sm, args.cell) for ch in charset}
+    depth_sm, bits_sm = write_font_rom(
+        os.path.join(args.out, "font_rom.v"), charset, glyphs_sm, args.cell,
+        "font_rom", f"{args.cell}x{args.cell} 中文点阵字库（右侧内容区用小字）",
+        "用途：右侧内容区（数据页标签/数值、占位提示）。")
+
+    # ---- 大字库（24x24，约 1.5 倍）----
+    font_lg = ImageFont.truetype(args.font, args.lg_size)
+    glyphs_lg = {ch: render_glyph(ch, font_lg, args.lg_cell) for ch in charset}
+    depth_lg, bits_lg = write_font_rom(
+        os.path.join(args.out, "font_rom_lg.v"), charset, glyphs_lg, args.lg_cell,
+        "font_rom_lg", f"{args.lg_cell}x{args.lg_cell} 中文点阵字库（左侧菜单条用大字）",
+        "用途：左侧菜单条（4 个菜单项 + 状态栏档位文字），约为小字的 1.5 倍。")
+
     index_path = os.path.join(args.index_out, "ui_text_index.vh")
     table = write_ui_text_rom(os.path.join(args.out, "ui_text_rom.v"), index_path, charset, items)
 
     print(f"字表文案 : {len(items)} 条")
     print(f"字符集   : {len(charset)} 个（含 ASCII 可打印字符 {ASCII_MAX - ASCII_MIN + 1} 个）")
-    print(f"字库     : {len(charset) * CELL} x 16 bit  ->  rtl\\common\\font_rom.v")
+    print(f"小字库   : {depth_sm} x {args.cell} bit（地址 {bits_sm} 位）->  rtl\\common\\font_rom.v")
+    print(f"大字库   : {depth_lg} x {args.lg_cell} bit（地址 {bits_lg} 位）->  rtl\\common\\font_rom_lg.v")
     print(f"文本 ROM : {sum(t[3] for t in table)} 字符           ->  rtl\\common\\ui_text_rom.v")
     print(f"索引     : {len(table)} 条 localparam          ->  {os.path.relpath(index_path, root)}")
-    empty = [ch for ch in charset if not any(glyphs[ch])]
+    for name, text, start, length in table[:4]:
+        print(f"   {name:14s} addr={start:3d} len={length}  {text}")
+    empty = [ch for ch in charset if not any(glyphs_sm[ch])]
     if empty:
         print(f"[提示] 渲染为空白（通常是空格）：{''.join(repr(c) for c in empty)}")
 

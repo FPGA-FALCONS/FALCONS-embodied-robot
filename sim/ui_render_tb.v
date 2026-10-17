@@ -54,17 +54,27 @@ module ui_render_tb;
 
     integer x, y;
 
-    // 段边界回归用到的固定参数（与 ui_render.v / ui_text_index.vh 对应）：
-    //   MENU_XW = 1  → 菜单文字起始字组（x=16）
-    //   PAGEXW  = 13 → 内容区文字起始字组（x=208）
-    //   VX_L    = 20 → 数据页单值列（x=320）
-    //   ui_text_rom 地址 0 必为第一条文案（字表首条 MENU_CAMERA，故 ADDR=0）
-    //   LBL_YAW 的字符流起始地址 = 51（由 tools/gen_font_rom.py 按字表顺序分配）
-    localparam integer MENU_XW_SLOT  = 1;
-    localparam integer PAGE_XW_SLOT  = 13;
-    localparam integer VX_L_SLOT     = 20;
-    localparam integer MENU_CAM_ADDR = 0;
-    localparam integer LBL_YAW_ADDR  = 51;
+    // ------------------------------------------------------------------
+    // 布局常量（与 ui_render.v 的 parameter 对应）
+    //   ★ 2026-10-17 起字号分两套：
+    //       大字 24x24 → 左侧菜单条（4 项 + 状态栏档位），组宽 24 px
+    //       小字 16x16 → 右侧内容区（数据页标签/数值、占位提示），组宽 16 px
+    // ------------------------------------------------------------------
+    // 大字（左侧）
+    localparam integer LG_CELL      = 24;
+    localparam integer LG_MENU_Y0   = 72;      // 第一项文字 y（MENU_Y0）
+    localparam integer LG_MENU_STEP = 72;      // 项间距（MENU_STEP）
+    localparam integer LG_STATUS_Y  = 552;     // 状态栏文字 y（STATUS_Y）
+    localparam integer LG_XW_SLOT   = 1;       // 菜单/状态栏文字起始大字组（x=24）
+    localparam integer MENU_W_PX    = 208;     // 菜单条宽度（不变）
+    // 小字（右侧）
+    localparam integer PAGE_XW_SLOT = 13;      // 内容区文字起始小字组（x=208）
+    localparam integer VX_L_SLOT    = 20;      // 数据页单值列（x=320）
+
+    // ★ 文案地址一律来自生成的头文件，**不再硬编码**：
+    //   本次把「车身运行数据显示」缩短为「运行数据显示」（8→6 字）后，其后所有文案的
+    //   起始地址整体前移 2。硬编码 51 之类会静默指向错误的字符流，断言会假红或假绿。
+    `include "ui_text_index.vh"
 
     ui_render dut (
         .i_pixel_clk    (pixel_clk),
@@ -104,16 +114,27 @@ module ui_render_tb;
                     @(posedge pixel_clk);
 
                     // ---- 按区域 + 颜色分类 ----
-                    // 菜单文字（未选中项）：x 16..208, y 96..112（第 2 项的 16 px 文字行）
-                    if ((x >= 16) && (x < 208) && (y >= 96) && (y < 112) && (rgb == 24'hE5E7EB))
+                    // ★ 2026-10-17：左侧菜单/档位改为 24 px 大字（行距 72、起点 x=24），
+                    //   窗口按下表更新；右侧内容区仍是 16 px 小字，窗口不变。
+                    // 菜单文字（未选中项）：第 2 项文字行 y = 72+72 .. +24
+                    if ((x >= 24) && (x < MENU_W_PX) &&
+                        (y >= (LG_MENU_Y0 + LG_MENU_STEP)) && (y < (LG_MENU_Y0 + LG_MENU_STEP + LG_CELL)) &&
+                        (rgb == 24'hE5E7EB))
                         cnt_menu_text = cnt_menu_text + 1;
-                    // 选中项文字（亮黄）：x 16..208, y 48..64（第 1 项被高亮时的文字行）
-                    if ((x >= 16) && (x < 208) && (y >= 48) && (y < 64) && (rgb == 24'hFFE066))
+                    // 选中项文字（亮黄）：第 1 项文字行 y = 72 .. 96
+                    if ((x >= 24) && (x < MENU_W_PX) &&
+                        (y >= LG_MENU_Y0) && (y < (LG_MENU_Y0 + LG_CELL)) &&
+                        (rgb == 24'hFFE066))
                         cnt_sel_text = cnt_sel_text + 1;
-                    if ((x < 208) && (y >= 40) && (y < 72) && (rgb == 24'h1D4ED8))
+                    // 高亮带（第 0 项）：y = 72-12 .. 72+36
+                    if ((x < MENU_W_PX) &&
+                        (y >= (LG_MENU_Y0 - 12)) && (y < (LG_MENU_Y0 + 36)) &&
+                        (rgb == 24'h1D4ED8))
                         cnt_hl = cnt_hl + 1;
-                    // 状态栏白字：x 16..112, y 560..576
-                    if ((x >= 16) && (x < 112) && (y >= 560) && (y < 576) && (rgb == 24'hFFFFFF))
+                    // 状态栏白字：x 24..144, y 552..576（24 px 字）
+                    if ((x >= 24) && (x < 144) &&
+                        (y >= LG_STATUS_Y) && (y < (LG_STATUS_Y + LG_CELL)) &&
+                        (rgb == 24'hFFFFFF))
                         cnt_status = cnt_status + 1;
                     // 数据页标签（白）：x 208..304, y 120..136
                     if ((x >= 208) && (x < 304) && (y >= 120) && (y < 136) && (rgb == 24'hFFFFFF))
@@ -135,9 +156,10 @@ module ui_render_tb;
     endtask
 
     // ------------------------------------------------------------------
-    // 只统计【菜单条高亮带】像素：x < 208（菜单条宽）且 y ∈ [y0, y1]
-    //   高亮带几何（ui_render）：y ∈ [MENU_Y0 + sel*MENU_STEP - 8, +24)
-    //     MENU_Y0 = 48 / MENU_STEP = 48  →  sel=0:[40,72) 1:[88,120) 2:[136,168) 3:[184,216)
+    // 只统计【菜单条高亮带】像素：x < MENU_W 且 y ∈ [y0, y1]
+    //   高亮带几何（ui_render，2026-10-17 随 24 px 大字放大）：
+    //     y ∈ [MENU_Y0 + sel*MENU_STEP - 12, +36)
+    //     MENU_Y0 = 72 / MENU_STEP = 72  →  sel=0:[60,108) 1:[132,180) 2:[204,252) 3:[276,324)
     // ------------------------------------------------------------------
     task scan_hl;
         input integer y0;
@@ -145,7 +167,7 @@ module ui_render_tb;
         begin
             cnt_hl_win = 0;
             for (y = y0; y <= y1; y = y + 1) begin
-                for (x = 0; x < 208; x = x + 1) begin
+                for (x = 0; x < MENU_W_PX; x = x + 1) begin
                     px = x[11:0];
                     py = y[11:0];
                     vact = 1'b1;
@@ -195,7 +217,7 @@ module ui_render_tb;
     //     → 段末尾最右两列被误关（笔画缺失）。
     //
     //   判据：不重复实现渲染逻辑，而是直接查【字库/字符 ROM 本体】做黄金参考：
-    //       期望字符索引 = dut.u_text_rom.mem[txt_addr + (slot - xw)]
+    //       期望字符索引 = dut.u_text_rom_sm.mem[txt_addr + (slot - xw)]
     //       期望字模行   = dut.u_font_rom.mem[char_index*16 + (y & 15)]
     //       期望点亮     = 该行 bit[15 - (x & 15)]
     //   逐像素比对整段，并把"段起点左侧 2 列必须无字"单列成显式计数。
@@ -241,11 +263,35 @@ module ui_render_tb;
         begin
             slot = xo >> 4;
             if ((slot >= xw) && (slot < xw + len)) begin
-                ci   = dut.u_text_rom.mem[txt_addr + (slot - xw)];
+                ci   = dut.u_text_rom_sm.mem[txt_addr + (slot - xw)];
                 frow = dut.u_font_rom.mem[ci * 16 + (ybase_yy & 15)];
                 glyph_expect_rom = frow[15 - (xo & 15)];
             end else begin
                 glyph_expect_rom = 1'b0;
+            end
+        end
+    endfunction
+
+    // 大字段内期望：像素 xo 是否应点亮（查 24x24 字库本体）
+    //   段基址都取 24 的倍数（72/144/216/288/552）→ 字模行号 = 绝对 y % 24
+    function glyph_expect_lg;
+        input integer xo;
+        input integer y_abs;
+        input integer xw;
+        input integer len;
+        input integer txt_addr;
+        integer slot, col, ci, row;
+        reg [23:0] frow;
+        begin
+            slot = xo / LG_CELL;
+            col  = xo % LG_CELL;
+            if ((slot >= xw) && (slot < xw + len)) begin
+                ci   = dut.u_text_rom_lg.mem[txt_addr + (slot - xw)];
+                row  = y_abs % LG_CELL;
+                frow = dut.u_font_rom_lg.mem[ci * LG_CELL + row];
+                glyph_expect_lg = frow[LG_CELL - 1 - col];
+            end else begin
+                glyph_expect_lg = 1'b0;
             end
         end
     endfunction
@@ -260,7 +306,7 @@ module ui_render_tb;
     //     → 同时段末尾最右 2 列被漏掉（笔画缺失）。
     //
     //   判据：不重复实现渲染逻辑，直接查【字库/字符 ROM 本体】当黄金参考：
-    //       期望字符索引 = dut.u_text_rom.mem[txt_addr + (slot - xw)]
+    //       期望字符索引 = dut.u_text_rom_sm.mem[txt_addr + (slot - xw)]
     //       期望字模行   = dut.u_font_rom.mem[char_index*16 + (y & 15)]
     //       期望点亮     = 该行 bit[15 - (x & 15)]
     //
@@ -444,6 +490,94 @@ module ui_render_tb;
     endtask
 
     // ------------------------------------------------------------------
+    // ★ 大字段边界黄金参考（2026-10-17 字号放大 1.5 倍后新增）
+    //   判据与 check_seg_rom 一致，只是换成 24 px 组 / 24x24 字库：
+    //     期望字符索引 = dut.u_text_rom_lg.mem[txt_addr + (slot - xw)]
+    //     期望字模行   = dut.u_font_rom_lg.mem[ci*24 + (y % 24)]
+    //     期望点亮     = 该行 bit[23 - (x % 24)]
+    //   为什么单写一份：Verilog-2001 的 task 里没法按参数去挑不同的层次实例名
+    //   （u_font_rom / u_font_rom_lg），硬套只会在内部堆两处 case。
+    // ------------------------------------------------------------------
+    task check_seg_lg;
+        input integer ybase;
+        input integer xw;
+        input integer len;
+        input integer txt_addr;
+        input [23:0]  text_rgb;
+        input [8*36-1:0] name;
+        integer yy, xx, xa, xo, oi, obest, obesterr;
+        reg expect_on, actual_on;
+        begin
+            for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
+            // ---- 第一遍：只用段中部像素探测采样偏移 ----
+            for (yy = 0; yy < LG_CELL; yy = yy + 1) begin
+                for (xx = 2; xx <= (xw + len) * LG_CELL + 10; xx = xx + 1) begin
+                    px = xx[11:0];
+                    py = (ybase + yy);
+                    vact = 1'b1;
+                    preq = 1'b1;
+                    @(posedge pixel_clk);
+                    #1;    // 沿后 1 ns 再采样：读本拍寄存器值（与硬件 pixel_req 采样点一致）
+                    xa = xx - 2;
+                    actual_on = (rgb === text_rgb);
+                    for (oi = 0; oi <= 10; oi = oi + 1) begin
+                        xo = xa + (oi - 5);
+                        if ((xo >= xw * LG_CELL + 4) && (xo < (xw + len) * LG_CELL - 4)) begin
+                            expect_on = glyph_expect_lg(xo, ybase + yy, xw, len, txt_addr);
+                            if (actual_on !== expect_on) err_off[oi] = err_off[oi] + 1;
+                        end
+                    end
+                end
+            end
+            vact = 1'b0;
+            preq = 1'b0;
+
+            obest = 5; obesterr = err_off[5];
+            for (oi = 0; oi <= 10; oi = oi + 1) begin
+                if (err_off[oi] < obesterr) begin
+                    obesterr = err_off[oi];
+                    obest    = oi;
+                end
+            end
+            err_glyph = obesterr;
+            probe_off = obest - 5;
+
+            // ---- 第二遍：在最优偏移下统计"段起点左侧多字"与其它段外多字 ----
+            err_left  = 0;
+            err_other = 0;
+            for (yy = 0; yy < LG_CELL; yy = yy + 1) begin
+                for (xx = 2; xx <= (xw + len) * LG_CELL + 10; xx = xx + 1) begin
+                    px = xx[11:0];
+                    py = (ybase + yy);
+                    vact = 1'b1;
+                    preq = 1'b1;
+                    @(posedge pixel_clk);
+                    #1;
+                    actual_on = (rgb === text_rgb);
+                    xo = (xx - 2) + probe_off;
+                    if (xo >= 0) begin
+                        expect_on = glyph_expect_lg(xo, ybase + yy, xw, len, txt_addr);
+                        if (actual_on && !expect_on) begin
+                            if ((xo >= xw * LG_CELL - 2) && (xo < xw * LG_CELL)) err_left  = err_left + 1;
+                            else                                               err_other = err_other + 1;
+                        end
+                    end
+                end
+            end
+            vact = 1'b0;
+            preq = 1'b0;
+
+            if ((err_left == 0) && (err_glyph == 0) && (err_other == 0)) begin
+                $display("  pass  %0s: 偏移=%0d 段内不符=0 段左2列多字=0", name, probe_off);
+            end else begin
+                errors = errors + 1;
+                $display("  FAIL  %0s: 偏移=%0d 段内不符=%0d 段左2列多字=%0d 其它段外多字=%0d",
+                         name, probe_off, err_glyph, err_left, err_other);
+            end
+        end
+    endtask
+
+    // ------------------------------------------------------------------
     initial begin
         $display("======== ui_render 界面渲染测试 ========");
         // Real stimulus initializes reset-independent combinational status in both engines.
@@ -460,8 +594,8 @@ module ui_render_tb;
         $display("-- 1/2/3. 页0：菜单文字、选中高亮、状态栏 --");
         page = 2'd0; sigok_i = 1'b1; uimode = 2'd0; estop_i = 1'b0;
         repeat (4) @(posedge pixel_clk);
-        scan(40, 130);                      // 覆盖菜单第 1 项（选中）与第 2 项（未选中）
-        scan(550, 590);                     // 状态栏
+        scan(56, 190);                      // 覆盖菜单第 1 项（选中）与第 2 项（未选中），24px 大字
+        scan(536, 596);                     // 状态栏（24px 大字，文字 552..576）
         check_pos ("sel_text_px",   cnt_sel_text);
         check_pos ("menu_text_px",  cnt_menu_text);
         check_pos ("menu_hl_px",    cnt_hl);
@@ -503,12 +637,12 @@ module ui_render_tb;
         page = 2'd0; sigok_i = 1'b1; estop_i = 1'b0; armhint_i = 1'b0; uimode = 2'd0;
         cnt_status = 0;
         repeat (4) @(posedge pixel_clk);
-        scan(550, 590);
+        scan(536, 596);
         px_manual = cnt_status;
 
         cnt_status = 0; armhint_i = 1'b1;
         repeat (4) @(posedge pixel_clk);
-        scan(550, 590);
+        scan(536, 596);
         px_hint = cnt_status;
 
         if (px_hint > px_manual) begin
@@ -520,7 +654,7 @@ module ui_render_tb;
 
         cnt_status = 0; estop_i = 1'b1;
         repeat (4) @(posedge pixel_clk);
-        scan(550, 590);
+        scan(536, 596);
         px_estop = cnt_status;
         if (px_estop < px_hint) begin
             $display("  pass  estop_over_hint: estop=%0d < hint=%0d px", px_estop, px_hint);
@@ -531,7 +665,7 @@ module ui_render_tb;
 
         cnt_status = 0; estop_i = 1'b0; sigok_i = 1'b0;
         repeat (4) @(posedge pixel_clk);
-        scan(550, 590);
+        scan(536, 596);
         px_nosig = cnt_status;
         if (px_nosig < px_hint) begin
             $display("  pass  nosignal_over_hint: nosig=%0d < hint=%0d px", px_nosig, px_hint);
@@ -553,7 +687,7 @@ module ui_render_tb;
         estop_i = 1'b1; sigok_i = 1'b0;
         cnt_status = 0;
         repeat (4) @(posedge pixel_clk);
-        scan(550, 590);
+        scan(536, 596);
         px_estop_nosig = cnt_status;
         if ((px_estop_nosig == px_estop) && (px_estop_nosig < px_nosig)) begin
             $display("  pass  estop_beats_nosignal: both=%0d, estop=%0d, nosig=%0d px",
@@ -582,7 +716,7 @@ module ui_render_tb;
                 repeat (4) @(posedge pixel_clk);
 
                 // (a) 高亮应出现在本项的带区
-                scan_hl(48 + mi * 48 - 8, 48 + mi * 48 + 23);
+                scan_hl(LG_MENU_Y0 + mi * LG_MENU_STEP - 12, LG_MENU_Y0 + mi * LG_MENU_STEP + 35);
                 if (cnt_hl_win > 0) begin
                     $display("  pass  menu_hl_sel%0d = %0d px", mi, cnt_hl_win);
                 end else begin
@@ -592,7 +726,7 @@ module ui_render_tb;
 
                 // (b) 另一项的带区不应有高亮（防"高亮带随 page 移动/残留"）
                 other = (mi == 0) ? 1 : 0;
-                scan_hl(48 + other * 48 - 8, 48 + other * 48 + 23);
+                scan_hl(LG_MENU_Y0 + other * LG_MENU_STEP - 12, LG_MENU_Y0 + other * LG_MENU_STEP + 35);
                 if (cnt_hl_win == 0) begin
                     $display("  pass  menu_hl_sel%0d_other_empty", mi);
                 end else begin
@@ -612,12 +746,12 @@ module ui_render_tb;
         estop_i = 1'b0; sigok_i = 1'b1; armhint_i = 1'b0;
         uimode = 2'd0; cnt_status = 0;
         repeat (4) @(posedge pixel_clk);
-        scan(550, 590);
+        scan(536, 596);
         px_manual = cnt_status;
 
         uimode = 2'd1; cnt_status = 0;
         repeat (4) @(posedge pixel_clk);
-        scan(550, 590);
+        scan(536, 596);
         px_cursor = cnt_status;
 
         if ((px_cursor > 0) && (px_cursor < px_manual * 2)) begin
@@ -629,23 +763,28 @@ module ui_render_tb;
 
         // ---------------- 9. ★ 段边界回归：菜单文字段（src = 静态 ROM）----------------
         //   缺陷：段起点左侧 2 像素被点亮（画 ui_text_rom[0] 的残列）、段末尾最右 2 列丢失。
-        //   这里用字库黄金参考逐像素比对整段（x=16..95，5 个字），并单列
+        //   这里用字库黄金参考逐像素比对整段（24 px 大字，x=24..143，5 个字），并单列
         //   "起点左侧 2 列必须无字"。被测项必须【不被高亮】，否则文字色是 FFE066，
         //   所以把高亮钉在第 4 项（menusel=3）。
-        $display("-- 9. 菜单段边界：整段对字库黄金参考；起点左侧 2 列必须无字 --");
+        //   ★ 2026-10-17：菜单已改为 24x24 大字（24 px 组），断言改用 check_seg_lg。
+        $display("-- 9. 菜单段边界（24px 大字）：整段对字库黄金参考；起点左侧 2 列必须无字 --");
         page = 2'd0; uimode = 2'd0; estop_i = 1'b0; sigok_i = 1'b1; armhint_i = 1'b0;
         menusel = 2'd3;
         repeat (4) @(posedge pixel_clk);
-        dump_row(48, 24'hE5E7EB);       // 第 0 行点亮序列（诊断图案是否整体错位）
-        dump_row(52, 24'hE5E7EB);
-        check_seg_rom(48, MENU_XW_SLOT, 5, MENU_CAM_ADDR, 24'hE5E7EB, "menu_item0_boundary");
+        dump_row(LG_MENU_Y0, 24'hE5E7EB);      // 第 0 行点亮序列（诊断图案是否整体错位）
+        dump_row(LG_MENU_Y0 + 4, 24'hE5E7EB);
+        check_seg_lg(LG_MENU_Y0, LG_XW_SLOT,
+                     UI_TXT_MENU_CAMERA_LEN, UI_TXT_MENU_CAMERA_ADDR,
+                     24'hE5E7EB, "menu_item0_boundary");
 
         // ---------------- 10. ★ 段边界回归：数据页标签（ROM）+ 动态数值（RAM）----------------
         //   标签段 x=208..255（3 字），数值段 x=320..383（4 字，字符索引 = i_dyn_rdata）。
         $display("-- 10. 数据页边界：标签段 + 数值段 整段黄金参考（起点左侧 2 列必须无字）--");
         page = 2'd2;
         repeat (4) @(posedge pixel_clk);
-        check_seg_rom(80, PAGE_XW_SLOT, 3, LBL_YAW_ADDR, 24'hFFFFFF, "data_label_boundary");
+        check_seg_rom(80, PAGE_XW_SLOT,
+                      UI_TXT_LBL_YAW_LEN, UI_TXT_LBL_YAW_ADDR,
+                      24'hFFFFFF, "data_label_boundary");
         check_seg_ram(80, VX_L_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_number_boundary");
 
         $display("======== 结果 ========");

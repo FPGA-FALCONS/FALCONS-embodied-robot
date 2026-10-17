@@ -2,22 +2,33 @@
 // 模块：ui_render —— 1024x600 中文界面渲染（菜单 + 四页 + 状态栏 + 实时数值）
 //
 // 【工作方式】逐像素叠加，不用帧缓存
-//   界面由「16x16 点阵字符」拼成，布局强制一条规则：
-//     ★ 所有文本起点 x（像素）与 y 都是 16 的倍数
-//   于是每个字符恰好落在一个 16 px 宽的"字组"(x>>4) 内：
-//     字组号 slot = x >> 4；格内位 = 15 - (x & 15)（bit15 = 最左像素）
-//     点阵行 row = y & 15
+//   界面由「点阵字符」拼成，布局强制一条规则：
+//     ★ 所有文本起点 x（像素）与 y 都是【字组边长】的倍数
+//   于是每个字符恰好落在一个"字组"内：
+//     字组号 slot = x / CELL；格内位 = CELL-1 - (x % CELL)（最高位 = 最左像素）
+//     点阵行 row = y - 段基址（由段描述符直接给出，避免除法）
+//
+// ★★ 两套字号（2026-10-17 新增，需求方要求"左侧菜单与档位文字放大 1.5 倍"）★★
+//   16x16 点阵无法无损放大，所以字库生成两套（见 tools/gen_font_rom.py）：
+//     小字 16x16 → 右侧内容区（数据页标签/数值、占位提示）
+//     大字 24x24 → 左侧菜单条（4 个菜单项 + 状态栏档位文字），MENU_W 宽度不变
+//   两条通路**完全并行**（各自一套 text_rom + font_rom + 流水线），因为同一扫描行
+//   左侧要画大字、右侧要画小字。两套字库共用同一份字符索引（ui_text_rom.v 只有一份，
+//   所以 ui_text_index.vh 的 ADDR/LEN 与字号无关）。
 //
 // 【提前 2 拍取数】
 //   字符索引（ROM/RAM）与点阵行（font_rom）各延迟 1 拍，共 2 拍。做法：始终请求
-//   「x+2 所在的字组」——数据 2 拍后有效时 x 已推进到 x+2，仍落在同一字组内
-//   （x+2 跨 16 边界时请求的正好是新字组）。无需行缓冲、无撕裂。
+//   「x+2 所在的字组」——数据 2 拍后有效时 x 已推进到 x+2，仍落在同一字组内。
+//   无需行缓冲、无撕裂。
+//   ★ 坑（已踩过，见工作记录 §30.5）：**位选 bit_sel 必须用当前 x（组合）**，
+//     只有"段门控"随数据打拍。位选若也打拍，整屏文字会整体平移。
 //
-// 【文本段（seg）】同一条扫描行可能有多段文字（标签 + 若干数值），所以译码结果
-//   不是"一行一项"，而是最多 6 个段描述符；再按当前 slot 选出命中的那一段。
-//   每段 32 位：{valid, src, rom_addr[11:0], ram_addr[5:0], len[5:0], xw[5:0]}
-//     src = 0 → 静态文案 ROM（菜单/标签/状态词/占位提示）
-//     src = 1 → 动态字符 RAM（num_text 生成的实时数值，4 字符/段）
+// 【文本段（seg）】同一条扫描行可能有多段文字，所以译码结果不是"一行一项"，
+//   而是若干段描述符；再按当前 slot 选出命中的那一段。
+//   小字段 32 位：{valid, src, rom_addr[11:0], ram_addr[5:0], len[5:0], xw[5:0]}
+//     src = 0 → 静态文案 ROM；src = 1 → 动态字符 RAM（num_text 生成的实时数值）
+//   大字段 32 位：{valid, 2'b00, rom_addr[11:0], len[5:0], xw[5:0], row[4:0]}
+//     大字无动态来源，且把字模行号直接放进描述符（省掉 y%24 的除法）
 //
 // 【四页】0 摄像头 / 1 雷达 / 2 车身运行数据 / 3 路径点导航
 //   页 0/1/3 尚未接入真实数据源 → 占位提示；页 2 显示标签 + 实时数值。
@@ -29,13 +40,16 @@
 module ui_render #(
     parameter integer SCREEN_W  = 1024,
     parameter integer SCREEN_H  = 600,
-    parameter integer MENU_W    = 208,      // 左侧菜单条宽度（16 的倍数）
-    parameter integer MENU_Y0   = 48,       // 第一项文字 y 起点
-    parameter integer MENU_STEP = 48,       // 项间距
-    parameter integer MENU_XW   = 1,        // 菜单文字起始字组（x=16）
-    parameter integer STATUS_Y  = 560,      // 状态栏文字 y 起点
+    // ---- 左侧菜单条（大字 24x24）----
+    parameter integer MENU_W    = 208,      // 左侧菜单条宽度（★ 需求方要求不变）
+    parameter integer LG_CELL   = 24,       // 大字点阵边长（1.5 x 16）
+    parameter integer LG_XW     = 1,        // 菜单文字起始大字组（x = 24）
+    parameter integer MENU_Y0   = 72,       // 第一项文字 y 起点（须为 LG_CELL 的倍数）
+    parameter integer MENU_STEP = 72,       // 项间距（原 48 x 1.5，保持文字:行距 = 1:3）
+    parameter integer STATUS_Y  = 552,      // 状态栏文字 y 起点（须为 LG_CELL 的倍数）
+    // ---- 右侧内容区（小字 16x16，布局未改动）----
     parameter integer PAGE_Y    = 256,      // 占位提示 y 起点
-    parameter integer PAGEXW    = 13        // 内容区文字起始字组（x=208）
+    parameter integer PAGEXW    = 13        // 内容区文字起始小字组（x=208）
 )(
     // ---- HDMI 像素域 ----
     input  wire        i_pixel_clk,
@@ -61,6 +75,8 @@ module ui_render #(
 
     // UI 文案索引（localparam；由 tools/gen_font_rom.py 生成，与本文件同目录）
     `include "ui_text_index.vh"
+
+    localparam integer SM_CELL = 16;        // 小字点阵边长
 
     // ------------------------------------------------------------------
     // 文案取用（function：纯组合，综合稳）
@@ -116,7 +132,7 @@ module ui_render #(
     end
 
     // ------------------------------------------------------------------
-    // 段描述符打包
+    // 段描述符打包 —— 小字（16 px 组，右侧内容区）
     //   [31] valid | [30] src | [29:18] rom_addr | [17:12] ram_addr
     //   | [11:6] len | [5:0] xw
     // ------------------------------------------------------------------
@@ -145,24 +161,42 @@ module ui_render #(
                      VX_E2 = 6'd30,     // x = 480  │ （4 字符 = 64 px，步进 80 px）
                      VX_E3 = 6'd35;     // x = 560  ┘
 
-    reg [31:0] seg [0:5];
-    integer    si, mi;
+    // 段描述符打包 —— 大字（24 px 组，左侧菜单条）
+    //   ★ 位段（从左到右拼，务必与下方 lg_sel[...] 的取位一致）：
+    //     [31]valid | [30:29]保留 | [28:17]rom_addr | [16:11]len | [10:5]xw | [4:0]row
+    //   ★ row 直接由译码给出（y − 该项基址），省掉 y % 24 的除法
+    //     —— 注意必须用【完整位宽】相减后再取值，写成 y[4:0] − 基址 会因 5 位截断算错
+    function [31:0] seg_lg;
+        input [17:0] txt;      // {addr, len}
+        input [5:0]  xw;
+        input [4:0]  row;
+        begin
+            seg_lg = {1'b1, 2'b00, txt[17:6], txt[5:0], xw, row};
+        end
+    endfunction
 
+    // ---------------- 大字段：菜单 4 项 + 状态栏（只有静态 ROM 来源）----------------
+    reg [31:0] lg_seg;
+    integer    mi;
     always @(*) begin
-        for (si = 0; si < 6; si = si + 1) seg[si] = 32'd0;   // 默认全部无效
-
-        // ---------------- 左侧菜单 4 项 ----------------
+        lg_seg = 32'd0;
         for (mi = 0; mi < 4; mi = mi + 1) begin
             if ((i_pixel_y >= (MENU_Y0 + mi * MENU_STEP)) &&
-                (i_pixel_y <  (MENU_Y0 + mi * MENU_STEP + 16))) begin
-                seg[0] = seg_rom(menu_text(mi[1:0]), MENU_XW[5:0]);
+                (i_pixel_y <  (MENU_Y0 + mi * MENU_STEP + LG_CELL))) begin
+                lg_seg = seg_lg(menu_text(mi[1:0]), LG_XW[5:0],
+                                (i_pixel_y - (MENU_Y0 + mi * MENU_STEP)));
             end
         end
-
-        // ---------------- 状态栏 ----------------
-        if ((i_pixel_y >= STATUS_Y) && (i_pixel_y < STATUS_Y + 16)) begin
-            seg[0] = seg_rom(status_text, MENU_XW[5:0]);
+        if ((i_pixel_y >= STATUS_Y) && (i_pixel_y < STATUS_Y + LG_CELL)) begin
+            lg_seg = seg_lg(status_text, LG_XW[5:0], (i_pixel_y - STATUS_Y));
         end
+    end
+
+    // ---------------- 小字段：数据页（页 2）+ 占位提示（页 0/1/3）----------------
+    reg [31:0] seg [0:5];
+    integer    si;
+    always @(*) begin
+        for (si = 0; si < 6; si = si + 1) seg[si] = 32'd0;   // 默认全部无效
 
         // ---------------- 数据页（页 2）----------------
         //   字段映射（num_text，每字段 4 字符 = 4 字组，基址 = 字段号 × 4）：
@@ -209,74 +243,126 @@ module ui_render #(
         end
     end
 
-    // ------------------------------------------------------------------
-    // 提前 2 拍取数：请求 (x+2) 所在的字组
-    // ------------------------------------------------------------------
+    // ==================================================================
+    // 小字通路（16x16，右侧内容区）—— 提前 2 拍取数
+    // ==================================================================
     wire [11:0] x_look   = i_pixel_x + 12'd2;
-    wire [5:0]  slot_req = x_look[9:4];
-    wire [3:0]  row_now  = i_pixel_y[3:0];
+    wire [5:0]  sm_slot  = x_look[9:4];         // 16 px/组 → 直接取位
+    wire [3:0]  sm_row   = i_pixel_y[3:0];
 
-    // 选出命中当前 slot 的段（段之间不重叠，后写覆盖无妨）
-    reg [31:0] sel;
+    reg [31:0] sm_sel;
     always @(*) begin
-        sel = 32'd0;
+        sm_sel = 32'd0;
         for (si = 0; si < 6; si = si + 1) begin
             if (seg[si][31] &&
-                (slot_req >= seg[si][5:0]) &&
-                (slot_req <  (seg[si][5:0] + seg[si][11:6]))) begin
-                sel = seg[si];
+                (sm_slot >= seg[si][5:0]) &&
+                (sm_slot <  (seg[si][5:0] + seg[si][11:6]))) begin
+                sm_sel = seg[si];
             end
         end
     end
 
-    wire        in_text = sel[31];
-    wire [5:0]  off     = slot_req - sel[5:0];
-    wire [11:0] rom_rd  = sel[29:18] + {6'd0, off};
-    wire [5:0]  ram_rd  = sel[17:12] + off;
+    wire        sm_in_text = sm_sel[31];
+    wire [5:0]  sm_off     = sm_slot - sm_sel[5:0];
+    wire [11:0] sm_rom_rd  = sm_sel[29:18] + {6'd0, sm_off};
+    wire [5:0]  sm_ram_rd  = sm_sel[17:12] + sm_off;
 
     // 一级：字符索引（静态 ROM / 动态 RAM，各 1 拍）
     //   ★ 地址 0 不是空白：ui_text_rom[0] 存的是**第一条文案的首字**（当前是"摄"）。
     //     所以"段外"不能靠读地址 0 来得到空白 —— 那样会在段边界画出首字的残列。
     //     这里仍喂合法地址 0（ROM 读端口要求地址有效），但在【选择之后】补 0：
     //     字库 index 0 = ASCII 空格（字模全 0），这才是真正的空白。
-    wire [7:0] rom_char;
-    ui_text_rom u_text_rom (
+    wire [7:0] sm_rom_char;
+    ui_text_rom u_text_rom_sm (
         .i_clk        (i_pixel_clk),
-        .i_addr       (in_text ? rom_rd : 12'd0),
-        .o_char_index (rom_char)
+        .i_addr       (sm_in_text ? sm_rom_rd : 12'd0),
+        .o_char_index (sm_rom_char)
     );
 
-    assign o_dyn_raddr = ram_rd;
-    wire [7:0] ram_char = i_dyn_rdata;
+    assign o_dyn_raddr = sm_ram_rd;
+    wire [7:0] sm_ram_char = i_dyn_rdata;
 
     // 源选择也打一拍，与 ROM/RAM 的 1 拍延迟对齐
-    reg src_d;
-    always @(posedge i_pixel_clk) src_d <= sel[30];
-    // in_text 打一拍：与 rom_char / ram_char 对齐在同一拍（T+1）
-    reg in_text_d1;
-    always @(posedge i_pixel_clk) in_text_d1 <= in_text;
-    wire [7:0] char_index = in_text_d1 ? (src_d ? ram_char : rom_char) : 8'd0;
+    reg sm_src_d;
+    always @(posedge i_pixel_clk) sm_src_d <= sm_sel[30];
+    // in_text 打一拍：与 rom_char / ram_char 对齐在同一拍
+    reg sm_in_text_d1;
+    always @(posedge i_pixel_clk) sm_in_text_d1 <= sm_in_text;
+    wire [7:0] sm_char_index = sm_in_text_d1
+                             ? (sm_src_d ? sm_ram_char : sm_rom_char)
+                             : 8'd0;
 
     // 二级：点阵行（1 拍）；地址 = 字符索引 × 16 + 行号
-    wire [11:0] font_rd_addr = {char_index, row_now};
-    wire [15:0] row_bits;
+    wire [11:0] sm_font_addr = {sm_char_index, sm_row};
+    wire [15:0] sm_row_bits;
     font_rom u_font_rom (
         .i_clk      (i_pixel_clk),
-        .i_addr     (font_rd_addr),
-        .o_row_bits (row_bits)
+        .i_addr     (sm_font_addr),
+        .o_row_bits (sm_row_bits)
     );
 
-    // ★★ 门控必须与点阵数据【同一时刻】对齐（2026-10-17 修正"label 左侧竖排白点"）★★
-    //   点阵数据是「2 拍前请求、请求的是 pixel_x+2 所在字组」，所以"这段文字是否覆盖当前
-    //   像素"的判定也要用【同一请求时刻】的 sel，而不是当前拍的 sel。
-    //   原缺陷：门控 in_text 用了当前拍的 sel —— 那对应像素 P+2 的字组，比数据早，
-    //   于是段起点左侧被误开（画出 ui_text_rom[0] 首字「摄」的残列）、
-    //   段末尾最右两列被误关（丢笔画）。
-    //   ★ bit_sel 保持【组合】用当前 pixel_x：它与 row_bits 的既有对齐关系是靠
-    //     "提前取数 + 当拍位选"共同形成的，一旦也打拍，整屏文字会整体平移
-    //     （实测位移 2 像素）—— 这是 2026-10-17 修正时踩到并已回退的坑。
-    wire [3:0] bit_sel  = 4'd15 - i_pixel_x[3:0];
-    wire       glyph_on = in_text_d1 && row_bits[bit_sel];
+    // ★ 位选保持【组合】用当前 pixel_x（见文件头的坑说明）
+    wire [3:0]  sm_bit_sel = 4'd15 - i_pixel_x[3:0];
+    wire        sm_glyph   = sm_in_text_d1 && sm_row_bits[sm_bit_sel];
+
+    // ==================================================================
+    // 大字通路（24x24，左侧菜单条）—— 同样的提前 2 拍结构
+    // ==================================================================
+    // 24 px/组 不是 2 的幂，需要一次常数除法；只在左侧区域有意义。
+    //   ★ 用【无符号 12 位参数】参与运算：直接写 LG_CELL（integer，有符号 32 位）
+    //     会引入有符号/无符号混算；而 `lg_slot * LG_CELL[5:0]` 更危险 ——
+    //     两个 6 位相乘会被截成 6 位，24*8=192 直接溢出成错值。
+    localparam [11:0] LG_CELL_N = LG_CELL;
+    wire [5:0]  lg_slot     = x_look / LG_CELL_N;
+    wire [11:0] lg_col_look = x_look - lg_slot * LG_CELL_N;   // 格内列号（对应 x_look）
+
+    // ★ 位选必须与小字通路同一口径：用【当前 pixel_x】的列号，而不是 x_look 的。
+    //   col(x) = (x_look − 2) mod 24，这里用条件减法避免再引一个除法器：
+    //     x_look 落在组内前 2 列时，x 属于上一组的末尾（24−2 .. 24−1）。
+    wire [11:0] lg_col      = (lg_col_look >= 12'd2) ? (lg_col_look - 12'd2)
+                                                    : (lg_col_look + 12'd22);
+
+    reg [31:0] lg_sel;
+    always @(*) begin
+        lg_sel = 32'd0;
+        if (lg_seg[31] &&
+            (lg_slot >= lg_seg[10:5]) &&
+            (lg_slot <  (lg_seg[10:5] + lg_seg[16:11]))) begin
+            lg_sel = lg_seg;
+        end
+    end
+
+    wire        lg_in_text = lg_sel[31];
+    wire [5:0]  lg_off     = lg_slot - lg_sel[10:5];
+    wire [11:0] lg_rom_rd  = lg_sel[28:17] + {6'd0, lg_off};
+
+    wire [7:0] lg_rom_char;
+    ui_text_rom u_text_rom_lg (               // 与右侧共用同一份字符索引数据
+        .i_clk        (i_pixel_clk),
+        .i_addr       (lg_in_text ? lg_rom_rd : 12'd0),
+        .o_char_index (lg_rom_char)
+    );
+
+    reg lg_in_text_d1;
+    reg [4:0] lg_row_d1;
+    always @(posedge i_pixel_clk) begin
+        lg_in_text_d1 <= lg_in_text;
+        lg_row_d1     <= lg_sel[4:0];
+    end
+    wire [7:0] lg_char_index = lg_in_text_d1 ? lg_rom_char : 8'd0;
+
+    // 地址 = 字符索引 × 24 + 行号；24 = 16 + 8 → 两个移位相加，不用乘法器
+    wire [12:0] lg_base = {1'b0, lg_char_index, 4'd0} + {2'b0, lg_char_index, 3'd0};
+    wire [12:0] lg_font_addr = lg_base + {8'd0, lg_row_d1};
+    wire [23:0] lg_row_bits;
+    font_rom_lg u_font_rom_lg (
+        .i_clk      (i_pixel_clk),
+        .i_addr     (lg_font_addr),
+        .o_row_bits (lg_row_bits)
+    );
+
+    wire [4:0]  lg_bit_sel = 5'd23 - lg_col[4:0];
+    wire        lg_glyph   = lg_in_text_d1 && (i_pixel_x < MENU_W) && lg_row_bits[lg_bit_sel];
 
     // ------------------------------------------------------------------
     // 图层与颜色
@@ -284,10 +370,11 @@ module ui_render #(
     wire in_menu_bar = (i_pixel_x < MENU_W);
     // ★ 2026-10-16：高亮跟随【摇杆选中的项 i_menu_sel】，而内容区显示【已按确认进入的页 i_page】
     //   —— 两段式交互（需求方明确）：摇杆只移动高亮，按确认才换页。
+    //   ★ 2026-10-17：高亮带高度随字号放大（原 ±8/24 按 16 px 字，现 ±12/36 按 24 px 字）
     wire menu_sel_band = in_menu_bar &&
-                         (i_pixel_y >= (MENU_Y0 + i_menu_sel * MENU_STEP - 8)) &&
-                         (i_pixel_y <  (MENU_Y0 + i_menu_sel * MENU_STEP + 24));
-    wire in_status_bar = (i_pixel_y >= (STATUS_Y - 8)) && (i_pixel_y < (STATUS_Y + 24));
+                         (i_pixel_y >= (MENU_Y0 + i_menu_sel * MENU_STEP - 12)) &&
+                         (i_pixel_y <  (MENU_Y0 + i_menu_sel * MENU_STEP + 36));
+    wire in_status_bar = (i_pixel_y >= (STATUS_Y - 12)) && (i_pixel_y < (STATUS_Y + 36));
 
     reg [23:0] rgb;
     always @(*) begin
@@ -300,13 +387,17 @@ module ui_render #(
         // 2) 菜单选中高亮
         if (menu_sel_band)      rgb = 24'h1D4ED8;
 
-        // 3) 文字（★ glyph_on 已含 in_text_d1 门控；段源用同拍延迟的 src_d）
-        if (glyph_on) begin
+        // 3) 大字（左侧：菜单项 + 档位文字）
+        if (lg_glyph) begin
             if (in_status_bar)                     rgb = 24'hFFFFFF;   // 状态栏：白
             else if (in_menu_bar && menu_sel_band) rgb = 24'hFFE066;   // 选中项：亮黄
-            else if (in_menu_bar)                  rgb = 24'hE5E7EB;   // 未选中菜单：浅灰
-            else if (src_d)                        rgb = 24'h7CFC98;   // 动态数值：亮绿
-            else                                   rgb = 24'hFFFFFF;   // 标签：白
+            else                                   rgb = 24'hE5E7EB;   // 未选中菜单：浅灰
+        end
+
+        // 4) 小字（右侧：数据页标签/数值、占位提示）
+        if (sm_glyph) begin
+            if (sm_src_d)                          rgb = 24'h7CFC98;   // 动态数值：亮绿
+            else                                   rgb = 24'hFFFFFF;   // 标签/占位：白
         end
     end
 
