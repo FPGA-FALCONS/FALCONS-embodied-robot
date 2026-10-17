@@ -50,7 +50,7 @@ J6 只有信号；电源从合适的电源接口单独供给。RevI 手册 J9：
 | STEER_CENTER_US / THROTTLE_CENTER_US | 各1500 | 分别测CH4、CH2的回中值，不能用历史CH1=1499替代 |
 | STEER_HALF_RANGE_US / THROTTLE_HALF_RANGE_US | 各500 | 各自中位到端点的量程；当前是对称量程模型，非独立左右端点模型 |
 | STEER_DEADZONE_US / THROTTLE_DEADZONE_US | 各25 | 中位±该值内输出0；须小于对应半量程 |
-| STEER_REVERSE / THROTTLE_REVERSE | 各0 | 按实物车辆方向决定，不能凭通道名推定 |
+| STEER_REVERSE / THROTTLE_REVERSE | **STEER=0 / THROTTLE=1** | 按实物车辆方向决定，不能凭通道名推定。★ **2026-10-17 首次上板标定**：实测"推杆向前车反而后退、左右正确" → 只把 `THROTTLE_REVERSE` 置 1（改在顶层 `falcons_top.v` 的 `u_rc` 例化处，**不是** `ht10a_input.v` 的默认值）；**不要**用 `INV_DIR_VEC` 改，那会把差速转向一起带反。详见 `doc\工作记录.md` §26.3 |
 | MENU_REVERSE | 0 | 独立调整上下菜单方向；不受油门方向反转参数影响 |
 | MIN_PULSE_US / MAX_PULSE_US | 900 / 2100 | 捕获合法高电平宽度，含边界；超出立即撤销该路有效性 |
 | TIMEOUT_US | 100000 | 最后一个合法完整脉冲之后100ms失效；非法脉冲不刷新计时 |

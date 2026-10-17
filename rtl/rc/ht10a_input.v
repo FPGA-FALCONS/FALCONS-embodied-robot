@@ -14,6 +14,11 @@ module ht10a_input #(
     parameter integer STEER_CENTER_US=1500, THROTTLE_CENTER_US=1500,
     parameter integer STEER_HALF_RANGE_US=500, THROTTLE_HALF_RANGE_US=500,
     parameter integer STEER_DEADZONE_US=25, THROTTLE_DEADZONE_US=25,
+    // ★ 2026-10-17 上板实测标定：推杆向前时车反而后退 → 油门通道取反（THROTTLE_REVERSE=1）。
+    //   ★ 该取值【由顶层例化覆盖】（`falcons_top.v` 第 2 节 `.THROTTLE_REVERSE(1)`），
+    //     这里的默认值**仍保持 0** —— 因为 `ht10a_input_tb` / `rc_input_tb` 的主实例
+    //     用默认参数做"方向/量程"断言，改默认值会直接把回归测试打破。
+    //   ★ 只反油门：不要动 motor_top 的 INV_DIR_VEC（四路全反会把差速转向一起带反）。
     parameter integer STEER_REVERSE=0, THROTTLE_REVERSE=0, MENU_REVERSE=0,
     parameter integer MODE_REVERSE=0, SELECT_ACTIVE_LOW=0, CONFIRM_ACTIVE_LOW=0,
     parameter integer SW_LO_US=1300, SW_HI_US=1700, SW_HYST_US=30, SW_CONFIRM_FRAMES=2,

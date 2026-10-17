@@ -166,7 +166,14 @@ module falcons_top (
         .STEER_CENTER_US(1500), .THROTTLE_CENTER_US(1500),
         .STEER_HALF_RANGE_US(500), .THROTTLE_HALF_RANGE_US(500),
         .STEER_DEADZONE_US(25), .THROTTLE_DEADZONE_US(25),
-        .STEER_REVERSE(0), .THROTTLE_REVERSE(0), .MENU_REVERSE(0),
+        // ★ 2026-10-17 上板实测标定：**推杆向前（油门为正）时车反而后退** → 油门通道取反。
+        //   为什么只改这一处（别改错地方）：
+        //     · 不反 `STEER_REVERSE` —— 左右方向实测正确（右拨 = 右转）；
+        //     · 不动 `u_motor` 的 `INV_DIR_VEC` —— 四路全反会把**差速转向一起带反**
+        //       （左右轮差速关系随前进方向整体翻转），修好前进、坏掉转向；
+        //     · 闭环自洽性已核：油门反号后 `tgt` 反号，编码器符号定义未变，
+        //       轮子物理转向也随之反 → `act` 与 `tgt` 仍**同号**，PID 不会变成正反馈。
+        .STEER_REVERSE(0), .THROTTLE_REVERSE(1), .MENU_REVERSE(0),
         .MODE_REVERSE(0), .CONFIRM_ACTIVE_LOW(0), .SELECT_ACTIVE_LOW(0),
         .MIN_PULSE_US(900), .MAX_PULSE_US(2100), .TIMEOUT_US(100_000),
         .SW_LO_US(1300), .SW_HI_US(1700), .SW_HYST_US(30), .SW_CONFIRM_FRAMES(2),
