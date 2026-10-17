@@ -1,0 +1,4 @@
+`verilator_config
+// This intentional reset synchronizer releases the I2C master asynchronously
+// while also serving synchronous reset gating. Waive only its known diagnostic.
+lint_off -rule SYNCASYNCNET -file "*tof_vl53l0x.v" -match "*tof_debug_top.sensor.reset_pipe*"

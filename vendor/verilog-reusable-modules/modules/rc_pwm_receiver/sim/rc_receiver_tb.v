@@ -115,8 +115,8 @@ module rc_receiver_tb;
             if (!signal_valid && ((steering !== 12'sd0) ||
                                   (throttle !== 12'sd0)))
                 $fatal(1, "FAIL: invalid receiver must output zero at %0t", $time);
-            if (signal_valid !== (ch1_valid && ch2_valid))
-                $fatal(1, "FAIL: signal_valid differs from channel AND at %0t", $time);
+            if (signal_valid && !(ch1_valid && ch2_valid))
+                $fatal(1, "FAIL: signal_valid without two valid captures at %0t", $time);
             if (monitor_update && previous_monitor_update)
                 $fatal(1, "FAIL: pulse_update lasted more than one clock");
             if (monitor_update) begin
@@ -212,7 +212,7 @@ module rc_receiver_tb;
                     #(width2_ns); rc_ch2 = 1'b0;
                 end
             join
-            #200;
+            #1000;
         end
     endtask
 
@@ -230,7 +230,7 @@ module rc_receiver_tb;
             @(negedge clk);
             #7; rc_ch1 = 1'b1;
             #(width_us * 1000); rc_ch1 = 1'b0;
-            #200;
+            #1000;
         end
     endtask
 
@@ -240,7 +240,7 @@ module rc_receiver_tb;
             @(negedge clk);
             #13; rc_ch2 = 1'b1;
             #(width_us * 1000); rc_ch2 = 1'b0;
-            #200;
+            #1000;
         end
     endtask
 
@@ -250,13 +250,13 @@ module rc_receiver_tb;
             rst_n = 1'b0;
             rc_ch1 = 1'b0;
             rc_ch2 = 1'b0;
-            #200;
+            #1000;
             expect_safe;
             require(ch1_width_us == 0 && ch2_width_us == 0, "reset clears widths");
             require(!ch1_valid && !ch2_valid, "reset clears channel valid");
             require(!ch1_timeout && !ch2_timeout, "reset clears timeout flags");
             rst_n = 1'b1;
-            #200;
+            #1000;
         end
     endtask
 
@@ -506,7 +506,7 @@ module rc_receiver_tb;
         for (frame_index = 0; frame_index < 3; frame_index = frame_index + 1) begin
             @(negedge clk); #7; default_pwm = 1'b1;
             #1500000; default_pwm = 1'b0;
-            #200;
+            #1000;
             require(default_valid && !default_timeout, "default capture sees legal 50 Hz frame");
             require(default_width_us == 1500, "default capture width");
             require(default_updates == frame_index + 1, "one update per default 50 Hz frame");
@@ -530,3 +530,5 @@ module rc_receiver_tb;
         $finish;
     end
 endmodule
+
+

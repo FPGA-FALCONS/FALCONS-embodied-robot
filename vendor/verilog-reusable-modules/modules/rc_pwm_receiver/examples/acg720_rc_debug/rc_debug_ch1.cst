@@ -1,0 +1,39 @@
+// ACG720 official pin table and chapter 13 hex8.cst: dsM18, latchC2, shiftF4.
+// Current S4 reset is B21, independently verified; F15 in old example is not S4.
+// J6.1/D19 CH1 and J6.2/E19 CH2 are direct FPGA inputs, no level translation.
+// LVCMOS33 requires actual Bank2 VCCIO=3.3V. Keep receiver S disconnected
+// until signal voltage compatibility/protection has been confirmed.
+IO_LOC "clk" Y18;
+IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "rst_n" B21;
+IO_PORT "rst_n" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "rc_steering_pwm" D19;
+IO_PORT "rc_steering_pwm" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "rc_throttle_pwm" E19;
+IO_PORT "rc_throttle_pwm" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "ds" M18;
+IO_PORT "ds" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "sh_cp" F4;
+IO_PORT "sh_cp" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "st_cp" C2;
+IO_PORT "st_cp" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[0]" M22;
+IO_PORT "led[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[1]" N22;
+IO_PORT "led[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[2]" L21;
+IO_PORT "led[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[3]" K21;
+IO_PORT "led[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[4]" K22;
+IO_PORT "led[4]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[5]" J22;
+IO_PORT "led[5]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[6]" H22;
+IO_PORT "led[6]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[7]" M21;
+IO_PORT "led[7]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+IO_LOC "sw0" G22;
+IO_PORT "sw0" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+

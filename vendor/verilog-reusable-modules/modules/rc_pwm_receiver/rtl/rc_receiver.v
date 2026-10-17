@@ -42,10 +42,9 @@ module rc_receiver #(
     output wire               ch2_timeout
 );
 
-    // Captures expose update strobes for standalone use; the receiver
-    // consumes their persistent validity levels instead.
-    wire unused_ch1_update;
-    wire unused_ch2_update;
+    // Capture update strobes restart normalization of the latest pair.
+    wire ch1_update;
+    wire ch2_update;
 
     rc_pwm_capture #(
         .CLK_HZ(CLK_HZ),
@@ -59,7 +58,7 @@ module rc_receiver #(
         .pulse_width_us(ch1_width_us),
         .pulse_valid(ch1_valid),
         .timed_out(ch1_timeout),
-        .pulse_update(unused_ch1_update)
+        .pulse_update(ch1_update)
     );
 
     rc_pwm_capture #(
@@ -74,51 +73,86 @@ module rc_receiver #(
         .pulse_width_us(ch2_width_us),
         .pulse_valid(ch2_valid),
         .timed_out(ch2_timeout),
-        .pulse_update(unused_ch2_update)
+        .pulse_update(ch2_update)
     );
 
-    function signed [11:0] normalized_command;
-        input [15:0] width_us;
-        input integer minimum_us;
-        input integer center_us;
-        input integer maximum_us;
-        input integer deadzone_us;
-        input integer reverse_axis;
-        integer width_integer;
-        integer displacement;
-        integer scaled;
-        begin
-            width_integer = {16'd0, width_us};
-            displacement = width_integer - center_us;
-
-            if (width_integer <= minimum_us)
-                scaled = -1000;
-            else if (width_integer >= maximum_us)
-                scaled = 1000;
-            else if (displacement > deadzone_us)
-                scaled = (displacement - deadzone_us) * 1000 /
-                         (maximum_us - center_us - deadzone_us);
-            else if (displacement < -deadzone_us)
-                scaled = -((-displacement - deadzone_us) * 1000 /
-                          (center_us - minimum_us - deadzone_us));
-            else
-                scaled = 0;
-
-            if (reverse_axis != 0)
-                scaled = -scaled;
-            normalized_command = scaled[11:0];
+    // Reset assertion is asynchronous; state leaves reset on a clock edge.
+    reg reset_meta;
+    reg reset_sync;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            reset_meta <= 1'b0;
+            reset_sync <= 1'b0;
+        end else begin
+            reset_meta <= 1'b1;
+            reset_sync <= reset_meta;
         end
-    endfunction
+    end
 
-    assign signal_valid = ch1_valid && ch2_valid &&
+    wire captures_valid = ch1_valid && ch2_valid &&
                           !ch1_timeout && !ch2_timeout;
+    reg have_command;
+    reg calculating;
+    reg signed [11:0] steering_committed;
+    reg signed [11:0] throttle_committed;
+    wire start_pair = captures_valid &&
+        (ch1_update || ch2_update || (!calculating && !have_command));
+    wire cancel_pair = !captures_valid;
+    wire signed [11:0] steering_next;
+    wire signed [11:0] throttle_next;
+    wire steering_done;
+    wire throttle_done;
+    wire unused_steering_busy;
+    wire unused_throttle_busy;
 
-    assign steering = signal_valid ? normalized_command(
-        ch1_width_us, CH1_MIN_US, CH1_CENTER_US, CH1_MAX_US,
-        CH1_DEADZONE_US, CH1_REVERSE) : 12'sd0;
+    rc_axis_normalize #(
+        .MIN_US(CH1_MIN_US), .CENTER_US(CH1_CENTER_US),
+        .MAX_US(CH1_MAX_US), .DEADZONE_US(CH1_DEADZONE_US),
+        .REVERSE(CH1_REVERSE)
+    ) normalize_ch1 (
+        .clk(clk), .rst_n(reset_sync), .start(start_pair),
+        .cancel(cancel_pair), .width_us(ch1_width_us),
+        .command(steering_next), .busy(unused_steering_busy),
+        .done(steering_done)
+    );
+    rc_axis_normalize #(
+        .MIN_US(CH2_MIN_US), .CENTER_US(CH2_CENTER_US),
+        .MAX_US(CH2_MAX_US), .DEADZONE_US(CH2_DEADZONE_US),
+        .REVERSE(CH2_REVERSE)
+    ) normalize_ch2 (
+        .clk(clk), .rst_n(reset_sync), .start(start_pair),
+        .cancel(cancel_pair), .width_us(ch2_width_us),
+        .command(throttle_next), .busy(unused_throttle_busy),
+        .done(throttle_done)
+    );
 
-    assign throttle = signal_valid ? normalized_command(
-        ch2_width_us, CH2_MIN_US, CH2_CENTER_US, CH2_MAX_US,
-        CH2_DEADZONE_US, CH2_REVERSE) : 12'sd0;
+    // Normalizer latency is 27 clocks after start; pair commit is one clock
+    // later. A new capture replaces an in-flight snapshot. The last committed
+    // pair remains valid while calculating ordinary fresh updates, preventing
+    // a spurious loss indication every RC frame. A real invalidation cancels
+    // that session; recovery MUST finish a new calculation before valid rises.
+    always @(posedge clk or negedge reset_sync) begin
+        if (!reset_sync) begin
+            have_command <= 1'b0;
+            calculating <= 1'b0;
+            steering_committed <= 12'sd0;
+            throttle_committed <= 12'sd0;
+        end else if (!captures_valid) begin
+            have_command <= 1'b0;
+            calculating <= 1'b0;
+            steering_committed <= 12'sd0;
+            throttle_committed <= 12'sd0;
+        end else if (start_pair) begin
+            calculating <= 1'b1;
+        end else if (calculating && steering_done && throttle_done) begin
+            steering_committed <= steering_next;
+            throttle_committed <= throttle_next;
+            have_command <= 1'b1;
+            calculating <= 1'b0;
+        end
+    end
 
+    assign signal_valid = rst_n && reset_sync && captures_valid && have_command;
+    assign steering = signal_valid ? steering_committed : 12'sd0;
+    assign throttle = signal_valid ? throttle_committed : 12'sd0;
 endmodule

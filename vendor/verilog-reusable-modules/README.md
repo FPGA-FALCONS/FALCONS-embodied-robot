@@ -204,3 +204,10 @@ do run_test.do
 > ```
 > vsim -c -do "run -all; quit -f" work.<测试平台名>
 > ```
+
+## 2026-10-18 RC / ToF补充
+
+- [RC新版核心与观察例程](modules/rc_pwm_receiver/README.md)：三文件归一化核心、四轴10秒轮换和CH5/6独立LED。
+- [TOF200C/VL53L0X](modules/tof_vl53l0x/README.md)：独立驱动、测试及SAFE/WARN/STOP板级例程。
+
+本vendor的唯一维护仓库为FALCONS-embodied-robot；应用接线映射以工程doc/HT10A接线与验收.md为准，不能照搬独立观察例程。

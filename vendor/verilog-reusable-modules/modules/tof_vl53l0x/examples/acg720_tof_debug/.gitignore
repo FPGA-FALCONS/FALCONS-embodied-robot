@@ -1,0 +1,7 @@
+build/
+*.vcd
+*.vvp
+*.log
+work/
+transcript
+impl/

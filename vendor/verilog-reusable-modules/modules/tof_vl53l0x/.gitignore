@@ -1,0 +1,7 @@
+/sim/artifacts/*.vvp
+/sim/work/
+/sim/transcript
+/sim/*.wlf
+/tb/*.vvp
+/obj_dir/
+/build/

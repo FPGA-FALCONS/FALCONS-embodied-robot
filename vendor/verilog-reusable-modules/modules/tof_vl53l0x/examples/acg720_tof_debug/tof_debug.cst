@@ -1,0 +1,39 @@
+// ACG720 GW5AT-LV138PG484AC1/I0, revision C.
+// ToF: user-supplied ACG720_引脚接线手册_RevI.pdf p3, dedicated adapter J7.
+// J7.1=3V3 VIN, .2=GND, .3=SDA E17, .4=SCL F16, .5=INT unused, .6=SHUT D20.
+// J7 signal pins are direct GPIO; this is not an electrical compatibility claim.
+// Actual Bank2 VCCIO must be 3.3V. External compatible pull-ups are required.
+// Open-drain SDA/SCL/SHUT: never enable FPGA pull-ups or drive logic high.
+// Clock/S4/LED/HC595 assignments from verified ACG720 official sources.
+IO_LOC "clk" Y18;
+IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "rst_n" B21;
+IO_PORT "rst_n" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "tof_sda" E17;
+IO_PORT "tof_sda" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "tof_scl" F16;
+IO_PORT "tof_scl" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "tof_xshut_n" D20;
+IO_PORT "tof_xshut_n" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "ds" M18;
+IO_PORT "ds" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "sh_cp" F4;
+IO_PORT "sh_cp" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "st_cp" C2;
+IO_PORT "st_cp" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[0]" M22;
+IO_PORT "led[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[1]" N22;
+IO_PORT "led[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[2]" L21;
+IO_PORT "led[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[3]" K21;
+IO_PORT "led[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[4]" K22;
+IO_PORT "led[4]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[5]" J22;
+IO_PORT "led[5]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[6]" H22;
+IO_PORT "led[6]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led[7]" M21;
+IO_PORT "led[7]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;

@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-17",
+  "timezone": "Asia/Shanghai",
+  "board": "ACG720 / GW5AT-138C",
+  "sensor": "TOF200C / VL53L0X",
+  "example": "examples/acg720_tof_debug",
+  "programming": {
+    "operation": "SRAM Program",
+    "device_id": "0x0011081B",
+    "exit_code": 0,
+    "programmer_finished": true,
+    "bitstream_sha256": "b752d05185c818a2913262953a94480628bf6fb2c88d0606d2ee484d97f15b30",
+    "user_code": "0x0000C3D2",
+    "status_code": "0x00026230"
+  },
+  "observations": {
+    "source": "User confirmation in development session after programming",
+    "user_statement": "完美实现了，很棒",
+    "real_ranging_and_safe_warn_stop_display": "user confirmed working"
+  },
+  "not_verified": [
+    "Instrument-measured supply / pull-up / I2C voltage and rise time",
+    "Calibrated optical accuracy and exact physical threshold errors",
+    "Long-term stability and all physical fault cases",
+    "Motor stopping or vehicle safety"
+  ],
+  "volatile_configuration": true
+}

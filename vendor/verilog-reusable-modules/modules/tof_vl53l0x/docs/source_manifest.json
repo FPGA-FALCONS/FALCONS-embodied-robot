@@ -1,0 +1,17 @@
+{
+  "sensor": "VL53L0X",
+  "module_marking": "TOF200C-VL53L0X",
+  "i2c_7bit_addr": "0x29",
+  "write_address_byte": "0x52",
+  "read_address_byte": "0x53",
+  "model_id_register": "0xC0",
+  "model_id_value": "0xEE",
+  "raw_success_status": 11,
+  "tuning_pair_count": 80,
+  "reference_sha256": {
+    "pololu/VL53L0X.cpp": "6c5c1ba443dcc106e5a4ece734f96168cd8abdaae00dcfa5b86b4dc7b4bb1c2a",
+    "pololu/VL53L0X.h": "9f3b71a36b4d3e3103a00b0ac25ea72fa13c48f0aa972ad8c8ae151a8eb08f16",
+    "adafruit/src/vl53l0x_tuning.h": "0e0331b7df1084d183248355f75d835b3446200b22f71765b5c63a470ff01c63",
+    "adafruit/src/core/src/vl53l0x_api_core.cpp": "11a174199882e58e7f93d9978deecb2f960600cc92ff44057e69de586dc641bb"
+  }
+}
