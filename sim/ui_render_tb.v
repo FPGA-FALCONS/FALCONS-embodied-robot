@@ -219,6 +219,49 @@ module ui_render_tb;
     endtask
 
     // ==================================================================
+    // ★ 轮子位置 ↔ 通道/字段 映射断言（2026-10-17 需求方指出映射错位后新增）
+    //
+    //   背景：UI 原来按「A=左前 / B=右前 / C=左后 / D=右后」排，实际接线是
+    //         A=右后 / B=左后 / C=右前 / D=左前 —— 四个轮子的数字全都错位。
+    //   判据：在某个轮速文字所在的字组上，UI 送给字符 RAM 的地址高位
+    //         （dyn_raddr[5:2] = 字段号，每字段 4 字符）必须等于期望字段。
+    //         直接看地址、不看 RAM 内容，所以既能锁住映射，又不依赖数据值。
+    //   容差：允许 10% 的边界拍（提前 2 拍取数 + 跨字组的那两拍）。
+    // ==================================================================
+    task check_wheel_field;
+        input integer ybase;
+        input integer xw;
+        input integer field;
+        input [8*36-1:0] name;
+        integer xx, yy, ok_cnt, tot;
+        begin
+            ok_cnt = 0;
+            tot    = 0;
+            for (yy = ybase; yy < ybase + 16; yy = yy + 1) begin
+                for (xx = xw * 16; xx < (xw + 4) * 16; xx = xx + 1) begin
+                    px = xx[11:0];
+                    py = yy[11:0];
+                    vact = 1'b1;
+                    preq = 1'b1;
+                    @(posedge pixel_clk);
+                    #1;
+                    tot = tot + 1;
+                    if (dyn_raddr[5:2] == field[3:0]) ok_cnt = ok_cnt + 1;  // dyn_raddr[5:2] 本身就是字段号(0..8)
+                end
+            end
+            vact = 1'b0;
+            preq = 1'b0;
+            if (ok_cnt * 10 >= tot * 9) begin
+                $display("  pass  %0s: 字段=%0d, 命中 %0d/%0d", name, field, ok_cnt, tot);
+            end else begin
+                errors = errors + 1;
+                $display("  FAIL  %0s: 期望字段 %0d, 只命中 %0d/%0d（轮子↔通道映射错位）",
+                         name, field, ok_cnt, tot);
+            end
+        end
+    endtask
+
+    // ==================================================================
     // ★ 数据页小车俯视简笔图：黄金参考 + 越界检查（2026-10-17 新增）
     //
     //   期望值**从 SVG 原始坐标独立重算**，不复用 ui_render 里的屏幕坐标常数 ——
@@ -876,6 +919,17 @@ module ui_render_tb;
                       24'hFFFFFF, "data_label_boundary");
         check_seg_ram(208, PX_VAL_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_number_boundary");
         check_seg_ram(160, PX_YAW_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_yaw_boundary");
+
+        // ---------------- 10b. ★ 轮子位置 ↔ 通道/字段映射 ----------------
+        //   真相（需求方 2026-10-17 确认）：A=右后 / B=左后 / C=右前 / D=左前
+        //   字段号：1=A 2=B 3=C 4=D（字段基址 = 字段号 × 4）
+        $display("-- 10b. 轮速位置映射：左前=D(4) 右前=C(3) 左后=B(2) 右后=A(1) --");
+        page = 2'd2;
+        repeat (4) @(posedge pixel_clk);
+        check_wheel_field(240, PX_WL_SLOT, 4, "wheel_lf_eq_D");
+        check_wheel_field(240, PX_WR_SLOT, 3, "wheel_rf_eq_C");
+        check_wheel_field(368, PX_WL_SLOT, 2, "wheel_lr_eq_B");
+        check_wheel_field(368, PX_WR_SLOT, 1, "wheel_rr_eq_A");
 
         // ---------------- 11. ★ 数据页车图：黄金参考逐像素 + 不得越界 ----------------
         //   需求方明确"不要太大导致挤占其他数据的空间"，所以除了形状对不对，

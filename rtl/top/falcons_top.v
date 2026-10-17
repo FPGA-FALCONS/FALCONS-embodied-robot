@@ -877,10 +877,10 @@ module falcons_top (
         .clk    (i_clk_50m),
         .rst_n  (sys_rst_n),
         .i_v0   (yaw_deg),           // 字段 0：航向角（整数度，画在小车前端）
-        .i_v1   (rpm0_disp),         // 字段 1：A 左前轮转速
-        .i_v2   (rpm1_disp),         // 字段 2：B 右前轮转速
-        .i_v3   (rpm2_disp),         // 字段 3：C 左后轮转速
-        .i_v4   (rpm3_disp),         // 字段 4：D 右后轮转速
+        .i_v1   (rpm0_disp),         // 字段 1：A = 右后轮
+        .i_v2   (rpm1_disp),         // 字段 2：B = 左后轮
+        .i_v3   (rpm2_disp),         // 字段 3：C = 右前轮
+        .i_v4   (rpm3_disp),         // 字段 4：D = 左前轮
         .i_v5   (gyro_deg_s),        // 字段 5：角速度（整数 °/s，量纲待上板校准）
         .i_v6   (center_rpm),        // 字段 6：中心速度（四轮平均 rpm）
         .i_v7   (32'sd0),            // 字段 7：航位 x（odom 未实现 → 暂 0）

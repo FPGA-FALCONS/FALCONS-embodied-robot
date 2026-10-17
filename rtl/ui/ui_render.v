@@ -225,9 +225,14 @@ module ui_render #(
                 seg[1] = seg_ram(6'd24, 6'd4, PX_VAL);
             end
             // ★ 这一行同时有 4 段：左前轮速 / 右前轮速 / 航位x 标签 / 航位x 数值
+            // ★ 2026-10-17 需求方指出映射错位，修正后：
+            //     左前 = D = 字段 4（基址 16）／右前 = C = 字段 3（基址 12）
+            //   ★ 通道 ↔ 轮位真相（需求方 2026-10-17 确认）：
+            //     A = 右后 / B = 左后 / C = 右前 / D = 左前
+            //     以前按"A 左前、B 右前、C 左后、D 右后"排，正好是错的。
             if ((i_pixel_y >= 240) && (i_pixel_y < 256)) begin
-                seg[0] = seg_ram(6'd4,  6'd4, PX_WL);    // 左前轮速
-                seg[1] = seg_ram(6'd8,  6'd4, PX_WR);    // 右前轮速
+                seg[0] = seg_ram(6'd16, 6'd4, PX_WL);    // 左前轮速 = D
+                seg[1] = seg_ram(6'd12, 6'd4, PX_WR);    // 右前轮速 = C
                 seg[2] = seg_rom(label_text(2'd2), PX_LBL);
                 seg[3] = seg_ram(6'd28, 6'd4, PX_VAL);
             end
@@ -236,10 +241,12 @@ module ui_render #(
                 seg[0] = seg_rom(label_text(2'd3), PX_LBL);
                 seg[1] = seg_ram(6'd32, 6'd4, PX_VAL);
             end
-            // 后轮转速（字段 3、4）
+            // 后轮转速
+            // ★ 2026-10-17 需求方指出映射错位，修正后：
+            //     左后 = B = 字段 2（基址 8）／右后 = A = 字段 1（基址 4）
             if ((i_pixel_y >= 368) && (i_pixel_y < 384)) begin
-                seg[0] = seg_ram(6'd12, 6'd4, PX_WL);    // 左后轮速
-                seg[1] = seg_ram(6'd16, 6'd4, PX_WR);    // 右后轮速
+                seg[0] = seg_ram(6'd8,  6'd4, PX_WL);    // 左后轮速 = B
+                seg[1] = seg_ram(6'd4,  6'd4, PX_WR);    // 右后轮速 = A
             end
         end
 
