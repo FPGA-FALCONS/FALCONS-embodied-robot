@@ -24,6 +24,8 @@
 | `imu\` | IMU 侧的应用层逻辑（航向保持、直行纠偏等）；纯驱动在 vendor 的 `imu660ra` / `gyro_tilt_comp` / `yaw_integrate` |
 | `debug\` | 调试通路：串口命令解析、CSV 上报、状态字 |
 | `common\` | 跨模块的小件：复位同步、按键去抖、字库与字符串 ROM（`font_rom.v` / `ui_text_rom.v` 均为**自动生成**） |
+| `cam\` | **摄像头画面叠加层** `cam_overlay.v`（2026-10-17 新增）：把 `vendor` 的 `ov5640_capture` 与 DDR3 帧缓存串起来，并在**输出端二选一**（摄像头页且落在菜单右侧 → 用摄像头像素，否则用 UI 像素）。纯采集驱动在 vendor 的 `ov5640_capture` |
+| `ip\` | **Gowin IP 生成文件**（2026-10-17 从 `ov5640_capture` 示例拷入）：`ddr3_ctrl_2port.v` / `fifo_ddr3_adapter.v` / `ddr3_memory_interface.v` / `ddr_pll.v` / `gowin_pll.v` / `rd_data_fifo.v` / `wr_data_fifo.v`。⚠ **勿手改**；换器件必须用 Gowin EDA 对目标器件**重新生成** |
 
 ## 从 car_fpga 搬代码时的对应关系（L0：速度闭环）
 

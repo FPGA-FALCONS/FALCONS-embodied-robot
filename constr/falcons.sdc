@@ -14,6 +14,20 @@
 
 create_clock -name i_clk_50m -period 20.000 [get_ports {i_clk_50m}]
 
+// ---- 摄像头 DVP 像素时钟（2026-10-17 接入摄像头后新增）----
+//   ★ 周期 19.048 ns（≈52.5 MHz）是**实测值**，不是估计 —— 取自模块自带约束
+//     vendor\verilog-reusable-modules\modules\ov5640_capture\constraints\ov5640_capture.sdc：
+//     "Measured configuration: about 52.5 MHz DVP PCLK from the module's 24 MHz oscillator."
+//   ★ 不加这条会怎样（实测）：Numbers of Setup Violated Endpoints 4 → 77、
+//     Hold Violated 13 → 2429、SETUP 最差 +0.032 → −3.028 ns。
+//     这些几乎全是"未约束时钟"导致的假违规 —— 工具会警告
+//     `TA1132: 'camera_pclk' was determined to be a clock but was not created`，
+//     然后用默认周期去算跨 PCLK 域路径，数字不可信。
+//   ★ camera_pclk 与 50 MHz 系统时钟、49 MHz 像素时钟都是**异步**的；
+//     跨域由 rtl\cam\cam_overlay.v 里的 DDR 读写 FIFO 完成，这里只声明时钟本身，
+//     不做跨域对齐（与模块示例的做法一致）。
+create_clock -name camera_pclk -period 19.048 [get_ports {camera_pclk}]
+
 // ---- 跨时钟域（CDC）：sys 50 MHz ↔ pixel 49 MHz ----
 // 本设计的跨域只走两种标准结构（见 rtl/top/falcons_top.v）：
 //   ① 状态位/慢变参数（页面、模式、运行、急停、信号有效、菜单高亮）→ sys 域先打一拍，

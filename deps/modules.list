@@ -20,9 +20,13 @@ yaw_integrate    偏航角积分（1024 Hz 定点，±180° 回绕，零乘法�
 rc_pwm_receiver  ★ 只实例化包内的 rc_pwm_capture（单路捕获）×6 → 6 路接口，见 rtl/rc/rc_input.v；
 #                 ★ 遥控器实际只用 5 路（2 摇杆+确认+select+模式拨杆），第 6 路（J6.6/bit5/CH8）预留未接；
 #                   不使用包内的 rc_receiver（它把两路固定包成 steering/throttle，不够用）
+ov5640_capture   ★ 并行 DVP OV5640 初始化与采集（摄像头页）。2026-10-17 接入：
+#                   引脚按 doc\高云 ACG720-138&60K通用管脚分配表.xlsx 的「摄像头接口」段；
+#                   帧缓存用其示例的 DDR3 方案（rtl\ip\ 下的 ddr3_ctrl_2port 等 Gowin IP），
+#                   集成层见 rtl\cam\cam_overlay.v（架构照 examples\acg720_ddr3_hdmi）
 
 # ---- 已就位、按阶段接入（把包名移出注释即进入编译）----
 # 注：imu660ra / gyro_tilt_comp / yaw_integrate 已在上面"当前已接入"段生效，
 #     这里的重复条目已删除（2026-10-16 文档复查）
 # m10_radar        M10 雷达包解析 + 点云显示（雷达页，待接入；RX 接 C14）
-# ov5640_capture   并行 DVP OV5640 初始化与采集（摄像头页，待接入，依赖 DDR3 帧缓存）
+# （ov5640_capture 已于 2026-10-17 接入，见上方"当前已接入"段）

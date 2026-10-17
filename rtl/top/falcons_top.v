@@ -82,7 +82,38 @@ module falcons_top (
     output wire        o_tof_shut,         // D20（J7.6 SHUT）
 
     // ---- 状态指示 ----
-    output wire [7:0]  o_led
+    output wire [7:0]  o_led,
+
+    // ==================================================================
+    // ★ 2026-10-17 新增：摄像头 OV5640(DVP) + DDR3 帧缓存
+    //   引脚真源 = constr\falcons.cst（**按模块示例**的接法，BY_OV5640_V1.1 2x9 直插）
+    //   数据通路 = rtl\cam\cam_overlay.v（架构照 examples\acg720_ddr3_hdmi，已实板验证）
+    // ==================================================================
+    output wire        camera_pwdn,        // L1 （PWDN，ov5640_capture 驱动为低=工作）
+    output wire        camera_rst_n,       // B1 （RST）
+    output wire        camera_sclk,        // L18（SCLK，SCCB/I2C）
+    inout  wire        camera_sdat,        // A1 （SDAT，SCCB/I2C 双向）
+    input  wire [7:0]  camera_data,        // J1/G1/H2/F1/G2/D1/E1/M17（D7..D0）
+    input  wire        camera_pclk,        // J2 （PCLK，异步于系统时钟）
+    input  wire        camera_href,        // B2 （HREF 行有效）
+    input  wire        camera_vsync,       // M20（VSYNC 场同步）
+
+    // ---- DDR3 帧缓存（SSTL15 / BANK_VCCIO=1.5；与官方管脚表逐针一致）----
+    output wire [13:0] O_ddr_addr,
+    output wire [2:0]  O_ddr_ba,
+    output wire        O_ddr_cs_n,
+    output wire        O_ddr_ras_n,
+    output wire        O_ddr_cas_n,
+    output wire        O_ddr_we_n,
+    output wire        O_ddr_clk,
+    output wire        O_ddr_clk_n,
+    output wire        O_ddr_cke,
+    output wire        O_ddr_odt,
+    output wire        O_ddr_reset_n,
+    output wire [1:0]  O_ddr_dqm,
+    inout  wire [15:0] IO_ddr_dq,
+    inout  wire [1:0]  IO_ddr_dqs,
+    inout  wire [1:0]  IO_ddr_dqs_n
 );
 
     // ==================================================================
@@ -648,7 +679,8 @@ module falcons_top (
     // ==================================================================
     wire        pixel_clk, pixel_req, frame_start, frame_sync, video_active, pll_lock;
     wire [11:0] pixel_x, pixel_y;
-    wire [23:0] ui_rgb;
+    wire [23:0] ui_rgb_raw;     // ui_render 生成的 UI 像素
+    wire [23:0] ui_rgb;         // 经 cam_overlay 二选一后的最终像素（送 u_hdmi）
 
     // ---- 像素域复位：等 PLL 锁定后在**像素域内**同步释放 ----
     //   ★ 必须声明在 u_hdmi 例化【之前】：u_hdmi 的 `reset_n` 就用它。
@@ -843,7 +875,7 @@ module falcons_top (
         .i_pixel_y      (pixel_y),
         .i_pixel_req    (pixel_req),
         .i_video_active (video_active),
-        .o_pixel_rgb888 (ui_rgb),
+        .o_pixel_rgb888 (ui_rgb_raw),
         .i_page         (page_ps2),
         .i_menu_sel     (menu_ps2),
         .i_ui_mode      (mode_ps2),
@@ -856,6 +888,79 @@ module falcons_top (
         .i_arm_hint     (arm_ps2),
         .o_dyn_raddr    (dyn_raddr),
         .i_dyn_rdata    (dyn_rdata)
+    );
+
+    // ==================================================================
+    // 7.5 摄像头画面叠加（★ 2026-10-17 新增）
+    // ==================================================================
+    // 链路（架构照模块示例 examples\acg720_ddr3_hdmi，该示例已实板验证）：
+    //   ov5640_capture →（PCLK 域写）→ ddr3_ctrl_2port 帧缓存 →（pixel 域读）→ 显示二选一
+    //
+    // 需求原文 §17/§21：左侧约 1/5~1/6 宽度是菜单，**选中摄像头页时菜单右侧全部画面**
+    // 实时显示摄像头采集的画面，且该页不占摇杆。所以这里只把 `page==0` 且
+    // `pixel_x >= 菜单宽` 的区域换成摄像头像素，其余仍由 ui_render 负责。
+    //
+    // ★ 两个关键点（改动前先读）：
+    //   1) ddr3_ctrl_2port 的 `rfifo_rden` 必须**绑 pixel_req 全程连续读**
+    //      （见 rtl\cam\cam_overlay.v 注释）—— 只读显示区会让 DDR 读写地址累积错位。
+    //   2) 摄像头 PCLK 与 pixel_clk 是**两个异步时钟**，跨域由 DDR 读写 FIFO 完成；
+    //      不要试图用单级寄存器直接跨。
+    //
+    // 三个状态位当前只做占位（LED 已排满 8 个，接 wire 供以后扩展/示波器观察）。
+    // ==================================================================
+    wire cam_init_done_unused;
+    wire ddr_init_done_unused;
+    wire cam_pll_lock_unused;
+
+    cam_overlay #(
+        .IMAGE_WIDTH  (1024),
+        .IMAGE_HEIGHT (600),
+        .MENU_W       (208),            // 与 ui_render 的菜单宽度（208 px）保持一致
+        .SYS_CLOCK    (CLK_HZ)
+    ) u_cam (
+        .sys_clk      (i_clk_50m),
+        .sys_rst_n    (sys_rst_n),
+
+        // 摄像头物理引脚（直通到顶层）
+        .camera_pwdn  (camera_pwdn),
+        .camera_rst_n (camera_rst_n),
+        .camera_sclk  (camera_sclk),
+        .camera_sdat  (camera_sdat),
+        .camera_data  (camera_data),
+        .camera_pclk  (camera_pclk),
+        .camera_href  (camera_href),
+        .camera_vsync (camera_vsync),
+
+        // DDR3 物理引脚（直通到顶层）
+        .O_ddr_addr    (O_ddr_addr),
+        .O_ddr_ba      (O_ddr_ba),
+        .O_ddr_cs_n    (O_ddr_cs_n),
+        .O_ddr_ras_n   (O_ddr_ras_n),
+        .O_ddr_cas_n   (O_ddr_cas_n),
+        .O_ddr_we_n    (O_ddr_we_n),
+        .O_ddr_clk     (O_ddr_clk),
+        .O_ddr_clk_n   (O_ddr_clk_n),
+        .O_ddr_cke     (O_ddr_cke),
+        .O_ddr_odt     (O_ddr_odt),
+        .O_ddr_reset_n (O_ddr_reset_n),
+        .O_ddr_dqm     (O_ddr_dqm),
+        .IO_ddr_dq     (IO_ddr_dq),
+        .IO_ddr_dqs    (IO_ddr_dqs),
+        .IO_ddr_dqs_n  (IO_ddr_dqs_n),
+
+        // 显示侧（pixel 域）
+        .pixel_clk    (pixel_clk),
+        .pixel_req    (pixel_req),
+        .pixel_x      (pixel_x),
+        .frame_sync   (frame_sync),
+        // page 0 = 摄像头页（需求原文 §17：初始化默认选中摄像头画面并确认）
+        .show_cam     (page_ps2 == 2'd0),
+        .ui_rgb       (ui_rgb_raw),
+        .o_rgb        (ui_rgb),
+
+        .cam_init_done (cam_init_done_unused),
+        .ddr_init_done (ddr_init_done_unused),
+        .pll_lock      (cam_pll_lock_unused)
     );
 
     // ==================================================================
