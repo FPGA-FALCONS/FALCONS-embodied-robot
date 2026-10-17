@@ -359,6 +359,41 @@ module falcons_top (
     wire [3:0]         pid_sat;
     wire               chassis_running;
 
+    // ==================================================================
+    // ★ 显示层转速极性（2026-10-17，与闭环反馈符号【解耦】）
+    //
+    //   为什么单独一层：轮速符号由 `ENC_INV_DIR_VEC`（编码器计数方向取反）决定，
+    //   而那个参数**同时是 PID 的反馈符号** —— 直接改它会让该侧闭环变**正反馈**
+    //   （误差与反馈同向 → 越推越猛），风险不可接受（见 `工作记录.md` §26.5）。
+    //   所以这里把"屏幕上显示的正负"和"闭环用的正负"分开：
+    //       闭环：完全不动，仍用 rpm0..rpm3
+    //       显示：rpm*_disp = RPM_DISP_INV[i] ? -rpm* : rpm*
+    //   屏幕上的轮速、中心速度、以及串口 CSV 的 tgt/act/err 一律用 `_disp` 版本，
+    //   保证"屏幕看到的"与"串口上报的"永远一致。
+    //
+    //   【标定方法 · 零风险】接管档 + 油门中位（电机不转），用手把车整体往前推：
+    //   看四个轮子旁的数字符号，哪个轮子"前滚时显示负"，就把对应位设 1。
+    //     bit0 = A 左前 / bit1 = B 右前 / bit2 = C 左后 / bit3 = D 右后
+    //   这一步只影响显示，不动闭环，可以反复试。
+    //
+    //   【为什么当前取 4'b1111】（2026-10-17 需求方反馈"前进时显示负"后定位）
+    //     这个符号是**在遥控输入层**被翻转的，不是采集错了：
+    //       推杆向前 → rc_input 的 THROTTLE_REVERSE=1 → o_throttle = **负**
+    //       → chassis_ctrl 的 man_center 负 → tgt_left/right 负
+    //       → PID 输出 u 负 → motor_pwm dir=1（反转）
+    //       → 但电机接线是"反转 = 车前进"，所以车正常前进
+    //         （这正是 §26 标定 THROTTLE_REVERSE=1 要达到的效果）
+    //       → 编码器与电机同轴 → "物理前进"对应计数**负** → delta 负 → rpm 负。
+    //     也就是说：**控制系统内部一直用"负"表示物理前进**，UI 只是忠实显示了这个
+    //     内部符号，而它与人"向前应为正"的直觉相反。所以显示层四个 bit 全取反。
+    //     闭环一个字没动 → 反馈符号、稳定性、堵转判定全部不受影响。
+    // ==================================================================
+    localparam [3:0] RPM_DISP_INV = 4'b1111;
+    wire signed [31:0] rpm0_disp = RPM_DISP_INV[0] ? -rpm0 : rpm0;
+    wire signed [31:0] rpm1_disp = RPM_DISP_INV[1] ? -rpm1 : rpm1;
+    wire signed [31:0] rpm2_disp = RPM_DISP_INV[2] ? -rpm2 : rpm2;
+    wire signed [31:0] rpm3_disp = RPM_DISP_INV[3] ? -rpm3 : rpm3;
+
     // PID 参数（初值来自参数，可经串口 P/I/D 在线改）
     reg signed [15:0] kp_r, ki_r, kd_r;
 
@@ -645,7 +680,7 @@ module falcons_top (
     wire signed [31:0]  report_tgt   = (tgt_left * 100) >>> 10;   // delta → rpm（÷10.24）
     wire signed [31:0]  report_duty  = dir_vec[0] ? -$signed({1'b0, duty0_raw})
                                                   :  $signed({1'b0, duty0_raw});
-    wire signed [31:0]  report_err   = report_tgt - rpm0;
+    wire signed [31:0]  report_err   = report_tgt - rpm0_disp;
     wire signed [31:0]  report_flags = {28'd0, (|pid_sat), cmd_error, (|stall_vec), run_en};
 
     speed_report #(
@@ -659,7 +694,7 @@ module falcons_top (
         .i_clock   (i_clk_50m),
         .i_reset_n (sys_rst_n),
         .i_tgt     (report_tgt),
-        .i_act     (rpm0),
+        .i_act     (rpm0_disp),
         .i_duty    (report_duty),
         .i_kp      (kp_r),
         .i_ki      (ki_r),
@@ -829,8 +864,8 @@ module falcons_top (
     //     0 航向角 / 1~4 四轮转速 A,B,C,D / 5 角速度 / 6 中心速度 / 7,8 航位 x,y
     //   车轮旁显示的是【车轮转速】（rpm，±400），不是编码器累计计数 ——
     //   所以字段宽度仍是"符号 + 3 位数字"，字符 RAM 也仍是 64 深（9×4 = 36 字符）。
-    wire signed [31:0] wheel_sum_rpm = rpm0 + rpm1 + rpm2 + rpm3;
-    wire signed [31:0] center_rpm    = wheel_sum_rpm >>> 2;      // 中心速度 = 四轮平均
+    wire signed [31:0] wheel_sum_rpm = rpm0_disp + rpm1_disp + rpm2_disp + rpm3_disp;
+    wire signed [31:0] center_rpm    = wheel_sum_rpm >>> 2;      // 中心速度 = 四轮平均（显示极性版）
     // 角速度：gyro_tilt_comp 输出按 Q16 理解（若上板后量纲不对，改这个右移位数）
     wire signed [31:0] gyro_deg_s    = gyro_z_comp >>> 16;
 
@@ -842,10 +877,10 @@ module falcons_top (
         .clk    (i_clk_50m),
         .rst_n  (sys_rst_n),
         .i_v0   (yaw_deg),           // 字段 0：航向角（整数度，画在小车前端）
-        .i_v1   (rpm0),              // 字段 1：A 左前轮转速
-        .i_v2   (rpm1),              // 字段 2：B 右前轮转速
-        .i_v3   (rpm2),              // 字段 3：C 左后轮转速
-        .i_v4   (rpm3),              // 字段 4：D 右后轮转速
+        .i_v1   (rpm0_disp),         // 字段 1：A 左前轮转速
+        .i_v2   (rpm1_disp),         // 字段 2：B 右前轮转速
+        .i_v3   (rpm2_disp),         // 字段 3：C 左后轮转速
+        .i_v4   (rpm3_disp),         // 字段 4：D 右后轮转速
         .i_v5   (gyro_deg_s),        // 字段 5：角速度（整数 °/s，量纲待上板校准）
         .i_v6   (center_rpm),        // 字段 6：中心速度（四轮平均 rpm）
         .i_v7   (32'sd0),            // 字段 7：航位 x（odom 未实现 → 暂 0）
