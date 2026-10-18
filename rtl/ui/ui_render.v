@@ -170,7 +170,14 @@ module ui_render #(
     localparam [5:0] PX_YAW_N = 6'd29,                  // 偏航角（16 组）：x=464，中心 496
                      PX_WL_N  = 6'd16,                  // 左轮速（16 组）：x=256
                      PX_WR_N  = 6'd42,                  // 右轮速（16 组）：x=672
-                     PX_VAL_N = 6'd57;                  // 列表数值（16 组）：x=912
+                     // ★ 2026-10-18：列表数值由 4 字符扩到 5 字符，**向左**拓展一格：
+                     //   右边缘仍 975（原来是 912+64=976），左边界 912 → 896（56 × 16）。
+                     //   轮速与标签列都不动（需求方明确："轮速不要动，标签文字也不动"）。
+                     //   ★ 为什么不会撞标签：中心速度 ≤ 9.99 m/s → ×100 ≤ 999 = 3 位数字，
+                     //     在 5 格里右对齐后仍从第 3 格（x=928）起，与「中心速度」标签右界 887
+                     //     之间还有 41 px；负值时负号落在第 2 格（x=912），间隙 25 px，
+                     //     与改动前（912 起）**逐像素相同**。
+                     PX_VAL_N = 6'd56;                  // 列表数值（16 组）：x=896
 
     // ---------------- 大字段数组：菜单 4 项 + 状态栏 + 数据页 + 占位 ----------------
     //   同一条扫描行最多 4 段（数据页 y=240 那行：左轮速 / 右前轮速 / 角速度标签 / 角速度数值）
@@ -310,35 +317,41 @@ module ui_render #(
         //   字段号：0 航向角 / 1=A右后 / 2=B左后 / 3=C右前 / 4=D左前
         //           5 角速度 / 6 中心速度 / 7 航位x / 8 航位y
         //   轮位映射（需求方确认真源）：A=右后 B=左后 C=右前 D=左前
+        //   ★ 2026-10-18：num_text 的字段步长 4 → 5（"符号 + 千百十个"）。
+        //     段描述符里的 base 是【读取起始地址】，两类字段取法不同：
+        //       4 字符（航向角 / 四轮转速）→ base = 字段号×5 + 1（跳过符号格）
+        //       5 字符（角速度 / 中心速度 / 航位）→ base = 字段号×5
+        //     地址表：f0=0 f1=5 f2=10 f3=15 f4=20 f5=25 f6=30 f7=35 f8=40（共 45 < 64）
         if (i_page == 2'd2) begin
-            // 车头偏航角（字段 0），y=120
+            // 车头偏航角（字段 0），y=120 → 读 1..4
             if ((i_pixel_y >= 120) && (i_pixel_y < 144))
-                sm_seg[0] = seg_sm_ram(6'd0, 6'd4, PX_YAW_N, (i_pixel_y - 12'd120));
+                sm_seg[0] = seg_sm_ram(6'd1, 6'd4, PX_YAW_N, (i_pixel_y - 12'd120));
             // ★ 2026-10-18：轮速下移，使其**垂直居中于车轮**（原来比轮心偏上 8 px）：
             //     前轮 y 225..294 → 中心 259.5，数字 24 高 → 基址 248（248..271）
             //   数字的 y 不需要 24 对齐（row = y − 基址，基址任意），只有 x 需要 16 对齐。
-            //   前轮速（D / C）
+            //   前轮速（D=字段4 → 读 21 / C=字段3 → 读 16），x 与宽度都不变（4 字符）
             if ((i_pixel_y >= 248) && (i_pixel_y < 272)) begin
-                sm_seg[0] = seg_sm_ram(6'd16, 6'd4, PX_WL_N, (i_pixel_y - 12'd248));
-                sm_seg[1] = seg_sm_ram(6'd12, 6'd4, PX_WR_N, (i_pixel_y - 12'd248));
+                sm_seg[0] = seg_sm_ram(6'd21, 6'd4, PX_WL_N, (i_pixel_y - 12'd248));
+                sm_seg[1] = seg_sm_ram(6'd16, 6'd4, PX_WR_N, (i_pixel_y - 12'd248));
             end
-            // 右侧列表第 1 行：角速度数值（字段 5），仍在 y=240..263
+            // 右侧列表第 1 行：角速度数值（字段 5），y=240..263，5 字符
             if ((i_pixel_y >= 240) && (i_pixel_y < 264)) begin
-                sm_seg[2] = seg_sm_ram(6'd20, 6'd4, PX_VAL_N, (i_pixel_y - 12'd240));
+                sm_seg[2] = seg_sm_ram(6'd25, 6'd5, PX_VAL_N, (i_pixel_y - 12'd240));
             end
-            // y=288：中心速度（字段 6）
+            // y=288：中心速度（字段 6），5 字符
             if ((i_pixel_y >= 288) && (i_pixel_y < 312))
-                sm_seg[0] = seg_sm_ram(6'd24, 6'd4, PX_VAL_N, (i_pixel_y - 12'd288));
-            // y=336：航位x（字段 7）
+                sm_seg[0] = seg_sm_ram(6'd30, 6'd5, PX_VAL_N, (i_pixel_y - 12'd288));
+            // y=336：航位x（字段 7），5 字符
             if ((i_pixel_y >= 336) && (i_pixel_y < 360))
-                sm_seg[0] = seg_sm_ram(6'd28, 6'd4, PX_VAL_N, (i_pixel_y - 12'd336));
-            // y=384：航位y（字段 8）
+                sm_seg[0] = seg_sm_ram(6'd35, 6'd5, PX_VAL_N, (i_pixel_y - 12'd336));
+            // y=384：航位y（字段 8），5 字符
             if ((i_pixel_y >= 384) && (i_pixel_y < 408))
-                sm_seg[0] = seg_sm_ram(6'd32, 6'd4, PX_VAL_N, (i_pixel_y - 12'd384));
+                sm_seg[0] = seg_sm_ram(6'd40, 6'd5, PX_VAL_N, (i_pixel_y - 12'd384));
             // 后轮 y 397..467 → 中心 432，数字基址 420（420..443，中心 431.5）
+            //   B=字段2 → 读 11 / A=字段1 → 读 6
             if ((i_pixel_y >= 420) && (i_pixel_y < 444)) begin
-                sm_seg[0] = seg_sm_ram(6'd8, 6'd4, PX_WL_N, (i_pixel_y - 12'd420));
-                sm_seg[1] = seg_sm_ram(6'd4, 6'd4, PX_WR_N, (i_pixel_y - 12'd420));
+                sm_seg[0] = seg_sm_ram(6'd11, 6'd4, PX_WL_N, (i_pixel_y - 12'd420));
+                sm_seg[1] = seg_sm_ram(6'd6,  6'd4, PX_WR_N, (i_pixel_y - 12'd420));
             end
         end
     end
@@ -365,9 +378,14 @@ module ui_render #(
 
     reg sm_in_text_d1;
     reg [4:0] sm_row_d1;
+    // ★ 2026-10-18：多锁两路，供小数点叠加层用（与 sm_in_text_d1 同相）
+    reg [5:0] sm_xw_d1;      // 段起始字组号（字段左边界 / 16）
+    reg [5:0] sm_fbase_d1;   // 段字符 RAM 基址（反查字段号 → 小数位数 dec）
     always @(posedge i_pixel_clk) begin
         sm_in_text_d1 <= sm_in_text;
         sm_row_d1     <= sm_sel[4:0];
+        sm_xw_d1      <= sm_sel[10:5];
+        sm_fbase_d1   <= sm_sel[22:17];
     end
     wire [7:0] sm_char_index = sm_in_text_d1 ? sm_ram_char : 8'd0;
 
@@ -383,6 +401,64 @@ module ui_render #(
 
     wire [3:0]  sm_bit_sel = 4'd15 - i_pixel_x[3:0];
     wire        sm_glyph   = sm_in_text_d1 && sm_row_bits[sm_bit_sel];
+
+    // ------------------------------------------------------------------
+    // 小数点叠加层（2026-10-18 新增）
+    //   需求：小数点**不占字符位**，画在两个数字中间的底部。
+    //
+    //   为什么必须单独一层、不能靠字库：
+    //     font_num 是固定 16 px 格、位选用 sm_bit_sel = 15 - i_pixel_x[3:0]，
+    //     字符永远居中于 16 px 格 —— 字库里任何字形都逃不出这个网格，
+    //     所以 '.' 必占一整格（这也是早先 '.' 字形被裁成 2x3 小方块、看起来像 '·' 的原因）。
+    //
+    //   为什么位置可以是常量：数值右对齐 + 定点小数位固定，
+    //     所以小数点相对字段左边界只由「小数位数 dec」决定。
+    //     个位占最后一格（pos4，offset 64），dec 位小数占最后 dec 格 ⇒ 小数点落在
+    //     pos(4−dec) 与 pos(5−dec) 的交界，即 **offset = (5 − dec) × 16**：
+    //       dec = 1 → 64（个位左边）
+    //       dec = 2 → 48
+    //       dec = 3 → 32
+    //     例：中心速度 1.50 → 数字 "  150" 右对齐（pos2=1 pos3=5 pos4=0），
+    //         点在 x = 896+48 = 944，正好落在 "1" 与 "5" 之间 → 显示 1.50
+    //     ★ 这里差一格会让 9.99 显示成 ".999"（2026-10-18 预览图抓出的 bug，
+    //       原写法 (FIELD_W−1−dec)×16 就是差一格）。
+    //
+    //   垂直：数字 '0' 的点阵占行 3..19（见 font_num.v），行 20..23 全空，
+    //     点画在 **20..21** 正好落在字底下方 1 px，是小数点的自然位置。
+    //   横向：点占 **2 px**（跨两格交界各 1 px）。'0' 的笔画占格内 x=3..12、
+    //     相邻两格交界处合计 6 px 空白，2 px 的点既居中又不会碰到数字；
+    //     宽度取 2 = 与数字笔画同粗（'0' 的竖笔就是 2 px），视觉上是一个标点而不是一个方块。
+    //     ★ 2026-10-18 调整：初版是 3x3，需求方看预览图后要求"稍微小一点"。
+    // ------------------------------------------------------------------
+    function [1:0] field_dec;      // 返回该字段的小数位数（0 = 不画点）
+        input [5:0] base_addr;
+        begin
+            case (base_addr)
+                //   base 是 ui_render 里的**读取起始地址**：
+                //     f6 中心速度 = 6×5 = 30     → 0.01 m/s
+                //     f7 航位 x   = 7×5 = 35     → 0.01 m
+                //     f8 航位 y   = 8×5 = 40     → 0.01 m
+                //   角速度 f5 = 25 是整数 °/s，不需要小数点。
+                6'd30:        field_dec = 2'd2;
+                6'd35, 6'd40: field_dec = 2'd2;
+                default:      field_dec = 2'd0;
+            endcase
+        end
+    endfunction
+
+    wire [1:0]  sm_dec     = field_dec(sm_fbase_d1);
+    //   ★ 位宽：{6'd0, sm_dec, 4'd0} 恰好 12 位 = sm_dec × 16（写 {8'd0,...} 会成 14 位被截断）
+    //   ★ 位置 = (FIELD_W − dec) × 16 = 80 − dec×16：dec=2→48, dec=3→32（不是 (4−dec)×16）
+    wire [11:0] sm_dp_x    = 12'd80 - {6'd0, sm_dec, 4'd0};
+    wire [11:0] sm_fld_x   = {sm_xw_d1, 4'b0000};             // 字段左边界像素
+    wire [11:0] sm_rel     = (i_pixel_x >= sm_fld_x) ? (i_pixel_x - sm_fld_x) : 12'd0;
+    //   sm_rel ∈ {dp_x−1, dp_x} 时画点（2 px 宽，跨交界各 1 px）
+    wire        sm_dot_col = (i_pixel_x >= sm_fld_x) &&
+                             (sm_rel + 12'd1 >= sm_dp_x) &&
+                             (sm_rel         <= sm_dp_x);
+    wire        sm_dot     = sm_in_text_d1 && (sm_dec != 2'd0) &&
+                             (sm_row_d1 >= 5'd20) && (sm_row_d1 <= 5'd21) &&
+                             sm_dot_col;
 
     // ------------------------------------------------------------------
     // 数据页：小车俯视简笔图（实时几何生成，不占 BSRAM）
@@ -495,8 +571,8 @@ module ui_render #(
             else                                    rgb = 24'hFFFFFF;   // 标签/占位：白
         end
 
-        // 4) 紧凑数字（数据页实时数值，16x24）
-        if (sm_glyph)                               rgb = 24'h7CFC98;   // 数值：亮绿
+        // 4) 紧凑数字（数据页实时数值，16x24）+ 悬挂小数点（同色，2026-10-18）
+        if (sm_glyph || sm_dot)                     rgb = 24'h7CFC98;   // 数值：亮绿
 
         // 5) 数据页小车俯视简笔图（白色 = 与标签文字同色；放最后 = 最上层）
         if (car_pix)                                rgb = 24'hFFFFFF;

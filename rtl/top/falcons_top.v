@@ -883,12 +883,47 @@ module falcons_top (
 
     // ★ 2026-10-16 字段按需求原文 §29 的数据页布局重排（9 项）：
     //     0 航向角 / 1~4 四轮转速 A,B,C,D / 5 角速度 / 6 中心速度 / 7,8 航位 x,y
-    //   车轮旁显示的是【车轮转速】（rpm，±400），不是编码器累计计数 ——
-    //   所以字段宽度仍是"符号 + 3 位数字"，字符 RAM 也仍是 64 深（9×4 = 36 字符）。
-    wire signed [31:0] wheel_sum_rpm = rpm0_disp + rpm1_disp + rpm2_disp + rpm3_disp;
-    wire signed [31:0] center_rpm    = wheel_sum_rpm >>> 2;      // 中心速度 = 四轮平均（显示极性版）
-    // 角速度：gyro_tilt_comp 输出按 Q16 理解（若上板后量纲不对，改这个右移位数）
-    wire signed [31:0] gyro_deg_s    = gyro_z_comp >>> 16;
+    //   车轮旁显示的是【车轮转速】（rpm，±400），不是编码器累计计数。
+    //   ★ 2026-10-18：num_text 字段宽 4 → 5（"符号 + 4 位数字"，9×5 = 45 字符 < 64）。
+    //     轮速/航向角仍按 4 字符渲染（ui_render 从字段 base+1 读），列表数值按 5 字符。
+    //
+    // ---- 中心速度：直接对原始 counts 求和，最后一次性换算（2026-10-18 改）----
+    //   为什么不再用 (rpm0+rpm1+rpm2+rpm3)>>>2：
+    //     rpm 已经过一次 >>10 截断，四轮的截断偏差**同向**（都向下），平均压不掉。
+    //     量化基准：1 rpm = 10.24 counts / 10ms。
+    //     例：四轮真实 100 rpm、窗口边界抖动成 1023/1024/1024/1025 counts
+    //         → rpm = 99/100/100/100 → 平均 99 → 偏低 1 rpm ≈ 0.34 cm/s，
+    //         正好盖住 0.01 m/s 的显示台阶（合计 0~0.6 cm/s 的系统偏差）。
+    //   改为 sum_delta（4 路原始 counts，无截断）→ 乘系数 → 只右移一次：
+    //     系数 8717/2^20 = 0.0083129 cm/s 每个 sum-count
+    //       1 count/10ms = 100 count/s ÷ 61440 count/转 = 0.0016276 rev/s
+    //       × πD（D = 65 mm → 0.20420 m）  = 3.3232e-4 m/s = 0.033232 cm/s
+    //       ÷ 4（四轮平均）                 = 0.0083080 cm/s  ← 与 8717/2^20 差 0.06%
+    //     量化台阶 0.0083 cm/s，比 1 cm/s 的显示台阶小 120 倍 → 0.01 位平稳。
+    //   溢出：sum 最大 4×4096 = 16384，×8717 = 1.43e8 < 2^32 ✓
+    //   ★ 轮速显示（i_v1..i_v4）继续用 rpm*_disp，完全不受影响；
+    //     显示极性只补到这里（dlt* 只含 ENC_INV_DIR_VEC，不含 RPM_DISP_INV）。
+    wire signed [31:0] dlt0_disp = RPM_DISP_INV[0] ? -dlt0 : dlt0;
+    wire signed [31:0] dlt1_disp = RPM_DISP_INV[1] ? -dlt1 : dlt1;
+    wire signed [31:0] dlt2_disp = RPM_DISP_INV[2] ? -dlt2 : dlt2;
+    wire signed [31:0] dlt3_disp = RPM_DISP_INV[3] ? -dlt3 : dlt3;
+    wire signed [31:0] sum_delta  = dlt0_disp + dlt1_disp + dlt2_disp + dlt3_disp;
+    wire signed [31:0] center_cms = (sum_delta * 32'sd8717) >>> 20;   // 单位 0.01 m/s
+
+    // ---- 角速度：gyro_tilt_comp 输出的单位是 **0.01 °/s** ----
+    //   ★ 2026-10-18 修正：原来写 `gyro_z_comp >>> 16`，把 0.01 °/s 当成了 Q16
+    //     → 100 °/s（内部值 10000）>>16 = 0，要 655 °/s 才显示 1，
+    //     这就是"屏幕角速度只显示 0 或 1"的根因。
+    //   ★ 2026-10-18 需求方追加口径：**向零取整**（正值向下、负值向上），
+    //     即"让绝对值的绝对值向下取整"。
+    //     不能直接 `(gyro_z_comp * 10486) >>> 20` —— `>>>` 是算术右移 = floor，
+    //     负数会多减 1：-100.002 °/s → 104,860,000 的补码右移 = **-101**，而应为 **-100**。
+    //     做法：取绝对值 → 右移（此时是正数，floor 就是向零）→ 再补符号。
+    //     溢出检查：|gyro_z_comp| ≤ 200000，×10486 = 2.10e9 < 2^31 ✓
+    //     （-200000 取反成 +200000 也在 int32 范围内，不存在 -2^31 的边界问题）
+    wire signed [31:0] gyro_abs     = (gyro_z_comp < 0) ? -gyro_z_comp : gyro_z_comp;
+    wire        [31:0] gyro_abs_deg = (gyro_abs * 32'sd10486) >>> 20;   // 正值，floor = 向零
+    wire signed [31:0] gyro_deg_s   = (gyro_z_comp < 0) ? -gyro_abs_deg : gyro_abs_deg;
 
     num_text #(
         .CLK_HZ     (CLK_HZ),
@@ -902,10 +937,10 @@ module falcons_top (
         .i_v2   (rpm1_disp),         // 字段 2：B = 左后轮
         .i_v3   (rpm2_disp),         // 字段 3：C = 右前轮
         .i_v4   (rpm3_disp),         // 字段 4：D = 左前轮
-        .i_v5   (gyro_deg_s),        // 字段 5：角速度（整数 °/s，量纲待上板校准）
-        .i_v6   (center_rpm),        // 字段 6：中心速度（四轮平均 rpm）
-        .i_v7   (32'sd0),            // 字段 7：航位 x（odom 未实现 → 暂 0）
-        .i_v8   (32'sd0),            // 字段 8：航位 y（odom 未实现 → 暂 0）
+        .i_v5   (gyro_deg_s),        // 字段 5：角速度（整数 °/s）
+        .i_v6   (center_cms),        // 字段 6：中心速度（★ 0.01 m/s，屏上小数点悬挂）
+        .i_v7   (32'sd0),            // 字段 7：航位 x（0.01 m；odom 未实现 → 暂 0）
+        .i_v8   (32'sd0),            // 字段 8：航位 y（0.01 m；odom 未实现 → 暂 0）
         .o_we   (dyn_we),
         .o_addr (dyn_waddr),
         .o_data (dyn_wdata)

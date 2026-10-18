@@ -80,7 +80,7 @@ module ui_render_tb;
     localparam integer PX_YAW_SLOT  = 29;      // 车头偏航角（16 组）x=464（中心 496 = 车体中心）
     localparam integer PX_WL_SLOT   = 16;      // 左侧轮速（16 组）x=256（距左轮 32 px）
     localparam integer PX_WR_SLOT   = 42;      // 右侧轮速（16 组）x=672（距右轮 31 px）
-    localparam integer PX_VAL_SLOT  = 57;      // 列表数值（16 组）x=912
+    localparam integer PX_VAL_SLOT  = 56;      // 列表数值（16 组）x=896（★ 2026-10-18：5 字符，左界 912→896）
 
     // ★ 文案地址一律来自生成的头文件，**不再硬编码**：
     //   本次把「车身运行数据显示」缩短为「运行数据显示」（8→6 字）后，其后所有文案的
@@ -230,8 +230,10 @@ module ui_render_tb;
     //
     //   背景：UI 原来按「A=左前 / B=右前 / C=左后 / D=右后」排，实际接线是
     //         A=右后 / B=左后 / C=右前 / D=左前 —— 四个轮子的数字全都错位。
-    //   判据：在某个轮速文字所在的字组上，UI 送给字符 RAM 的地址高位
-    //         （dyn_raddr[5:2] = 字段号，每字段 4 字符）必须等于期望字段。
+    //   判据：在某个轮速文字所在的字组上，UI 送给字符 RAM 的地址
+    //         必须落在这个字段的读窗口内 —— 即 dyn_raddr 属于 [f×5+1, f×5+4]。
+    //         ★ 2026-10-18：num_text 字段步长 4 → 5，所以不能再写 dyn_raddr[5:2]；
+    //           f×5+1 … f×5+4 这 4 个地址整除 5 的结果正好都是 f，直接判断 dyn_raddr/5。
     //         直接看地址、不看 RAM 内容，所以既能锁住映射，又不依赖数据值。
     //   容差：允许 10% 的边界拍（提前 2 拍取数 + 跨字组的那两拍）。
     // ==================================================================
@@ -253,7 +255,8 @@ module ui_render_tb;
                     @(posedge pixel_clk);
                     #1;
                     tot = tot + 1;
-                    if (dyn_raddr[5:2] == field[3:0]) ok_cnt = ok_cnt + 1;  // dyn_raddr[5:2] 本身就是字段号(0..8)
+                    // dyn_raddr/5 = 字段号（读窗口 f×5+1 … f×5+4 的整除结果都是 f）
+                    if ((dyn_raddr / 5) == field[3:0]) ok_cnt = ok_cnt + 1;
                 end
             end
             vact = 1'b0;
@@ -476,11 +479,14 @@ module ui_render_tb;
         input [7:0]   charidx;     // 期望字符索引（动态 RAM 内容）
         input [23:0]  text_rgb;
         input [8*36-1:0] name;
+        input integer dec;         // ★ 该字段的小数位数（0 = 不画悬挂小数点）
         integer yy, xx, xa, xo, oi, obest, obesterr;
         reg expect_on, actual_on;
         reg [15:0] frow;
-        integer slot, col;
+        integer slot, col, dp_x_rel;
         begin
+            // 悬挂小数点位置：与 ui_render 的 sm_dp_x 同一条公式 (FIELD_W − dec) × 16
+            dp_x_rel = (5 - dec) * NUM_W;
             for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
             for (yy = 0; yy < 24; yy = yy + 1) begin
                 for (xx = ((xw > 2) ? ((xw - 2) * NUM_W) : 2);
@@ -500,6 +506,13 @@ module ui_render_tb;
                         col  = xo % NUM_W;
                         if ((slot >= xw) && (slot < xw + len)) begin
                             expect_on = frow[15 - col];
+                            // ★ 2026-10-18：小数点叠在字符之间，黄金参考也要算上它，
+                            //   否则点会被判成"多亮"（一次误报恰好等于点的像素数）。
+                            //   尺寸 2x2：横向 dp_x−1 .. dp_x，纵向 row 20..21。
+                            if ((dec != 0) && (yy >= 20) && (yy <= 21) &&
+                                (xo >= (xw * NUM_W + dp_x_rel - 1)) &&
+                                (xo <= (xw * NUM_W + dp_x_rel)))
+                                expect_on = 1'b1;
                             if ((xo >= xw * NUM_W + 4) && (xo < (xw + len) * NUM_W - 4)) begin
                                 if (actual_on !== expect_on) err_off[oi] = err_off[oi] + 1;
                             end
@@ -830,12 +843,13 @@ module ui_render_tb;
         check_seg_lg(288, PX_LBL_SLOT,
                      UI_TXT_LBL_VEL_LEN, UI_TXT_LBL_VEL_ADDR,
                      24'hFFFFFF, "data_label_boundary");
-        check_seg_num(288, PX_VAL_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_number_boundary");
-        check_seg_num(120, PX_YAW_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_yaw_boundary");
+        check_seg_num(288, PX_VAL_SLOT, 5, dyn_rdata, 24'h7CFC98, "data_number_boundary", 2);
+        check_seg_num(120, PX_YAW_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_yaw_boundary", 0);
 
         // ---------------- 10b. ★ 轮子位置 ↔ 通道/字段映射 ----------------
         //   真相（需求方 2026-10-17 确认）：A=右后 / B=左后 / C=右前 / D=左前
-        //   字段号：1=A 2=B 3=C 4=D（字段基址 = 字段号 × 4）
+        //   字段号：1=A 2=B 3=C 4=D（★ 2026-10-18 起字段基址 = 字段号 × 5，
+        //   轮速仍读 4 个字符，起点 = 字段号×5 + 1）
         $display("-- 10b. 轮速位置映射：左前=D(4) 右前=C(3) 左后=B(2) 右后=A(1) --");
         page = 2'd2;
         repeat (4) @(posedge pixel_clk);
