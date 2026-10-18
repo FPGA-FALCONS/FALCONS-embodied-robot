@@ -42,6 +42,18 @@ CELL = 16            # 小字点阵边长（右侧内容区）
 CELL_LG = 24         # 大字点阵边长（左侧菜单条，约 1.5 倍）
 ADDR_BITS = 12       # 小字库/文本 ROM 地址位宽（4096 项）
 ASCII_MIN, ASCII_MAX = 0x20, 0x7E
+
+# ★ 2026-10-18：上标字符按"贴顶"放置，不参与垂直居中。
+#   为什么：SimHei 的 '°'(U+00B0) 是上标小圆，ink bbox 只有约 6x6 px。
+#   `render_glyph` 原本按 bbox 裁剪后**居中** paste，它就会落在格子正中，
+#   作为"度"符号看起来像一个句点（和早先 '.' 被认为像间隔号是同一类问题）。
+#   贴顶后它落在行 2..7（24 格），正好在数字/汉字的上半部，符合 "25°" 的排版习惯。
+SUPERSCRIPT_CHARS   = {'°'}
+SUPERSCRIPT_TOP_PAD = 2      # 距格顶 2 px
+# ★ 上标字符同时"贴左"：它语义上要紧贴前面的字符（25°、/°）。
+#   若水平居中，6 px 的小圆放进 16 px 格的正中、左右各留 5 px，
+#   与前一个字符（'/'、数字）之间会出现 8 px 的空隙，看起来是断开的。
+LEFT_ALIGN_CHARS    = {'°'}
 # ★ 2026-10-16：单条文案的长度上限。
 #   UI_TXT_<名>_LEN 生成的是 `localparam [5:0]`（6 位），ui_render 的段描述符里
 #   长度字段也是 6 位 —— 超过 63 会被**静默截断**（65 → 1），屏幕上只显示开头一两个字，
@@ -130,7 +142,10 @@ def render_glyph(ch, font, cell, cell_h=None):
         w, h = glyph.size
 
     out = Image.new("L", (cell, cell_h), 0)
-    out.paste(glyph, ((cell - w) // 2, (cell_h - h) // 2))
+    # 上标字符贴顶（见 SUPERSCRIPT_CHARS）、并贴左（见 LEFT_ALIGN_CHARS），其余居中
+    paste_y = SUPERSCRIPT_TOP_PAD if ch in SUPERSCRIPT_CHARS else (cell_h - h) // 2
+    paste_x = 0 if ch in LEFT_ALIGN_CHARS else (cell - w) // 2
+    out.paste(glyph, (paste_x, paste_y))
 
     rows = []
     px = out.load()

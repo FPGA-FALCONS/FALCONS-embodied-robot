@@ -101,6 +101,11 @@ module ui_render #(
         end
     endfunction
 
+    // ★ 2026-10-18 两处带单位标签改为【中文 24px + 符号 16px】混排（第二批）
+    //   ① 「航向角」+「/°」   ② 「车轮转速」+「/rpm」
+    //   中文用 `UI_TXT_LBL_YAW` / `UI_TXT_LBL_WHEEL`（lg 通路），
+    //   后缀用 `UI_TXT_LBL_DEG` / `UI_TXT_LBL_RPM`（sm 通路，ROM 源），
+    //   在下面 lg_seg / sm_seg 两处分别打包。改文案只需改 tools\font_chars.txt。
     reg [17:0] status_text;
     always @(*) begin
         if (i_estop)                status_text = {UI_TXT_ST_ESTOP_ADDR,       UI_TXT_ST_ESTOP_LEN};
@@ -138,14 +143,48 @@ module ui_render #(
         end
     endfunction
 
-    //   sm 通路只做动态数值：段 24 位，无 rom 字段（省掉一套字符索引 ROM）
-    function [23:0] seg_sm_ram;
-        input [5:0] base;      // 动态 RAM 起始地址（字段号 × 4）
+    //   ★ 2026-10-18：sm 段由 24 位扩到 **37 位**，新增静态文案 ROM 源。
+    //     动机：lg 通路一个字符固定占 24 px 格，ASCII（/ ° r p m）笔画只有 7~12 px，
+    //     居中后左右各留 6~7 px 空白（实测 '/' 空隙 14 px），看起来"散"。
+    //     改由 16 px 的 sm 通路渲染后，'/'、'p'、'm' 的空隙降到 6/6/4 px，
+    //     与数字的 '0'（宽 10、空隙 6）完全一致。
+    //
+    //     位段（**低 17 位与 lg 段位置完全相同**）：
+    //       [36]valid | [35]src | [34:23]rom_addr(12) | [22:17]ram_addr(6)
+    //       | [16:11]len | [10:5]xw | [4:0]row
+    //     ★ 因为 [22:17]/[16:11]/[10:5]/[4:0] 一个都没动，原有位索引只有
+    //       valid 需要从 [23] 上移到 [36]。src = 0 → 动态数值 RAM，1 → 静态文案 ROM。
+    function [36:0] seg_sm;
+        input              src;
+        input [11:0]       rom_addr;
+        input [5:0]        ram_addr;
+        input [5:0]        len;
+        input [5:0]        xw;
+        input [4:0]        row;
+        begin
+            seg_sm = {1'b1, src, rom_addr, ram_addr, len, xw, row};
+        end
+    endfunction
+
+    // 动态数值（RAM 源）
+    function [36:0] seg_sm_ram;
+        input [5:0] base;      // 动态 RAM 起始地址（字段号 × 5）
         input [5:0] len;       // 字符数
         input [5:0] xw;
         input [4:0] row;
         begin
-            seg_sm_ram = {1'b1, base, len, xw, row};
+            seg_sm_ram = seg_sm(1'b0, 12'd0, base, len, xw, row);
+        end
+    endfunction
+
+    // 静态文案（ROM 源，16 px 格）—— 用于「/°」「/rpm」这类符号后缀
+    function [36:0] seg_sm_rom;
+        input [11:0] addr;     // ui_text_rom 地址
+        input [5:0]  len;
+        input [5:0]  xw;
+        input [4:0]  row;
+        begin
+            seg_sm_rom = seg_sm(1'b1, addr, 6'd0, len, xw, row);
         end
     endfunction
 
@@ -220,6 +259,27 @@ module ui_render #(
                 lg_seg[3] = seg_lg_rom(label_text(2'd2), PX_LBL, (i_pixel_y - 12'd336));
             if ((i_pixel_y >= 384) && (i_pixel_y < 408))
                 lg_seg[4] = seg_lg_rom(label_text(2'd3), PX_LBL, (i_pixel_y - 12'd384));
+
+            // ★★ 2026-10-18（第二批）：两处标签改为【中文 24px 格 + 符号 16px 格】混排 ★★
+            //   中文走 lg 通路（24 px 格），后缀走 sm 通路（16 px 格）——
+            //   ASCII 笔画只有 7~12 px，挤在 24 px 格里左右各留 6~7 px 空白，
+            //   换成 16 px 格后 '/'、'p'、'm' 的空隙从 14/14/12 降到 6/6/4，
+            //   与数字 '0'（宽 10、空隙 6）一致。
+            //
+            //   ★★ 2026-10-18（第五批）：航向角**不再带单位**，三个字自身居中 ★★
+            //   需求方："算了，航向角后面不带单位，让这三个字居中。"
+            //   「航向角」3 字 × 24 = 72 px，居中于车体中心 496 ⇒ 左界 460；
+            //   x 须为 24 的倍数 → 取 **456**（占 456..527，中心 **491.5**，偏左 4.5 px）。
+            //   取 480 会到 480..551（中心 515.5，偏右 19.5 px），故 456 最优。
+            //   ★ 数字的底色框 456..535（中心 495.5）与标签左界同为 456，视觉上左缘对齐。
+            if ((i_pixel_y >= 72) && (i_pixel_y < 96))
+                lg_seg[5] = seg_lg_rom({UI_TXT_LBL_YAW_ADDR, UI_TXT_LBL_YAW_LEN},
+                                       6'd19, (i_pixel_y - 12'd72));
+
+            //   ② y = 504..527，车图底边 491 下方留 13 px
+            if ((i_pixel_y >= 504) && (i_pixel_y < 528))
+                lg_seg[5] = seg_lg_rom({UI_TXT_LBL_WHEEL_ADDR, UI_TXT_LBL_WHEEL_LEN},
+                                       6'd17, (i_pixel_y - 12'd504));
         end
 
         // ---- 占位提示（页 0/1/3）----
@@ -308,10 +368,10 @@ module ui_render #(
     //   ★ 段格式与 lg 通路**完全一致**（40 位，带 row），所以只是换了一套字模与组宽。
     wire [5:0] sm_slot = x_look[9:4];
 
-    reg [23:0] sm_seg [0:5];
+    reg [36:0] sm_seg [0:5];
     integer    si;
     always @(*) begin
-        for (si = 0; si < 6; si = si + 1) sm_seg[si] = 24'd0;
+        for (si = 0; si < 6; si = si + 1) sm_seg[si] = 37'd0;
 
         // ---- 数据页数值（页 2）----
         //   字段号：0 航向角 / 1=A右后 / 2=B左后 / 3=C右前 / 4=D左前
@@ -323,16 +383,23 @@ module ui_render #(
         //       5 字符（角速度 / 中心速度 / 航位）→ base = 字段号×5
         //     地址表：f0=0 f1=5 f2=10 f3=15 f4=20 f5=25 f6=30 f7=35 f8=40（共 45 < 64）
         if (i_page == 2'd2) begin
-            // 车头偏航角（字段 0），y=120 → 读 1..4
-            if ((i_pixel_y >= 120) && (i_pixel_y < 144))
-                sm_seg[0] = seg_sm_ram(6'd1, 6'd4, PX_YAW_N, (i_pixel_y - 12'd120));
+            // 车头偏航角（字段 0），y=112 → 读 1..4
+            //   ★ 2026-10-18（第四批）：120 → **112**（需求方"数字稍微上移一点"）。
+            //     数字的 y 不要求 24 对齐（row = y − 段起点，任意值），
+            //     ui_render_tb 的期望也改用"段内相对行"而非 `y % 24`，所以非 24 倍数没问题。
+            if ((i_pixel_y >= 112) && (i_pixel_y < 136))
+                sm_seg[0] = seg_sm_ram(6'd1, 6'd4, PX_YAW_N, (i_pixel_y - 12'd112));
             // ★ 2026-10-18：轮速下移，使其**垂直居中于车轮**（原来比轮心偏上 8 px）：
             //     前轮 y 225..294 → 中心 259.5，数字 24 高 → 基址 248（248..271）
             //   数字的 y 不需要 24 对齐（row = y − 基址，基址任意），只有 x 需要 16 对齐。
-            //   前轮速（D=字段4 → 读 21 / C=字段3 → 读 16），x 与宽度都不变（4 字符）
+            //   ★★ 2026-10-18 车体掉头 180°（设计变更）：通道↔轮位映射变为
+            //      **A=左前 B=右前 C=左后 D=右后**（原 A=右后 B=左后 C=右前 D=左前）。
+            //      所以"前轮两个位置"现在读 A/B（字段 1/2）、"后轮两个位置"读 C/D（字段 3/4），
+            //      恰好是原来四处的对称互换（21↔6、16↔11）。
+            //   前轮速：左=A(字段1→读6) / 右=B(字段2→读11)
             if ((i_pixel_y >= 248) && (i_pixel_y < 272)) begin
-                sm_seg[0] = seg_sm_ram(6'd21, 6'd4, PX_WL_N, (i_pixel_y - 12'd248));
-                sm_seg[1] = seg_sm_ram(6'd16, 6'd4, PX_WR_N, (i_pixel_y - 12'd248));
+                sm_seg[0] = seg_sm_ram(6'd6,  6'd4, PX_WL_N, (i_pixel_y - 12'd248));
+                sm_seg[1] = seg_sm_ram(6'd11, 6'd4, PX_WR_N, (i_pixel_y - 12'd248));
             end
             // 右侧列表第 1 行：角速度数值（字段 5），y=240..263，5 字符
             if ((i_pixel_y >= 240) && (i_pixel_y < 264)) begin
@@ -348,19 +415,27 @@ module ui_render #(
             if ((i_pixel_y >= 384) && (i_pixel_y < 408))
                 sm_seg[0] = seg_sm_ram(6'd40, 6'd5, PX_VAL_N, (i_pixel_y - 12'd384));
             // 后轮 y 397..467 → 中心 432，数字基址 420（420..443，中心 431.5）
-            //   B=字段2 → 读 11 / A=字段1 → 读 6
+            //   ★ 掉头后 左=C(字段3→读16) / 右=D(字段4→读21)
             if ((i_pixel_y >= 420) && (i_pixel_y < 444)) begin
-                sm_seg[0] = seg_sm_ram(6'd11, 6'd4, PX_WL_N, (i_pixel_y - 12'd420));
-                sm_seg[1] = seg_sm_ram(6'd6,  6'd4, PX_WR_N, (i_pixel_y - 12'd420));
+                sm_seg[0] = seg_sm_ram(6'd16, 6'd4, PX_WL_N, (i_pixel_y - 12'd420));
+                sm_seg[1] = seg_sm_ram(6'd21, 6'd4, PX_WR_N, (i_pixel_y - 12'd420));
             end
+
+            // ★ 2026-10-18：只剩「车轮转速/rpm」用 16px 后缀（航向角已按需求方要求去掉单位）。
+            //   中文与后缀的衔接：中文 408..503（右界 503），后缀从 **x=512（xw=32）** 起，留 8 px 缝。
+            //   为什么能这么做：sm 段的 xw 是 16 的倍数，与 lg 的 24 网格相互独立，
+            //   所以后缀位置可以单独对齐，不必"紧接"中文的 24 格边界。
+            if ((i_pixel_y >= 504) && (i_pixel_y < 528))
+                sm_seg[4] = seg_sm_rom(UI_TXT_LBL_RPM_ADDR, UI_TXT_LBL_RPM_LEN,
+                                       6'd32, (i_pixel_y - 12'd504));
         end
     end
 
-    reg [23:0] sm_sel;
+    reg [36:0] sm_sel;
     always @(*) begin
-        sm_sel = 24'd0;
+        sm_sel = 37'd0;
         for (si = 0; si < 6; si = si + 1) begin
-            if (sm_seg[si][23] &&
+            if (sm_seg[si][36] &&
                 (sm_slot >= sm_seg[si][10:5]) &&
                 (sm_slot <  (sm_seg[si][10:5] + sm_seg[si][16:11]))) begin
                 sm_sel = sm_seg[si];
@@ -368,26 +443,45 @@ module ui_render #(
         end
     end
 
-    wire        sm_in_text = sm_sel[23];
+    wire        sm_in_text = sm_sel[36];
+    wire        sm_src     = sm_sel[35];
     wire [5:0]  sm_off     = sm_slot - sm_sel[10:5];
     wire [5:0]  sm_ram_rd  = sm_sel[22:17] + sm_off;
+    wire [11:0] sm_rom_rd  = sm_sel[34:23] + sm_off;
 
-    // 动态数值 RAM 的读口（数值不需要字符索引 ROM，直接读 RAM 里的字符索引）
+    // 动态数值 RAM 的读口
     assign o_dyn_raddr = sm_ram_rd;
     wire [7:0] sm_ram_char = i_dyn_rdata;
 
+    // ★ 2026-10-18：sm 通路的第二套字符源（静态文案 ROM），供「/°」「/rpm」16px 后缀用。
+    //   这是第 2 个 ui_text_rom 实例（约 256×8 BSRAM）。lg 通路那一份不能共用 ——
+    //   两条通路在同一拍可能要取不同地址。
+    wire [7:0] sm_rom_char;
+    ui_text_rom u_text_rom_sm (
+        .i_clk        (i_pixel_clk),
+        .i_addr       (sm_src ? sm_rom_rd : 12'd0),
+        .o_char_index (sm_rom_char)
+    );
+
     reg sm_in_text_d1;
+    reg sm_src_d1;           // ★ 段源选择打 1 拍，与 sm_in_text_d1 同相
     reg [4:0] sm_row_d1;
     // ★ 2026-10-18：多锁两路，供小数点叠加层用（与 sm_in_text_d1 同相）
     reg [5:0] sm_xw_d1;      // 段起始字组号（字段左边界 / 16）
     reg [5:0] sm_fbase_d1;   // 段字符 RAM 基址（反查字段号 → 小数位数 dec）
     always @(posedge i_pixel_clk) begin
         sm_in_text_d1 <= sm_in_text;
+        sm_src_d1     <= sm_src;
         sm_row_d1     <= sm_sel[4:0];
         sm_xw_d1      <= sm_sel[10:5];
         sm_fbase_d1   <= sm_sel[22:17];
     end
-    wire [7:0] sm_char_index = sm_in_text_d1 ? sm_ram_char : 8'd0;
+    //   src = 0 → 动态数值 RAM；src = 1 → 静态文案 ROM
+    //   ★ ROM 段的 [22:17] 恒为 0，于是小数点判定的 field_dec(0) = 0（不画点），
+    //     天然正确，不需要额外判断；但**别**把数值段误写成 ROM 段。
+    wire [7:0] sm_char_index = sm_in_text_d1
+                             ? (sm_src_d1 ? sm_rom_char : sm_ram_char)
+                             : 8'd0;
 
     // 字模地址 = 字符索引 × 24 + 行号（与 font_rom_lg 同一套寻址，24 = 16 + 8）
     wire [12:0] sm_base      = {1'b0, sm_char_index, 4'd0} + {2'b0, sm_char_index, 3'd0};
@@ -528,6 +622,16 @@ module ui_render #(
                   (i_pixel_y >= 12'd412) && (i_pixel_y <= 12'd451);
     wire wheel_box = (i_page == 2'd2) && (box_lf || box_rf || box_lr || box_rr);
 
+    // ★★ 2026-10-18（第四批）：只给【航向角数字】加底色块，标签不加 ★★
+    //   需求方："航向角/°不要加背景框，只要航向角数字加。"
+    //   数字 4 字符 = 64 px（x 464..527）、24 高（y 112..135），四周 8 px 内边距：
+    //     x 456..535（宽 **80**，中心 **495.5** ≈ 车体中心 496）
+    //     y 104..143（高 **40**，与轮速框同尺寸 80×40）
+    //   颜色沿用轮速文本框的 24'h2E3440。
+    wire yaw_box = (i_page == 2'd2) &&
+                   (i_pixel_x >= 12'd456) && (i_pixel_x <= 12'd535) &&
+                   (i_pixel_y >= 12'd104) && (i_pixel_y <= 12'd143);
+
     // ------------------------------------------------------------------
     // 图层与颜色
     // ------------------------------------------------------------------
@@ -558,7 +662,7 @@ module ui_render #(
         //     24'h2E3440 = 深版 22262E 与浅版 3A4252 的逐通道中点（需求方选定）。
         //       R: (34+58)/2=46   G: (38+66)/2=52   B: (46+82)/2=64
         //     比纯黑明显可辨，又不至于亮到抢走数字的注意力；与菜单条 101828 也能区分。
-        if (wheel_box)          rgb = 24'h2E3440;
+        if (wheel_box || yaw_box) rgb = 24'h2E3440;
 
         // 2) 菜单选中高亮
         if (menu_sel_band)      rgb = 24'h1D4ED8;
@@ -572,7 +676,10 @@ module ui_render #(
         end
 
         // 4) 紧凑数字（数据页实时数值，16x24）+ 悬挂小数点（同色，2026-10-18）
-        if (sm_glyph || sm_dot)                     rgb = 24'h7CFC98;   // 数值：亮绿
+        //   ★ 2026-10-18：sm 段有两种源 —— RAM 源是**实时数值**（亮绿），
+        //     ROM 源是**标签的符号后缀**（如「/°」「/rpm」，应与中文同为白色）。
+        //     若不加这个区分，后缀会被画成绿色，与同一行的中文标签不同色。
+        if (sm_glyph || sm_dot)                     rgb = sm_src_d1 ? 24'hFFFFFF : 24'h7CFC98;
 
         // 5) 数据页小车俯视简笔图（白色 = 与标签文字同色；放最后 = 最上层）
         if (car_pix)                                rgb = 24'hFFFFFF;

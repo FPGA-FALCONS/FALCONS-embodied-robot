@@ -364,7 +364,12 @@ module ui_render_tb;
                         if (actual_on) cnt_car = cnt_car + 1;
                         if (actual_on !== expect_on) err_car = err_car + 1;
                     end else if (actual_on) begin
-                        cnt_car_spill = cnt_car_spill + 1;
+                        // ★ 2026-10-18：车图正下方新增了「车轮转速/rpm」白色标签
+                        //   （x 408..575 / y 504..527），它**不属于车图**，也不是越界。
+                        //   若不排除，会被误判成"车图包围盒外有白色像素"（实测 227 px）。
+                        //   以后再往车图附近加白色文字，同样要在这里登记。
+                        if (!((xx >= 408) && (xx <= 575) && (yy >= 504) && (yy <= 527)))
+                            cnt_car_spill = cnt_car_spill + 1;
                     end
                 end
             end
@@ -499,7 +504,7 @@ module ui_render_tb;
                     #1;
                     xa = xx - 2;
                     actual_on = (rgb === text_rgb);
-                    frow = dut.u_font_num.mem[charidx * 24 + ((ybase + yy) % 24)];
+                    frow = dut.u_font_num.mem[charidx * 24 + yy];   // yy = 段内相对行（与 RTL 的 row 一致）
                     for (oi = 0; oi <= 10; oi = oi + 1) begin
                         xo = xa + (oi - 5);
                         slot = xo / NUM_W;
@@ -545,6 +550,74 @@ module ui_render_tb;
     endtask
 
     // ------------------------------------------------------------------
+    // ★ sm 通路【静态 ROM 源】的段边界比对（2026-10-18 新增，16 px 格）
+    //   与 check_seg_num 的唯一区别：字符索引来自 ui_text_rom（本台 dut.u_text_rom_sm），
+    //   不是动态数值 RAM。像素判据完全相同（对 font_num 点阵逐像素 + 段左 2 列无字）。
+    //   用途：验证「/°」「/rpm」两个 16px 后缀确实按 xw 落在 x=512 起、且源选对。
+    //   ★ 若 sm 段的 src 位接错（把 ROM 段当 RAM 段），这里会立刻红。
+    // ------------------------------------------------------------------
+    task check_seg_rom16;
+        input integer ybase;
+        input integer xw;
+        input integer len;
+        input integer rom_base;
+        input [23:0]  text_rgb;
+        input [8*36-1:0] name;
+        integer yy, xx, xa, xo, oi, obest, obesterr;
+        reg expect_on, actual_on;
+        reg [15:0] frow;
+        integer slot, col, ci;
+        begin
+            for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
+            for (yy = 0; yy < 24; yy = yy + 1) begin
+                for (xx = ((xw > 2) ? ((xw - 2) * NUM_W) : 2);
+                     xx <= (xw + len) * NUM_W + 10; xx = xx + 1) begin
+                    px = xx[11:0];
+                    py = (ybase + yy);
+                    vact = 1'b1;
+                    preq = 1'b1;
+                    @(posedge pixel_clk);
+                    #1;
+                    xa = xx - 2;
+                    actual_on = (rgb === text_rgb);
+                    for (oi = 0; oi <= 10; oi = oi + 1) begin
+                        xo = xa + (oi - 5);
+                        slot = xo / NUM_W;
+                        col  = xo % NUM_W;
+                        if ((slot >= xw) && (slot < xw + len)) begin
+                            ci   = dut.u_text_rom_sm.mem[rom_base + (slot - xw)];
+                            frow = dut.u_font_num.mem[ci * 24 + yy];        // yy = 段内相对行
+                            expect_on = frow[15 - col];
+                            if ((xo >= xw * NUM_W + 4) && (xo < (xw + len) * NUM_W - 4)) begin
+                                if (actual_on !== expect_on) err_off[oi] = err_off[oi] + 1;
+                            end
+                        end
+                    end
+                end
+            end
+            vact = 1'b0;
+            preq = 1'b0;
+
+            obest = 5; obesterr = err_off[5];
+            for (oi = 0; oi <= 10; oi = oi + 1) begin
+                if (err_off[oi] < obesterr) begin
+                    obesterr = err_off[oi];
+                    obest    = oi;
+                end
+            end
+            err_glyph = obesterr;
+            probe_off = obest - 5;
+
+            if (err_glyph == 0) begin
+                $display("  pass  %0s: 偏移=%0d 段内不符=0", name, probe_off);
+            end else begin
+                errors = errors + 1;
+                $display("  FAIL  %0s: 偏移=%0d 段内不符=%0d", name, probe_off, err_glyph);
+            end
+        end
+    endtask
+
+    // ------------------------------------------------------------------
     // ★ 大字段边界黄金参考（2026-10-17 字号放大 1.5 倍后新增）
     //   判据与 check_seg_rom 一致，只是换成 24 px 组 / 24x24 字库：
     //     期望字符索引 = dut.u_text_rom_lg.mem[txt_addr + (slot - xw)]
@@ -579,7 +652,7 @@ module ui_render_tb;
                     for (oi = 0; oi <= 10; oi = oi + 1) begin
                         xo = xa + (oi - 5);
                         if ((xo >= xw * LG_CELL + 4) && (xo < (xw + len) * LG_CELL - 4)) begin
-                            expect_on = glyph_expect_lg(xo, ybase + yy, xw, len, txt_addr);
+                            expect_on = glyph_expect_lg(xo, yy, xw, len, txt_addr);   // 传相对行，不再依赖 ybase 是 24 倍数
                             if (actual_on !== expect_on) err_off[oi] = err_off[oi] + 1;
                         end
                     end
@@ -613,7 +686,7 @@ module ui_render_tb;
                     actual_on = (rgb === text_rgb);
                     xo = (xx - 2) + probe_off;
                     if (xo >= 0) begin
-                        expect_on = glyph_expect_lg(xo, ybase + yy, xw, len, txt_addr);
+                        expect_on = glyph_expect_lg(xo, yy, xw, len, txt_addr);   // 传相对行，不再依赖 ybase 是 24 倍数
                         if (actual_on && !expect_on) begin
                             if ((xo >= xw * LG_CELL - 2) && (xo < xw * LG_CELL)) err_left  = err_left + 1;
                             else                                               err_other = err_other + 1;
@@ -840,23 +913,42 @@ module ui_render_tb;
         $display("-- 10. 数据页边界（24px 大字）：右侧列表标签 + 列表数值 + 车头偏航角 --");
         page = 2'd2;
         repeat (4) @(posedge pixel_clk);
+
+        // ---------------- 10a. ★ 两处带单位标签（中文 24px + 后缀 16px 混排） ----------------
+        //   ① 「航向角」lg x=432（组 18）y=88..111 ＋「/°」 sm x=512（组 32）同 y
+        //      —— y 从 96 上移到 88，使标签墨迹(91..107)与数字墨迹(123..139)的间距由 8 px 变 16 px
+        //   ② 「车轮转速」lg x=408（组 17）y=504..527 ＋「/rpm」 sm x=512（组 32）同 y
+        //   两条的中文右界都是 503、后缀都从 512 起 ⇒ 天然左对齐于同一竖线。
+        //   ★ 中文与后缀分属两条通路（lg=ROM 24px / sm=ROM 16px），必须分别断言。
+        $display("-- 10a. 混排标签：航向角(24px)+/°(16px) ＋ 车轮转速(24px)+/rpm(16px) --");
+        //   ★ ybase 必须取 24 的倍数：黄金参考用 `y % 24` 反推字模行（见 glyph_expect_lg），
+        //     起点不是 24 倍数时期望会整体错位（曾用 88，实测段内不符 570）。
+        check_seg_lg(72, 19, UI_TXT_LBL_YAW_LEN, UI_TXT_LBL_YAW_ADDR,
+                     24'hFFFFFF, "yaw_text_label");
+        check_seg_lg(504, 17, UI_TXT_LBL_WHEEL_LEN, UI_TXT_LBL_WHEEL_ADDR,
+                     24'hFFFFFF, "wheel_text_label");
+        check_seg_rom16(504, 32, UI_TXT_LBL_RPM_LEN, UI_TXT_LBL_RPM_ADDR,
+                        24'hFFFFFF, "wheel_rpm_suffix");
+
         check_seg_lg(288, PX_LBL_SLOT,
                      UI_TXT_LBL_VEL_LEN, UI_TXT_LBL_VEL_ADDR,
                      24'hFFFFFF, "data_label_boundary");
         check_seg_num(288, PX_VAL_SLOT, 5, dyn_rdata, 24'h7CFC98, "data_number_boundary", 2);
-        check_seg_num(120, PX_YAW_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_yaw_boundary", 0);
+        check_seg_num(112, PX_YAW_SLOT, 4, dyn_rdata, 24'h7CFC98, "data_yaw_boundary", 0);
 
         // ---------------- 10b. ★ 轮子位置 ↔ 通道/字段映射 ----------------
-        //   真相（需求方 2026-10-17 确认）：A=右后 / B=左后 / C=右前 / D=左前
-        //   字段号：1=A 2=B 3=C 4=D（★ 2026-10-18 起字段基址 = 字段号 × 5，
-        //   轮速仍读 4 个字符，起点 = 字段号×5 + 1）
-        $display("-- 10b. 轮速位置映射：左前=D(4) 右前=C(3) 左后=B(2) 右后=A(1) --");
+        //   ★★ 2026-10-18 车体掉头 180°（设计变更，非改 bug）后的真源：
+        //      **A = 左前 / B = 右前 / C = 左后 / D = 右后**
+        //      （掉头前是 A=右后 / B=左后 / C=右前 / D=左前；180° 旋转把每个通道
+        //        送到对角象限，所以四处断言正好两两互换：4↔1、3↔2）
+        //   字段号 1=A 2=B 3=C 4=D（字段基址 = 字段号 × 5，轮速读 4 字符从 base+1 起）
+        $display("-- 10b. 轮速位置映射（掉头后）：左前=A(1) 右前=B(2) 左后=C(3) 右后=D(4) --");
         page = 2'd2;
         repeat (4) @(posedge pixel_clk);
-        check_wheel_field(248, PX_WL_SLOT, 4, "wheel_lf_eq_D");
-        check_wheel_field(248, PX_WR_SLOT, 3, "wheel_rf_eq_C");
-        check_wheel_field(420, PX_WL_SLOT, 2, "wheel_lr_eq_B");
-        check_wheel_field(420, PX_WR_SLOT, 1, "wheel_rr_eq_A");
+        check_wheel_field(248, PX_WL_SLOT, 1, "wheel_lf_eq_A");
+        check_wheel_field(248, PX_WR_SLOT, 2, "wheel_rf_eq_B");
+        check_wheel_field(420, PX_WL_SLOT, 3, "wheel_lr_eq_C");
+        check_wheel_field(420, PX_WR_SLOT, 4, "wheel_rr_eq_D");
 
         // ---------------- 11. ★ 数据页车图：黄金参考逐像素 + 不得越界 ----------------
         //   需求方明确"不要太大导致挤占其他数据的空间"，所以除了形状对不对，

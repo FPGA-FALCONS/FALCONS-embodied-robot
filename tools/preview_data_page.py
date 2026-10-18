@@ -260,6 +260,26 @@ def draw_menu(cv, lg, text_items, stream, index_of):
             cv.glyph(lg[code], LG_XW * LG_CELL + k * LG_W, STATUS_Y, LG_W, C_TEXT)
 
 
+def draw_text_label(cv, glyphs, index_of, text_items, stream, name, x, y, cell):
+    """按指定格宽画一条静态标签（混排用）。
+
+    cell=24 → 中文走 font_rom_lg；cell=16 → 符号/字母走 font_num。
+    两者共用同一份字符索引（ui_text_rom），所以只需换字库与格宽。
+    """
+    if name not in text_items:
+        print(f"  [警告] 字表里没有 {name}，跳过")
+        return
+    addr, length = text_items[name]
+    for k in range(length):
+        ci = stream.get(addr + k)
+        if ci is None:
+            continue
+        code = index_of.get(ci)
+        if code is None or code not in glyphs:
+            continue
+        cv.glyph(glyphs[code], x + k * cell, y, cell, C_TEXT)
+
+
 def draw_car(cv):
     """小车俯视简笔图（几何判定与 ui_render.v L412..431 完全一致）"""
     for y in range(160, 492):
@@ -279,6 +299,15 @@ def draw_wheel_boxes(cv):
     """四个轮速文本框（数字 4 字符 64 px + 四周 8 px 内边距 = 80×36）"""
     for (x0, y0) in ((248, 240), (664, 240), (248, 412), (664, 412)):
         cv.rect(x0, y0, x0 + 79, y0 + 39, C_BOX)
+
+
+def draw_yaw_box(cv):
+    """航向角「标签 + 数字」的底色块（与轮速框同色 2E3440）。
+
+    只包【数字】(464..527, y112..135)，四周 8 px 内边距：
+      x 456..535（宽 80，中心 495.5 ≈ 车体中心 496）、y 104..143
+    """
+    cv.rect(456, 104, 535, 143, C_BOX)
 
 
 # ---------------------------------------------------------------------------
@@ -335,17 +364,28 @@ def main():
     draw_menu(cv, lg_g, text_items, stream, lg_idx)
     draw_car(cv)
     draw_wheel_boxes(cv)
+    draw_yaw_box(cv)
+
+    # ---- ★ 2026-10-18 两处带单位标签：中文 24px + 后缀 16px 混排 ----
+    #   ① 「航向角」x=432（24 组 18）+「/°」x=512（16 组 32），y=88（距数字 16 px）
+    #   ② 「车轮转速」x=408（24 组 17）+「/rpm」x=512（16 组 32），y=504
+    #   两条的中文右界都是 503、后缀都从 512 起，故天然左对齐于同一竖线。
+    draw_text_label(cv, lg_g,  lg_idx,  text_items, stream, "LBL_YAW",   456,  72, 24)
+    draw_text_label(cv, lg_g,  lg_idx,  text_items, stream, "LBL_WHEEL", 408, 504, 24)
+    draw_text_label(cv, num_g, num_idx, text_items, stream, "LBL_RPM",   512, 504, 16)
 
     # ---- 车头偏航角（4 字符，x=464, y=120）----
-    draw_num(cv, num_g, fmt_field(vals["yaw"], 1), PX_YAW_N * NUM_W, 120, 4)
+    draw_num(cv, num_g, fmt_field(vals["yaw"], 1), PX_YAW_N * NUM_W, 112, 4)
 
     # ---- 四轮转速（4 字符，框内居中：x 不变，y = 框顶 + 8）----
     #   RTL 里前轮 y=248（框 240..279），后轮 y=420（框 412..451）→ 都是"框顶 + 8"
+    #   ★ 2026-10-18 车体掉头 180° 后映射：A=左前 B=右前 C=左后 D=右后
+    #     （掉头前是 A=右后 B=左后 C=右前 D=左前；180° 旋转把每个通道送到对角象限）
     w = vals["w"]
-    draw_num(cv, num_g, fmt_field(w[3], 1), PX_WL_N * NUM_W, 248, 4)   # D 左前
-    draw_num(cv, num_g, fmt_field(w[2], 1), PX_WR_N * NUM_W, 248, 4)   # C 右前
-    draw_num(cv, num_g, fmt_field(w[1], 1), PX_WL_N * NUM_W, 420, 4)   # B 左后
-    draw_num(cv, num_g, fmt_field(w[0], 1), PX_WR_N * NUM_W, 420, 4)   # A 右后
+    draw_num(cv, num_g, fmt_field(w[0], 1), PX_WL_N * NUM_W, 248, 4)   # 左前 = A
+    draw_num(cv, num_g, fmt_field(w[1], 1), PX_WR_N * NUM_W, 248, 4)   # 右前 = B
+    draw_num(cv, num_g, fmt_field(w[2], 1), PX_WL_N * NUM_W, 420, 4)   # 左后 = C
+    draw_num(cv, num_g, fmt_field(w[3], 1), PX_WR_N * NUM_W, 420, 4)   # 右后 = D
 
     # ---- 右侧列表：标签（24x24, x=792） + 数值（16x24, x=896） ----
     rows = [("LBL_GYRO",   "gyro",   240, 0),
