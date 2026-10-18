@@ -57,8 +57,8 @@
 > 上表"检查项"是 `sim\run_sim.ps1` 实测统计的 `pass` 行数（2026-10-16 **审查修复轮**实测 6 台合计 203 项；
 > 2026-10-18 凌晨 UI 第九处修复 + 合并队友提交后 `num_text` 39 → **40**，全量 9 台合计 **253 项全 PASS**），
 > 不是手写的估计值 —— 口径以实测为准（旧文档里出现过 22/26/28 三个不同的数）。
-> ★ **最新基线（2026-10-18 接入 odom + 上电默认页改动后实测）**：**10 台 / 330 项全 PASS** ——
-> `odom` 18（新增）/ `num_text` **96** / `ui_render` **36** / `ht10a_input` 83 / `rc_input` 32 /
+> ★ **最新基线（2026-10-18 接入 odom、上电默认页、中点积分后实测）**：**10 台 / 332 项全 PASS** ——
+> `odom` **20**（新增，含中点积分用例）/ `num_text` **96** / `ui_render` **36** / `ht10a_input` 83 / `rc_input` 32 /
 > `chassis_ctrl` 23 / `rc_led_test` 27 / `reset_sync` 6 / `rc_probe_report` 5 / `speed_report` 4。
 > 上表个别行的"检查项"列仍是旧值（如 `ui_render` 33、`num_text` 未反映 96），以本行为准。
 > 两套仿真器：本机以 **ModelSim 为报数主口径**，Icarus 入口保留（`-Simulator Icarus`）作为可复现备选。
