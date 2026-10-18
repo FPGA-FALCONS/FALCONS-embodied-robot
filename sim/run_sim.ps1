@@ -12,9 +12,10 @@
 #   ht10a_input_tb  HT10A 通道/标定/开关/失效/启动门禁集成
 #   rc_input_tb      遥控槽位映射、归一化/死区/模式两档/按钮(select+confirm)/丢信号/取反/摇杆拨动/掩码有效性
 #   chassis_ctrl_tb  差速分解、限幅、安全逻辑、闭环方向、rpm 换算      （23 项）
-#   num_text_tb      实时数值格式化（含负数与前导空格）                （39 项 = 原 36 + 2026-10-16 补的 3 条）
-#   ui_render_tb     中文界面渲染（菜单/高亮/状态栏/门禁提示/动态数值/占位）
+#   num_text_tb      实时数值格式化（含负数与前导空格）                （96 项）
+#   ui_render_tb     中文界面渲染（菜单/高亮/状态栏/门禁提示/动态数值/占位）（36 项）
 #   speed_report_tb  串口 CSV 上行 12 列格式（整行逐字符比对）          （4 行）
+#   odom_tb          航位推算（静止/直行位移/航向参与/角度解缠）        （18 项）
 #
 # 编码：本文件必须保存为 UTF-8 with BOM（PowerShell 5.1 靠 BOM 判编码）。
 #
@@ -150,7 +151,11 @@ $sources = @(
     "$PSScriptRoot\chassis_ctrl_tb.v",
     "$PSScriptRoot\num_text_tb.v",
     "$PSScriptRoot\ui_render_tb.v",
-    "$PSScriptRoot\speed_report_tb.v"
+    "$PSScriptRoot\speed_report_tb.v",
+    # 航位推算（2026-10-18 新增）
+    "$ProjectRoot\rtl\odom\sin_lut_rom.v",
+    "$ProjectRoot\rtl\odom\odom.v",
+    "$PSScriptRoot\odom_tb.v"
 )
 
 $tests = @(
@@ -162,7 +167,8 @@ $tests = @(
     @{ Name = 'chassis_ctrl'; Top = 'chassis_ctrl_tb'; Desc = '★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算' },
     @{ Name = 'num_text';     Top = 'num_text_tb';     Desc = '实时数值格式化（9 字段、负数、前导空格、饱和）' },
     @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮随 menu_sel/状态栏/光标档文案/动态数值/占位页' },
-    @{ Name = 'speed_report'; Top = 'speed_report_tb'; Desc = '串口 CSV 上行：12 列格式/负数/边界/大数' }
+    @{ Name = 'speed_report'; Top = 'speed_report_tb'; Desc = '串口 CSV 上行：12 列格式/负数/边界/大数' },
+    @{ Name = 'odom';      Top = 'odom_tb';      Desc = '★ 航位推算：静止/直行位移/航向参与/角度解缠' }
 )
 
 # ---------- 建库并编译 ----------

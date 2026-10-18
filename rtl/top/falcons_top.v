@@ -123,6 +123,15 @@ module falcons_top (
     localparam integer PWM_BITS      = 11;              // PWM 周期 2^11 = 2048 拍 → 24.4 kHz
     localparam integer BAUD_DEBUG    = 115200;
 
+    // ★ 2026-10-18 需求变更：上电/复位后**默认进入的页面**
+    //   页面编号 0=摄像头 1=雷达 2=车身运行数据 3=路径点导航
+    //   默认值改为 **2（运行数据显示）** —— 上电即可直接看到航位/转速/航向角，
+    //   不必先按键翻页。原默认是 0（摄像头），对应 §17 的旧要求。
+    //   ★★ 必须**同时**把 `menu_sel` 的复位值也设成它 ★★
+    //      否则菜单高亮停在"摄像头"上，用户在光标档按一次「确认」就会被拉回
+    //      摄像头页，表现为"默认页没生效 / 自己跳走了"。
+    localparam [1:0]   PAGE_DEFAULT  = 2'd2;            // 2 = 车身运行数据页
+
     // ==================================================================
     // 本车极性标定（2026-10-17 深夜整体重构，口径：**内部"正" = 物理前进**）
     //
@@ -310,6 +319,7 @@ module falcons_top (
     reg estop_latch;     // 急停锁存（S4 切换；ToF 触发也会置位）
     reg [1:0] page;      // 界面【已确认进入】的页面 0=摄像头 1=雷达 2=车身数据 3=路径点导航
     reg [1:0] menu_sel;  // 菜单【高亮选中项】（摇杆拨动改它，按确认才赋给 page）
+                        // ★ 复位值统一取 PAGE_DEFAULT（= 数据页），见第 0 节
 
     // ToF 急停（模块未做出：保持 0；将来接上后由 distance < D_STOP 触发）
     wire tof_estop = 1'b0;
@@ -358,8 +368,8 @@ module falcons_top (
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
             estop_latch <= 1'b0;
-            page        <= 2'd0;
-            menu_sel    <= 2'd0;      // 需求原文 §17：初始化默认选中"摄像头画面"
+            page        <= PAGE_DEFAULT;
+            menu_sel    <= PAGE_DEFAULT;   // ★ 高亮与页面必须同源，否则确认一次就跳走
         end else begin
             // 底盘使能与 S1 停机锁存都搬进了 `rc_drive_guard`（见第 3 节开头说明）
             // 急停锁存：S4 或 ToF 触发置位；再按 S4 清除
@@ -719,9 +729,23 @@ module falcons_top (
         .o_gz_eff       ()
     );
 
+    // ---- 航向角符号（★ 2026-10-18 需求方明确约定）----
+    //   本车坐标约定：
+    //     · 初始车头朝 **+y**，车辆**右侧**为 **+x**
+    //     · **向右转 ⇒ 航向角增大**（顺时针为正）
+    //   `yaw_integrate` 是纯积分（`o_yaw = acc >>> 10`），符号完全跟随 IMU 的 gyro_z。
+    //   IMU660RA 的 Z 轴朝上（右手系）时**顺时针旋转的角速度为负** —— 所以"右转"
+    //   会让 `yaw_raw` **减小**，与需求相反。
+    //   ⇒ 这里整体取反，让"右转增大"在**屏幕航向角**与**航位推算**上同时成立。
+    //
+    //   ⚠ 若实测"右转时航向角变小"，说明 IMU 装反/芯片定义不同，把 YAW_SIGN 改成 +1 ——
+    //     只改这一处，`yaw_deg` 与 `u_odom.i_yaw` 两个消费者都跟着变。
+    localparam integer YAW_SIGN = -1;            // −1 = 右转增大（当前）；+1 = 右转减小
+    wire signed [31:0] yaw_raw_s = (YAW_SIGN < 0) ? -yaw_raw : yaw_raw;
+
     // 航向角显示用整数度：yaw 单位 0.01°，÷100 ≈ (×10486) >>> 20
     //   （1/100 = 0.01；0.01 × 2²⁰ = 10485.76 → 取 10486，误差 < 0.003%）
-    wire signed [31:0] yaw_deg = (yaw_raw * 10486) >>> 20;
+    wire signed [31:0] yaw_deg = (yaw_raw_s * 10486) >>> 20;
 
     // ==================================================================
     // 6c. 串口 CSV 上报：速度环关键量 @50 Hz
@@ -877,7 +901,7 @@ module falcons_top (
     reg       estop_s, sig_s, arm_s;
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
-            page_s  <= 2'd0; mode_s  <= 2'd0; menu_s <= 2'd0;
+            page_s  <= PAGE_DEFAULT; mode_s  <= 2'd0; menu_s <= PAGE_DEFAULT;
             estop_s <= 1'b0; sig_s <= 1'b0; arm_s <= 1'b0;
         end else begin
             page_s  <= page;
@@ -896,9 +920,9 @@ module falcons_top (
     reg       arm_ps1, arm_ps2;                          // A1："请回中位"提示
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
-            page_ps1  <= 2'd0; page_ps2  <= 2'd0;
+            page_ps1  <= PAGE_DEFAULT; page_ps2  <= PAGE_DEFAULT;
             mode_ps1  <= 2'd0; mode_ps2  <= 2'd0;
-            menu_ps1  <= 2'd0; menu_ps2  <= 2'd0;
+            menu_ps1  <= PAGE_DEFAULT; menu_ps2  <= PAGE_DEFAULT;
             estop_ps1 <= 1'b0; estop_ps2 <= 1'b0;
             sig_ps1   <= 1'b0; sig_ps2   <= 1'b0;
             arm_ps1   <= 1'b0; arm_ps2   <= 1'b0;
@@ -937,20 +961,24 @@ module falcons_top (
     //         → rpm = 99/100/100/100 → 平均 99 → 偏低 1 rpm ≈ 0.34 cm/s，
     //         正好盖住 0.01 m/s 的显示台阶（合计 0~0.6 cm/s 的系统偏差）。
     //   改为 sum_delta（4 路原始 counts，无截断）→ 乘系数 → 只右移一次：
-    //     系数 8717/2^20 = 0.0083129 cm/s 每个 sum-count
-    //       1 count/10ms = 100 count/s ÷ 61440 count/转 = 0.0016276 rev/s
-    //       × πD（D = 65 mm → 0.20420 m）  = 3.3232e-4 m/s = 0.033232 cm/s
-    //       ÷ 4（四轮平均）                 = 0.0083080 cm/s  ← 与 8717/2^20 差 0.06%
-    //     量化台阶 0.0083 cm/s，比 1 cm/s 的显示台阶小 120 倍 → 0.01 位平稳。
-    //   溢出：sum 最大 4×4096 = 16384，×8717 = 1.43e8 < 2^32 ✓
-    //   ★ 轮速显示（i_v1..i_v4）继续用 rpm*_disp，完全不受影响；
+    //   ★★ 2026-10-18（需求方实测参数更新）：**轮半径 32 mm ⇒ 轮径 D = 64 mm**。
+    //      初版按 D = 65 mm 推的 8717 与正确值只差 1.6%（可忽略），此处按 64 mm 精确化。
+    //     系数 8580/2^20 = 0.0081825 cm/s 每个 sum-count
+    //       1 count/10ms = 100 count/s ÷ 61440 count/转 = 0.00162760 rev/s
+    //       × πD（D = 64 mm → 0.201062 m）  = 3.27259e-4 m/s = 0.0327259 cm/s
+    //       ÷ 4（四轮平均）                  = 0.00818148 cm/s  ← 与 8580/2^20 差 0.011%
+    //     量化台阶 0.0082 cm/s，比 1 cm/s 的显示台阶小 122 倍 → 0.01 位平稳。
+    //   ★ 轮径若再变，系数 = (πD × 100) / (61440 × 4) × 2^20
+    //     **R=32mm ⇒ D=64mm → 8580**；D=39.8mm → 5334；D=65mm → 8717
+    //   溢出：sum 最大 4×4096 = 16384，×8580 = 1.41e8 < 2^32 ✓
+    //   ★ 轮速显示（i_v1..i_v4）用 rpm，与轮径无关，不受影响；
     //     显示极性只补到这里（dlt* 只含 ENC_INV_DIR_VEC，不含 RPM_DISP_INV）。
     wire signed [31:0] dlt0_disp = RPM_DISP_INV[0] ? -dlt0 : dlt0;
     wire signed [31:0] dlt1_disp = RPM_DISP_INV[1] ? -dlt1 : dlt1;
     wire signed [31:0] dlt2_disp = RPM_DISP_INV[2] ? -dlt2 : dlt2;
     wire signed [31:0] dlt3_disp = RPM_DISP_INV[3] ? -dlt3 : dlt3;
     wire signed [31:0] sum_delta  = dlt0_disp + dlt1_disp + dlt2_disp + dlt3_disp;
-    wire signed [31:0] center_cms = (sum_delta * 32'sd8717) >>> 20;   // 单位 0.01 m/s
+    wire signed [31:0] center_cms = (sum_delta * 32'sd8580) >>> 20;   // 单位 0.01 m/s（D=64mm）
 
     // ---- 角速度：gyro_tilt_comp 输出的单位是 **0.01 °/s** ----
     //   ★ 2026-10-18 修正：原来写 `gyro_z_comp >>> 16`，把 0.01 °/s 当成了 Q16
@@ -967,6 +995,49 @@ module falcons_top (
     wire        [31:0] gyro_abs_deg = (gyro_abs * 32'sd10486) >>> 20;   // 正值，floor = 向零
     wire signed [31:0] gyro_deg_s   = (gyro_z_comp < 0) ? -gyro_abs_deg : gyro_abs_deg;
 
+    // ==================================================================
+    // 航位推算 odom（2026-10-18 新增，依据 设计文档 §5.3）
+    //   输入：四轮 10 ms 计数增量（已含 ENC_INV_DIR_VEC 极性）+ 陀螺航向
+    //   输出：x/y（mm）、连续航向（0.01°）、线速度（mm/s）、编码器角速度（0.01°/s）
+    //   ★ 航向直接用 `yaw_raw`（陀螺），编码器只提供位移 —— §5.1 的"编码器互补"
+    //     是精度优化，不是通路前提，留到 k 标定之后再做。
+    //   ★ 清零与航向角同源（S2 / 串口 X 命令），保证"位置基准 = 航向基准"。
+    // ==================================================================
+    wire signed [31:0] odom_x_mm, odom_y_mm, odom_yaw_cont, odom_v_mms, odom_omega_enc;
+
+    odom #(
+        .CLK_HZ      (CLK_HZ),
+        .WINDOW_MS   (10),
+        .CNT_PER_REV (61440),           // 512 PPR × 4 倍频 × 30 减速比
+        .WHEEL_R_MM  (32),              // ★ 轮半径 32 mm ⇒ 直径 64 mm（需求方 2026-10-18 实测）
+        .TRACK_MM10  (1615),            // ★ 轮距 161.5 mm，单位 0.1mm
+        // ★ 里程标定：理论 3431（D=64mm）；实测推 3.00m 推算 2.92m（偏小 2.67%），
+        //   按比例校正为 3525。改这一个数即可整体缩放航位与线速度。
+        .DS_K_Q10    (3525)
+    ) u_odom (
+        .clk           (i_clk_50m),
+        .rst_n         (sys_rst_n),
+        .i_delta0      (dlt0),
+        .i_delta1      (dlt1),
+        .i_delta2      (dlt2),
+        .i_delta3      (dlt3),
+        .i_delta_valid (delta_valid),
+        .i_yaw         (yaw_raw_s),      // ★ 已按 YAW_SIGN 归一为"右转增大"
+        .i_yaw_valid   (yaw_valid),
+        .i_clear       (count_clear_r),  // 与编码器计数/航向角同源清零
+        .o_x_mm        (odom_x_mm),
+        .o_y_mm        (odom_y_mm),
+        .o_yaw_cont    (odom_yaw_cont),
+        .o_v_mms       (odom_v_mms),
+        .o_omega_enc   (odom_omega_enc)
+    );
+
+    // 显示口径 0.01 m（= 1 cm）：odom 输出 mm，÷10。
+    //   ★ 5 字符字段量程 ±99.99 m，精度锁 0.01 m（见 §42.2）。
+    //   ★ 常数除法综合成移位相加，不是真除法器。
+    wire signed [31:0] odom_x_cm = odom_x_mm / 32'sd10;
+    wire signed [31:0] odom_y_cm = odom_y_mm / 32'sd10;
+
     num_text #(
         .CLK_HZ     (CLK_HZ),
         .REFRESH_MS (100),
@@ -981,8 +1052,8 @@ module falcons_top (
         .i_v4   (rpm3_disp),         // 字段 4：D = 左前轮
         .i_v5   (gyro_deg_s),        // 字段 5：角速度（整数 °/s）
         .i_v6   (center_cms),        // 字段 6：中心速度（★ 0.01 m/s，屏上小数点悬挂）
-        .i_v7   (32'sd0),            // 字段 7：航位 x（0.01 m；odom 未实现 → 暂 0）
-        .i_v8   (32'sd0),            // 字段 8：航位 y（0.01 m；odom 未实现 → 暂 0）
+        .i_v7   (odom_x_cm),         // 字段 7：航位 x（★ 0.01 m，来自 u_odom，mm÷10）
+        .i_v8   (odom_y_cm),         // 字段 8：航位 y（★ 0.01 m，来自 u_odom，mm÷10）
         .o_we   (dyn_we),
         .o_addr (dyn_waddr),
         .o_data (dyn_wdata)
@@ -1086,7 +1157,7 @@ module falcons_top (
         .pixel_req    (pixel_req),
         .pixel_x      (pixel_x),
         .frame_sync   (frame_sync),
-        // page 0 = 摄像头页（需求原文 §17：初始化默认选中摄像头画面并确认）
+        // page 0 = 摄像头页（§17 的旧默认；2026-10-18 起默认已改为 2 = 数据页）
         .show_cam     (page_ps2 == 2'd0),
         .ui_rgb       (ui_rgb_raw),
         .o_rgb        (ui_rgb),
