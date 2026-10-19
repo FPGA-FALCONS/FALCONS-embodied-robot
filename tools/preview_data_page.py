@@ -224,8 +224,18 @@ def draw_dot(cv, base_x, y0, dec):
 # ---------------------------------------------------------------------------
 # 静态部件
 # ---------------------------------------------------------------------------
-def draw_menu(cv, lg, text_items, stream, index_of, sel=0):
-    cv.rect(0, 0, MENU_W - 1, SCREEN_H - 1, C_MENU_BG)
+def draw_menu(cv, lg, text_items, stream, index_of, sel=0,
+              status_bg=None, menu_dim=False, status_name="ST_MANUAL"):
+    """左侧菜单条 + 状态栏。
+
+    menu_dim=True：非避障导航页专用 —— 摇杆此时控制准心、不再切菜单，
+                   菜单底色与文字整体变暗（与 ui_render.v 的 nav_pg 分支一致）。
+    status_bg   ：状态栏底色；None = 手动档深红。
+    """
+    bg      = (0x0B, 0x10, 0x19) if menu_dim else C_MENU_BG
+    fg      = (0x5A, 0x61, 0x70) if menu_dim else C_TEXT
+    fg_sel  = (0x8A, 0x7A, 0x2E) if menu_dim else C_TEXT_SEL
+    cv.rect(0, 0, MENU_W - 1, SCREEN_H - 1, bg)
 
     # 高亮项（sel=0 = 运行数据显示：2026-10-19 起它是菜单第 1 项，也是上电默认页）
     cv.rect(0, MENU_Y0 + sel * MENU_STEP - 12,
@@ -247,12 +257,13 @@ def draw_menu(cv, lg, text_items, stream, index_of, sel=0):
             if code is None or code not in lg:
                 continue
             cv.glyph(lg[code], LG_XW * LG_CELL + k * LG_W, y, LG_W,
-                     C_TEXT_SEL if i == sel else C_TEXT)
+                     fg_sel if i == sel else fg)
 
     # 状态栏（手动模式）
-    cv.rect(0, STATUS_Y - 12, MENU_W - 1, STATUS_Y + 35, C_STATUS_BG)
-    if "ST_MANUAL" in text_items:
-        addr, length = text_items["ST_MANUAL"]
+    cv.rect(0, STATUS_Y - 12, MENU_W - 1, STATUS_Y + 35,
+            C_STATUS_BG if status_bg is None else status_bg)
+    if status_name in text_items:
+        addr, length = text_items[status_name]
         for k in range(length):
             ci = stream.get(addr + k)
             if ci is None:
@@ -263,7 +274,8 @@ def draw_menu(cv, lg, text_items, stream, index_of, sel=0):
             cv.glyph(lg[code], LG_XW * LG_CELL + k * LG_W, STATUS_Y, LG_W, C_TEXT)
 
 
-def draw_text_label(cv, glyphs, index_of, text_items, stream, name, x, y, cell):
+def draw_text_label(cv, glyphs, index_of, text_items, stream, name, x, y, cell,
+                    color=None):
     """按指定格宽画一条静态标签（混排用）。
 
     cell=24 → 中文走 font_rom_lg；cell=16 → 符号/字母走 font_num。
@@ -280,13 +292,95 @@ def draw_text_label(cv, glyphs, index_of, text_items, stream, name, x, y, cell):
         code = index_of.get(ci)
         if code is None or code not in glyphs:
             continue
-        cv.glyph(glyphs[code], x + k * cell, y, cell, C_TEXT)
+        cv.glyph(glyphs[code], x + k * cell, y, cell, C_TEXT if color is None else color)
 
 
 def draw_placeholder(cv, lg, index_of, text_items, stream, name):
     """占位页：内容区黑底 + 占位提示（位置与 ui_render.v 的 PAGE_Y / PAGEXW 一致）"""
     draw_text_label(cv, lg, index_of, text_items, stream, name,
                     PAGEXW * LG_CELL, PAGE_Y, LG_CELL)
+
+
+# =============================================================================
+# 非避障导航页（2026-10-19）
+#   几何真源 = rtl/ui/nav_free_ctrl.v 头部注释 + ui_render.v 的 NAV_* 常量：
+#     原点 (412, 300)、0.06 px/mm、轴延伸到画面边缘、辅助菜单 840 / 420 / 36。
+# =============================================================================
+NAV_ORG_X, NAV_ORG_Y = 412, 300
+NAV_PPM   = 0.06                      # px per mm
+C_AXIS    = (0x5A, 0x64, 0x70)
+C_GREEN   = (0x00, 0xC0, 0x00)   # 车绿点：暗一档，白十字叠上去才看得清
+C_RUN_BG  = (0x00, 0x66, 0x00)        # 导航中状态栏（= ui_render 的 24'h006600）
+C_PAUSE_BG = (0x99, 0x4D, 0x00)       # 导航暂停状态栏（= ui_render 的 24'h994D00）
+NAV_AUX_X, NAV_AUX_Y0, NAV_AUX_STEP, NAV_AUX_TDY = 840, 420, 36, 6
+NAV_AUX_NAMES = ["AUX_SET_POINT", "AUX_UNDO_POINT",
+                 "AUX_POINT_GAP", "AUX_POINT_CONT", "AUX_CLEAR_ALL"]
+
+
+def nav_px(xmm):
+    return NAV_ORG_X + int(round(xmm * NAV_PPM))
+
+
+def nav_py(ymm):
+    return NAV_ORG_Y - int(round(ymm * NAV_PPM))
+
+
+def _put(cv, x, y, color):
+    if 0 <= x < SCREEN_W and 0 <= y < SCREEN_H:
+        cv.img[y, x] = color
+
+
+def _disk(cv, cx, cy, r, color):
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            if dx * dx + dy * dy <= r * r:
+                _put(cv, cx + dx, cy + dy, color)
+
+
+def _cross(cv, cx, cy, arm, color):
+    for d in range(-arm, arm + 1):
+        _put(cv, cx + d, cy, color)
+        _put(cv, cx, cy + d, color)
+
+
+def draw_nav_page(cv, lg, index_of, text_items, stream, num_g, num_idx,
+                  cur=(0, 0), car=(0, 0), pts=(), aux=0):
+    """坐标系 + 车绿点 + 十字准心 + 已记录点 + 右下辅助菜单 + 右上角坐标。"""
+    # 坐标轴（只画轴，不画网格；延伸到画面边缘）
+    for x in range(MENU_W, SCREEN_W):
+        _put(cv, x, NAV_ORG_Y, C_AXIS)
+    for y in range(0, SCREEN_H):
+        _put(cv, NAV_ORG_X, y, C_AXIS)
+
+    # 已记录点（直径 6 px 圆，2026-10-19 需求方上调：半径 3）
+    for (px_, py_) in pts:
+        _disk(cv, nav_px(px_), nav_py(py_), 3, C_TEXT)
+
+    # 车绿点（直径 12 px 圆，2026-10-19 需求方上调：半径 6）
+    _disk(cv, nav_px(car[0]), nav_py(car[1]), 6, C_GREEN)
+
+    # 十字准心（臂长 10 px，总宽 21 px —— 绿点 12 px 后每侧伸出 4 px）
+    _cross(cv, nav_px(cur[0]), nav_py(cur[1]), 10, C_TEXT)
+
+    # 右下角辅助菜单（背景 832..1023 × 414..599；项框 420+sel*36）
+    cv.rect(832, 414, 1023, 599, C_MENU_BG)
+    top = NAV_AUX_Y0 + aux * NAV_AUX_STEP
+    cv.rect(832, top, 1023, top + NAV_AUX_STEP - 1, C_MENU_SEL)
+    for i, nm in enumerate(NAV_AUX_NAMES):
+        draw_text_label(cv, lg, index_of, text_items, stream, nm,
+                        NAV_AUX_X, NAV_AUX_Y0 + i * NAV_AUX_STEP + NAV_AUX_TDY, 24,
+                        C_TEXT_SEL if i == aux else C_TEXT)
+
+    # 右上角准心坐标：前缀 + 5 字符数值 + "m"，右界 975
+    #   2026-10-19 需求方样例「x:  2.60m」并要求"右侧不要紧贴、留出合适间距"：
+    #   前缀 2 字符（x=864，组 54）+ 数值 5 字符（x=880，组 55）+ "m" 1 字符（x=960，组 60）
+    #   → 右界 975，离右边缘 48 px，且与「运行数据显示」页数值列右界对齐。
+    #   冒号后两个空格 = 1 个分隔 + 数值的 1 个符号位。
+    for (_pfx, _val, _y) in (("NAV_COORD_X", cur[0], 24), ("NAV_COORD_Y", cur[1], 56)):
+        draw_text_label(cv, num_g, num_idx, text_items, stream, _pfx, 864, _y, 16, C_TEXT)
+        draw_num(cv, num_g, fmt_field(int(round(_val / 10.0)), 3), 912, _y, 5)
+        draw_dot(cv, 912, _y, 2)
+        draw_text_label(cv, num_g, num_idx, text_items, stream, "NAV_COORD_M", 992, _y, 16, C_TEXT)
 
 
 def draw_car(cv):
@@ -341,6 +435,19 @@ def main():
                     help="左侧菜单高亮项 0..4（0=运行数据显示 … 4=非避障导航）")
     ap.add_argument("--page", type=int, default=0, choices=[0, 1, 2, 3, 4],
                     help="要预览的页面 0=运行数据显示(默认) 1=摄像头 2=雷达 3=避障导航 4=非避障导航")
+    # ---- page 4（非避障导航页）专用 ----
+    ap.add_argument("--cur-x", type=int, default=0, help="准心 x（mm）")
+    ap.add_argument("--cur-y", type=int, default=0, help="准心 y（mm）")
+    ap.add_argument("--car-x", type=int, default=0, help="车航位 x（mm）")
+    ap.add_argument("--car-y", type=int, default=0, help="车航位 y（mm）")
+    ap.add_argument("--aux",   type=int, default=0, choices=[0, 1, 2, 3, 4],
+                    help="辅助菜单高亮 0确认路径点 1撤销 2间断寻点 3非间断 4清除")
+    ap.add_argument("--run",   type=int, default=0, choices=[0, 1],
+                    help="1 = 寻点任务运行中（状态栏变绿 + 显示导航中）")
+    ap.add_argument("--nav-state", type=int, default=0, choices=[0, 1, 2],
+                    help="导航页状态 0=SETUP 1=导航中(绿) 2=导航暂停(橙)")
+    ap.add_argument("--pts",   type=str, default="",
+                    help="已记录点，形如 ""800,500;1600,-400;2600,1200""（mm）")
     args = ap.parse_args()
 
     num_g, num_idx = parse_font(os.path.join(rtl_common, "font_num.v"), NUM_W, NUM_H)
@@ -374,6 +481,30 @@ def main():
     if args.w3     is not None: vals["w"] = (vals["w"][0], vals["w"][1], vals["w"][2], args.w3)
 
     cv = Canvas()
+
+    # ---- 非避障导航页（page 4）：坐标系 + 车绿点 + 准心 + 已记录点 + 辅助菜单 ----
+    _ns = args.nav_state
+    _status_name = {0: "ST_MANUAL", 1: "ST_RUNNING", 2: "ST_PAUSED"}[_ns]
+    _status_bg   = {0: None, 1: C_RUN_BG, 2: C_PAUSE_BG}[_ns]
+
+    if args.page == 4:
+        draw_menu(cv, lg_g, text_items, stream, lg_idx, 4,
+                  status_bg=_status_bg, menu_dim=True, status_name=_status_name)
+        pts = []
+        for seg in args.pts.split(";"):
+            seg = seg.strip()
+            if not seg:
+                continue
+            a, b = seg.split(",")
+            pts.append((int(a), int(b)))
+        draw_nav_page(cv, lg_g, lg_idx, text_items, stream, num_g, num_idx,
+                      cur=(args.cur_x, args.cur_y), car=(args.car_x, args.car_y),
+                      pts=pts, aux=args.aux)
+        cv.save(args.out)
+        print("wrote", args.out, "- page 4（非避障导航页）aux=%d run=%d pts=%d"
+              % (args.aux, args.run, len(pts)))
+        return 0
+
     draw_menu(cv, lg_g, text_items, stream, lg_idx, args.menu_sel)
 
     # ★ 2026-10-19：支持逐页预览。page 0 = 运行数据显示（默认页，有车图与全部数值）；

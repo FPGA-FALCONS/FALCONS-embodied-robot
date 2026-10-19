@@ -56,7 +56,9 @@ module num_text #(
     // ★ 2026-10-16：7 → 9，按需求原文 §29 的数据页布局排字段
     //   0 航向角 / 1~4 四轮转速 A B C D / 5 角速度 / 6 中心速度 / 7~8 航位 x,y
     //   9 字段 × 5 = 45 字符，字符 RAM 深 64 够用（余量 19）。
-    parameter integer NUM_FIELDS = 9
+    //   ★ 2026-10-19：9 → 11。新增字段 9/10 = 「非避障导航」页右上角的准心坐标 x / y
+    //     （单位 0.01 m，与航位同口径）。11 字段 × 5 字符 = 55 < 字符 RAM 深度 64，仍够。
+    parameter integer NUM_FIELDS = 11
 )(
     input  wire                clk,
     input  wire                rst_n,
@@ -69,7 +71,9 @@ module num_text #(
     input  wire signed [31:0]  i_v5,
     input  wire signed [31:0]  i_v6,      // 字段 6：中心速度（单位 0.01 m/s）
     input  wire signed [31:0]  i_v7,      // 字段 7：航位 x（单位 0.01 m，odom 未实现暂 0）
-    input  wire signed [31:0]  i_v8,      // 字段 8：航位 y（单位 0.01 m，odom 未实现暂 0）
+    input  wire signed [31:0]  i_v8,      // 字段 8：航位 y（单位 0.01 m）
+    input  wire signed [31:0]  i_v9,      // 字段 9：非避障导航页 准心 x（0.01 m）
+    input  wire signed [31:0]  i_v10,     // 字段 10：非避障导航页 准心 y（0.01 m）
 
     output reg                 o_we,
     output reg  [5:0]          o_addr,
@@ -136,16 +140,18 @@ module num_text #(
     //   打一拍后拆成两段：① 计算链 → v*_r（≈16.7 ns，过）；② v*_r → cur → absv → mag（≈11.2 ns，过）。
     //   代价：9 × 32 = 288 个触发器 + 1 拍延迟（20 ns，对 100 ms 刷新周期完全无感）。
     reg signed [31:0] v0_r, v1_r, v2_r, v3_r, v4_r,
-                      v5_r, v6_r, v7_r, v8_r;
+                      v5_r, v6_r, v7_r, v8_r, v9_r, v10_r;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             v0_r <= 32'sd0; v1_r <= 32'sd0; v2_r <= 32'sd0;
             v3_r <= 32'sd0; v4_r <= 32'sd0; v5_r <= 32'sd0;
             v6_r <= 32'sd0; v7_r <= 32'sd0; v8_r <= 32'sd0;
+            v9_r <= 32'sd0; v10_r <= 32'sd0;
         end else begin
             v0_r <= i_v0; v1_r <= i_v1; v2_r <= i_v2;
             v3_r <= i_v3; v4_r <= i_v4; v5_r <= i_v5;
             v6_r <= i_v6; v7_r <= i_v7; v8_r <= i_v8;
+            v9_r <= i_v9; v10_r <= i_v10;
         end
     end
 
@@ -159,7 +165,9 @@ module num_text #(
             4'd5:    cur = v5_r;
             4'd6:    cur = v6_r;
             4'd7:    cur = v7_r;
-            default: cur = v8_r;
+            4'd8:    cur = v8_r;
+            4'd9:    cur = v9_r;
+            default: cur = v10_r;
         endcase
         absv = (cur < 0) ? (32'd0 - cur) : cur;
     end

@@ -1,10 +1,10 @@
 // Board/application profile. Receiver CH numbers are wired to J6 slots below.
 //   J6.1 / bit0 <- CH4 左摇杆左右 = steering
 //   J6.2 / bit1 <- CH2 右摇杆上下 = throttle
-//   J6.3 / bit2 <- CH5 / SWA    = confirm
-//   J6.4 / bit3 <- CH7 / SWC    = **select**   （★ 2026-10-16：无"返回"按钮，这一路改作 select）
-//   J6.5 / bit4 <- CH6 / SWB    = mode（两档拨杆）
-//   J6.6 / bit5 <- CH8 / SWD    = **闲置**（无角色，且已排除出"信号有效"判定）
+//   J6.3 / bit2 <- CH5 / SWA    = **三档**：下=确认、上=返回（2026-10-19 需求变更）
+//   J6.4 / bit3 <- CH7 / SWC    = **两档模式**：上=手动挡、下=光标档（2026-10-19 起接管模式）
+//   J6.5 / bit4 <- CH6 / SWB    = **闲置**（仍是两档开关，只译码、不接行为，2026-10-19）
+//   J6.6 / bit5 <- CH8 / SWD    = **三档**：上=辅助菜单向上、下=向下（无辅助菜单时无效果）
 // CH1/CH3 joystick axes are deliberately NOT wired to button inputs.
 //
 // ★ 参数口径：下面传给 rc_input 的 CH_* 是**零起始的 J6 槽位索引**，不是接收机通道号。
@@ -21,11 +21,16 @@ module ht10a_input #(
     //   ★ 只反油门：不要动 motor_top 的 INV_DIR_VEC（四路全反会把差速转向一起带反）。
     parameter integer STEER_REVERSE=0, THROTTLE_REVERSE=0, MENU_REVERSE=0,
     parameter integer MODE_REVERSE=0, SELECT_ACTIVE_LOW=0, CONFIRM_ACTIVE_LOW=0,
+    parameter integer AUX_SWAP=0,
     parameter integer SW_LO_US=1300, SW_HI_US=1700, SW_HYST_US=30, SW_CONFIRM_FRAMES=2,
     parameter integer MIN_PULSE_US=900, MAX_PULSE_US=2100, TIMEOUT_US=100_000,
     parameter integer MENU_STEP_TH=400, MENU_IDLE_TH=150,
     // 参与"信号有效"判定的通道掩码：6'b011111 = 排除闲置的 bit5（见 rc_input 头注释②）
     //   ★ 位序提醒：6'b011111 的 MSB 是 bit5=0（排除）、其余 bit4..bit0=1（参与）。
+    // ★ 2026-10-19：CH8（槽位 5）现在有角色了（辅助菜单上下切），**整车**要把 6 路全部纳入
+    //   "信号有效"判定。但**默认值仍保持 6'b011111**：`ht10a_input_tb` / `rc_led_test`
+    //   用默认参数做"第 6 路未接也能解锁"的断言，改默认值会直接打断它们。
+    //   整车配置在 `falcons_top` 的 `u_rc` 例化里显式传 6'b111111。
     parameter integer SIG_VALID_MASK=6'b011111
 )(
     input wire clk,rst_n,
@@ -33,13 +38,17 @@ module ht10a_input #(
     output wire signed [11:0] o_steer,o_throttle,
     output wire [1:0] o_mode,
     output wire o_btn_select,o_btn_confirm,o_menu_up,o_menu_down,o_signal_valid,
+    output wire o_back, o_aux_up, o_aux_down,
     output wire [95:0] o_chan_us,
     output wire [5:0] o_chan_timeout,o_chan_valid
 );
     rc_input #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ), .NUM_CH(6),
         // 槽位索引：bit3 = select（原"返回"键位），bit5 闲置不进映射
-        .CH_STEER(0),.CH_THROTTLE(1),.CH_CONFIRM(2),.CH_SELECT(3),.CH_MODE(4),
+        // ★ 2026-10-19 槽位重排：模式由槽位 4(CH6) 移到槽位 3(CH7)；
+        //   槽位 4(CH6) 退为闲置（仍译码出 o_btn_select，无消费者）；槽位 5(CH8) 新增辅助菜单。
+        .CH_STEER(0),.CH_THROTTLE(1),.CH_CONFIRM(2),.CH_SELECT(4),.CH_MODE(3),.CH_AUX(5),
+        .AUX_SWAP(AUX_SWAP),
         .SIG_VALID_MASK(SIG_VALID_MASK),
         .STEER_CENTER_US(STEER_CENTER_US),.THROTTLE_CENTER_US(THROTTLE_CENTER_US),
         .STEER_HALF_RANGE_US(STEER_HALF_RANGE_US),.THROTTLE_HALF_RANGE_US(THROTTLE_HALF_RANGE_US),
@@ -54,6 +63,7 @@ module ht10a_input #(
         .clk(clk),.rst_n(rst_n),.rc_pwm(rc_pwm),.o_steer(o_steer),.o_throttle(o_throttle),.o_mode(o_mode),
         .o_btn_select(o_btn_select),.o_btn_confirm(o_btn_confirm),
         .o_menu_up(o_menu_up),.o_menu_down(o_menu_down),.o_signal_valid(o_signal_valid),
+        .o_back(o_back),.o_aux_up(o_aux_up),.o_aux_down(o_aux_down),
         .o_chan_us(o_chan_us),.o_chan_timeout(o_chan_timeout),.o_chan_valid(o_chan_valid)
     );
 endmodule

@@ -276,6 +276,7 @@ module falcons_top (
     wire signed [11:0] rc_steer, rc_throttle;
     wire [1:0]         rc_mode;
     wire               rc_select, rc_confirm;
+    wire               rc_back, rc_aux_up, rc_aux_down;   // ★ 2026-10-19 新增三路事件
     wire               rc_menu_up, rc_menu_down;      // 摇杆上下拨动（需求原文 §17）
     wire               rc_signal_ok;
     wire [6*16-1:0]    rc_chan_us;
@@ -298,14 +299,19 @@ module falcons_top (
         //   ★ §26.5 那条"改油门却让转向翻转"的疑案也随映射真相（§34）一并结案：
         //     根因是四个通道与轮位整体错位，不是取反参数的锅。
         .STEER_REVERSE(1), .THROTTLE_REVERSE(0), .MENU_REVERSE(0),
-        .MODE_REVERSE(0), .CONFIRM_ACTIVE_LOW(0), .SELECT_ACTIVE_LOW(0),
+        // ★ 2026-10-19：CH7 现在是模式开关（上=手动 下=光标），CH5 是三档（下=确认 上=返回）。
+        //   这两个"哪个方向算哪档"由开关极性决定，**上板标定时改这两个参数**：
+        //     MODE_REVERSE  = 1  → 让高档(宽脉冲)成为手动档
+        //     CONFIRM_ACTIVE_LOW / AUX_SWAP → 决定确认与返回、辅助菜单上下的方向
+        .MODE_REVERSE(0), .CONFIRM_ACTIVE_LOW(1), .SELECT_ACTIVE_LOW(0), .AUX_SWAP(0),
         .MIN_PULSE_US(900), .MAX_PULSE_US(2100), .TIMEOUT_US(100_000),
         .SW_LO_US(1300), .SW_HI_US(1700), .SW_HYST_US(30), .SW_CONFIRM_FRAMES(2),
         .MENU_STEP_TH(400), .MENU_IDLE_TH(150),
         // 6'b011111：bit5（J6.6，闲置未接）不参与"信号有效"判定 ——
         //   否则该路 timed_out 恒 1 → 整车永不能动（详见 rc_input.v 头注释②）
         //   ★ 位序：MSB=bit5 → 0 表示排除；其余 bit4..bit0 = 1 表示参与。
-        .SIG_VALID_MASK(6'b011111)
+        // ★ 2026-10-19：CH8（bit5）现在有角色（辅助菜单上下切），6 路全部参与判定
+        .SIG_VALID_MASK(6'b111111)
     ) u_rc (
         .clk            (i_clk_50m),
         .rst_n          (sys_rst_n),
@@ -315,6 +321,9 @@ module falcons_top (
         .o_mode         (rc_mode),
         .o_btn_select   (rc_select),
         .o_btn_confirm  (rc_confirm),
+        .o_back         (rc_back),
+        .o_aux_up       (rc_aux_up),
+        .o_aux_down     (rc_aux_down),
         .o_menu_up      (rc_menu_up),
         .o_menu_down    (rc_menu_down),
         .o_signal_valid (rc_signal_ok),
@@ -331,6 +340,21 @@ module falcons_top (
     reg [2:0] page;      // 界面【已确认进入】的页面 0=数据 1=摄像头 2=雷达 3=避障导航 4=非避障导航
     reg [2:0] menu_sel;  // 菜单【高亮选中项】（摇杆拨动改它，按确认才赋给 page）
                         // ★ 复位值统一取 PAGE_DEFAULT（= 数据页），见第 0 节
+
+    // ★ 2026-10-19：当前是否停在「非避障导航」页。
+    //   这一页摇杆被准心占用、确认键被"记录路径点"占用，所以第 3 节的菜单/切页逻辑
+    //   要用它把 rc_menu_up / rc_menu_down / rc_confirm 全部屏蔽掉。
+    //   ★ 必须在这里声明（组合读 page）：放到文件后面的例化区再声明，就是"先用后声明"，
+    //     Verilog 会先隐式建一个 1 位 net、再与显式声明冲突而报错。
+    wire nav_page_now = (page == PAGE_NAV_FREE);
+    wire nav_page_any = (page == PAGE_NAV_FREE) || (page == PAGE_NAV_OBS);
+
+    // ★ 2026-10-19：导航页"菜单锁"= 在导航页 **且** 处于交互态（ui_active）。
+    //   按下返回键退出交互态后，菜单恢复可操作（摇杆能切、确认能进），
+    //   这正是需求方说的"返回菜单选择（此时菜单不冻结）"。
+    //   ★ `nav_lock` 必须**先声明、后 assign**：page 的 always 块在文件靠前就要用它，
+    //     而 `nav_ui_active` 由后面的 nav_free_ctrl 例化产生。
+    wire nav_lock;
 
     // ToF 急停（模块未做出：保持 0；将来接上后由 distance < D_STOP 触发）
     wire tof_estop = 1'b0;
@@ -406,11 +430,15 @@ module falcons_top (
             if (key3_press) begin
                 menu_sel <= (menu_sel == PAGE_LAST) ? 3'd0 : (menu_sel + 3'd1);
                 page     <= (page     == PAGE_LAST) ? 3'd0 : (page     + 3'd1);
-            end else if (rc_menu_up) begin
+            // ★ 2026-10-19：停在「非避障导航」页时，摇杆被准心占用、确认键被"记录路径点"
+            //   占用，所以这里**必须**把两者屏蔽掉 —— 否则按确认会同时"记一个点"和"切页"。
+            //   退出该页仍可用板载 S3（key3_press，不受此门控影响），等独立返回键接入后
+            //   再由 nav_free_ctrl 的 i_back 走 SETUP→IDLE。
+            end else if (rc_menu_up && !nav_lock) begin
                 menu_sel <= (menu_sel == 3'd0) ? PAGE_LAST : (menu_sel - 3'd1);
-            end else if (rc_menu_down) begin
+            end else if (rc_menu_down && !nav_lock) begin
                 menu_sel <= (menu_sel == PAGE_LAST) ? 3'd0 : (menu_sel + 3'd1);
-            end else if (rc_confirm) begin
+            end else if (rc_confirm && !nav_lock) begin
                 page <= menu_sel;                      // ★ 确认才进入该项页面（门控在下层）
             end
         end
@@ -961,6 +989,46 @@ module falcons_top (
         end
     end
 
+    // ---- 非避障导航页状态 → pixel 域（两级同步）----
+    //   ★ 点表只在按确认时整体变化一次，是典型的"慢变量"，两级同步足够。
+    //   ★ 380 位同步器 = 760 个触发器（占 GW5AT-138 的 FF 不到 1%），
+    //     换来 pixel 域在 1 拍内完成 16 个点的比较，比"每帧读 RAM"简单得多。
+    reg [9:0]   navc_ps1_x, navc_ps2_x, navc_ps1_y, navc_ps2_y;
+    reg [9:0]   navcar_ps1_x, navcar_ps2_x, navcar_ps1_y, navcar_ps2_y;
+    reg [159:0] navpt_ps1_x, navpt_ps2_x, navpt_ps1_y, navpt_ps2_y;
+    reg [15:0]  navpv_ps1, navpv_ps2;
+    reg [2:0]   navaux_ps1, navaux_ps2;
+    reg         navrun_ps1, navrun_ps2;
+    reg         navui_ps1, navui_ps2;      // 导航页交互态
+    reg         navpz_ps1, navpz_ps2;      // 导航暂停
+    always @(posedge pixel_clk or negedge pixel_rst_n) begin
+        if (!pixel_rst_n) begin
+            navc_ps1_x <= 10'd0; navc_ps2_x <= 10'd0;
+            navc_ps1_y <= 10'd0; navc_ps2_y <= 10'd0;
+            navcar_ps1_x <= 10'd0; navcar_ps2_x <= 10'd0;
+            navcar_ps1_y <= 10'd0; navcar_ps2_y <= 10'd0;
+            navpt_ps1_x <= 160'd0; navpt_ps2_x <= 160'd0;
+            navpt_ps1_y <= 160'd0; navpt_ps2_y <= 160'd0;
+            navpv_ps1 <= 16'd0; navpv_ps2 <= 16'd0;
+            navaux_ps1 <= 3'd0; navaux_ps2 <= 3'd0;
+            navrun_ps1 <= 1'b0; navrun_ps2 <= 1'b0;
+            navui_ps1  <= 1'b0; navui_ps2  <= 1'b0;
+            navpz_ps1  <= 1'b0; navpz_ps2  <= 1'b0;
+        end else begin
+            navc_ps1_x <= nav_cur_px;      navc_ps2_x <= navc_ps1_x;
+            navc_ps1_y <= nav_cur_py;      navc_ps2_y <= navc_ps1_y;
+            navcar_ps1_x <= nav_car_px;    navcar_ps2_x <= navcar_ps1_x;
+            navcar_ps1_y <= nav_car_py;    navcar_ps2_y <= navcar_ps1_y;
+            navpt_ps1_x <= nav_pt_px;      navpt_ps2_x <= navpt_ps1_x;
+            navpt_ps1_y <= nav_pt_py;      navpt_ps2_y <= navpt_ps1_y;
+            navpv_ps1 <= nav_pt_v;         navpv_ps2 <= navpv_ps1;
+            navaux_ps1 <= nav_aux_sel;     navaux_ps2 <= navaux_ps1;
+            navrun_ps1 <= nav_run;         navrun_ps2 <= navrun_ps1;
+            navui_ps1  <= nav_ui_active;   navui_ps2  <= navui_ps1;
+            navpz_ps1  <= nav_paused;      navpz_ps2  <= navpz_ps1;
+        end
+    end
+
     // ---- 实时数值链路：sys 域格式化 → 双口 RAM → pixel 域渲染 ----
     // 目标轮速用与 chassis_ctrl 相同的换算：rpm = delta × 100 >> 10（= ÷10.24）
     wire signed [31:0] tgt_left_rpm  = (tgt_left  * 100) >>> 10;
@@ -1063,10 +1131,79 @@ module falcons_top (
     wire signed [31:0] odom_x_cm = odom_x_mm / 32'sd10;
     wire signed [31:0] odom_y_cm = odom_y_mm / 32'sd10;
 
+    // ==================================================================
+    // 6b. 非避障导航页控制器（2026-10-19 新增）
+    // ==================================================================
+    //   它只维护这一页的**可交互状态**：准心位置、已记录点表、辅助菜单高亮、运行态。
+    //   ★ 按「间断寻点 / 非间断寻点」+ 确认后**只把 nav_run 拉高，车一步不动** ——
+    //     需求方本轮明确："任务导航只需留下接口或状态机等，并不真正开始导航。"
+    //     真接入时把 {nav_run, nav_mode, nav_pt_*} 接到导航控制层
+    //     （方案见 doc\导航控制方案.md）。
+    //   ★ 摇杆用 `rc_steer / rc_throttle` 的**原始归一化值**，不用 `steer_in` ——
+    //     后者在光标档被强制 0（那是给底盘的），准心要的是摇杆本身。
+    wire signed [31:0] nav_cur_x_mm, nav_cur_y_mm;
+    wire [2:0]   nav_aux_sel;
+    wire [4:0]   nav_pt_count;      // 预留（未消费）：将来自检/上报用
+    wire         nav_run, nav_mode; // nav_mode 预留（未消费）：0 间断 / 1 非间断
+    wire [1:0]   nav_state;         // 0=SETUP 1=RUNNING 2=PAUSED（预留：给导航控制层）
+    wire         nav_ui_active;     // 导航页交互态（菜单锁、状态栏）
+    wire         nav_paused;        // 导航暂停
+    wire [159:0] nav_pt_px, nav_pt_py;
+    wire [15:0]  nav_pt_v;
+    wire [9:0]   nav_car_px, nav_car_py, nav_cur_px, nav_cur_py;
+
+    nav_free_ctrl #(
+        .CLK_HZ       (CLK_HZ),
+        .CURSOR_SPEED (500),        // 满杆 500 mm/s（需求方 2026-10-19 选定）
+        .DEADZONE     (100),        // 归一化 ±1000 的 10%，盖住中位抖动 ±50
+        .MAX_POINTS   (16)
+    ) u_nav_free (
+        .clk        (i_clk_50m),
+        .rst_n      (sys_rst_n),
+        .i_active   (nav_page_any),         // ★ 两页共用同一套状态机
+        .i_is_obs   (page == PAGE_NAV_OBS), // 避障页：辅助菜单 4 项、第 3 项=开始导航
+        .i_clear    (count_clear_r),        // 与编码器计数/航向角同源清零
+        .i_x_mm     (odom_x_mm),
+        .i_y_mm     (odom_y_mm),
+        .i_manual   (manual_drive),         // 手动接管档：摇杆归底盘，准心不动
+        .i_steer    (rc_steer),
+        .i_throttle (rc_throttle),
+        .i_confirm  (rc_confirm),           // CH5 下拨
+        .i_back     (rc_back),              // CH5 上拨
+        .i_aux_up   (rc_aux_up),            // CH8 上拨
+        .i_aux_down (rc_aux_down),          // CH8 下拨
+        // ---- 与导航/控制层对接（预留，暂接 0）----
+        .i_ctrl_done  (1'b0),
+        .i_ctrl_fault (1'b0),
+        .o_cur_x_mm (nav_cur_x_mm),
+        .o_cur_y_mm (nav_cur_y_mm),
+        .o_aux_sel  (nav_aux_sel),
+        .o_pt_count (nav_pt_count),
+        .o_nav_state     (nav_state),
+        .o_nav_ui_active (nav_ui_active),
+        .o_nav_run       (nav_run),
+        .o_nav_paused    (nav_paused),
+        .o_nav_mode      (nav_mode),
+        .o_pt_px    (nav_pt_px),
+        .o_pt_py    (nav_pt_py),
+        .o_pt_v     (nav_pt_v),
+        .o_car_px   (nav_car_px),
+        .o_car_py   (nav_car_py),
+        .o_cur_px   (nav_cur_px),
+        .o_cur_py   (nav_cur_py)
+    );
+
+    // ★ 菜单锁：导航页 **且** 处于交互态。返回键退出交互态后菜单即恢复可操作。
+    assign nav_lock = nav_page_any & nav_ui_active;
+
+    // 准心坐标 → 0.01 m（与航位显示同一口径；字段 9 / 10）
+    wire signed [31:0] nav_cur_x_cm = nav_cur_x_mm / 32'sd10;
+    wire signed [31:0] nav_cur_y_cm = nav_cur_y_mm / 32'sd10;
+
     num_text #(
         .CLK_HZ     (CLK_HZ),
         .REFRESH_MS (100),
-        .NUM_FIELDS (9)
+        .NUM_FIELDS (11)
     ) u_num_text (
         .clk    (i_clk_50m),
         .rst_n  (sys_rst_n),
@@ -1079,6 +1216,8 @@ module falcons_top (
         .i_v6   (center_cms),        // 字段 6：中心速度（★ 0.01 m/s，屏上小数点悬挂）
         .i_v7   (odom_x_cm),         // 字段 7：航位 x（★ 0.01 m，来自 u_odom，mm÷10）
         .i_v8   (odom_y_cm),         // 字段 8：航位 y（★ 0.01 m，来自 u_odom，mm÷10）
+        .i_v9   (nav_cur_x_cm),      // 字段 9：非避障导航页 准心 x（0.01 m）
+        .i_v10  (nav_cur_y_cm),      // 字段 10：非避障导航页 准心 y（0.01 m）
         .o_we   (dyn_we),
         .o_addr (dyn_waddr),
         .o_data (dyn_wdata)
@@ -1107,6 +1246,17 @@ module falcons_top (
         .o_pixel_rgb888 (ui_rgb_raw),
         .i_page         (page_ps2),
         .i_menu_sel     (menu_ps2),
+        .i_nav_run      (navrun_ps2),
+        .i_nav_paused   (navpz_ps2),
+        .i_menu_dim     (navui_ps2),
+        .i_aux_sel      (navaux_ps2),
+        .i_car_px       (navcar_ps2_x),
+        .i_car_py       (navcar_ps2_y),
+        .i_cur_px       (navc_ps2_x),
+        .i_cur_py       (navc_ps2_y),
+        .i_pt_px        (navpt_ps2_x),
+        .i_pt_py        (navpt_ps2_y),
+        .i_pt_v         (navpv_ps2),
         .i_ui_mode      (mode_ps2),
         // ★ 2026-10-16：ui_render 的 i_run 端口已**删除**（模块内从不使用它，
         //   状态栏也没有"运行中"这一档）。其上游 sys 域 run_s 与 pixel 域

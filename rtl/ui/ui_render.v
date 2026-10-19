@@ -62,6 +62,19 @@ module ui_render #(
     input  wire        i_arm_hint,      // 1 = 想启动但油门不在中位
     input  wire [2:0]  i_menu_sel,      // 菜单【高亮选中项】
 
+    // ---- 非避障导航页（2026-10-19 新增，全部来自 nav_free_ctrl + 两级同步）----
+    input  wire         i_nav_run,      // 1 = 导航中（状态栏变绿并显示「导航中」）
+    input  wire         i_nav_paused,   // 1 = 导航暂停（状态栏浅橙 994D00 并显示「导航暂停」）
+    input  wire         i_menu_dim,     // 1 = 导航页交互态（菜单栏变暗、摇杆不再切菜单）
+    input  wire [2:0]   i_aux_sel,      // 右下辅助菜单高亮项 0..4
+    input  wire [9:0]   i_car_px,       // 车绿点像素坐标（来自 odom 航位）
+    input  wire [9:0]   i_car_py,
+    input  wire [9:0]   i_cur_px,       // 十字准心像素坐标
+    input  wire [9:0]   i_cur_py,
+    input  wire [159:0] i_pt_px,        // 已记录点：16 个 × 10 位（扁平）
+    input  wire [159:0] i_pt_py,
+    input  wire [15:0]  i_pt_v,         // 该点有效
+
     // ---- 动态数值字符 RAM 读端口（pixel 域）----
     output wire [5:0]  o_dyn_raddr,
     input  wire [7:0]  i_dyn_rdata
@@ -89,6 +102,13 @@ module ui_render #(
     localparam [2:0] PG_NAV_OBS  = 3'd3;    // 避障导航
     localparam [2:0] PG_NAV_FREE = 3'd4;    // 非避障导航
 
+    // ---- 非避障导航页：右下角辅助菜单几何（真源；改这里即可整体平移）----
+    localparam integer NAV_AUX_X    = 840;  // 文字左界（24 的倍数 ⇒ 字组号 35）
+    localparam integer NAV_AUX_XW   = NAV_AUX_X / LG_CELL;
+    localparam integer NAV_AUX_Y0   = 420;  // 第 1 项框顶
+    localparam integer NAV_AUX_STEP = 36;   // 项高
+    localparam integer NAV_AUX_TDY  = 6;    // 文字相对框顶偏移（(36−24)/2）
+
     // ------------------------------------------------------------------
     // 文案取用（function：纯组合，综合稳）  {addr[11:0], len[5:0]}
     // ------------------------------------------------------------------
@@ -101,6 +121,23 @@ module ui_render #(
                 3'd2:    menu_text = {UI_TXT_MENU_RADAR_ADDR,    UI_TXT_MENU_RADAR_LEN};
                 3'd3:    menu_text = {UI_TXT_MENU_NAV_OBS_ADDR,  UI_TXT_MENU_NAV_OBS_LEN};
                 default: menu_text = {UI_TXT_MENU_NAV_FREE_ADDR, UI_TXT_MENU_NAV_FREE_LEN};
+            endcase
+        end
+    endfunction
+
+    // ---- 非避障导航页：右下角辅助菜单（5 项）文案 ----
+    //   需求原文顺序：确认路径点 / 撤销路径点 / 间断寻点 / 非间断寻点 / 清除所有路径点
+    //   ★ 2026-10-19 需求方指示：辅助菜单两页都**不再有「返回」项**，返回改由独立的
+    //     返回按键触发（该按键尚未接入，nav_free_ctrl 的 i_back 预留）。
+    function [17:0] nav_aux_text;
+        input [2:0] idx;
+        begin
+            case (idx)
+                3'd0:    nav_aux_text = {UI_TXT_AUX_SET_POINT_ADDR,  UI_TXT_AUX_SET_POINT_LEN};
+                3'd1:    nav_aux_text = {UI_TXT_AUX_UNDO_POINT_ADDR, UI_TXT_AUX_UNDO_POINT_LEN};
+                3'd2:    nav_aux_text = {UI_TXT_AUX_POINT_GAP_ADDR,  UI_TXT_AUX_POINT_GAP_LEN};
+                3'd3:    nav_aux_text = {UI_TXT_AUX_POINT_CONT_ADDR, UI_TXT_AUX_POINT_CONT_LEN};
+                default: nav_aux_text = {UI_TXT_AUX_CLEAR_ALL_ADDR,  UI_TXT_AUX_CLEAR_ALL_LEN};
             endcase
         end
     endfunction
@@ -129,6 +166,9 @@ module ui_render #(
         if (i_estop)                status_text = {UI_TXT_ST_ESTOP_ADDR,       UI_TXT_ST_ESTOP_LEN};
         else if (!i_signal_ok)      status_text = {UI_TXT_ST_NOSIGNAL_ADDR,    UI_TXT_ST_NOSIGNAL_LEN};
         else if (i_arm_hint)        status_text = {UI_TXT_ST_ARM_DENY_ADDR,    UI_TXT_ST_ARM_DENY_LEN};
+        // ★ 2026-10-19：非避障导航页按下「间断/非间断寻点」后进入运行态，状态栏显示「导航中」
+        else if (i_nav_paused)      status_text = {UI_TXT_ST_PAUSED_ADDR,      UI_TXT_ST_PAUSED_LEN};
+        else if (i_nav_run)         status_text = {UI_TXT_ST_RUNNING_ADDR,     UI_TXT_ST_RUNNING_LEN};
         else if (i_ui_mode == 2'd0) status_text = {UI_TXT_ST_MANUAL_ADDR,      UI_TXT_ST_MANUAL_LEN};
         else                        status_text = {UI_TXT_ST_CURSOR_ADDR,      UI_TXT_ST_CURSOR_LEN};
     end
@@ -139,8 +179,7 @@ module ui_render #(
             PG_CAMERA:   placeholder_text = {UI_TXT_PLACEHOLDER_CAM_ADDR,   UI_TXT_PLACEHOLDER_CAM_LEN};
             PG_RADAR:    placeholder_text = {UI_TXT_PLACEHOLDER_RADAR_ADDR, UI_TXT_PLACEHOLDER_RADAR_LEN};
             PG_NAV_OBS:  placeholder_text = {UI_TXT_PLACEHOLDER_NAV_ADDR,   UI_TXT_PLACEHOLDER_NAV_LEN};
-            // 非避障导航页同样是未实现页，复用同一条占位文案（它的坐标系/准心整页在后续实现）
-            PG_NAV_FREE: placeholder_text = {UI_TXT_PLACEHOLDER_NAV_ADDR,   UI_TXT_PLACEHOLDER_NAV_LEN};
+
             default:     placeholder_text = 18'd0;
         endcase
     end
@@ -241,7 +280,7 @@ module ui_render #(
     // ---------------- 大字段数组：菜单 4 项 + 状态栏 + 数据页 + 占位 ----------------
     //   同一条扫描行最多 4 段（数据页 y=240 那行：左轮速 / 右前轮速 / 角速度标签 / 角速度数值）
     reg [29:0] lg_seg [0:5];
-    integer    li, mi;
+    integer    li, mi, ai;
     always @(*) begin
         for (li = 0; li < 6; li = li + 1) lg_seg[li] = 30'd0;
 
@@ -257,6 +296,21 @@ module ui_render #(
                                        (i_pixel_y - (MENU_Y0 + mi * MENU_STEP)));
             end
         end
+        // ---- 非避障导航页：右下角辅助菜单（5 项 / 24px 字 / 项高 36 / 文字 x = 840）----
+        //   窗口几何（与下面 nav_aux_bg / nav_aux_hi 必须一致）：
+        //     背景 x 832..1023、y 414..599；项框 y = 420 + i*36（高 36）；
+        //     文字 x = 840（35 组 × 24）、y = 项框顶 + 6（(36−24)/2 垂直居中）。
+        //   ★ 最长项「清除所有路径点」7 字 × 24 = 168 px，840+168 = 1008 ≤ 1023 ✓
+        if (i_page == PG_NAV_FREE) begin
+            for (ai = 0; ai < 5; ai = ai + 1) begin
+                if ((i_pixel_y >= (NAV_AUX_Y0 + ai * NAV_AUX_STEP + NAV_AUX_TDY)) &&
+                    (i_pixel_y <  (NAV_AUX_Y0 + ai * NAV_AUX_STEP + NAV_AUX_TDY + LG_CELL))) begin
+                    lg_seg[1] = seg_lg_rom(nav_aux_text(ai[2:0]), NAV_AUX_XW,
+                                           (i_pixel_y - (NAV_AUX_Y0 + ai * NAV_AUX_STEP + NAV_AUX_TDY)));
+                end
+            end
+        end
+
         // ---- 状态栏档位文字 ----
         if ((i_pixel_y >= STATUS_Y) && (i_pixel_y < STATUS_Y + LG_CELL)) begin
             lg_seg[0] = seg_lg_rom(status_text, LG_XW[5:0], (i_pixel_y - STATUS_Y));
@@ -396,6 +450,36 @@ module ui_render #(
     integer    si;
     always @(*) begin
         for (si = 0; si < 6; si = si + 1) sm_seg[si] = 37'd0;
+
+        // ---- 非避障导航页：右上角准心坐标（x 在上、y 在下，竖排）----
+        //   两行 y = 24 与 56，最右墨迹到 x=1007（离右边缘 16 px，不贴边）。
+        //   字段 9 = 准心 x、字段 10 = 准心 y（num_text 的 NUM_FIELDS 已由 9 扩到 11），
+        //   单位 0.01 m、5 字符、悬挂小数点 —— 与数据页的数值完全同一套格式化。
+        //   ★ 与数据页的 sm 段条件互斥（i_page 不同），所以谁写在前都不影响。
+        //   ★ 2026-10-19 需求方给了样例「x:  2.60m」并要求"右侧不要紧贴、留出合适间距"：
+        //       前 "x:" 2 字符（组 54，x=864） + 数值 5 字符（组 57，x=912）
+        //       + 后 "m" 1 字符（组 62，x=992） → **右界 1007**，离开右边缘 16 px。
+        //     ★ 上板后从 55/60（右界 975）挪到 57/62：`x:` 占 2 个字符格（32 px），
+        //       初版数值起在组 55 会压住它的第 2 格 ⇒ 冒号被数值首格的符号位空格盖掉，
+        //       现象是「冒号不显示」。同理 `m` 必须跟着挪，否则数值末格会压住它。
+        //     数值是 5 字符（符号 + 4 位）⇒ 「x:」与数字之间出现两个空格，
+        //     与样例 "x:  2.60m" 的间距一致。
+        if (i_page == PG_NAV_FREE) begin
+            if ((i_pixel_y >= 12'd24) && (i_pixel_y < 12'd48)) begin
+                sm_seg[0] = seg_sm_rom(UI_TXT_NAV_COORD_X_ADDR, UI_TXT_NAV_COORD_X_LEN,
+                                       6'd54, (i_pixel_y - 12'd24));
+                sm_seg[1] = seg_sm_ram(6'd45, 6'd5, 6'd57, (i_pixel_y - 12'd24));
+                sm_seg[2] = seg_sm_rom(UI_TXT_NAV_COORD_M_ADDR, UI_TXT_NAV_COORD_M_LEN,
+                                       6'd62, (i_pixel_y - 12'd24));
+            end
+            if ((i_pixel_y >= 12'd56) && (i_pixel_y < 12'd80)) begin
+                sm_seg[3] = seg_sm_rom(UI_TXT_NAV_COORD_Y_ADDR, UI_TXT_NAV_COORD_Y_LEN,
+                                       6'd54, (i_pixel_y - 12'd56));
+                sm_seg[4] = seg_sm_ram(6'd50, 6'd5, 6'd57, (i_pixel_y - 12'd56));
+                sm_seg[5] = seg_sm_rom(UI_TXT_NAV_COORD_M_ADDR, UI_TXT_NAV_COORD_M_LEN,
+                                       6'd62, (i_pixel_y - 12'd56));
+            end
+        end
 
         // ---- 数据页数值（页 2）----
         //   字段号：0 航向角 / 1=A右后 / 2=B左后 / 3=C右前 / 4=D左前
@@ -559,6 +643,9 @@ module ui_render #(
                 //   角速度 f5 = 25 是整数 °/s，不需要小数点。
                 6'd30:        field_dec = 2'd2;
                 6'd35, 6'd40: field_dec = 2'd2;
+                // ★ 2026-10-19：非避障导航页右上角的准心 x / y（字段 9 / 10，基址 45 / 50）。
+                //   漏登这一条的直接现象是「数字有、小数点不画」—— 与配色/字库无关。
+                6'd45, 6'd50: field_dec = 2'd2;
                 default:      field_dec = 2'd0;
             endcase
         end
@@ -656,6 +743,85 @@ module ui_render #(
                    (i_pixel_x >= 12'd456) && (i_pixel_x <= 12'd535) &&
                    (i_pixel_y >= 12'd104) && (i_pixel_y <= 12'd143);
 
+    // ==================================================================
+    // 非避障导航页几何（2026-10-19）
+    //
+    //   屏幕几何真源（与 rtl\ui\nav_free_ctrl.v 头部注释一致，**改一处必须两处同改**）：
+    //     内容区 x 208..1023 × y 0..599；原点 **(412, 300)**；
+    //     纵向 ±5 m 铺满上下各 300 px ⇒ 60 px/m；横向同比例
+    //     ⇒ x 可见 −3400 … +10183 mm、y 可见 −4983 … +5000 mm。
+    //
+    //   ★ 全部是「像素坐标比较」，不用字库、不用乘法：点与绿点都是圆，用离散圆判据。
+    //     不用 dx²+dy² —— 16 个点 × 2 个平方器会把组合路径拉长，而 pixel 域只有 1 拍。
+    // ==================================================================
+    localparam [11:0] NAV_ORG_X = 12'd412;      // 原点像素 x = 208 + 816/4
+    localparam [11:0] NAV_ORG_Y = 12'd300;      // 原点像素 y = 600/2
+
+    // ★ 2026-10-19：避障页与非避障页**共用**同一套状态机与菜单变暗效果
+    wire nav_pg_any = (i_page == PG_NAV_FREE) || (i_page == PG_NAV_OBS);
+    wire nav_ui     = nav_pg_any && i_menu_dim;   // 导航页且处于交互态
+    wire nav_pg     = (i_page == PG_NAV_FREE);    // 只有非避障页有坐标系/准心/点
+
+    // ---- 坐标轴：只画轴、不画网格；都延伸到画面边缘 ----
+    //   x 轴 y=300，从菜单右缘 208 到 1023；y 轴 x=412，全高 0..599。
+    wire nav_axis_x = nav_pg && (i_pixel_y == NAV_ORG_Y) && (i_pixel_x >= MENU_W);
+    wire nav_axis_y = nav_pg && (i_pixel_x == NAV_ORG_X);
+
+    // ---- 已记录点：直径 **6 px**（2026-10-19 需求方上调）圆 = 29 px 离散圆 ----
+    //   |dy|=0→|dx|≤3；|dy|=1→≤2；|dy|=2→≤2；|dy|=3→=0
+    wire [15:0] nav_pt_hit;
+    genvar gi;
+    generate
+        for (gi = 0; gi < 16; gi = gi + 1) begin : g_navpt
+            wire signed [12:0] ndx = $signed({1'b0, i_pixel_x}) - $signed({1'b0, i_pt_px[gi*10 +: 10]});
+            wire signed [12:0] ndy = $signed({1'b0, i_pixel_y}) - $signed({1'b0, i_pt_py[gi*10 +: 10]});
+            wire [12:0] adx = ndx[12] ? (13'd0 - ndx) : ndx;
+            wire [12:0] ady = ndy[12] ? (13'd0 - ndy) : ndy;
+            assign nav_pt_hit[gi] = i_pt_v[gi] &&
+                   (((ady == 13'd0) && (adx <= 13'd3)) ||
+                    ((ady == 13'd1) && (adx <= 13'd2)) ||
+                    ((ady == 13'd2) && (adx <= 13'd2)) ||
+                    ((ady == 13'd3) && (adx == 13'd0)));
+        end
+    endgenerate
+    wire nav_point = nav_pg && (|nav_pt_hit);
+
+    // ---- 车绿点：直径 **12 px**（2026-10-19 需求方上调）圆 = 113 px 离散圆 ----
+    //   |dy|=0→|dx|≤6；1..3→≤5；4→≤4；5→≤3；6→=0
+    //   ★ 仍用比较式而不是 dx²+dy²：pixel 域只有 1 拍，乘法会把这条路径拉长。
+    wire signed [12:0] cdx = $signed({1'b0, i_pixel_x}) - $signed({1'b0, i_car_px});
+    wire signed [12:0] cdy = $signed({1'b0, i_pixel_y}) - $signed({1'b0, i_car_py});
+    wire [12:0] cadx = cdx[12] ? (13'd0 - cdx) : cdx;
+    wire [12:0] cady = cdy[12] ? (13'd0 - cdy) : cdy;
+    wire nav_car = nav_pg &&
+                   (((cady == 13'd0) && (cadx <= 13'd6)) ||
+                    ((cady == 13'd1) && (cadx <= 13'd5)) ||
+                    ((cady == 13'd2) && (cadx <= 13'd5)) ||
+                    ((cady == 13'd3) && (cadx <= 13'd5)) ||
+                    ((cady == 13'd4) && (cadx <= 13'd4)) ||
+                    ((cady == 13'd5) && (cadx <= 13'd3)) ||
+                    ((cady == 13'd6) && (cadx == 13'd0)));
+
+    // ---- 十字准心：1 px 粗、臂长 **10 px**（总宽 21 px）----
+    //   ★ 2026-10-19：绿点从 6 px 增到 12 px 后，原臂长 8（总 17）只比绿点宽 2.5 px，
+    //     准心落在绿点上时几乎看不见 —— 加到 10 后每侧伸出 4 px，两者都清晰。
+    wire signed [12:0] kdx = $signed({1'b0, i_pixel_x}) - $signed({1'b0, i_cur_px});
+    wire signed [12:0] kdy = $signed({1'b0, i_pixel_y}) - $signed({1'b0, i_cur_py});
+    wire [12:0] kadx = kdx[12] ? (13'd0 - kdx) : kdx;
+    wire [12:0] kady = kdy[12] ? (13'd0 - kdy) : kdy;
+    wire nav_cross = nav_pg &&
+                     (((kady == 13'd0) && (kadx <= 13'd10)) ||
+                      ((kadx == 13'd0) && (kady <= 13'd10)));
+
+    // ---- 右下角辅助菜单窗口（背景 832..1023 × 414..599；项框 420 + sel*36，高 36）----
+    wire [11:0] nav_aux_top = NAV_AUX_Y0 + i_aux_sel * NAV_AUX_STEP;
+    wire nav_aux_bg = nav_pg &&
+        (i_pixel_x >= 12'd832) && (i_pixel_x <= 12'd1023) &&
+        (i_pixel_y >= 12'd414) && (i_pixel_y <= 12'd599);
+    wire nav_aux_hi = nav_pg &&
+        (i_pixel_x >= 12'd832) && (i_pixel_x <= 12'd1023) &&
+        (i_pixel_y >= nav_aux_top) && (i_pixel_y < (nav_aux_top + NAV_AUX_STEP));
+
     // ------------------------------------------------------------------
     // 图层与颜色
     // ------------------------------------------------------------------
@@ -678,8 +844,15 @@ module ui_render #(
         //       屏幕光标档（i_ui_mode=1）→ 保持原有 24'h202020
         //     判据用 i_ui_mode 而不是状态栏文案：急停/无信号/请回中位时状态栏显示的是
         //     别的词，但"当前处于哪个模式"没变，底色应始终反映模式。
-        if (in_status_bar)      rgb = (i_ui_mode == 2'd0) ? 24'h660000 : 24'h202020;
-        else if (in_menu_bar)   rgb = 24'h101828;
+        //   ★ 2026-10-19：非避障导航页进入寻点运行态时，状态栏底色**变绿**
+        //     （需求方指示；24'h006600 与手动档 24'h660000 同强度、只换通道）。
+        //   ★ 同一页里菜单栏**变暗**：摇杆此时控制准心、不再切菜单，用亮度提示。
+        //   三态底色（2026-10-19）：导航暂停 994D00（浅橙）> 导航中 006600（绿）
+        //                          > 手动 660000（深红）> 光标档 202020
+        if (in_status_bar)      rgb = (nav_ui && i_nav_paused) ? 24'h994D00
+                                    : (nav_ui && i_nav_run)    ? 24'h006600
+                                    : ((i_ui_mode == 2'd0) ? 24'h660000 : 24'h202020);
+        else if (in_menu_bar)   rgb = nav_ui ? 24'h0B1019 : 24'h101828;
         else                    rgb = 24'h000000;
 
         // 1b) 轮速文本框底色（盖在内容区黑底之上；文字与车图仍在其上）
@@ -691,11 +864,20 @@ module ui_render #(
         // 2) 菜单选中高亮
         if (menu_sel_band)      rgb = 24'h1D4ED8;
 
+        // 2b) 非避障导航页：辅助菜单窗口底 / 选中项底 / 坐标轴 / 已记录点 / 车绿点
+        //     ★ 全部排在「大字 / 数字」之前 —— 文字压在它们上面才可读；
+        //       只有十字准心放到最后（见 6b），保证准心永远可见。
+        if (nav_aux_bg)                rgb = 24'h101828;
+        if (nav_aux_hi)                rgb = 24'h1D4ED8;
+        if (nav_axis_x || nav_axis_y)  rgb = 24'h5A6470;   // 轴：中性灰蓝，不与白点混淆
+        if (nav_point)                 rgb = 24'hFFFFFF;   // 已记录点
+        if (nav_car)                   rgb = 24'h00C000;   // 车绿点（暗一档：纯绿 00FF00 上叠白十字对比不足）
+
         // 3) 大字（菜单 / 状态栏 / 中文标签 / 占位提示）
         if (lg_glyph) begin
             if (in_status_bar)                      rgb = 24'hFFFFFF;   // 状态栏：白
-            else if (in_menu_bar && menu_sel_band)  rgb = 24'hFFE066;   // 选中项：亮黄
-            else if (in_menu_bar)                   rgb = 24'hE5E7EB;   // 未选中菜单：浅灰
+            else if (in_menu_bar && menu_sel_band)  rgb = nav_ui ? 24'h8A7A2E : 24'hFFE066;   // 选中项
+            else if (in_menu_bar)                   rgb = nav_ui ? 24'h5A6170 : 24'hE5E7EB;   // 未选中
             else                                    rgb = 24'hFFFFFF;   // 标签/占位：白
         end
 
@@ -704,6 +886,9 @@ module ui_render #(
         //     ROM 源是**标签的符号后缀**（如「/°」「/rpm」，应与中文同为白色）。
         //     若不加这个区分，后缀会被画成绿色，与同一行的中文标签不同色。
         if (sm_glyph || sm_dot)                     rgb = sm_src_d1 ? 24'hFFFFFF : 24'h7CFC98;
+
+        // 6b) 非避障导航页：十字准心（最上层）
+        if (nav_cross)                              rgb = 24'hFFFFFF;
 
         // 5) 数据页小车俯视简笔图（白色 = 与标签文字同色；放最后 = 最上层）
         if (car_pix)                                rgb = 24'hFFFFFF;

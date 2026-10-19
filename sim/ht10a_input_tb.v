@@ -87,7 +87,7 @@ module ht10a_input_tb;
         @(negedge clk);rst_n=1;#100;
         check("no initial pulses is invalid before timeout",good,0);
         // Startup/reconnect with switches already held must NOT click or drive.
-        settled(1500,2000,2000,2000,1000,2000);
+        settled(1500,2000,2000,1000,2000,2000);
         check("valid capture on five judged channels",good,1);check("manual acquired",mode,0);
         check("startup noncenter throttle cannot arm",enable,0);check("arming hint",hint,1);
         check("held startup confirm suppressed",confirms,0);check("manual menu suppressed",ups+downs,0);
@@ -118,16 +118,16 @@ module ht10a_input_tb;
         settled(1500,2000,1000,1000,1000,1000);estop=0;#2;
         check("estop recovery noncenter blocked",enable,0);
         settled(1500,1500,1000,1000,1000,1000);
-        settled(1500,1500,1000,1000,2000,1000);
+        settled(1500,1500,1000,2000,1000,1000);
         check("CH6 cursor mode",mode,1);check("cursor cannot drive",enable,0);
         before_u=ups;before_d=downs;
-        settled(1500,2000,1000,1000,2000,1000);
+        settled(1500,2000,1000,2000,1000,1000);
         check("CH2 cursor up once",ups-before_u,1);check("cursor up does not down",downs-before_d,0);
-        settled(1500,2000,1000,1000,2000,1000);check("held stick no repeat",ups-before_u,1);
-        settled(1500,1000,1000,1000,2000,1000);check("endpoint jump is not recenter",downs-before_d,0);
-        settled(1500,1500,1000,1000,2000,1000);
-        settled(1500,1000,1000,1000,2000,1000);check("center then down once",downs-before_d,1);
-        settled(1500,1500,1000,1000,2000,1000);
+        settled(1500,2000,1000,2000,1000,1000);check("held stick no repeat",ups-before_u,1);
+        settled(1500,1000,1000,2000,1000,1000);check("endpoint jump is not recenter",downs-before_d,0);
+        settled(1500,1500,1000,2000,1000,1000);
+        settled(1500,1000,1000,2000,1000,1000);check("center then down once",downs-before_d,1);
+        settled(1500,1500,1000,2000,1000,1000);
         before_s=selects;before_c=confirms;
         // ★ 2026-10-16：无"返回"按钮 —— CH7（J6.4/bit3）改作 **select**，CH8（J6.6/bit5）闲置。
         settled(1500,1500,2000,2000,2000,2000);
@@ -142,37 +142,37 @@ module ht10a_input_tb;
         //     (b) 只按 confirm（CH5）→ confirms +1、selects 不变
         //   （settled 的参数顺序：w4=CH4 转向 / w2=CH2 油门 / w5=CH5 确认 /
         //     w7=CH7 select / w6=CH6 模式 / w8=CH8 闲置）
-        settled(1500,1500,1000,1000,2000,1000);          // 先回中：让两个按钮都回到"未按"
+        settled(1500,1500,1000,2000,1000,1000);          // 先回中：让两个按钮都回到"未按"
         before_s=selects;before_c=confirms;
         settled(1500,1500,1000,2000,2000,1000);          // 只按 CH7 = select
         check("select press does not click confirm",confirms-before_c,0);
         check("select press still clicks select",selects-before_s,1);
-        settled(1500,1500,1000,1000,2000,1000);          // 释放 select
+        settled(1500,1500,1000,2000,1000,1000);          // 释放 select
         before_s=selects;before_c=confirms;
-        settled(1500,1500,2000,1000,2000,1000);          // 只按 CH5 = confirm
+        settled(1500,1500,2000,2000,1000,1000);          // 只按 CH5 = confirm
         check("confirm press does not click select",selects-before_s,0);
         check("confirm press still clicks confirm",confirms-before_c,1);
-        settled(1500,1500,1000,1000,2000,1000);          // 释放 confirm
-        settled(1500,1500,1000,1000,2000,1000);
+        settled(1500,1500,1000,2000,1000,1000);          // 释放 confirm
+        settled(1500,1500,1000,2000,1000,1000);
         before_c=confirms;
-        frame(1500,1500,2000,1000,2000,1000);
-        frame(1500,1500,1000,1000,2000,1000);check("one frame switch glitch ignored",confirms,before_c);
+        frame(1500,1500,2000,2000,1000,1000);
+        frame(1500,1500,1000,2000,1000,1000);check("one frame switch glitch ignored",confirms,before_c);
         settled(1500,1500,1000,1000,1000,1000);check("manual baseline before hysteresis",mode,0);
-        settled(1500,1500,1000,1000,1310,1000);check("mode hysteresis near 1300 holds manual",mode,0);
-        settled(1500,1500,1000,1000,1400,1000);check("mode leaves manual past hysteresis",mode,1);
+        settled(1500,1500,1000,1310,1000,1000);check("mode hysteresis near 1300 holds manual",mode,0);
+        settled(1500,1500,1000,1400,1000,1000);check("mode leaves manual past hysteresis",mode,1);
         // Invalid *auxiliary* input also invalidates and zeros both driving commands.
-        settled(2000,2000,1000,1000,2000,1000);
-        frame(2000,2000,500,1000,2000,1000);
+        settled(2000,2000,1000,2000,1000,1000);
+        frame(2000,2000,500,2000,1000,1000);
         check("illegal auxiliary pulse invalidates whole input",good,0);
         check("invalid auxiliary zeros steer",steer,0);check("invalid auxiliary zeros throttle",throttle,0);
         check("invalid mode safe cursor",mode,1);
         settled(2000,2000,2000,2000,2000,2000);
         check("reconnect held confirm no phantom",confirms,before_c);
         // Recover through release, then a real press is accepted again.
-        settled(1500,1500,1000,1000,2000,1000);before_c=confirms;
-        settled(1500,1500,2000,1000,2000,1000);check("release then press after reconnect",confirms-before_c,1);
+        settled(1500,1500,1000,2000,1000,1000);before_c=confirms;
+        settled(1500,1500,2000,2000,1000,1000);check("release then press after reconnect",confirms-before_c,1);
         #11000;check("timeout invalid",good,0);check("timeout zeros command",throttle,0);check("timeout stops drive",enable,0);
-        before_c=confirms;settled(1500,1500,2000,1000,2000,1000);
+        before_c=confirms;settled(1500,1500,2000,2000,1000,1000);
         check("timeout reconnect held button no phantom",confirms,before_c);
         // Clock continues but a stuck-high CH4 must invalidate, not wrap into legality.
         @(negedge clk);ch4=1;#2200;
@@ -186,10 +186,10 @@ module ht10a_input_tb;
         before_s=cal_selects;
         // active-low 语义下 ch7=1000 就是"按住"；必须先让它释放（高档）再按下才应产生脉冲
         //   —— 这正是"幽灵点击防护"的设计意图，原用例直接按住会被正确抑制。
-        settled(1480,1520,1000,2000,1000,1000);      // w7=2000：ch7 回高档 = 释放（active-low 语义下）
+        settled(1480,1520,1000,1000,2000,1000);      // w7=2000：ch7 回高档 = 释放（active-low 语义下）
         settled(1480,1520,1000,1000,1000,1000);
         check("active low select",cal_selects-before_s,1);
-        settled(1480,1520,1000,1000,2000,1000);check("mode reverse high is manual",cal_mode,0);
+        settled(1480,1520,1000,2000,1000,1000);check("mode reverse high is manual",cal_mode,0);
         // ★ 2026-10-16 措施②：CH8（bit5）**闲置未接**，已由 SIG_VALID_MASK=6'b011111 排除出判定。
         //   （原写 6'b101111 —— 那排除的是 bit4 模式通道，与本意差一位，已改正。）
         //   它超时**不能**再拖死整车（否则 o_signal_valid 恒 0 → 车永不能动、只报"无信号"）。

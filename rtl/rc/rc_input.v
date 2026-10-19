@@ -27,6 +27,8 @@ module rc_input #(
     // 通道映射：零起始的 **J6 槽位索引**，不是接收机通道号
     //   bit0 转向 / bit1 油门 / bit2 确认 / **bit3 select**（原"返回"键位）/ bit4 模式 / bit5 闲置
     parameter integer CH_STEER=0, CH_THROTTLE=1, CH_CONFIRM=2, CH_MODE=4, CH_SELECT=3,
+    // ★ 2026-10-19：CH_AUX = 辅助菜单上下切的三档开关（槽位 5 = J6.6 = CH8）
+    parameter integer CH_AUX=5, AUX_SWAP=0,
     // 参与"信号有效"判定的通道掩码（位 i = 通道 i）。本车 = 6'b011111（排除闲置的 bit5）。
     //   ★ 2026-10-16 修正：原写成 6'b101111 —— 那是**排除 bit4（模式通道）**，
     //     与本意的"排除闲置的 bit5"刚好错一位；按 6'b101111 接线上板时，
@@ -44,6 +46,10 @@ module rc_input #(
     output reg [1:0] o_mode,
     output reg o_btn_select, o_btn_confirm,
     output reg o_menu_up, o_menu_down,
+    // ★ 2026-10-19：确认键所在通道改为**三档开关**（下=确认、上=返回），
+    //   另加一路三档开关做辅助菜单上下切。两路都只产出**单拍脉冲**（沿触发）。
+    output reg o_back,
+    output reg o_aux_up, o_aux_down,
     output wire o_signal_valid,
     output wire [NUM_CH*16-1:0] o_chan_us,
     output wire [NUM_CH-1:0] o_chan_timeout, o_chan_valid
@@ -153,8 +159,22 @@ module rc_input #(
         end
     end endgenerate
     wire select_down=SELECT_ACTIVE_LOW ? position[CH_SELECT]==0 : position[CH_SELECT]==2;
-    wire confirm_down=CONFIRM_ACTIVE_LOW ? position[CH_CONFIRM]==0 : position[CH_CONFIRM]==2;
-    reg select_armed, confirm_armed;
+    // ★ 2026-10-19：CH_CONFIRM 由"按钮"升级为**三档开关**：
+    //   CONFIRM_ACTIVE_LOW=0（默认）→ 高电平(=2)侧为「确认」，低电平(=0)侧为「返回」
+    //   CONFIRM_ACTIVE_LOW=1         → 反过来
+    //   中位(=1)两侧都不成立，不产生任何事件。
+    //   ★ 物理上"哪个方向是下拨"由开关极性决定，所以在 ht10a_input / falcons_top
+    //     的例化处用 CONFIRM_ACTIVE_LOW 标定，不要改这里的逻辑。
+    wire confirm_hi = (position[CH_CONFIRM]==2);
+    wire confirm_lo = (position[CH_CONFIRM]==0);
+    wire confirm_yes  = CONFIRM_ACTIVE_LOW ? confirm_lo : confirm_hi;
+    wire confirm_back = CONFIRM_ACTIVE_LOW ? confirm_hi : confirm_lo;
+    // 辅助菜单三档：上=up、下=down；AUX_SWAP=1 时交换
+    wire aux_hi = (position[CH_AUX]==2);
+    wire aux_lo = (position[CH_AUX]==0);
+    wire aux_is_up   = AUX_SWAP ? aux_lo : aux_hi;
+    wire aux_is_down = AUX_SWAP ? aux_hi : aux_lo;
+    reg select_armed, confirm_armed, back_armed, auxu_armed, auxd_armed;
     reg menu_armed;
     wire signed [11:0] menu_value=MENU_REVERSE ? -throttle_unreversed : throttle_unreversed;
     wire mode_manual=MODE_REVERSE ? (position[CH_MODE]==2) : (position[CH_MODE]==0);
@@ -164,14 +184,18 @@ module rc_input #(
             o_mode<=1; o_btn_select<=0; o_btn_confirm<=0;
             o_menu_up<=0; o_menu_down<=0;
             select_armed<=0; confirm_armed<=0; menu_armed<=0;
+            back_armed<=0; auxu_armed<=0; auxd_armed<=0;
+            o_back<=0; o_aux_up<=0; o_aux_down<=0;
         end else begin
             o_btn_select<=0; o_btn_confirm<=0;
             o_menu_up<=0; o_menu_down<=0;
+            o_back<=0; o_aux_up<=0; o_aux_down<=0;
             if (!o_signal_valid || !switch_ready[CH_MODE]) o_mode<=1;
             else if (MODE_REVERSE) o_mode<=(position[CH_MODE]==2) ? 0 : 1;
             else o_mode<=(position[CH_MODE]==0) ? 0 : 1;
             if (!cursor_ready) begin
                 select_armed<=0; confirm_armed<=0; menu_armed<=0;
+                back_armed<=0; auxu_armed<=0; auxd_armed<=0;
             end else begin
                 // Require a verified release after reset/loss/mode entry; held buttons never create phantom clicks.
                 // select 现在接在原"返回"键位（J6.4 / bit3）上；bit5 闲置、无事件
@@ -179,9 +203,19 @@ module rc_input #(
                     if (!select_down) select_armed<=1;
                     else if (select_armed) begin o_btn_select<=1; select_armed<=0; end
                 end
+                // 确认 / 返回：同一路三档的两侧各一个沿触发
                 if (switch_ready[CH_CONFIRM]) begin
-                    if (!confirm_down) confirm_armed<=1;
-                    else if (confirm_armed) begin o_btn_confirm<=1; confirm_armed<=0; end
+                    if (!confirm_yes) confirm_armed<=1;
+                    else if (confirm_armed && confirm_yes) begin o_btn_confirm<=1; confirm_armed<=0; end
+                    if (!confirm_back) back_armed<=1;
+                    else if (back_armed && confirm_back) begin o_back<=1; back_armed<=0; end
+                end
+                // 辅助菜单：上/下各一个沿触发
+                if (switch_ready[CH_AUX]) begin
+                    if (!aux_is_up)   auxu_armed<=1;
+                    else if (auxu_armed && aux_is_up) begin o_aux_up<=1; auxu_armed<=0; end
+                    if (!aux_is_down) auxd_armed<=1;
+                    else if (auxd_armed && aux_is_down) begin o_aux_down<=1; auxd_armed<=0; end
                 end
                 // A sampled center is required; jumping directly between endpoints is NOT a release.
                 if (menu_value>=-MENU_IDLE_TH && menu_value<=MENU_IDLE_TH) menu_armed<=1;

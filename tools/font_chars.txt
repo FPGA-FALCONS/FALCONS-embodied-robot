@@ -40,6 +40,14 @@ AUX_CLEAR_ALL:清除所有路径点
 AUX_POINT_GAP:间断寻点
 AUX_POINT_CONT:非间断寻点
 
+# ---- 非避障导航页：右上角准心坐标的前后缀（2026-10-19 需求方给的样例：x:  2.60m）----
+#   ★ 全是 ASCII，不新增汉字，字符集仍是 233；只多 3 条文案。
+#   ★ 数值本身仍是 num_text 的 5 字符字段（符号 + 4 位），所以「x:」后会出现两个空格
+#     （一个分隔 + 一个符号位空格），与样例 "x:  2.60m" 一致。
+NAV_COORD_X:x:
+NAV_COORD_Y:y:
+NAV_COORD_M:m
+
 # ---- 车身数据页标签 ----
 LBL_YAW:航向角
 LBL_GYRO:角速度
@@ -105,6 +113,8 @@ ST_STALL:堵转
 ST_NOSIGNAL:无信号
 ST_ARRIVED:已到达
 ST_RUNNING:导航中
+# ★ 2026-10-19：导航中按返回 → 暂停；状态栏显示此文案、底色浅橙 24'h994D00
+ST_PAUSED:导航暂停
 ST_ERROR:错误
 ST_WAITING:等待
 ST_CALIB:标定中

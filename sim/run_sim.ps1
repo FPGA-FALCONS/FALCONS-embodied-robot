@@ -142,6 +142,7 @@ $sources = @(
     "$ProjectRoot\rtl\debug\speed_report.v",
     "$ProjectRoot\rtl\ui\num_text.v",
     "$ProjectRoot\rtl\ui\ui_render.v",
+"$ProjectRoot\rtl\ui\nav_free_ctrl.v",
     # 测试平台
     "$PSScriptRoot\rc_input_tb.v",
     "$PSScriptRoot\rc_led_test_tb.v",
@@ -151,6 +152,7 @@ $sources = @(
     "$PSScriptRoot\chassis_ctrl_tb.v",
     "$PSScriptRoot\num_text_tb.v",
     "$PSScriptRoot\ui_render_tb.v",
+"$PSScriptRoot\nav_free_tb.v",
     "$PSScriptRoot\speed_report_tb.v",
     # 航位推算（2026-10-18 新增）
     "$ProjectRoot\rtl\odom\sin_lut_rom.v",
@@ -166,7 +168,8 @@ $tests = @(
     @{ Name = 'rc_input';     Top = 'rc_input_tb';     Desc = '遥控槽位映射：归一化/死区/模式两档/按钮 select+confirm/丢信号/取反/摇杆拨动/掩码有效性' },
     @{ Name = 'chassis_ctrl'; Top = 'chassis_ctrl_tb'; Desc = '★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算' },
     @{ Name = 'num_text';     Top = 'num_text_tb';     Desc = '实时数值格式化（9 字段、负数、前导空格、饱和）' },
-    @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮随 menu_sel/状态栏/光标档文案/动态数值/占位页' },
+    @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮随 menu_sel/状态栏/光标档文案/动态数值/占位页/非避障导航页' },
+    @{ Name = 'nav_free';     Top = 'nav_free_tb';     Desc = '非避障导航页：准心/钳位/点表/辅助菜单/三态寻点状态机' },
     @{ Name = 'speed_report'; Top = 'speed_report_tb'; Desc = '串口 CSV 上行：12 列格式/负数/边界/大数' },
     @{ Name = 'odom';      Top = 'odom_tb';      Desc = '★ 航位推算：静止/直行位移/航向参与/角度解缠' }
 )

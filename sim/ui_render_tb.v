@@ -40,6 +40,15 @@ module ui_render_tb;
     reg         estop_i = 1'b0, sigok_i = 1'b1;
     reg         armhint_i = 1'b0;           // A1：启动门禁提示（"请回中位"）
     reg  [2:0]  menusel = 3'd0;             // 菜单高亮项（两段式：摇杆改它、确认才换页）
+    // ★ 2026-10-19 非避障导航页输入（测试里手工驱动，默认放在原点）
+    reg         navrun_i = 1'b0;
+    reg         navpz_i  = 1'b0;      // 导航暂停
+    reg         menudim_i = 1'b0;     // 导航页交互态（菜单变暗）
+    reg  [2:0]  auxsel_i = 3'd0;
+    reg  [9:0]  carpx_i  = 10'd412, carpy_i = 10'd300;
+    reg  [9:0]  curpx_i  = 10'd412, curpy_i = 10'd300;
+    reg  [159:0] ptpx_i  = 160'd0,  ptpy_i  = 160'd0;
+    reg  [15:0]  ptv_i   = 16'd0;
 
     wire [23:0] rgb;
     wire [5:0]  dyn_raddr;
@@ -101,6 +110,17 @@ module ui_render_tb;
         .i_signal_ok    (sigok_i),
         .i_arm_hint     (armhint_i),
         .i_menu_sel     (menusel),
+        .i_nav_run      (navrun_i),
+        .i_nav_paused   (navpz_i),
+        .i_menu_dim     (menudim_i),
+        .i_aux_sel      (auxsel_i),
+        .i_car_px       (carpx_i),
+        .i_car_py       (carpy_i),
+        .i_cur_px       (curpx_i),
+        .i_cur_py       (curpy_i),
+        .i_pt_px        (ptpx_i),
+        .i_pt_py        (ptpy_i),
+        .i_pt_v         (ptv_i),
         .o_dyn_raddr    (dyn_raddr),
         .i_dyn_rdata    (dyn_rdata)
     );
@@ -762,13 +782,17 @@ module ui_render_tb;
         page = 3'd3; repeat (4) @(posedge pixel_clk);
         check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_NAV_LEN, UI_TXT_PLACEHOLDER_NAV_ADDR,
                      24'hFFFFFF, "ph_p3_nav_obs");
+        // ★ 2026-10-19：非避障导航页已实现（坐标系/准心/辅助菜单），不再有占位文案
         page = 3'd4; repeat (4) @(posedge pixel_clk);
-        check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_NAV_LEN, UI_TXT_PLACEHOLDER_NAV_ADDR,
-                     24'hFFFFFF, "ph_p4_nav_free");
+        cnt_ph = 0; scan(256, 272);
+        check_zero("ph_p4_none", cnt_ph);   // 导航页已实现，占位区必须为空
 
         //   反向断言：占位页不得出现车图（车图只在 page 0）
+        //   ★ 不能用 page 4 做这条：非避障导航页本身会画**白色十字准心**（约 33 px），
+        //     会被 scan_car 当成"白色像素"。所以移到仍未实现的 page 3（避障导航）。
+        page = 3'd3; repeat (4) @(posedge pixel_clk);
         scan_car;
-        check_zero("car_absent_on_page4", cnt_car);
+        check_zero("car_absent_on_page3", cnt_car);
 
         // ---------------- A1 启动门禁提示（请回中位）----------------
         //   判据用【状态栏白字像素数】对比（不比较具体汉字，只比较字数）：
