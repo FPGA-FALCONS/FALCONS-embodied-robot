@@ -131,6 +131,10 @@ module chassis_ctrl_tb;
             @(posedge clk);
             i_delta_valid = 1'b0;
             @(posedge clk);
+            // ★ 2026-10-19：speed_pid 加了一级误差锁存（err_lim_r / fb_valid_d1），
+            //   o_u 由“fb_valid 当拍更新”变成“下一拍更新”，duty 再比 o_u 晚一拍。
+            //   所以这里多等一拍，让 duty 在本轮窗口内稳定后再检查。
+            @(posedge clk);
         end
     endtask
 

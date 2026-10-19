@@ -12,7 +12,10 @@
 | 5 | **CH8** | **三档** | **上拨=辅助菜单向上；下拨=向下**（无辅助菜单的页面无效果） |
 
 ★ 整车例化显式覆盖（`falcons_top.v` 的 `u_rc`）：`SIG_VALID_MASK(6'b111111)`、
-`CONFIRM_ACTIVE_LOW(1)`、`MODE_REVERSE(0)`、`AUX_SWAP(0)`。
+`CONFIRM_ACTIVE_LOW(0)`、`MODE_REVERSE(0)`、`AUX_SWAP(1)`。
+> ★ **2026-10-19 上板标定**：初版是 `CONFIRM_ACTIVE_LOW(1)` / `AUX_SWAP(0)`，实测两个三档开关
+> **上下方向全反**（下拨成了"返回"、CH8 下拨成了"向上切"），已双双取反。
+> **`(0)` / `(1)` 现在就是实测值**，不要凭初值改回去。
 **上板标定顺序**：先确认 CH5 下拨能产生"确认"（菜单能进页面）；再确认 CH7 上/下拨
 对应手动/光标（状态栏底色跟着变）；最后确认 CH8 上/下拨能切换辅助菜单高亮。
 任一方向反了，只改对应的一个参数（`CONFIRM_ACTIVE_LOW` / `MODE_REVERSE` / `AUX_SWAP`），

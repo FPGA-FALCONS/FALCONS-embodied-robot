@@ -98,15 +98,42 @@ module speed_pid #(
     reg signed [15:0] e1, e2;
 
     //---------------------------------------------------------------
+    // ★ 2026-10-19 时序修复：误差锁存级（流水级 1）
+    //   原路径 i_setpoint/i_feedback -> err_raw -> err_lim -> d1/d2 -> du_sum
+    //   -> u_next -> o_u 是一条 20.82 ns 的组合链（50 MHz 只有 20 ns），
+    //   2026-10-19 综合里 slack = -0.857，落在 i_clk_50m 同域。
+    //   处理办法：把误差锁存一拍，后面的增量计算全部改用 err_lim_r。
+    //   ★ 数据配对靠 fb_valid_d1：i_fb_valid 是 1 kHz 单拍脉冲，
+    //     它在第 k 拍到达时，err_lim_r 要到第 k+1 拍才拿到本帧误差，
+    //     所以 o_u 也在第 k+1 拍更新 —— 环仍是 1 kHz，只多 20 ns 延迟。
+    //---------------------------------------------------------------
+    reg signed [15:0] err_lim_r;
+    reg               fb_valid_d1;
+
+    always @(posedge i_clock or negedge i_reset_n) begin
+        if (!i_reset_n) begin
+            err_lim_r   <= 16'sd0;
+            fb_valid_d1 <= 1'b0;
+        end else if (!i_enable) begin
+            err_lim_r   <= 16'sd0;
+            fb_valid_d1 <= 1'b0;
+        end else begin
+            err_lim_r   <= err_lim;
+            fb_valid_d1 <= i_fb_valid;
+        end
+    end
+
+    //---------------------------------------------------------------
     // 增量计算（组合逻辑，一个时钟沿打入）
     //   d1 = e(k) - e(k-1)
     //   d2 = e(k) - 2e(k-1) + e(k-2)
+    //   注：这里的 e(k) 用流水后的 err_lim_r（本帧误差）
     //---------------------------------------------------------------
-    wire signed [16:0] d1 = err_lim - e1;
-    wire signed [17:0] d2 = err_lim - (e1 <<< 1) + e2;
+    wire signed [16:0] d1 = err_lim_r - e1;
+    wire signed [17:0] d2 = err_lim_r - (e1 <<< 1) + e2;
 
     // 8 位小数（Q8）定点乘加：总和右移 8 位即得整数增量
-    wire signed [39:0] du_sum = (i_kp * d1) + (i_ki * err_lim) + (i_kd * d2);
+    wire signed [39:0] du_sum = (i_kp * d1) + (i_ki * err_lim_r) + (i_kd * d2);
     wire signed [39:0] du     = du_sum >>> 8;
 
     //---------------------------------------------------------------
@@ -143,12 +170,13 @@ module speed_pid #(
             o_sat <= 1'b0;
             e1    <= 16'sd0;
             e2    <= 16'sd0;
-        end else if (i_fb_valid) begin
+        end else if (fb_valid_d1) begin
+            // ★ 用流水后的 fb_valid_d1：此时 err_lim_r 已是本帧误差
             o_u   <= u_next;
-            o_err <= err_lim;
+            o_err <= err_lim_r;
             o_sat <= sat_now;
             e2    <= e1;
-            e1    <= err_lim;
+            e1    <= err_lim_r;
         end
     end
 

@@ -352,6 +352,23 @@ module nav_free_tb;
         chk_int("back_from_paused_exits", nav_ui, 0, 0);
         chk_int("exit_state_setup",       nav_state, 0, 0);
 
+        // 12.1 退出交互态后**立即**按确认 → 重新进入交互态，且不得误启动导航
+        //   （2026-10-19 上板 bug：原来只有 page 进入上升沿能置 ui_active，
+        //     退出后 page 没变 → 必须先切到别的页面再回来才能重进）
+        //   此刻点表仍有 1 个点、aux_sel=2（间断寻点）—— 最容易被误启动的组合
+        $display("-- 12.1. 退出后立即按确认：重进交互态，且不误启动导航 --");
+        chk_int("reenter_pre_ui",    nav_ui,    0, 0);
+        chk_int("reenter_pre_state", nav_state, 0, 0);
+        pulse_confirm;
+        chk_int("reenter_ui",        nav_ui,    1, 0);
+        chk_int("reenter_state",     nav_state, 0, 0);
+        chk_int("reenter_not_run",   nav_run,   0, 0);
+
+        // 12.2 重进后功能恢复正常：点表非空且选中"间断寻点"→ 再按确认应能开跑
+        pulse_confirm;
+        chk_int("reenter_then_run",  nav_run,   1, 0);
+        chk_int("reenter_mode_gap",  nav_mode,  0, 0);
+
         // 13. S2 清零
         $display("-- 13. S2 清零 → 点表清空、准心回 0 --");
         @(posedge clk); clear <= 1'b1;

@@ -307,16 +307,23 @@ module nav_free_ctrl #(
     //    RUNNING 下确认/select 一律无效：原文没有"暂停寻点"，退出靠独立返回键
     // ------------------------------------------------------------------
     // ---- 导航页交互态（菜单锁 / 状态栏都靠它）----
-    //   ★ 置 1：`enter`（从菜单确认进入导航页的那一刻）
+    //   ★ 置 1：① `enter`（从菜单确认进入导航页的那一刻）
+    //           ② `reenter`（已在本页、已退出交互态，再按一次确认）
     //   ★ 清 0：page 切走 / S2 清零 / 按返回且在 SETUP 或 PAUSED
     //   ★ 在 RUNNING 时按返回**不清**，因为那是"暂停"，不是退出。
+    //   ★★ 2026-10-19 修 bug：原来只有 `enter` 能置 1，而 `enter` 是
+    //      "page 进入本页的上升沿"（i_active & ~active_d）。退出交互态后 page 没变，
+    //      active_d 一直为 1 → enter 再也不会产生 → **必须先切到别的页面再回来**
+    //      才能重新进入。上板实测就是这个现象。加 `reenter` 修掉。
     reg ui_active;
+    wire reenter = i_active & ~ui_active & i_confirm;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)                  ui_active <= 1'b0;
         else if (i_clear)            ui_active <= 1'b0;
         else if (!i_active)          ui_active <= 1'b0;
         else if (enter)              ui_active <= 1'b1;
         else if (i_back && (o_nav_state != ST_RUNNING)) ui_active <= 1'b0;
+        else if (reenter)            ui_active <= 1'b1;
     end
     assign o_nav_ui_active = ui_active;
     assign o_nav_run       = (o_nav_state == ST_RUNNING);
@@ -342,7 +349,10 @@ module nav_free_ctrl #(
         end else if (i_ctrl_done) begin
             // 导航层报"当前点已到达" → 回 SETUP。本轮 i_ctrl_done 恒 0（未接）。
             o_nav_state <= ST_SETUP;
-        end else if (i_confirm) begin
+        end else if (i_confirm && o_nav_ui_active) begin
+            // ★ 2026-10-19：确认必须**已在交互态**才算"执行辅助菜单项"。
+            //   否则 ui_active=0 时按确认去"重新进入交互态"，会在同一拍被这里当成
+            //   "开始导航"（点到「间断寻点」且点表非空时直接进 RUNNING）——那就是误触发。
             case (o_nav_state)
                 ST_SETUP: begin
                     if (i_is_obs) begin

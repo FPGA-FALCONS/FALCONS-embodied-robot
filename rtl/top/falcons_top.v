@@ -303,7 +303,10 @@ module falcons_top (
         //   这两个"哪个方向算哪档"由开关极性决定，**上板标定时改这两个参数**：
         //     MODE_REVERSE  = 1  → 让高档(宽脉冲)成为手动档
         //     CONFIRM_ACTIVE_LOW / AUX_SWAP → 决定确认与返回、辅助菜单上下的方向
-        .MODE_REVERSE(0), .CONFIRM_ACTIVE_LOW(1), .SELECT_ACTIVE_LOW(0), .AUX_SWAP(0),
+        // ★ 2026-10-19 上板反馈：两个三档开关的上下方向都反了，这里按实测标定。
+        //   原先 CONFIRM_ACTIVE_LOW=1 / AUX_SWAP=0 → 实测下拨成了"返回"、上拨成了"确认"，
+        //   CH8 上拨成了"向下切"、下拨成了"向上切"。两个参数一起取反即可，不动译码逻辑。
+        .MODE_REVERSE(0), .CONFIRM_ACTIVE_LOW(0), .SELECT_ACTIVE_LOW(0), .AUX_SWAP(1),
         .MIN_PULSE_US(900), .MAX_PULSE_US(2100), .TIMEOUT_US(100_000),
         .SW_LO_US(1300), .SW_HI_US(1700), .SW_HYST_US(30), .SW_CONFIRM_FRAMES(2),
         .MENU_STEP_TH(400), .MENU_IDLE_TH(150),
@@ -748,6 +751,26 @@ module falcons_top (
 
     wire signed [31:0] yaw_raw;
     wire               yaw_valid;
+
+    // ★ 2026-10-19 时序修复：gyro 补偿值流水一级
+    //   原路径 gain_r -> 32x32 乘法器 -> o_gyro_z -> u_yaw 内部组合 -> acc 累加器，
+    //   2026-10-19 综合里 slack = -0.992（i_clk_50m 同域，数据延迟 20.17 ns）。
+    //   把补偿值打一拍，拆成两段：
+    //     ① gain_r -> 乘法器 -> gyro_z_comp_r/D   （约 8~10 ns）
+    //     ② gyro_z_comp_r/Q -> u_yaw -> acc/D     （约 6~8 ns）
+    //   ★ 数据配对：i_gyro_z 与 i_sample_valid 必须**同步**延后一拍，
+    //     否则 u_yaw 会在 data_valid 当拍采到上一帧的补偿值。所以 valid 也打一拍。
+    reg signed [31:0] gyro_z_comp_r;
+    reg               imu_data_valid_d1;
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) begin
+            gyro_z_comp_r     <= 32'sd0;
+            imu_data_valid_d1 <= 1'b0;
+        end else begin
+            gyro_z_comp_r     <= gyro_z_comp;
+            imu_data_valid_d1 <= imu_data_valid;
+        end
+    end
     // 注：yaw_clear_r 的声明放在文件前面的"清零信号"处（串口 always 块要用它）
 
     yaw_integrate #(
@@ -758,8 +781,8 @@ module falcons_top (
     ) u_yaw (
         .i_clock        (i_clk_50m),
         .i_reset_n      (sys_rst_n),
-        .i_gyro_z       (gyro_z_comp),      // 已做安装倾斜补偿
-        .i_sample_valid (imu_data_valid),   // ★ 契约③
+        .i_gyro_z       (gyro_z_comp_r),        // 已做安装倾斜补偿（流水一级，见上）
+        .i_sample_valid (imu_data_valid_d1),    // ★ 契约③：与 gyro 同步延后 1 拍
         .i_enable       (1'b1),             // 常使能（航向保持是后续功能）
         .i_clear        (yaw_clear_r),      // S2 / 串口 X 命令清零
         .o_yaw          (yaw_raw),
