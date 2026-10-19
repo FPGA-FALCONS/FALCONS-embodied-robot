@@ -339,6 +339,16 @@ module falcons_top (
     // 3. 运行状态：解锁守卫、急停锁存、页面选择
     // ==================================================================
     wire run_en;         // 底盘使能（由 rc_drive_guard 产生：回中解锁后保持，见下）
+    // ★ 2026-10-19：导航控制层（u_nav_ctrl）的输出线。u_nav_ctrl 在文件后部例化，
+    //   但这些线要在 u_chassis（第 500 多行）就用，所以必须在**这里**声明。
+    //   放后面声明 → Verilog 先按隐式 1 位 net 处理，位宽变 1 位，综合后极难查。
+    wire               nav_auto_valid;
+    wire signed [31:0] nav_auto_center, nav_auto_diff;
+    wire               nav_ctrl_active;      // 导航页 + 交互态
+    wire signed [31:0] nav_dbg_ahead, nav_dbg_left;
+    wire signed [15:0] nav_dbg_psi;
+    wire [4:0]         nav_dbg_idx;
+    wire [2:0]         nav_fsm_state;
     reg estop_latch;     // 急停锁存（S4 切换；ToF 触发也会置位）
     reg [2:0] page;      // 界面【已确认进入】的页面 0=数据 1=摄像头 2=雷达 3=避障导航 4=非避障导航
     reg [2:0] menu_sel;  // 菜单【高亮选中项】（摇杆拨动改它，按确认才赋给 page）
@@ -520,15 +530,19 @@ module falcons_top (
     ) u_chassis (
         .clk          (i_clk_50m),
         .rst_n        (sys_rst_n),
-        .i_enable     (run_en),
+        .i_enable     (run_en | nav_auto_valid),
         .i_estop      (estop_latch | tof_estop),
         .i_manual     (chassis_manual),
         .i_steer      (steer_in),
         .i_throttle   (throttle_in),
-        // 自动导航预留：未接入
-        .i_auto_valid (1'b0),
-        .i_auto_center(32'sd0),
-        .i_auto_diff  (32'sd0),
+        // 自动导航：来自 u_nav_ctrl。
+        //   ★ `chassis_ctrl` 内部 `i_manual ? man_* : (i_auto_valid ? auto_* : 0)`
+        //     已经实现了"手动压制导航"（决策 A3），这里不需要再加门控。
+        //   ★ 暂停时 u_nav_ctrl 给 valid=1、center=diff=0 → 四路 speed_pid 主动把
+        //     轮速拉到 0（主动制动），比"断 PWM 靠滑行"更能保证真的停住。
+        .i_auto_valid (nav_auto_valid),
+        .i_auto_center(nav_auto_center),
+        .i_auto_diff  (nav_auto_diff),
         .i_kp         (kp_r),
         .i_ki         (ki_r),
         .i_kd         (kd_r),
@@ -690,6 +704,27 @@ module falcons_top (
     wire               imu_init_done, imu_err_flag, imu_calib_done, imu_calib_fail;
     wire [7:0]         imu_err_code, imu_state_dbg;
 
+    // ---- IMU 初始化失败自恢复看门狗（2026-10-19 新增）----
+    // 背景：vendor 的 imu_top 进 S_ERROR 后**没有任何出口**（该状态只置 err_flag_r，
+    //   不做状态转移），一旦上电初始化偶发失败（CHIP_ID 读不到 0x24，重试
+    //   CHK_RETRY_MAX 次后报 err_code=1），就会永久停住，必须断电才能恢复。
+    //   上板现象：航向角恒 0、角速度恒 0，重新上电后正常。
+    // 做法：**不修改 vendor 快照**，在顶层给 u_imu 一个局部复位：
+    //   检测到 err_flag 持续 → 等 IMU_WD_MS 毫秒（给芯片上电/自身恢复留时间）
+    //   → 拉低 imu_local_rst_n IMU_WD_RST_US 微秒 → 放开 → imu_top 从
+    //   S_PWR_WAIT 重新走完整初始化。成功后 err_flag 自动清 0，看门狗回到监视态。
+    // 注意：只复位 IMU，不复位 u_tilt / u_yaw —— 航向角保持不清零，
+    //   避免 IMU 重连瞬间航向突跳到 0。
+    localparam integer IMU_WD_MS     = 500;   // 失败后等待多少毫秒再硬复位
+    localparam integer IMU_WD_RST_US = 20;    // 复位保持多少微秒
+    localparam integer IMU_WD_MS_DIV = CLK_HZ / 1000;            // 1 ms 的时钟拍数
+    localparam integer IMU_WD_US_DIV = CLK_HZ / 1000 / 1000;     // 1 µs 的时钟拍数
+
+    reg        imu_local_rst_n;
+    reg [15:0] imu_wd_ms_div;
+    reg [15:0] imu_wd_ms_cnt;
+    reg [9:0]  imu_wd_us_cnt;
+
     imu_top #(
         .CLK_FREQ_HZ   (CLK_HZ),
         .SCK_HALF_DIV  (25),            // ★ 1 MHz，显式覆盖源码默认 3
@@ -699,7 +734,7 @@ module falcons_top (
         .CALIB_DEV_TH  (100)            // 抖动判据 1°/s；标定失败就调大它
     ) u_imu (
         .i_clock      (i_clk_50m),
-        .i_reset_n    (sys_rst_n),
+        .i_reset_n    (imu_local_rst_n),   // ★ 局部复位：失败可被看门狗重置（见上）
         .o_imu_sck    (o_imu_sck),
         .o_imu_mosi   (o_imu_mosi),
         .i_imu_miso   (i_imu_miso),
@@ -724,6 +759,45 @@ module falcons_top (
         .o_data_valid (imu_data_valid),
         .o_acc_valid  (imu_acc_valid)
     );
+
+    // ---- 看门狗本体（说明见上面的参数区）----
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) begin
+            imu_local_rst_n <= 1'b1;
+            imu_wd_ms_div   <= 16'd0;
+            imu_wd_ms_cnt   <= 16'd0;
+            imu_wd_us_cnt   <= 10'd0;
+        end else if (!imu_local_rst_n) begin
+            // 复位保持阶段：计满 IMU_WD_RST_US 微秒后放开，imu_top 重走初始化
+            if (imu_wd_us_cnt >= (IMU_WD_US_DIV - 1)) begin
+                imu_local_rst_n <= 1'b1;
+                imu_wd_us_cnt   <= 10'd0;
+                imu_wd_ms_div   <= 16'd0;
+                imu_wd_ms_cnt   <= 16'd0;
+            end else begin
+                imu_wd_us_cnt <= imu_wd_us_cnt + 10'd1;
+            end
+        end else if (imu_err_flag) begin
+            // 错误态：累计 IMU_WD_MS 毫秒后拉低局部复位
+            if (imu_wd_ms_div >= (IMU_WD_MS_DIV - 1)) begin
+                imu_wd_ms_div <= 16'd0;
+                if (imu_wd_ms_cnt >= (IMU_WD_MS - 1)) begin
+                    imu_wd_ms_cnt   <= 16'd0;
+                    imu_local_rst_n <= 1'b0;
+                    imu_wd_us_cnt   <= 10'd0;
+                end else begin
+                    imu_wd_ms_cnt <= imu_wd_ms_cnt + 16'd1;
+                end
+            end else begin
+                imu_wd_ms_div <= imu_wd_ms_div + 16'd1;
+            end
+        end else begin
+            // 正常态：计时归零，保持监视
+            imu_wd_ms_div <= 16'd0;
+            imu_wd_ms_cnt <= 16'd0;
+            imu_wd_us_cnt <= 10'd0;
+        end
+    end
 
     wire signed [31:0] gyro_z_comp;
     wire               tilt_fail;
@@ -1024,6 +1098,10 @@ module falcons_top (
     reg         navrun_ps1, navrun_ps2;
     reg         navui_ps1, navui_ps2;      // 导航页交互态
     reg         navpz_ps1, navpz_ps2;      // 导航暂停
+    // ★ 2026-10-19：IMU 初始化失败 → 数据页「航向角」上方红字提示。
+    //   源 `imu_err_flag` 本身就是 `u_imu` 里的纯 DFF 输出（`i_clk_50m` 域），
+    //   直接进两级同步器即可，不需要额外打一拍。
+    reg         imufail_ps1, imufail_ps2;
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
             navc_ps1_x <= 10'd0; navc_ps2_x <= 10'd0;
@@ -1037,6 +1115,7 @@ module falcons_top (
             navrun_ps1 <= 1'b0; navrun_ps2 <= 1'b0;
             navui_ps1  <= 1'b0; navui_ps2  <= 1'b0;
             navpz_ps1  <= 1'b0; navpz_ps2  <= 1'b0;
+            imufail_ps1 <= 1'b0; imufail_ps2 <= 1'b0;
         end else begin
             navc_ps1_x <= nav_cur_px;      navc_ps2_x <= navc_ps1_x;
             navc_ps1_y <= nav_cur_py;      navc_ps2_y <= navc_ps1_y;
@@ -1049,6 +1128,7 @@ module falcons_top (
             navrun_ps1 <= nav_run;         navrun_ps2 <= navrun_ps1;
             navui_ps1  <= nav_ui_active;   navui_ps2  <= navui_ps1;
             navpz_ps1  <= nav_paused;      navpz_ps2  <= navpz_ps1;
+            imufail_ps1 <= imu_err_flag;   imufail_ps2 <= imufail_ps1;
         end
     end
 
@@ -1095,6 +1175,28 @@ module falcons_top (
     wire signed [31:0] dlt3_disp = RPM_DISP_INV[3] ? -dlt3 : dlt3;
     wire signed [31:0] sum_delta  = dlt0_disp + dlt1_disp + dlt2_disp + dlt3_disp;
     wire signed [31:0] center_cms = (sum_delta * 32'sd8580) >>> 20;   // 单位 0.01 m/s（D=64mm）
+
+    // ------------------------------------------------------------------
+    // ★★ 临时诊断口（2026-10-19）：定位上板现象「偏航角一直为 0」★★
+    //   静态排查已确认 yaw 数据链（u_imu → u_tilt → 流水级 → u_yaw → yaw_deg）
+    //   在 23:03 版与 18:12 版之间**一行未改**，无法从源码定位，只能上板读内部状态。
+    //   做法：借「中心速度」那一行的显示位输出 IMU 内部状态，读数规则：
+    //     屏幕「中心速度」= S.EE  →  imu_top 状态机 state = S，错误码 err = EE
+    //     例：4.00 → state=4、err=0；  0.00 → state=0（停在上电态，说明 IMU 没跑起来）
+    //   判读口径：
+    //     state 停在 S_RUN 且 err=0  → IMU 通信正常，问题在流水级/积分器
+    //     state 不是 S_RUN           → IMU 初始化或配置失败（SPI/上电/时序）
+    //   定位完成后删除本段，并把 `.i_v6` 恢复成 `center_cms`。
+    // ------------------------------------------------------------------
+    wire signed [31:0] imu_diag = ($signed({1'b0, imu_state_dbg}) * 32'sd100)
+                                + $signed({1'b0, imu_err_code});
+
+    // ★ 2026-10-19：诊断值只在失败时占用该字段。
+    //   正常时显示真实中心速度（否则这一行永远是 14.00，等于把功能弄坏）。
+    //   失败时同时出现红字「imu初始化错误」，两者一起看：红字说明原因，
+    //   数值说明卡在哪个状态（S=state、EE=err_code），便于区分 CHIP_ID 失败(01)
+    //   与 INTERNAL_STATUS 失败(02)。
+    wire signed [31:0] center_cms_show = imu_err_flag ? imu_diag : center_cms;
 
     // ---- 角速度：gyro_tilt_comp 输出的单位是 **0.01 °/s** ----
     //   ★ 2026-10-18 修正：原来写 `gyro_z_comp >>> 16`，把 0.01 °/s 当成了 Q16
@@ -1172,8 +1274,12 @@ module falcons_top (
     wire         nav_ui_active;     // 导航页交互态（菜单锁、状态栏）
     wire         nav_paused;        // 导航暂停
     wire [159:0] nav_pt_px, nav_pt_py;
+    wire [255:0] nav_pt_x_mm, nav_pt_y_mm;   // 点表 mm 版（给导航控制层）
     wire [15:0]  nav_pt_v;
     wire [9:0]   nav_car_px, nav_car_py, nav_cur_px, nav_cur_py;
+
+    // 导航控制层的回告（先声明后用：u_nav_free 在上、u_nav_ctrl 在下）
+    wire         nav_ctrl_done, nav_ctrl_fault;
 
     nav_free_ctrl #(
         .CLK_HZ       (CLK_HZ),
@@ -1195,9 +1301,9 @@ module falcons_top (
         .i_back     (rc_back),              // CH5 上拨
         .i_aux_up   (rc_aux_up),            // CH8 上拨
         .i_aux_down (rc_aux_down),          // CH8 下拨
-        // ---- 与导航/控制层对接（预留，暂接 0）----
-        .i_ctrl_done  (1'b0),
-        .i_ctrl_fault (1'b0),
+        // ---- 与导航/控制层对接 ----
+        .i_ctrl_done  (nav_ctrl_done),   // 来自 u_nav_ctrl.o_done（仅最后一点）
+        .i_ctrl_fault (nav_ctrl_fault),  // 来自 u_nav_ctrl.o_fault
         .o_cur_x_mm (nav_cur_x_mm),
         .o_cur_y_mm (nav_cur_y_mm),
         .o_aux_sel  (nav_aux_sel),
@@ -1210,6 +1316,8 @@ module falcons_top (
         .o_pt_px    (nav_pt_px),
         .o_pt_py    (nav_pt_py),
         .o_pt_v     (nav_pt_v),
+        .o_pt_x_mm  (nav_pt_x_mm),
+        .o_pt_y_mm  (nav_pt_y_mm),
         .o_car_px   (nav_car_px),
         .o_car_py   (nav_car_py),
         .o_cur_px   (nav_cur_px),
@@ -1218,6 +1326,70 @@ module falcons_top (
 
     // ★ 菜单锁：导航页 **且** 处于交互态。返回键退出交互态后菜单即恢复可操作。
     assign nav_lock = nav_page_any & nav_ui_active;
+
+    // ==================================================================
+    // 12b. 导航控制层 `u_nav_ctrl`（rtl\nav\nav_ctrl.v）
+    // ==================================================================
+    // 【坐标系】只有两套，**没有世界系**：
+    //   ① odom 相对系：原点 = 上次 S2 清零那一刻的车心，+x = 那一刻的车头，
+    //      **永不重基准、不做分段重基准**。就是 `odom.o_x_mm/o_y_mm` 天然那套。
+    //      点表存在这里（点位置不随车转；存车体系的话车一转旧点就全废）。
+    //   ② 车体系：每 10 ms 由 ① 旋转得到（ahead 前正 / left 左正），不存储、只在拍内用。
+    //   全程没有第二套绝对坐标，也不引入"地图原点""重基准"概念。
+    //
+    // 【使能】`nav_ctrl_active = 当前在导航页 & 处于交互态`。
+    //   返回键退出交互态后立即拉 0 → u_nav_ctrl 输出 valid=0 → 底盘不再吃自动指令，
+    //   与"菜单不冻结"的语义一致（人已经退出导航任务了）。
+    //
+    // 【暂停时一定停住】`i_paused=1` 时 u_nav_ctrl 内部走专门分支：
+    //   `o_auto_valid=1, o_center=0, o_diff=0` —— 故意**不**把它设成 invalid，
+    //   因为 invalid 会让 chassis_ctrl 输出 0 占空比（= 断驱动、靠惯性滑行），
+    //   而 valid + 目标 0 会让四路 speed_pid 主动把轮速拉向 0（= 主动制动）。
+    //   同时 `i_enable = run_en | nav_auto_valid` 保证导航期间底盘使能不依赖遥控解锁。
+    assign nav_ctrl_active = nav_page_any & nav_ui_active;
+
+    nav_ctrl #(
+        .V_CRUISE_MMS    (300),    // 巡航 300 mm/s
+        .D_SLOW_MM       (130),    // ≥ v²/2a = 90，取 1.4 倍余量
+        .ARRIVE_R_MM     (25),     // L1 到点半径
+        .NP_CUT_DIST_MM  (90),     // L2 提前切点 = v²/2a
+        .NP_MIN_SPACE_MM (260),    // L2 最小点距 = 2·d_slow
+        .MAX_CENTER      (3072),   // = 1033 mm/s
+        .MAX_DIFF        (612),    // 原地转向 ≈146 °/s
+        .MAX_DIFF_CRUISE (180)     // 行进中打舵限幅，防画龙
+    ) u_nav_ctrl (
+        .clk   (i_clk_50m),
+        .rst_n (sys_rst_n),
+        .i_active  (nav_ctrl_active),
+        .i_run     (nav_run),
+        .i_paused  (nav_paused),
+        .i_mode    (nav_mode),                 // 0 间断 / 1 非间断
+        .i_is_obs  (page == PAGE_NAV_OBS),     // 避障页：目标取准心
+        .i_cur_x_mm(nav_cur_x_mm),
+        .i_cur_y_mm(nav_cur_y_mm),
+        .i_pt_x_mm (nav_pt_x_mm),
+        .i_pt_y_mm (nav_pt_y_mm),
+        .i_pt_count(nav_pt_count),
+        .i_tick    (delta_valid),              // 10 ms，与 odom 测速同拍
+        .i_x_mm      (odom_x_mm),
+        .i_y_mm      (odom_y_mm),
+        .i_yaw_centi (odom_yaw_cont),          // 0.01°，连续值，模块内部自己折返
+        .i_v_mms     (odom_v_mms),
+        .i_stall     (stall_vec),
+        .o_auto_valid(nav_auto_valid),
+        .o_center    (nav_auto_center),
+        .o_diff      (nav_auto_diff),
+        .o_done      (nav_ctrl_done),
+        .o_fault     (nav_ctrl_fault),
+        .o_state     (nav_fsm_state),
+        .o_dbg_ahead (nav_dbg_ahead),
+        .o_dbg_left  (nav_dbg_left),
+        .o_dbg_psi   (nav_dbg_psi),
+        .o_dbg_idx   (nav_dbg_idx)
+    );
+
+    // 调试观测口（nav_dbg_* / nav_fsm_state）本轮不消费：综合会把它们优化掉，
+    //   留着是为了将来接 SignalTap 一类在线观测，不必改端口。
 
     // 准心坐标 → 0.01 m（与航位显示同一口径；字段 9 / 10）
     wire signed [31:0] nav_cur_x_cm = nav_cur_x_mm / 32'sd10;
@@ -1236,7 +1408,8 @@ module falcons_top (
         .i_v3   (rpm2_disp),         // 字段 3：C = 右前轮
         .i_v4   (rpm3_disp),         // 字段 4：D = 左前轮
         .i_v5   (gyro_deg_s),        // 字段 5：角速度（整数 °/s）
-        .i_v6   (center_cms),        // 字段 6：中心速度（★ 0.01 m/s，屏上小数点悬挂）
+        .i_v6   (center_cms_show),    // 字段 6：中心速度（IMU 失败时改显示诊断值 S.EE）
+                                      //   正常 = center_cms 真实速度；失败 = state×100+err_code
         .i_v7   (odom_x_cm),         // 字段 7：航位 x（★ 0.01 m，来自 u_odom，mm÷10）
         .i_v8   (odom_y_cm),         // 字段 8：航位 y（★ 0.01 m，来自 u_odom，mm÷10）
         .i_v9   (nav_cur_x_cm),      // 字段 9：非避障导航页 准心 x（0.01 m）
@@ -1289,7 +1462,9 @@ module falcons_top (
         .i_signal_ok    (sig_ps2),
         .i_arm_hint     (arm_ps2),
         .o_dyn_raddr    (dyn_raddr),
-        .i_dyn_rdata    (dyn_rdata)
+        .i_dyn_rdata    (dyn_rdata),
+        // ★ 2026-10-19：IMU 初始化失败 → 数据页「航向角」上方红字「imu初始化错误」
+        .i_imu_fail     (imufail_ps2)
     );
 
     // ==================================================================

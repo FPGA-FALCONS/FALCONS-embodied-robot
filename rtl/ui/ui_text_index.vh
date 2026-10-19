@@ -5,7 +5,7 @@
 //       或 char_index*24+row 从 font_rom_lg（24x24）取 24bit 行点阵。
 
 localparam integer UI_FONT_CHAR_COUNT = 233;
-localparam integer UI_TEXT_TOTAL_CHARS = 278;
+localparam integer UI_TEXT_TOTAL_CHARS = 286;
 
 // {名, 文案, 起始地址, 字符数}
 localparam [11:0] UI_TXT_MENU_VEHICLE_ADDR = 12'd0;  // 运行数据显示
@@ -186,4 +186,6 @@ localparam [11:0] UI_TXT_PLACEHOLDER_RADAR_ADDR = 12'd268;  // 雷达未接入
 localparam [5:0] UI_TXT_PLACEHOLDER_RADAR_LEN  = 6'd5;
 localparam [11:0] UI_TXT_PLACEHOLDER_NAV_ADDR = 12'd273;  // 导航未实现
 localparam [5:0] UI_TXT_PLACEHOLDER_NAV_LEN  = 6'd5;
+localparam [11:0] UI_TXT_IMU_FAIL_ADDR = 12'd278;  // imu初始化错误
+localparam [5:0] UI_TXT_IMU_FAIL_LEN  = 6'd8;
 

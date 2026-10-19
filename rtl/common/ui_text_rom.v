@@ -3,7 +3,7 @@
 // 内容：把 tools/font_chars.txt 里每个文案拆成字符，按顺序存放其【字库索引】
 //       配合 ui_text_index.vh 给出的 ADDR/LEN，即可逐字取点阵渲染
 //       ★ 大小两套字库（font_rom / font_rom_lg）共用这里的字符索引
-// 深度：278（所有文案的字符总数），宽度 8 bit
+// 深度：286（所有文案的字符总数），宽度 8 bit
 
 `timescale 1ns/1ps
 
@@ -13,7 +13,7 @@ module ui_text_rom (
     output reg  [7:0]       o_char_index
 );
 
-    localparam integer ROM_DEPTH = 278;
+    localparam integer ROM_DEPTH = 286;
 
     reg [7:0] mem [0:ROM_DEPTH-1];
 
@@ -296,6 +296,14 @@ module ui_text_rom (
         mem[  275] = 8'd168;
         mem[  276] = 8'd133;
         mem[  277] = 8'd182;
+        mem[  278] = 8'd73;
+        mem[  279] = 8'd77;
+        mem[  280] = 8'd85;
+        mem[  281] = 8'd107;
+        mem[  282] = 8'd131;
+        mem[  283] = 8'd113;
+        mem[  284] = 8'd224;
+        mem[  285] = 8'd209;
     end
 
     always @(posedge i_clk) begin

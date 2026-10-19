@@ -16,6 +16,9 @@
 #   ui_render_tb     中文界面渲染（菜单/高亮/状态栏/门禁提示/动态数值/占位）（36 项）
 #   speed_report_tb  串口 CSV 上行 12 列格式（整行逐字符比对）          （4 行）
 #   odom_tb          航位推算（静止/直行/航向参与/解缠/★中点积分）      （20 项）
+#   cordic_atan2_tb  CORDIC 四象限 atan2（象限/正前后/零向量/对角/幅值）（12 项）
+#   nav_ctrl_tb      导航控制 10 组状态转移边（ALIGN⇄TRACK/L1/L2/暂停/故障）（91 项）
+#   nav_sys_tb       UI+控制 联合台：按键序列 → 电机指令（暂停停车/完成回 SETUP）/（61 项）
 #
 # 编码：本文件必须保存为 UTF-8 with BOM（PowerShell 5.1 靠 BOM 判编码）。
 #
@@ -142,7 +145,10 @@ $sources = @(
     "$ProjectRoot\rtl\debug\speed_report.v",
     "$ProjectRoot\rtl\ui\num_text.v",
     "$ProjectRoot\rtl\ui\ui_render.v",
-"$ProjectRoot\rtl\ui\nav_free_ctrl.v",
+    "$ProjectRoot\rtl\ui\nav_free_ctrl.v",
+    # 导航控制层（2026-10-19 新增）：cordic_atan2 先编，nav_ctrl 里例化它
+    "$ProjectRoot\rtl\nav\cordic_atan2.v",
+    "$ProjectRoot\rtl\nav\nav_ctrl.v",
     # 测试平台
     "$PSScriptRoot\rc_input_tb.v",
     "$PSScriptRoot\rc_led_test_tb.v",
@@ -152,7 +158,10 @@ $sources = @(
     "$PSScriptRoot\chassis_ctrl_tb.v",
     "$PSScriptRoot\num_text_tb.v",
     "$PSScriptRoot\ui_render_tb.v",
-"$PSScriptRoot\nav_free_tb.v",
+    "$PSScriptRoot\nav_free_tb.v",
+    "$PSScriptRoot\cordic_atan2_tb.v",
+    "$PSScriptRoot\nav_ctrl_tb.v",
+    "$PSScriptRoot\nav_sys_tb.v",
     "$PSScriptRoot\speed_report_tb.v",
     # 航位推算（2026-10-18 新增）
     "$ProjectRoot\rtl\odom\sin_lut_rom.v",
@@ -171,7 +180,10 @@ $tests = @(
     @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮随 menu_sel/状态栏/光标档文案/动态数值/占位页/非避障导航页' },
     @{ Name = 'nav_free';     Top = 'nav_free_tb';     Desc = '非避障导航页：准心/钳位/点表/辅助菜单/三态寻点状态机' },
     @{ Name = 'speed_report'; Top = 'speed_report_tb'; Desc = '串口 CSV 上行：12 列格式/负数/边界/大数' },
-    @{ Name = 'odom';      Top = 'odom_tb';      Desc = '★ 航位推算：静止/直行位移/航向参与/角度解缠' }
+    @{ Name = 'odom';      Top = 'odom_tb';      Desc = '★ 航位推算：静止/直行位移/航向参与/角度解缠' },
+    @{ Name = 'cordic_atan2'; Top = 'cordic_atan2_tb'; Desc = '★ CORDIC 四象限 atan2：象限/正前后/零向量/对角/幅值 10mm~10m' },
+    @{ Name = 'nav_ctrl';  Top = 'nav_ctrl_tb';  Desc = '★ 导航控制：ALIGN⇄TRACK 迟滞/L1 到点/L2 切点四种降级/暂停制动/故障/避障准心' },
+    @{ Name = 'nav_sys';   Top = 'nav_sys_tb';   Desc = '★ 联合台：UI 按键序列 → 控制层 → 电机指令，含暂停停车/完成回 SETUP/退出立停' }
 )
 
 # ---------- 建库并编译 ----------

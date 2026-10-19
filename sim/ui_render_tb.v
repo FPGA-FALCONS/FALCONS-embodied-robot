@@ -49,6 +49,7 @@ module ui_render_tb;
     reg  [9:0]  curpx_i  = 10'd412, curpy_i = 10'd300;
     reg  [159:0] ptpx_i  = 160'd0,  ptpy_i  = 160'd0;
     reg  [15:0]  ptv_i   = 16'd0;
+    reg          imufail_i = 1'b0;      // ★ 2026-10-19：IMU 初始化失败提示
 
     wire [23:0] rgb;
     wire [5:0]  dyn_raddr;
@@ -58,6 +59,7 @@ module ui_render_tb;
     integer cnt_menu_text, cnt_sel_text, cnt_hl, cnt_status, cnt_label, cnt_num, cnt_ph, cnt_yaw;
     integer cnt_car;                                  // 车图包围盒内的白色像素数
     integer cnt_car_spill;                            // ★ 车图包围盒【外】的白色像素数（应为 0）
+    integer cnt_imufail;                              // ★ IMU 失败红字像素数（模型红 FF4040）
     integer cnt_hl_win;                               // 单次 scan_hl 的高亮像素数
     integer px_manual, px_hint, px_estop, px_nosig;   // 状态栏文案切换对比
     integer px_estop_nosig;                           // ★ 急停 + 无信号 同时成立时的对比
@@ -122,7 +124,8 @@ module ui_render_tb;
         .i_pt_py        (ptpy_i),
         .i_pt_v         (ptv_i),
         .o_dyn_raddr    (dyn_raddr),
-        .i_dyn_rdata    (dyn_rdata)
+        .i_dyn_rdata    (dyn_rdata),
+        .i_imu_fail     (imufail_i)
     );
 
     always #10 pixel_clk = ~pixel_clk;      // 周期 20 ns（≈49 MHz 水平）
@@ -186,6 +189,11 @@ module ui_render_tb;
                     if ((x >= 216) && (x < 336) && (y >= PAGE_Y_SLOT) && (y < PAGE_Y_SLOT + 24) &&
                         (rgb == 24'hFFFFFF))
                         cnt_ph = cnt_ph + 1;
+                    // ★ 2026-10-19：IMU 初始化失败红字（模型红 24'hFF4040）
+                    //   几何：8 字 × 24 = 192 px，x 384..575，y 48..71（「航向角」标签 72..95 正上方）
+                    if ((x >= 384) && (x < 576) && (y >= 48) && (y < 72) &&
+                        (rgb == 24'hFF4040))
+                        cnt_imufail = cnt_imufail + 1;
                 end
             end
             vact = 1'b0;
@@ -766,6 +774,33 @@ module ui_render_tb;
         $display("-- 5. 页2 不应出现占位提示 --");
         scan(256, 272);
         check_zero("placeholder_on_page2", cnt_ph);
+
+        // ---------------- 5b. ★ IMU 初始化失败红字（2026-10-19 新增）----------------
+        //   需求方："如果陀螺仪初始化失败，在运行数据显示页面，'航向角'字段上方
+        //   用红色字显示 'imu初始化失败'"（随后确认「初始化错误」亦可）。
+        //   几何：8 字 × 24 = 192 px，左界 384、y = 48..71 —— 正好压在「航向角」标签
+        //   （456..527，y 72..95）的正上方，且不与任何已有段冲突。
+        //   ★ 颜色必须是红色 FF4040，不能沿用标签的白 —— 用 check_seg_lg 的 text_rgb 参数
+        //     做"文案 + 位置 + 颜色"三合一比对（它内部逐像素比 === text_rgb）。
+        $display("-- 5b. 页2 IMU 失败红字：文案 / 位置 / 颜色 / 关闭后消失 --");
+        page = 3'd0; imufail_i = 1'b1;
+        repeat (4) @(posedge pixel_clk);
+        cnt_imufail = 0; scan(48, 71);
+        check_pos ("imu_fail_red_px", cnt_imufail);
+        check_seg_lg(48, 16, UI_TXT_IMU_FAIL_LEN, UI_TXT_IMU_FAIL_ADDR,
+                     24'hFF4040, "imu_fail_red_text");
+        // 反向：关掉后同一窗口必须一个红像素都没有（防止"提示无法消失"）
+        imufail_i = 1'b0;
+        repeat (4) @(posedge pixel_clk);
+        cnt_imufail = 0; scan(48, 71);
+        check_zero("imu_fail_off_black", cnt_imufail);
+        // 反向：即使失败标志为 1，其它页也不能出现这段红字（提示只属于数据页）
+        page = 3'd1; imufail_i = 1'b1;
+        repeat (4) @(posedge pixel_clk);
+        cnt_imufail = 0; scan(48, 71);
+        check_zero("imu_fail_not_on_page1", cnt_imufail);
+        page = 3'd0; imufail_i = 1'b0;
+        repeat (4) @(posedge pixel_clk);
 
         // ---------------- 6. ★ 逐页占位文案（2026-10-19 菜单换序后新增）----------------
         //   只数像素数无法区分「雷达未接入」与「导航未实现」（都是 5 字），

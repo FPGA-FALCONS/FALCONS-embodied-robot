@@ -46,6 +46,10 @@ C_TEXT      = (0xFF, 0xFF, 0xFF)   # 菜单未选中 / 标签 / 车图
 C_TEXT_SEL  = (0xFF, 0xE0, 0x66)   # 菜单选中项（亮黄）
 C_NUM       = (0x7C, 0xFC, 0x98)   # 实时数值（亮绿）
 C_BOX       = (0x2E, 0x34, 0x40)   # 轮速文本框底色
+# ★ 2026-10-19：IMU 初始化失败提示（= ui_render.v 的 24'hFF4040）
+#   几何：8 字 × 24 = 192 px，x 384..575，y 48..71 —— 「航向角」标签（456..527, y 72..95）正上方
+C_IMU_FAIL  = (0xFF, 0x40, 0x40)
+IMU_FAIL_X, IMU_FAIL_Y = 384, 48
 
 # ---------------------------------------------------------------------------
 # 布局常量（ui_render.v）
@@ -447,7 +451,9 @@ def main():
     ap.add_argument("--nav-state", type=int, default=0, choices=[0, 1, 2],
                     help="导航页状态 0=SETUP 1=导航中(绿) 2=导航暂停(橙)")
     ap.add_argument("--pts",   type=str, default="",
-                    help="已记录点，形如 ""800,500;1600,-400;2600,1200""（mm）")
+                    help="已记录点，形如 \"800,500;1600,-400;2600,1200\"（mm）")
+    ap.add_argument("--imu-fail", type=int, default=0, choices=[0, 1],
+                    help="1 = 模拟 IMU 初始化失败（数据页「航向角」上方红色大字提示）")
     args = ap.parse_args()
 
     num_g, num_idx = parse_font(os.path.join(rtl_common, "font_num.v"), NUM_W, NUM_H)
@@ -527,6 +533,11 @@ def main():
     #   ① 「航向角」x=432（24 组 18）+「/°」x=512（16 组 32），y=88（距数字 16 px）
     #   ② 「车轮转速」x=408（24 组 17）+「/rpm」x=512（16 组 32），y=504
     #   两条的中文右界都是 503、后缀都从 512 起，故天然左对齐于同一竖线。
+    # ---- ★ 2026-10-19 IMU 初始化失败提示：红色大字，压在「航向角」标签正上方 ----
+    #   几何与 ui_render.v 完全一致：8 字 × 24 = 192 px，左界 384、y = 48..71
+    if args.imu_fail:
+        draw_text_label(cv, lg_g, lg_idx, text_items, stream, "IMU_FAIL",
+                        IMU_FAIL_X, IMU_FAIL_Y, 24, color=C_IMU_FAIL)
     draw_text_label(cv, lg_g,  lg_idx,  text_items, stream, "LBL_YAW",   456,  72, 24)
     draw_text_label(cv, lg_g,  lg_idx,  text_items, stream, "LBL_WHEEL", 408, 504, 24)
     draw_text_label(cv, num_g, num_idx, text_items, stream, "LBL_RPM",   512, 504, 16)

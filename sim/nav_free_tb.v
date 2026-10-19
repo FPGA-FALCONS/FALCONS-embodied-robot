@@ -369,6 +369,51 @@ module nav_free_tb;
         chk_int("reenter_then_run",  nav_run,   1, 0);
         chk_int("reenter_mode_gap",  nav_mode,  0, 0);
 
+        // 12.3 运行中切手动挡 → 暂停（2026-10-19 需求）
+        //   "任务运行时切到手动挡，车停下来且进入手动控制；
+        //    返回光标挡时显示任务暂停，此时继续任务仍从刚才的任务继续"
+        //   先回到 SETUP 并切到「非间断寻点」(aux_sel 3)，这样 nav_mode=1，
+        //   恢复后若断言 mode 仍为 1 才能证明"模式没被重置"（若用 mode=0 则区分不出来）。
+        $display("-- 12.3. 运行中切手动挡→暂停；手动挡下确认无效；回光标挡仍暂停，恢复后模式不变 --");
+        @(posedge clk); back <= 1'b1; @(posedge clk); back <= 1'b0; repeat (3) @(posedge clk);
+        @(posedge clk); back <= 1'b1; @(posedge clk); back <= 1'b0; repeat (3) @(posedge clk);
+        chk_int("pre_manual_exited", nav_ui, 0, 0);
+        pulse_confirm;                              // 重进交互态（aux_sel 保持 2）
+        chk_int("pre_manual_setup", nav_state, 0, 0);
+        pulse_select;                               // 2 间断 → 3 非间断
+        chk_int("pre_manual_sel", aux_sel, 3, 0);
+        pulse_confirm;                              // 开跑
+        chk_int("cont_running", nav_run,  1, 0);
+        chk_int("cont_mode",    nav_mode, 1, 0);
+
+        manual = 1'b1;                              // 切手动挡
+        repeat (3) @(posedge clk);
+        chk_int("manual_pauses",      nav_state, 2, 0);   // RUNNING → PAUSED
+        chk_int("manual_run_off",     nav_run,   0, 0);
+        chk_int("manual_paused_flag", nav_paused,1, 0);
+        chk_int("manual_ui_kept",     nav_ui,    1, 0);   // 不退出交互态
+        chk_int("manual_mode_kept",   nav_mode,  1, 0);   // 寻点模式不变
+
+        pulse_confirm;                              // 手动挡下按确认不许恢复
+        chk_int("manual_confirm_blocked", nav_state, 2, 0);
+
+        // ★ 手动挡下 select（CH8 辅助菜单上下切）也必须屏蔽
+        pulse_select;
+        chk_int("manual_select_blocked", aux_sel, 3, 0);   // 仍是「非间断寻点」
+
+        // ★ 手动挡下返回键同样屏蔽：不许退出交互态、不许改状态
+        @(posedge clk); back <= 1'b1; @(posedge clk); back <= 1'b0; repeat (3) @(posedge clk);
+        chk_int("manual_back_blocked", nav_ui,    1, 0);
+        chk_int("manual_back_state",   nav_state, 2, 0);
+
+        manual = 1'b0;                              // 回光标挡
+        repeat (3) @(posedge clk);
+        chk_int("cursor_back_still_paused", nav_state, 2, 0);   // 仍是暂停，不自动恢复
+
+        pulse_confirm;                              // 此时确认才恢复
+        chk_int("manual_resume_run",  nav_run,  1, 0);
+        chk_int("manual_resume_mode", nav_mode, 1, 0);    // 从刚才的任务继续
+
         // 13. S2 清零
         $display("-- 13. S2 清零 → 点表清空、准心回 0 --");
         @(posedge clk); clear <= 1'b1;

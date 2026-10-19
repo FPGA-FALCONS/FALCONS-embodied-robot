@@ -77,7 +77,13 @@ module ui_render #(
 
     // ---- 动态数值字符 RAM 读端口（pixel 域）----
     output wire [5:0]  o_dyn_raddr,
-    input  wire [7:0]  i_dyn_rdata
+    input  wire [7:0]  i_dyn_rdata,
+
+    // ---- IMU 状态提示（2026-10-19 需求方指示）----
+    //   1 = IMU 初始化失败（vendor imu_top 进了 S_ERROR 的死胡同）→
+    //   数据页「航向角」标签正上方用**红字**显示「imu初始化错误」。
+    //   此刻航向角/角速度会恒为 0，没有这行提示根本分不清"车没转"和"IMU 没起来"。
+    input  wire         i_imu_fail
 );
 
     // UI 文案索引（localparam；由 tools/gen_font_rom.py 生成，与本文件同目录）
@@ -329,6 +335,18 @@ module ui_render #(
         //      两者若共用 lg_seg[0]，后者会把菜单项覆盖掉 —— 表现为"选中数据页后第 4 项消失"。
         //      分开后同一扫描行两段并存，靠 slot 范围区分（菜单 xw=1，标签 xw=33）。
         if (i_page == PG_DATA) begin
+            // ★ 2026-10-19：IMU 初始化失败提示（**红字**），画在「航向角」标签正上方。
+            //   需求方："如果陀螺仪初始化失败，在运行数据显示页面，'航向角'字段上方
+            //   用红色字显示 'imu初始化失败'"（后确认「初始化错误」亦可）。
+            //   「imu初始化错误」8 字 × 24 = 192 px，居中于标签中心 491.5 ⇒ 左界 395.5；
+            //   x 须为 24 的倍数 → 取 **384**（384..575，中心 479.5，偏左 12 px）。
+            //   y = 48..71：紧贴标签（标签在 72..95），且不与任何已有段冲突
+            //   （辅助菜单窗口 y ≥ 414、车轮转速标签 y = 504、状态栏 y = 552）。
+            //   ★ 颜色不在这里定，见文件末尾"3) 大字"——那里按 `lg_imu_fail_d1` 染红。
+            if (i_imu_fail && (i_pixel_y >= 48) && (i_pixel_y < 72))
+                lg_seg[5] = seg_lg_rom({UI_TXT_IMU_FAIL_ADDR, UI_TXT_IMU_FAIL_LEN},
+                                       6'd16, (i_pixel_y - 12'd48));
+
             if ((i_pixel_y >= 240) && (i_pixel_y < 264))
                 lg_seg[1] = seg_lg_rom(label_text(2'd0), PX_LBL, (i_pixel_y - 12'd240));
             if ((i_pixel_y >= 288) && (i_pixel_y < 312))
@@ -386,14 +404,21 @@ module ui_render #(
                                                     : (lg_col_look + 12'd22);
 
     // ---- 选段：同一条扫描行可能有多段，取命中当前 slot 的那一段 ----
+    //   ★ 2026-10-19：顺带标出"当前命中的段是 IMU 失败提示"（它要染红）。
+    //     段描述符 30 位已经用满（valid 1 + addr 12 + len 6 + slot 6 + row 5），
+    //     没有空闲位放颜色标记，所以这里用 ROM 地址反查 —— 追加一条独立文案
+    //     就有唯一地址，比挤位宽干净。
     reg [29:0] lg_sel;
+    reg        lg_imu_fail;
     always @(*) begin
-        lg_sel = 30'd0;
+        lg_sel      = 30'd0;
+        lg_imu_fail = 1'b0;
         for (li = 0; li < 6; li = li + 1) begin
             if (lg_seg[li][29] &&
                 (lg_slot >= lg_seg[li][10:5]) &&
                 (lg_slot <  (lg_seg[li][10:5] + lg_seg[li][16:11]))) begin
-                lg_sel = lg_seg[li];
+                lg_sel      = lg_seg[li];
+                lg_imu_fail = (lg_seg[li][28:17] == UI_TXT_IMU_FAIL_ADDR);
             end
         end
     end
@@ -415,9 +440,11 @@ module ui_render #(
     // lg 通路只有静态文案，不需要 RAM 源（也省掉一级源选择）
     reg lg_in_text_d1;
     reg [4:0] lg_row_d1;
+    reg lg_imu_fail_d1;
     always @(posedge i_pixel_clk) begin
-        lg_in_text_d1 <= lg_in_text;
-        lg_row_d1     <= lg_sel[4:0];
+        lg_in_text_d1  <= lg_in_text;
+        lg_row_d1      <= lg_sel[4:0];
+        lg_imu_fail_d1 <= lg_imu_fail;   // 与 lg_in_text_d1 同拍，供末尾"大字"染红
     end
     wire [7:0] lg_char_index = lg_in_text_d1 ? lg_rom_char : 8'd0;
 
@@ -875,7 +902,8 @@ module ui_render #(
 
         // 3) 大字（菜单 / 状态栏 / 中文标签 / 占位提示）
         if (lg_glyph) begin
-            if (in_status_bar)                      rgb = 24'hFFFFFF;   // 状态栏：白
+            if (lg_imu_fail_d1)                     rgb = 24'hFF4040;   // IMU 初始化失败：红
+            else if (in_status_bar)                 rgb = 24'hFFFFFF;   // 状态栏：白
             else if (in_menu_bar && menu_sel_band)  rgb = nav_ui ? 24'h8A7A2E : 24'hFFE066;   // 选中项
             else if (in_menu_bar)                   rgb = nav_ui ? 24'h5A6170 : 24'hE5E7EB;   // 未选中
             else                                    rgb = 24'hFFFFFF;   // 标签/占位：白

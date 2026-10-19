@@ -103,6 +103,12 @@ module nav_free_ctrl #(
     output wire [MAX_POINTS*10-1:0] o_pt_px,  // 每个点 10 位
     output wire [MAX_POINTS*10-1:0] o_pt_py,
     output wire [MAX_POINTS-1:0]    o_pt_v,   // 该点有效
+    // ---- 点表（mm，扁平总线，同域直连导航控制层）----
+    //   ★ 点表内部本来就是 mm（`pt_x/pt_y` 是 `signed [15:0]` 毫米），不需要任何
+    //     "像素→毫米"反变换；这里只是把它摊成一条扁平总线给 nav_ctrl 逐点取值。
+    //     原点 = 上一次 S2 清零的位置，+x = 那一刻的车头 —— 与 odom 同一套相对系。
+    output wire [MAX_POINTS*16-1:0] o_pt_x_mm,  // 每点 16 位有符号 mm
+    output wire [MAX_POINTS*16-1:0] o_pt_y_mm,
     output wire [9:0]               o_car_px, // 车绿点（来自 odom 航位）
     output wire [9:0]               o_car_py,
     output wire [9:0]               o_cur_px, // 准心
@@ -133,6 +139,21 @@ module nav_free_ctrl #(
     localparam [1:0] ST_SETUP   = 2'd0,   // 未开跑：可移准心、可编辑点表
                      ST_RUNNING = 2'd1,   // 导航中
                      ST_PAUSED  = 2'd2;   // 导航暂停（返回键暂停，确认键继续）
+
+    // ------------------------------------------------------------------
+    // 0.1 手动挡按键屏蔽（2026-10-19 需求）
+    //   ★ 原话："手动挡时确认键和 select 键都屏蔽！只有挡位切换键是有效的"
+    //   手动挡下车归人开，摇杆是给底盘的，此时任何菜单操作都是误触：
+    //     · 确认键（CH5 下拨）       → 记点 / 开跑 / 暂停恢复，全部屏蔽
+    //     · 返回键（CH5 上拨）       → 暂停 / 退出交互态，屏蔽（挡位键切回光标挡后才能退）
+    //     · 辅助菜单上/下切（CH8）   → "select 键"，屏蔽
+    //   唯一有效的 CH7 挡位切换在 rc_input 里译码，本模块只被动接收 i_manual。
+    //   ★ 门控放在**消费端**而不是信号源：`o_nav_state` 的手动分支要看得见 i_manual 的
+    //     真实值（靠它进 PAUSED），所以不能把 i_manual 本身干掉，只能干掉四个按键。
+    wire key_confirm  = i_confirm  & ~i_manual;
+    wire key_back     = i_back     & ~i_manual;
+    wire key_aux_up   = i_aux_up   & ~i_manual;
+    wire key_aux_down = i_aux_down & ~i_manual;
 
     localparam signed [31:0] XLO = X_MIN_MM, XHI = X_MAX_MM,
                              YLO = Y_MIN_MM, YHI = Y_MAX_MM;
@@ -257,7 +278,7 @@ module nav_free_ctrl #(
             // ★ 进入本页也清空：坐标原点是"上一次 S2 清零点"，换原点后旧点已无意义
             pt_v <= {MAX_POINTS{1'b0}};
         end else if (o_nav_ui_active && (o_nav_state == ST_SETUP)) begin
-            if (i_confirm) begin
+            if (key_confirm) begin
                 case (o_aux_sel)
                     AUX_SET: begin
                         // 追加一个点（满了就不再收，避免覆盖旧点）
@@ -282,6 +303,18 @@ module nav_free_ctrl #(
     //   （实测三连加出现 +1 的滞后）。cnt_sum 本身就是 pt_v 的纯函数，组合输出更真实。
     assign o_pt_count = cnt_sum;
 
+    // 点表扁平化（mm）：给 nav_ctrl 用 `i_pt_x_mm[{idx,4'b0} +: 16]` 逐点取值。
+    //   ★ 纯组合，不打拍：点表在 SETUP 态才写，导航 RUNNING 态只读，中间有按键节拍隔开。
+    //   ★ genvar 必须用**另一个名字**：本模块下方（o_pt_px/o_pt_py）已声明过 `gi`，
+    //     重复声明会报 `vlog-2388 'gi' already declared in this scope`。
+    genvar gmm;
+    generate
+        for (gmm = 0; gmm < MAX_POINTS; gmm = gmm + 1) begin : g_pt_mm
+            assign o_pt_x_mm[gmm*16 +: 16] = pt_x[gmm];
+            assign o_pt_y_mm[gmm*16 +: 16] = pt_y[gmm];
+        end
+    endgenerate
+
     // ------------------------------------------------------------------
     // 6. 辅助菜单高亮（select 循环 0→1→2→3→4→0）
     // ------------------------------------------------------------------
@@ -295,8 +328,8 @@ module nav_free_ctrl #(
         end else if (i_clear || enter) begin
             o_aux_sel <= AUX_SET;
         end else if (o_nav_ui_active && (o_nav_state == ST_SETUP)) begin
-            if (i_aux_down) o_aux_sel <= (o_aux_sel >= aux_last) ? AUX_SET : (o_aux_sel + 3'd1);
-            else if (i_aux_up) o_aux_sel <= (o_aux_sel == AUX_SET) ? aux_last : (o_aux_sel - 3'd1);
+            if (key_aux_down) o_aux_sel <= (o_aux_sel >= aux_last) ? AUX_SET : (o_aux_sel + 3'd1);
+            else if (key_aux_up) o_aux_sel <= (o_aux_sel == AUX_SET) ? aux_last : (o_aux_sel - 3'd1);
         end
     end
 
@@ -316,13 +349,13 @@ module nav_free_ctrl #(
     //      active_d 一直为 1 → enter 再也不会产生 → **必须先切到别的页面再回来**
     //      才能重新进入。上板实测就是这个现象。加 `reenter` 修掉。
     reg ui_active;
-    wire reenter = i_active & ~ui_active & i_confirm;
+    wire reenter = i_active & ~ui_active & key_confirm;   // 手动挡下不重进
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)                  ui_active <= 1'b0;
         else if (i_clear)            ui_active <= 1'b0;
         else if (!i_active)          ui_active <= 1'b0;
         else if (enter)              ui_active <= 1'b1;
-        else if (i_back && (o_nav_state != ST_RUNNING)) ui_active <= 1'b0;
+        else if (key_back && (o_nav_state != ST_RUNNING)) ui_active <= 1'b0;
         else if (reenter)            ui_active <= 1'b1;
     end
     assign o_nav_ui_active = ui_active;
@@ -332,7 +365,16 @@ module nav_free_ctrl #(
     // ---- 三态状态机（2026-10-19）----
     //   SETUP --确认(寻点/开始导航)--> RUNNING
     //   RUNNING --返回--> PAUSED      PAUSED --确认--> RUNNING
+    //   RUNNING --切手动挡--> PAUSED（★ 2026-10-19 补）
     //   SETUP/PAUSED --返回--> 退出交互态（ui_active=0，回到菜单选择）
+    //
+    //   ★ 为什么"切手动挡"要落成 PAUSED 而不是什么都不做：
+    //     ① 底盘侧 `chassis_ctrl.v:117-118` 已是手动优先（`i_manual ? man_* : auto_*`），
+    //        所以"车被手动接管"本来就会发生；但如果 UI 还停在 RUNNING，
+    //        nav_ctrl 仍会每 10 ms 更新目标，切回光标挡那一瞬间车会**突然扑向旧目标**。
+    //     ② 落 PAUSED 后 nav_ctrl 输出 center=diff=0（主动制动），且**内部状态不清**
+    //        （pt_idx / 积分 / 完成计时都留着），所以按确认能"从刚才那一点继续"。
+    //     ③ 手动挡本身不是"任务的终点"，所以不用 SETUP —— 那会把点表和进度一起清掉。
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             o_nav_state <= ST_SETUP;
@@ -340,16 +382,19 @@ module nav_free_ctrl #(
         end else if (i_clear || !i_active || enter) begin
             o_nav_state <= ST_SETUP;
             o_nav_mode  <= 1'b0;
-        end else if (i_back) begin
+        end else if (key_back) begin
             if (o_nav_state == ST_RUNNING) o_nav_state <= ST_PAUSED;
             else                           o_nav_state <= ST_SETUP;
+        end else if (i_manual && (o_nav_state == ST_RUNNING)) begin
+            // 运行中切手动挡 → 暂停（不是退出）。o_nav_mode 保持不变，恢复时沿用原寻点模式。
+            o_nav_state <= ST_PAUSED;
         end else if (i_ctrl_fault) begin
             // 导航层报故障 → 退回 SETUP，不留在暂停态让人误以为还能继续
             o_nav_state <= ST_SETUP;
         end else if (i_ctrl_done) begin
             // 导航层报"当前点已到达" → 回 SETUP。本轮 i_ctrl_done 恒 0（未接）。
             o_nav_state <= ST_SETUP;
-        end else if (i_confirm && o_nav_ui_active) begin
+        end else if (key_confirm && o_nav_ui_active) begin
             // ★ 2026-10-19：确认必须**已在交互态**才算"执行辅助菜单项"。
             //   否则 ui_active=0 时按确认去"重新进入交互态"，会在同一拍被这里当成
             //   "开始导航"（点到「间断寻点」且点表非空时直接进 RUNNING）——那就是误触发。
@@ -366,7 +411,12 @@ module nav_free_ctrl #(
                         end
                     end
                 end
-                ST_PAUSED: o_nav_state <= ST_RUNNING;    // 暂停中按确认 = 继续
+                ST_PAUSED: begin
+                    // 暂停中按确认 = 继续。
+                    // ★ 但**手动挡下不恢复**：此刻底盘还在人手上，恢复了下一拍又会被
+                    //   i_manual 顶回 PAUSED，只会让状态栏闪一下。要求先回光标挡。
+                    if (!i_manual) o_nav_state <= ST_RUNNING;
+                end
                 default:   ;                              // RUNNING 下确认无效
             endcase
         end
