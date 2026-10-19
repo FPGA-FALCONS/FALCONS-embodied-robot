@@ -56,6 +56,8 @@ LG_XW       = 1          # 菜单文字 x = 24
 MENU_Y0     = 72
 MENU_STEP   = 72
 STATUS_Y    = 552
+PAGE_Y      = 264        # 占位提示 y（= ui_render.v 的 PAGE_Y）
+PAGEXW      = 9          # 占位提示起始字组（x = 9 * 24 = 216）
 PX_LBL      = 33         # 标签列 x = 792
 PX_YAW_N    = 29         # 偏航角 x = 464
 PX_WL_N     = 16         # 左轮速 x = 256
@@ -222,15 +224,16 @@ def draw_dot(cv, base_x, y0, dec):
 # ---------------------------------------------------------------------------
 # 静态部件
 # ---------------------------------------------------------------------------
-def draw_menu(cv, lg, text_items, stream, index_of):
+def draw_menu(cv, lg, text_items, stream, index_of, sel=0):
     cv.rect(0, 0, MENU_W - 1, SCREEN_H - 1, C_MENU_BG)
 
-    # 高亮当前项（第 3 项 = index 2，「运行数据显示」）
-    sel = 2
+    # 高亮项（sel=0 = 运行数据显示：2026-10-19 起它是菜单第 1 项，也是上电默认页）
     cv.rect(0, MENU_Y0 + sel * MENU_STEP - 12,
             MENU_W - 1, MENU_Y0 + sel * MENU_STEP + 35, C_MENU_SEL)
 
-    names = ["MENU_CAMERA", "MENU_RADAR", "MENU_VEHICLE", "MENU_NAV"]
+    # ★ 2026-10-19：菜单 4 项 → 5 项，顺序必须与 rtl/ui/ui_render.v 的 menu_text() 一致。
+    #   原第 4 项「路径点导航」在需求原文里拆成「避障导航」+「非避障导航」。
+    names = ["MENU_VEHICLE", "MENU_CAMERA", "MENU_RADAR", "MENU_NAV_OBS", "MENU_NAV_FREE"]
     for i, nm in enumerate(names):
         if nm not in text_items:
             continue
@@ -278,6 +281,12 @@ def draw_text_label(cv, glyphs, index_of, text_items, stream, name, x, y, cell):
         if code is None or code not in glyphs:
             continue
         cv.glyph(glyphs[code], x + k * cell, y, cell, C_TEXT)
+
+
+def draw_placeholder(cv, lg, index_of, text_items, stream, name):
+    """占位页：内容区黑底 + 占位提示（位置与 ui_render.v 的 PAGE_Y / PAGEXW 一致）"""
+    draw_text_label(cv, lg, index_of, text_items, stream, name,
+                    PAGEXW * LG_CELL, PAGE_Y, LG_CELL)
 
 
 def draw_car(cv):
@@ -328,6 +337,10 @@ def main():
     ap.add_argument("--center", type=int, default=None, help="中心速度（0.01 m/s）")
     ap.add_argument("--pose-x", type=int, default=None, help="航位 x（0.01 m）")
     ap.add_argument("--pose-y", type=int, default=None, help="航位 y（0.01 m）")
+    ap.add_argument("--menu-sel", type=int, default=0,
+                    help="左侧菜单高亮项 0..4（0=运行数据显示 … 4=非避障导航）")
+    ap.add_argument("--page", type=int, default=0, choices=[0, 1, 2, 3, 4],
+                    help="要预览的页面 0=运行数据显示(默认) 1=摄像头 2=雷达 3=避障导航 4=非避障导航")
     args = ap.parse_args()
 
     num_g, num_idx = parse_font(os.path.join(rtl_common, "font_num.v"), NUM_W, NUM_H)
@@ -361,7 +374,20 @@ def main():
     if args.w3     is not None: vals["w"] = (vals["w"][0], vals["w"][1], vals["w"][2], args.w3)
 
     cv = Canvas()
-    draw_menu(cv, lg_g, text_items, stream, lg_idx)
+    draw_menu(cv, lg_g, text_items, stream, lg_idx, args.menu_sel)
+
+    # ★ 2026-10-19：支持逐页预览。page 0 = 运行数据显示（默认页，有车图与全部数值）；
+    #   1..4 是占位页，内容区只有一条占位提示（与 ui_render.v 的 placeholder_text 一致）。
+    #   ★ page 1（摄像头）在实物上会被 cam_overlay 的摄像头画面**整块覆盖**（x >= 208），
+    #     这里画的是 ui_render 的输出，用于确认"叠加前"的内容对不对。
+    if args.page != 0:
+        _ph = {1: "PLACEHOLDER_CAM", 2: "PLACEHOLDER_RADAR",
+               3: "PLACEHOLDER_NAV", 4: "PLACEHOLDER_NAV"}[args.page]
+        draw_placeholder(cv, lg_g, lg_idx, text_items, stream, _ph)
+        cv.save(args.out)
+        print("wrote", args.out, "- page %d（占位页）" % args.page)
+        return 0
+
     draw_car(cv)
     draw_wheel_boxes(cv)
     draw_yaw_box(cv)

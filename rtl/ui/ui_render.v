@@ -55,12 +55,12 @@ module ui_render #(
     output wire [23:0] o_pixel_rgb888,
 
     // ---- 界面状态（sys 域送来，已在顶层两级同步）----
-    input  wire [1:0]  i_page,          // 0=摄像头 1=雷达 2=数据 3=导航
+    input  wire [2:0]  i_page,          // 0=数据 1=摄像头 2=雷达 3=避障导航 4=非避障导航
     input  wire [1:0]  i_ui_mode,       // 0=手动接管 1=屏幕光标
     input  wire        i_estop,         // 1 = 急停
     input  wire        i_signal_ok,     // 1 = 遥控信号有效
     input  wire        i_arm_hint,      // 1 = 想启动但油门不在中位
-    input  wire [1:0]  i_menu_sel,      // 菜单【高亮选中项】
+    input  wire [2:0]  i_menu_sel,      // 菜单【高亮选中项】
 
     // ---- 动态数值字符 RAM 读端口（pixel 域）----
     output wire [5:0]  o_dyn_raddr,
@@ -73,16 +73,34 @@ module ui_render #(
     localparam integer SM_CELL = 16;        // 小字点阵边长（保留通路，当前无段）
 
     // ------------------------------------------------------------------
+    // 页面编码（★ 必须与 rtl\top\falcons_top.v 的 PAGE_* 保持一致）
+    //
+    //   ★ 2026-10-19（需求方指示）：一级菜单由 4 项扩为 5 项，顺序改为需求原文的
+    //     章节顺序 —— 运行数据显示 / 摄像头画面 / 雷达建图展示 / 避障导航 / 非避障导航。
+    //     原第 4 项「路径点导航」在需求原文里拆成「避障导航」+「非避障导航」两页。
+    //   ★ 连带影响：数据页编码由 **2 变成 0**（新顺序的第 1 项），
+    //     所以 `falcons_top.PAGE_DEFAULT` 也由 2'd2 改成 3'd0；**摄像头页由 0 变成 1**
+    //     （`cam_overlay` 的 `show_cam` 由顶层按 `page == 1` 给出，不再是比较 0）。
+    //     改序时必须**两处同改**：这里的 PG_* 与顶层的 PAGE_*。
+    // ------------------------------------------------------------------
+    localparam [2:0] PG_DATA     = 3'd0;    // 运行数据显示（上电默认页）
+    localparam [2:0] PG_CAMERA   = 3'd1;    // 摄像头画面
+    localparam [2:0] PG_RADAR    = 3'd2;    // 雷达建图展示
+    localparam [2:0] PG_NAV_OBS  = 3'd3;    // 避障导航
+    localparam [2:0] PG_NAV_FREE = 3'd4;    // 非避障导航
+
+    // ------------------------------------------------------------------
     // 文案取用（function：纯组合，综合稳）  {addr[11:0], len[5:0]}
     // ------------------------------------------------------------------
     function [17:0] menu_text;
-        input [1:0] idx;
+        input [2:0] idx;
         begin
             case (idx)
-                2'd0:    menu_text = {UI_TXT_MENU_CAMERA_ADDR,  UI_TXT_MENU_CAMERA_LEN};
-                2'd1:    menu_text = {UI_TXT_MENU_RADAR_ADDR,   UI_TXT_MENU_RADAR_LEN};
-                2'd2:    menu_text = {UI_TXT_MENU_VEHICLE_ADDR, UI_TXT_MENU_VEHICLE_LEN};
-                default: menu_text = {UI_TXT_MENU_NAV_ADDR,     UI_TXT_MENU_NAV_LEN};
+                3'd0:    menu_text = {UI_TXT_MENU_VEHICLE_ADDR,  UI_TXT_MENU_VEHICLE_LEN};
+                3'd1:    menu_text = {UI_TXT_MENU_CAMERA_ADDR,   UI_TXT_MENU_CAMERA_LEN};
+                3'd2:    menu_text = {UI_TXT_MENU_RADAR_ADDR,    UI_TXT_MENU_RADAR_LEN};
+                3'd3:    menu_text = {UI_TXT_MENU_NAV_OBS_ADDR,  UI_TXT_MENU_NAV_OBS_LEN};
+                default: menu_text = {UI_TXT_MENU_NAV_FREE_ADDR, UI_TXT_MENU_NAV_FREE_LEN};
             endcase
         end
     endfunction
@@ -118,10 +136,12 @@ module ui_render #(
     reg [17:0] placeholder_text;
     always @(*) begin
         case (i_page)
-            2'd0:    placeholder_text = {UI_TXT_PLACEHOLDER_CAM_ADDR,   UI_TXT_PLACEHOLDER_CAM_LEN};
-            2'd1:    placeholder_text = {UI_TXT_PLACEHOLDER_RADAR_ADDR, UI_TXT_PLACEHOLDER_RADAR_LEN};
-            2'd3:    placeholder_text = {UI_TXT_PLACEHOLDER_NAV_ADDR,   UI_TXT_PLACEHOLDER_NAV_LEN};
-            default: placeholder_text = 18'd0;
+            PG_CAMERA:   placeholder_text = {UI_TXT_PLACEHOLDER_CAM_ADDR,   UI_TXT_PLACEHOLDER_CAM_LEN};
+            PG_RADAR:    placeholder_text = {UI_TXT_PLACEHOLDER_RADAR_ADDR, UI_TXT_PLACEHOLDER_RADAR_LEN};
+            PG_NAV_OBS:  placeholder_text = {UI_TXT_PLACEHOLDER_NAV_ADDR,   UI_TXT_PLACEHOLDER_NAV_LEN};
+            // 非避障导航页同样是未实现页，复用同一条占位文案（它的坐标系/准心整页在后续实现）
+            PG_NAV_FREE: placeholder_text = {UI_TXT_PLACEHOLDER_NAV_ADDR,   UI_TXT_PLACEHOLDER_NAV_LEN};
+            default:     placeholder_text = 18'd0;
         endcase
     end
 
@@ -225,11 +245,15 @@ module ui_render #(
     always @(*) begin
         for (li = 0; li < 6; li = li + 1) lg_seg[li] = 30'd0;
 
-        // ---- 左侧菜单 4 项 ----
-        for (mi = 0; mi < 4; mi = mi + 1) begin
+        // ---- 左侧菜单 5 项（★ 2026-10-19 由 4 项扩为 5 项）----
+        //   各项起始 y：72 / 144 / 216 / 288 / 360，每项 24 高、项间距 72。
+        //   第 4 项 y=288..311 与数据页「中心速度」标签**同行** —— 用独立槽位区分（见下）。
+        //   第 5 项 y=360..383 与数据页「航位x」(336..359)、「航位y」(384..407) 均不相交。
+        //   5 项最底 383 < 状态栏 552，布局不用改（MENU_STEP 保持 72）。
+        for (mi = 0; mi < 5; mi = mi + 1) begin
             if ((i_pixel_y >= (MENU_Y0 + mi * MENU_STEP)) &&
                 (i_pixel_y <  (MENU_Y0 + mi * MENU_STEP + LG_CELL))) begin
-                lg_seg[0] = seg_lg_rom(menu_text(mi[1:0]), LG_XW[5:0],
+                lg_seg[0] = seg_lg_rom(menu_text(mi[2:0]), LG_XW[5:0],
                                        (i_pixel_y - (MENU_Y0 + mi * MENU_STEP)));
             end
         end
@@ -250,7 +274,7 @@ module ui_render #(
         //      菜单第 4 项「路径点导航」在 y=288..311，而「中心速度」行**正好也是** y=288..311。
         //      两者若共用 lg_seg[0]，后者会把菜单项覆盖掉 —— 表现为"选中数据页后第 4 项消失"。
         //      分开后同一扫描行两段并存，靠 slot 范围区分（菜单 xw=1，标签 xw=33）。
-        if (i_page == 2'd2) begin
+        if (i_page == PG_DATA) begin
             if ((i_pixel_y >= 240) && (i_pixel_y < 264))
                 lg_seg[1] = seg_lg_rom(label_text(2'd0), PX_LBL, (i_pixel_y - 12'd240));
             if ((i_pixel_y >= 288) && (i_pixel_y < 312))
@@ -283,7 +307,7 @@ module ui_render #(
         end
 
         // ---- 占位提示（页 0/1/3）----
-        if ((i_page != 2'd2) && (i_pixel_y >= PAGE_Y) && (i_pixel_y < PAGE_Y + LG_CELL) &&
+        if ((i_page != PG_DATA) && (i_pixel_y >= PAGE_Y) && (i_pixel_y < PAGE_Y + LG_CELL) &&
             (placeholder_text[5:0] != 6'd0)) begin
             lg_seg[0] = seg_lg_rom(placeholder_text, PAGEXW[5:0], (i_pixel_y - PAGE_Y));
         end
@@ -382,7 +406,7 @@ module ui_render #(
         //       4 字符（航向角 / 四轮转速）→ base = 字段号×5 + 1（跳过符号格）
         //       5 字符（角速度 / 中心速度 / 航位）→ base = 字段号×5
         //     地址表：f0=0 f1=5 f2=10 f3=15 f4=20 f5=25 f6=30 f7=35 f8=40（共 45 < 64）
-        if (i_page == 2'd2) begin
+        if (i_page == PG_DATA) begin
             // 车头偏航角（字段 0），y=112 → 读 1..4
             //   ★ 2026-10-18（第四批）：120 → **112**（需求方"数字稍微上移一点"）。
             //     数字的 y 不要求 24 对齐（row = y − 段起点，任意值），
@@ -600,7 +624,7 @@ module ui_render #(
     wire wh_rr = (i_pixel_x >= 12'd604) && (i_pixel_x <= 12'd640) &&
                  (i_pixel_y >= 12'd397) && (i_pixel_y <= 12'd467);
 
-    wire car_pix = (i_page == 2'd2) &&
+    wire car_pix = (i_page == PG_DATA) &&
                    (car_frame || wh_lf || wh_rf || wh_lr || wh_rr);
 
     // ------------------------------------------------------------------
@@ -620,7 +644,7 @@ module ui_render #(
                   (i_pixel_y >= 12'd412) && (i_pixel_y <= 12'd451);
     wire box_rr = (i_pixel_x >= 12'd664) && (i_pixel_x <= 12'd743) &&
                   (i_pixel_y >= 12'd412) && (i_pixel_y <= 12'd451);
-    wire wheel_box = (i_page == 2'd2) && (box_lf || box_rf || box_lr || box_rr);
+    wire wheel_box = (i_page == PG_DATA) && (box_lf || box_rf || box_lr || box_rr);
 
     // ★★ 2026-10-18（第四批）：只给【航向角数字】加底色块，标签不加 ★★
     //   需求方："航向角/°不要加背景框，只要航向角数字加。"
@@ -628,7 +652,7 @@ module ui_render #(
     //     x 456..535（宽 **80**，中心 **495.5** ≈ 车体中心 496）
     //     y 104..143（高 **40**，与轮速框同尺寸 80×40）
     //   颜色沿用轮速文本框的 24'h2E3440。
-    wire yaw_box = (i_page == 2'd2) &&
+    wire yaw_box = (i_page == PG_DATA) &&
                    (i_pixel_x >= 12'd456) && (i_pixel_x <= 12'd535) &&
                    (i_pixel_y >= 12'd104) && (i_pixel_y <= 12'd143);
 

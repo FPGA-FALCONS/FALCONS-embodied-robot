@@ -123,14 +123,25 @@ module falcons_top (
     localparam integer PWM_BITS      = 11;              // PWM 周期 2^11 = 2048 拍 → 24.4 kHz
     localparam integer BAUD_DEBUG    = 115200;
 
+    // ★ 2026-10-19（需求方指示）：一级菜单 4 项 → 5 项，顺序改为需求原文的章节顺序。
+    //   原第 4 项「路径点导航」在需求原文里拆成了「避障导航」+「非避障导航」两页。
+    //   ★ 编码整体变了：数据页由 **2 → 0**（新顺序的第 1 项），摄像头页由 **0 → 1**。
+    //     所以 `cam_overlay.show_cam` 不再是 `page == 0`，改为 `page == PAGE_CAMERA`。
+    //   ★ `rtl\ui\ui_render.v` 里有等价的一份 `PG_*` 常量，**改序必须两处同改**。
+    localparam [2:0] PAGE_DATA     = 3'd0;   // 运行数据显示
+    localparam [2:0] PAGE_CAMERA   = 3'd1;   // 摄像头画面
+    localparam [2:0] PAGE_RADAR    = 3'd2;   // 雷达建图展示
+    localparam [2:0] PAGE_NAV_OBS  = 3'd3;   // 避障导航
+    localparam [2:0] PAGE_NAV_FREE = 3'd4;   // 非避障导航
+    localparam [2:0] PAGE_LAST     = PAGE_NAV_FREE;   // 菜单上下回绕的上界
+
     // ★ 2026-10-18 需求变更：上电/复位后**默认进入的页面**
-    //   页面编号 0=摄像头 1=雷达 2=车身运行数据 3=路径点导航
-    //   默认值改为 **2（运行数据显示）** —— 上电即可直接看到航位/转速/航向角，
-    //   不必先按键翻页。原默认是 0（摄像头），对应 §17 的旧要求。
+    //   默认值 = **PAGE_DATA（运行数据显示）** —— 上电即可直接看到航位/转速/航向角，
+    //   不必先按键翻页。原默认是摄像头页（§17 的旧要求，2026-10-18 已改）。
     //   ★★ 必须**同时**把 `menu_sel` 的复位值也设成它 ★★
-    //      否则菜单高亮停在"摄像头"上，用户在光标档按一次「确认」就会被拉回
-    //      摄像头页，表现为"默认页没生效 / 自己跳走了"。
-    localparam [1:0]   PAGE_DEFAULT  = 2'd2;            // 2 = 车身运行数据页
+    //      否则菜单高亮停在别的项上，用户在光标档按一次「确认」就会被拉过去，
+    //      表现为"默认页没生效 / 自己跳走了"。
+    localparam [2:0]   PAGE_DEFAULT  = PAGE_DATA;      // 0 = 运行数据显示页
 
     // ==================================================================
     // 本车极性标定（2026-10-17 深夜整体重构，口径：**内部"正" = 物理前进**）
@@ -317,8 +328,8 @@ module falcons_top (
     // ==================================================================
     wire run_en;         // 底盘使能（由 rc_drive_guard 产生：回中解锁后保持，见下）
     reg estop_latch;     // 急停锁存（S4 切换；ToF 触发也会置位）
-    reg [1:0] page;      // 界面【已确认进入】的页面 0=摄像头 1=雷达 2=车身数据 3=路径点导航
-    reg [1:0] menu_sel;  // 菜单【高亮选中项】（摇杆拨动改它，按确认才赋给 page）
+    reg [2:0] page;      // 界面【已确认进入】的页面 0=数据 1=摄像头 2=雷达 3=避障导航 4=非避障导航
+    reg [2:0] menu_sel;  // 菜单【高亮选中项】（摇杆拨动改它，按确认才赋给 page）
                         // ★ 复位值统一取 PAGE_DEFAULT（= 数据页），见第 0 节
 
     // ToF 急停（模块未做出：保持 0；将来接上后由 distance < D_STOP 触发）
@@ -393,12 +404,12 @@ module falcons_top (
             //   （预留给路径点导航页 §33）。
             //   板载 S3 是板载按键、不经遥控链路，保留为"无遥控时的备用翻页"。
             if (key3_press) begin
-                menu_sel <= (menu_sel == 2'd3) ? 2'd0 : (menu_sel + 2'd1);
-                page     <= (page     == 2'd3) ? 2'd0 : (page     + 2'd1);
+                menu_sel <= (menu_sel == PAGE_LAST) ? 3'd0 : (menu_sel + 3'd1);
+                page     <= (page     == PAGE_LAST) ? 3'd0 : (page     + 3'd1);
             end else if (rc_menu_up) begin
-                menu_sel <= (menu_sel == 2'd0) ? 2'd3 : (menu_sel - 2'd1);
+                menu_sel <= (menu_sel == 3'd0) ? PAGE_LAST : (menu_sel - 3'd1);
             end else if (rc_menu_down) begin
-                menu_sel <= (menu_sel == 2'd3) ? 2'd0 : (menu_sel + 2'd1);
+                menu_sel <= (menu_sel == PAGE_LAST) ? 3'd0 : (menu_sel + 3'd1);
             end else if (rc_confirm) begin
                 page <= menu_sel;                      // ★ 确认才进入该项页面（门控在下层）
             end
@@ -907,7 +918,8 @@ module falcons_top (
     //     这里先在 sys 域寄存一拍，源就变成 DFF 输出、组合深度归零，
     //     同步器第一级的 slack 回落到与纯 DFF→DFF（estop_latch，−0.404 ns）同一量级。
     //   代价：延迟 1 个 50 MHz 周期（20 ns）。这些都是"人操作级别"的慢变量，无影响。
-    reg [1:0] page_s, mode_s, menu_s;
+    reg [2:0] page_s, menu_s;
+    reg [1:0] mode_s;
     //   ★ 2026-10-16：`run_s`（= chassis_running）已删 —— 它唯一的下游是 ui_render 的
     //     i_run，而该端口已删（模块内从不使用）。sys 域这一拍现在只剩 estop/sig/arm。
     reg       estop_s, sig_s, arm_s;
@@ -927,7 +939,8 @@ module falcons_top (
 
     // sys → pixel 跨域：状态位两级同步（慢变量，间隔远大于同步器延迟）
     //   源一律用上面打过一拍的 *_s（纯 DFF 输出）
-    reg [1:0] page_ps1, page_ps2, mode_ps1, mode_ps2, menu_ps1, menu_ps2;
+    reg [2:0] page_ps1, page_ps2, menu_ps1, menu_ps2;
+    reg [1:0] mode_ps1, mode_ps2;
     reg       estop_ps1, estop_ps2, sig_ps1, sig_ps2;
     reg       arm_ps1, arm_ps2;                          // A1："请回中位"提示
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
@@ -1113,7 +1126,7 @@ module falcons_top (
     //   ov5640_capture →（PCLK 域写）→ ddr3_ctrl_2port 帧缓存 →（pixel 域读）→ 显示二选一
     //
     // 需求原文 §17/§21：左侧约 1/5~1/6 宽度是菜单，**选中摄像头页时菜单右侧全部画面**
-    // 实时显示摄像头采集的画面，且该页不占摇杆。所以这里只把 `page==0` 且
+    // 实时显示摄像头采集的画面，且该页不占摇杆。所以这里只把 `page == PAGE_CAMERA` 且
     // `pixel_x >= 菜单宽` 的区域换成摄像头像素，其余仍由 ui_render 负责。
     //
     // ★ 两个关键点（改动前先读）：
@@ -1169,8 +1182,8 @@ module falcons_top (
         .pixel_req    (pixel_req),
         .pixel_x      (pixel_x),
         .frame_sync   (frame_sync),
-        // page 0 = 摄像头页（§17 的旧默认；2026-10-18 起默认已改为 2 = 数据页）
-        .show_cam     (page_ps2 == 2'd0),
+        // 摄像头页 = PAGE_CAMERA（2026-10-19 起编码为 1；此前是 0，换序后跟着变）
+        .show_cam     (page_ps2 == PAGE_CAMERA),
         .ui_rgb       (ui_rgb_raw),
         .o_rgb        (ui_rgb),
 

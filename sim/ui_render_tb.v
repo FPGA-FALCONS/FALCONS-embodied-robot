@@ -33,13 +33,13 @@ module ui_render_tb;
     reg  [11:0] px = 12'd0, py = 12'd0;
     reg         preq = 1'b0, vact = 1'b0;
 
-    reg  [1:0]  page = 2'd0;
+    reg  [2:0]  page = 3'd0;
     reg  [1:0]  uimode = 2'd0;
     // ★ 2026-10-16：`run_i` 已删 —— ui_render 的 i_run 端口与其在顶层的
     //   run_s/run_ps1/run_ps2 跨域链一并删除（模块内从不使用该信号）。
     reg         estop_i = 1'b0, sigok_i = 1'b1;
     reg         armhint_i = 1'b0;           // A1：启动门禁提示（"请回中位"）
-    reg  [1:0]  menusel = 2'd0;             // 菜单高亮项（两段式：摇杆改它、确认才换页）
+    reg  [2:0]  menusel = 3'd0;             // 菜单高亮项（两段式：摇杆改它、确认才换页）
 
     wire [23:0] rgb;
     wire [5:0]  dyn_raddr;
@@ -722,7 +722,7 @@ module ui_render_tb;
 
         // ---------------- 页 0：菜单 + 状态栏 ----------------
         $display("-- 1/2/3. 页0：菜单文字、选中高亮、状态栏 --");
-        page = 2'd0; sigok_i = 1'b1; uimode = 2'd0; estop_i = 1'b0;
+        page = 3'd1; sigok_i = 1'b1; uimode = 2'd0; estop_i = 1'b0;
         repeat (4) @(posedge pixel_clk);
         scan(56, 190);                      // 覆盖菜单第 1 项（选中）与第 2 项（未选中），24px 大字
         scan(536, 596);                     // 状态栏（24px 大字，文字 552..576）
@@ -734,7 +734,7 @@ module ui_render_tb;
         // ---------------- 数据页（页 2）----------------
         $display("-- 4. 页2：中文标签 + 动态数值（来自字符 RAM 的亮绿字符）--");
         cnt_label = 0; cnt_num = 0; cnt_ph = 0;
-        page = 2'd2;
+        page = 3'd0;
         repeat (4) @(posedge pixel_clk);
         cnt_yaw = 0;
         scan(120, 144);                     // 车头偏航角行（24px 大字）
@@ -747,13 +747,28 @@ module ui_render_tb;
         scan(256, 272);
         check_zero("placeholder_on_page2", cnt_ph);
 
-        // ---------------- 页 1 的占位提示应存在 ----------------
-        $display("-- 6. 页1（雷达）应显示占位提示 --");
-        cnt_ph = 0;
-        page = 2'd1;
-        repeat (4) @(posedge pixel_clk);
-        scan(256, 272);
-        check_pos ("placeholder_on_page1", cnt_ph);
+        // ---------------- 6. ★ 逐页占位文案（2026-10-19 菜单换序后新增）----------------
+        //   只数像素数无法区分「雷达未接入」与「导航未实现」（都是 5 字），
+        //   所以逐页用 check_seg_lg 与字库黄金参考比对**具体文案**。
+        //   页面编码（falcons_top.v 的 PAGE_* / ui_render.v 的 PG_*）：
+        //     0 运行数据显示 / 1 摄像头 / 2 雷达 / 3 避障导航 / 4 非避障导航
+        $display("-- 6. 逐页占位文案：1摄像头 / 2雷达 / 3避障 / 4非避障，各对应自己的文案 --");
+        page = 3'd1; repeat (4) @(posedge pixel_clk);
+        check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_CAM_LEN, UI_TXT_PLACEHOLDER_CAM_ADDR,
+                     24'hFFFFFF, "ph_p1_camera");
+        page = 3'd2; repeat (4) @(posedge pixel_clk);
+        check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_RADAR_LEN, UI_TXT_PLACEHOLDER_RADAR_ADDR,
+                     24'hFFFFFF, "ph_p2_radar");
+        page = 3'd3; repeat (4) @(posedge pixel_clk);
+        check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_NAV_LEN, UI_TXT_PLACEHOLDER_NAV_ADDR,
+                     24'hFFFFFF, "ph_p3_nav_obs");
+        page = 3'd4; repeat (4) @(posedge pixel_clk);
+        check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_NAV_LEN, UI_TXT_PLACEHOLDER_NAV_ADDR,
+                     24'hFFFFFF, "ph_p4_nav_free");
+
+        //   反向断言：占位页不得出现车图（车图只在 page 0）
+        scan_car;
+        check_zero("car_absent_on_page4", cnt_car);
 
         // ---------------- A1 启动门禁提示（请回中位）----------------
         //   判据用【状态栏白字像素数】对比（不比较具体汉字，只比较字数）：
@@ -764,7 +779,7 @@ module ui_render_tb;
         //   所以 hint 像素数 > manual 像素数 ⇒ 文案确实切到了更长的门禁提示；
         //   estop / nosignal 时像素数 < hint ⇒ 优先级顺序正确（门禁提示不抢占它们）。
         $display("-- 7. A1 启动门禁：arm_hint=1 显示 请回中位；急停/无信号优先级更高 --");
-        page = 2'd0; sigok_i = 1'b1; estop_i = 1'b0; armhint_i = 1'b0; uimode = 2'd0;
+        page = 3'd1; sigok_i = 1'b1; estop_i = 1'b0; armhint_i = 1'b0; uimode = 2'd0;
         cnt_status = 0;
         repeat (4) @(posedge pixel_clk);
         scan(536, 596);
@@ -841,8 +856,8 @@ module ui_render_tb;
         armhint_i  = 1'b0;
         begin : hl_scan
             integer mi, other;
-            for (mi = 0; mi < 4; mi = mi + 1) begin
-                menusel = mi[1:0];
+            for (mi = 0; mi < 5; mi = mi + 1) begin
+                menusel = mi[2:0];
                 repeat (4) @(posedge pixel_clk);
 
                 // (a) 高亮应出现在本项的带区
@@ -865,7 +880,7 @@ module ui_render_tb;
                 end
             end
         end
-        menusel = 2'd0;
+        menusel = 3'd0;
         repeat (4) @(posedge pixel_clk);
 
         // ---------------- 8b. 光标档状态栏文案 ----------------
@@ -898,20 +913,20 @@ module ui_render_tb;
         //   所以把高亮钉在第 4 项（menusel=3）。
         //   ★ 2026-10-17：菜单已改为 24x24 大字（24 px 组），断言改用 check_seg_lg。
         $display("-- 9. 菜单段边界（24px 大字）：整段对字库黄金参考；起点左侧 2 列必须无字 --");
-        page = 2'd0; uimode = 2'd0; estop_i = 1'b0; sigok_i = 1'b1; armhint_i = 1'b0;
-        menusel = 2'd3;
+        page = 3'd1; uimode = 2'd0; estop_i = 1'b0; sigok_i = 1'b1; armhint_i = 1'b0;
+        menusel = 3'd4;
         repeat (4) @(posedge pixel_clk);
         dump_row(LG_MENU_Y0, 24'hE5E7EB);      // 第 0 行点亮序列（诊断图案是否整体错位）
         dump_row(LG_MENU_Y0 + 4, 24'hE5E7EB);
         check_seg_lg(LG_MENU_Y0, LG_XW_SLOT,
-                     UI_TXT_MENU_CAMERA_LEN, UI_TXT_MENU_CAMERA_ADDR,
+                     UI_TXT_MENU_VEHICLE_LEN, UI_TXT_MENU_VEHICLE_ADDR,
                      24'hE5E7EB, "menu_item0_boundary");
 
         // ---------------- 10. ★ 段边界回归：数据页右侧列表 + 车头偏航角 ----------------
         //   2026-10-17 车图改版后：列表标签 x=800（组 50）、列表数值 x=880（组 55）、
         //   车头偏航角 x=560（组 35）。三者都是 16 px 小字，判据同前。
         $display("-- 10. 数据页边界（24px 大字）：右侧列表标签 + 列表数值 + 车头偏航角 --");
-        page = 2'd2;
+        page = 3'd0;
         repeat (4) @(posedge pixel_clk);
 
         // ---------------- 10a. ★ 两处带单位标签（中文 24px + 后缀 16px 混排） ----------------
@@ -943,7 +958,7 @@ module ui_render_tb;
         //        送到对角象限，所以四处断言正好两两互换：4↔1、3↔2）
         //   字段号 1=A 2=B 3=C 4=D（字段基址 = 字段号 × 5，轮速读 4 字符从 base+1 起）
         $display("-- 10b. 轮速位置映射（掉头后）：左前=A(1) 右前=B(2) 左后=C(3) 右后=D(4) --");
-        page = 2'd2;
+        page = 3'd0;
         repeat (4) @(posedge pixel_clk);
         check_wheel_field(248, PX_WL_SLOT, 1, "wheel_lf_eq_A");
         check_wheel_field(248, PX_WR_SLOT, 2, "wheel_rf_eq_B");
