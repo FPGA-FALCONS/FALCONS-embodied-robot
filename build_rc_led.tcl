@@ -44,5 +44,10 @@ set_option -verilog_std v2001
 set_option -output_base_name rc_led_test
 set_option -print_all_synthesis_warning 1
 set_option -show_all_warn 1
-run all
+if {[catch {run all} err]} {
+    puts "BUILD FAILED (run all): $err"
+    exit 1
+}
 puts "DIAGNOSTIC_BITSTREAM: [file join $output_root impl pnr rc_led_test.fs]"
+# 显式退出：gw_sh 跑完脚本会掉进交互式 Tcl shell 一直不退出（理由见 build.tcl）
+exit 0

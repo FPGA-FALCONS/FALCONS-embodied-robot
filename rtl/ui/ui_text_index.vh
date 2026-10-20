@@ -4,8 +4,8 @@
 //       再用 char_index*16+row 从 font_rom（16x16）取 16bit 行点阵，
 //       或 char_index*24+row 从 font_rom_lg（24x24）取 24bit 行点阵。
 
-localparam integer UI_FONT_CHAR_COUNT = 233;
-localparam integer UI_TEXT_TOTAL_CHARS = 286;
+localparam integer UI_FONT_CHAR_COUNT = 238;
+localparam integer UI_TEXT_TOTAL_CHARS = 346;
 
 // {名, 文案, 起始地址, 字符数}
 localparam [11:0] UI_TXT_MENU_VEHICLE_ADDR = 12'd0;  // 运行数据显示
@@ -188,4 +188,36 @@ localparam [11:0] UI_TXT_PLACEHOLDER_NAV_ADDR = 12'd273;  // 导航未实现
 localparam [5:0] UI_TXT_PLACEHOLDER_NAV_LEN  = 6'd5;
 localparam [11:0] UI_TXT_IMU_FAIL_ADDR = 12'd278;  // imu初始化错误
 localparam [5:0] UI_TXT_IMU_FAIL_LEN  = 6'd8;
+localparam [11:0] UI_TXT_MENU_TUNE_ADDR = 12'd286;  // 参数整定
+localparam [5:0] UI_TXT_MENU_TUNE_LEN  = 6'd4;
+localparam [11:0] UI_TXT_TUNE_L0_ADDR = 12'd290;  // 车速
+localparam [5:0] UI_TXT_TUNE_L0_LEN  = 6'd2;
+localparam [11:0] UI_TXT_TUNE_L1_ADDR = 12'd292;  // 减速距离
+localparam [5:0] UI_TXT_TUNE_L1_LEN  = 6'd4;
+localparam [11:0] UI_TXT_TUNE_L2_ADDR = 12'd296;  // 对准小角
+localparam [5:0] UI_TXT_TUNE_L2_LEN  = 6'd4;
+localparam [11:0] UI_TXT_TUNE_L3_ADDR = 12'd300;  // 对准大角
+localparam [5:0] UI_TXT_TUNE_L3_LEN  = 6'd4;
+localparam [11:0] UI_TXT_TUNE_L4_ADDR = 12'd304;  // 转向角速度
+localparam [5:0] UI_TXT_TUNE_L4_LEN  = 6'd5;
+localparam [11:0] UI_TXT_TUNE_L5_ADDR = 12'd309;  // 航向Kp
+localparam [5:0] UI_TXT_TUNE_L5_LEN  = 6'd4;
+localparam [11:0] UI_TXT_TUNE_L6_ADDR = 12'd313;  // 航向Ki
+localparam [5:0] UI_TXT_TUNE_L6_LEN  = 6'd4;
+localparam [11:0] UI_TXT_TUNE_L7_ADDR = 12'd317;  // 航向Kd
+localparam [5:0] UI_TXT_TUNE_L7_LEN  = 6'd4;
+localparam [11:0] UI_TXT_TUNE_L8_ADDR = 12'd321;  // 速度环Kp
+localparam [5:0] UI_TXT_TUNE_L8_LEN  = 6'd5;
+localparam [11:0] UI_TXT_TUNE_L9_ADDR = 12'd326;  // 速度环Ki
+localparam [5:0] UI_TXT_TUNE_L9_LEN  = 6'd5;
+localparam [11:0] UI_TXT_TUNE_L10_ADDR = 12'd331;  // 速度环Kd
+localparam [5:0] UI_TXT_TUNE_L10_LEN  = 6'd5;
+localparam [11:0] UI_TXT_TUNE_UMMS_ADDR = 12'd336;  // mm/s
+localparam [5:0] UI_TXT_TUNE_UMMS_LEN  = 6'd4;
+localparam [11:0] UI_TXT_TUNE_UMM_ADDR = 12'd340;  // mm
+localparam [5:0] UI_TXT_TUNE_UMM_LEN  = 6'd2;
+localparam [11:0] UI_TXT_TUNE_UDEG_ADDR = 12'd342;  // °
+localparam [5:0] UI_TXT_TUNE_UDEG_LEN  = 6'd1;
+localparam [11:0] UI_TXT_TUNE_UDEGS_ADDR = 12'd343;  // °/s
+localparam [5:0] UI_TXT_TUNE_UDEGS_LEN  = 6'd3;
 

@@ -52,7 +52,7 @@
 //     dist ≥ |left|，若横向稳态偏差 30 mm，则 dist 最小只能到 30 mm，判据 dist<25
 //     **永不满足**，车在点附近反复找点、完成信号永不置位。
 //   · v_ref = clamp(K_slow·ahead, 0, v_cruise)，K_slow = v_cruise/d_slow。
-//     **硬约束** d_slow ≥ v_cruise²/(2·a_max) = 300²/1000 = 90 mm，取 130 是 1.4 倍余量。
+//     **硬约束** d_slow ≥ v_cruise²/(2·a_max) = 300²/1000 = 90 mm，现取 100 是 1.11 倍余量。
 //     取小了减速不足会冲过头，且失效只在末段暴露，调参时极易误判成"死区太大"。
 //
 // ==============================================================================
@@ -71,7 +71,7 @@
 //       所以本模块取 e = 90 mm、θ 门限 16°，两者是同一个约束的两面，不能单独改。
 //       L2 启用条件（缺一降级为 L1）：
 //         ① 段间转角 |θ| ≤ 16°
-//         ② 下一段点距 ≥ 260 mm（= 2·d_slow，小于它进减速段时还没加速完，没收益）
+//         ② 下一段点距 ≥ 260 mm（d_slow=130 时即 2·d_slow；现 d_slow=100，仍取 260 更保守）
 //         ③ 还有下一点
 //
 //   ★ 判"转角 ≤ 16°"不跑第二次 atan2。两段路径在**同一个 odom 相对系**里都有向量：
@@ -119,12 +119,9 @@
 `timescale 1ns/1ps
 
 module nav_ctrl #(
-    parameter integer V_CRUISE_MMS     = 300,     // 巡航速度 mm/s
-    parameter integer D_SLOW_MM        = 100,     // 开始减速的距离 mm（≥ v²/2a = 90，余量 1.11 倍）
+    // ---- 结构性参数（改这些仍要重综合；页面不开放）----
     parameter integer ARRIVE_R_MM      = 25,      // L1 到点半径 mm
     parameter integer NP_CUT_DIST_MM   = 90,      // L2 提前切点距离 e（= v²/2a）
-    parameter integer ALIGN_IN_DEG     = 1000,    // ALIGN → TRACK 门限 10°（0.01°）
-    parameter integer ALIGN_OUT_DEG    = 3500,    // TRACK → ALIGN 门限 35°（迟滞）
     parameter integer NP_CUT_DEG       = 1600,    // L2 段间转角门限 16°（仅文档口径）
     parameter integer NP_MIN_SPACE_MM  = 260,     // L2 最小点距 mm（D_SLOW=130 时为 2·D_SLOW；现 D_SLOW=100，仍取 260 更保守）
     parameter integer STOP_V_EPS       = 50,      // 停稳判据 mm/s
@@ -133,16 +130,33 @@ module nav_ctrl #(
     parameter integer TIMEOUT_TICKS    = 3000,    // 单点超时节拍数（×10 ms = 30 s）
     parameter integer MAX_CENTER       = 3072,    // center 限幅（计数/10ms，=1033 mm/s）
     parameter integer MAX_DIFF         = 612,     // 原地转向差速限幅（≈146 °/s）
-    parameter integer MAX_DIFF_CRUISE  = 180,     // 行进中差速限幅 ≈43 °/s（2·180·0.33617/161.5）
     parameter integer OM_CLIP          = 3000,    // ω 进 D 项的限幅（0.01°/s）
-    // ---- 航向 PID（Q8，每 10 ms 算一次；初值供台架调）----
-    parameter integer KP_YAW           = 21,      // 0.082：psi=10° → diff≈82
-    parameter integer KI_YAW           = 4,       // 只用来吃掉轮径不对称
-    parameter integer KD_YAW           = 6,       // 阻尼源用限幅后的 ω
     parameter integer I_LIMIT          = 400      // 积分限幅（≈ MAX_DIFF，防饱和）
 )(
     input  wire                clk,
     input  wire                rst_n,
+
+    // ==================================================================
+    // 运行时参数（2026-10-20 从 module parameter 改为端口）
+    //   由 `rtl\ui\tune_ctrl.v` 的参数整定页在线修改，改完下一个 10 ms 节拍
+    //   就生效（不需要重综合/烧录）。
+    //   ★ 默认值与取值范围（min/max/step）的**唯一真源**是
+    //     `rtl\ui\tune_ctrl.v` 的 p_def() / p_min() / p_max() / p_step()，
+    //     本模块不再保留副本，避免两处漂移。
+    //   ★ 注意时序：KP/KI/KD 原来是常量（综合成移位加），现在变成真乘法器，
+    //     见下方 PID 段的说明。
+    // ==================================================================
+    input  wire signed [31:0]  i_v_cruise,       // 300    mm/s  巡航线速度
+    input  wire signed [31:0]  i_d_slow,         // 100    mm    开始减速的纵向距离（硬约束 ≥ v²/2a）
+    input  wire signed [31:0]  i_align_in,       // 1000   0.01° ALIGN → TRACK 门限（10°）
+    input  wire signed [31:0]  i_align_out,      // 3500   0.01° TRACK → ALIGN 门限（35°）
+    input  wire signed [31:0]  i_max_diff_cruise,// 180    cnt/10ms 行进中差速限幅（≈43 °/s）
+    input  wire signed [31:0]  i_kp_yaw,         // 21     Q8    航向 PID 比例
+    input  wire signed [31:0]  i_ki_yaw,         // 4      Q8    航向 PID 积分
+    input  wire signed [31:0]  i_kd_yaw,         // 6      Q8    航向 PID 微分
+    input  wire signed [31:0]  i_k_slow_q10,     // 3072   派生量 (V_CRUISE×1024)/D_SLOW，
+                                                 //        由 tune_ctrl 的迭代除法器算好后送进来
+                                                 //        （放到本模块会让 nav_ctrl 里出现真除法）
 
     // ---- 来自 UI 层（nav_free_ctrl）----
     input  wire                i_active,      // 导航页交互态（0 = 已退出，立即停）
@@ -189,8 +203,11 @@ module nav_ctrl #(
     // mm/s → 计数/10ms：1 count/10ms = 0.3361701 mm/s（DS_K_Q10=3525）
     //   倒数 2.974684 → Q10 = 3046（误差 0.0025%）
     localparam signed [31:0] MMPS_TO_CNT_Q10 = 32'sd3046;
-    localparam signed [31:0] K_SLOW_Q10      = (V_CRUISE_MMS * 1024) / D_SLOW_MM;
-    localparam signed [31:0] V_CRUISE_Q10MM  = V_CRUISE_MMS * 32'sd1024;
+    // ★ 2026-10-20：这两项原来是 localparam，参数运行时可调后必须改派生方式
+    //   K_SLOW 由 tune_ctrl 的迭代除法器算好送进来（nav_ctrl 内不出现除法器）；
+    //   v_cruise_q10mm 是寄存器左移 10 位，综合成连线、不占乘法器。
+    wire signed [31:0] k_slow_q10     = i_k_slow_q10;
+    wire signed [31:0] v_cruise_q10mm = i_v_cruise <<< 10;
     localparam signed [31:0] R2_IN           = ARRIVE_R_MM    * ARRIVE_R_MM;
     localparam signed [31:0] E2_CUT          = NP_CUT_DIST_MM * NP_CUT_DIST_MM;
     localparam signed [31:0] SPACE2_MIN      = NP_MIN_SPACE_MM * NP_MIN_SPACE_MM;
@@ -354,10 +371,16 @@ module nav_ctrl #(
     //   22:52 综合报 **10 条 −0.789 ~ −0.840**（delay 20.7 ns，`n965_s/DOUT[7] → o_center_*_s0/D`）。
     //   拆成 M_V1/M_V2/M_V3 三拍，每拍只走一个乘法；M_A4 决策时直接用 `v_cnt_r`。
     reg  signed [31:0] ahead_mm_r;     // M_V1
-    reg  signed [31:0] v_slow_r;       // M_V1：ahead_mm_r × K_SLOW_Q10
-    reg  signed [31:0] v_ref_r;        // M_V2：限到 V_CRUISE_Q10MM
+    reg  signed [31:0] v_slow_r;       // M_V1：ahead_mm_r × k_slow_q10
+    reg  signed [31:0] v_ref_r;        // M_V2：限到 v_cruise_q10mm
     reg  signed [31:0] v_cnt_r;        // M_V3：counts/10ms
-    wire signed [31:0] v_ref_final = (v_ref_r > V_CRUISE_Q10MM) ? V_CRUISE_Q10MM : v_ref_r;
+    wire signed [31:0] v_ref_final = (v_ref_r > v_cruise_q10mm) ? v_cruise_q10mm : v_ref_r;
+
+    // ★ 2026-10-20：k_slow_q10 从常量变寄存器后，乘法器显式收到 16 位
+    //   （ahead ≤ ±1000 mm、K_SLOW ≤ 12288，两边都在 16 位内）。
+    //   `ahead_r[23:8]` 与 `ahead_r >>> 8` 的低 16 位完全等价（算术右移不动低位）。
+    wire signed [15:0] ahead_mm16 = ahead_r[23:8];
+    wire signed [15:0] ks16       = k_slow_q10[15:0];
 
     // 航向 PID
     //   `psi_ext`（当前拍 cd_angle）只给 M_A3 算 `i_inc` 用；
@@ -367,9 +390,20 @@ module nav_ctrl #(
     wire signed [31:0] psi_ext_r = {{16{psi_r[15]}},    psi_r};
     wire signed [31:0] om_lim  = (om_raw >  OM_CLIP) ?  OM_CLIP :
                                  (om_raw < -OM_CLIP) ? -OM_CLIP : om_raw;
-    wire signed [31:0] p_term  = (psi_ext_r * KP_YAW) >>> 8;
-    wire signed [31:0] i_inc   = (psi_ext * KI_YAW) >>> 8;
-    wire signed [31:0] d_term  = (om_lim * KD_YAW) >>> 8;
+    //   ★ 2026-10-20：KP/KI/KD 从 module parameter 变成寄存器端口后，乘法器
+    //     必须**显式收到 16 位**，否则综合器会按 32×32 生成（4 个 DSP、延迟更长）。
+    //     psi ≤ ±18000（0.01°）、ω ≤ ±3000、PID 系数 ≤ 200，两边都在 16 位内，截断无损。
+    //     —— 这也是把这项改动限制在「换数据源、不换结构」的关键：乘法器从 0 个
+    //     （常量时综合成移位加）变成 3 个 DSP，但位宽没有膨胀。
+    wire signed [15:0] psi_r16 = psi_ext_r[15:0];
+    wire signed [15:0] psi_c16 = psi_ext[15:0];
+    wire signed [15:0] om16    = om_lim[15:0];
+    wire signed [15:0] kp16    = i_kp_yaw[15:0];
+    wire signed [15:0] ki16    = i_ki_yaw[15:0];
+    wire signed [15:0] kd16    = i_kd_yaw[15:0];
+    wire signed [31:0] p_term  = (psi_r16 * kp16) >>> 8;
+    wire signed [31:0] i_inc   = (psi_c16 * ki16) >>> 8;
+    wire signed [31:0] d_term  = (om16    * kd16) >>> 8;
     wire signed [31:0] i_sum   = i_acc + i_inc;
     wire signed [31:0] i_lim   = (i_sum >  I_LIMIT) ?  I_LIMIT :
                                  (i_sum < -I_LIMIT) ? -I_LIMIT : i_sum;
@@ -538,12 +572,12 @@ module nav_ctrl #(
                     // ---- 速度规划三级流水（见 v_cnt 附近的时序说明）----
                     M_V1: begin
                         ahead_mm_r <= ahead_r >>> 8;
-                        v_slow_r   <= (ahead_r >>> 8) * K_SLOW_Q10;
+                        v_slow_r   <= ahead_mm16 * ks16;
                         space_ok_r <= space_ok;  // ★ 同上，与上面两个乘法并行
                         mst        <= M_V2;
                     end
                     M_V2: begin
-                        v_ref_r <= (ahead_mm_r >= D_SLOW_MM) ? V_CRUISE_Q10MM :
+                        v_ref_r <= (ahead_mm_r >= i_d_slow) ? v_cruise_q10mm :
                                    (ahead_mm_r > 32'sd0)     ? v_slow_r : 32'sd0;
                         mst     <= M_V3;
                     end
@@ -605,7 +639,7 @@ module nav_ctrl #(
                             o_diff       <= clamp32(diff_pid_r, MAX_DIFF);
                             o_auto_valid <= 1'b1;
                             // 对准（30° 以内）→ TRACK
-                            if (psi_abs <= ALIGN_IN_DEG) begin
+                            if (psi_abs <= i_align_in) begin
                                 o_state <= S_TRACK;
                                 i_acc   <= 32'sd0;      // 模式切换必须清积分
                             end
@@ -619,7 +653,7 @@ module nav_ctrl #(
                                 elapsed_cnt<= 16'd0;
                                 i_acc      <= 32'sd0;   // 目标跳变 → 清积分
                                 o_center   <= v_cnt_r;   // 已由 M_V3 限到 V_CRUISE（892 counts < MAX_CENTER），无需再 clamp
-                                o_diff     <= clamp32(diff_pid_r, MAX_DIFF_CRUISE);
+                                o_diff     <= clamp32(diff_pid_r, i_max_diff_cruise);
                                 o_auto_valid <= 1'b1;
                             end
                             // ---- L1：到点（25 mm）→ 停车 ----
@@ -632,7 +666,7 @@ module nav_ctrl #(
                             end
                             // ---- 正常行进 ----
                             else begin
-                                if (psi_abs > ALIGN_OUT_DEG) begin
+                                if (psi_abs > i_align_out) begin
                                     // 偏太多：回 ALIGN 重新对准。
                                     // ★ 这一拍就**不许再给前进速度**，否则"该转却在冲"
                                     //   会多走 10 ms 的冤枉路（300 mm/s 下 3 mm）。
@@ -642,7 +676,7 @@ module nav_ctrl #(
                                     o_diff       <= clamp32(diff_pid_r, MAX_DIFF);
                                 end else begin
                                     o_center     <= v_cnt_r;   // 已限到 V_CRUISE
-                                    o_diff       <= clamp32(diff_pid_r, MAX_DIFF_CRUISE);
+                                    o_diff       <= clamp32(diff_pid_r, i_max_diff_cruise);
                                 end
                                 o_auto_valid <= 1'b1;
                             end

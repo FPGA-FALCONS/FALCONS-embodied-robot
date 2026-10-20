@@ -83,7 +83,8 @@ module ui_render #(
     //   1 = IMU 初始化失败（vendor imu_top 进了 S_ERROR 的死胡同）→
     //   数据页「航向角」标签正上方用**红字**显示「imu初始化错误」。
     //   此刻航向角/角速度会恒为 0，没有这行提示根本分不清"车没转"和"IMU 没起来"。
-    input  wire         i_imu_fail
+    input  wire         i_imu_fail,
+    input  wire [3:0]   i_tune_sel      // 参数整定页当前选中行（0..10）
 );
 
     // UI 文案索引（localparam；由 tools/gen_font_rom.py 生成，与本文件同目录）
@@ -107,6 +108,7 @@ module ui_render #(
     localparam [2:0] PG_RADAR    = 3'd2;    // 雷达建图展示
     localparam [2:0] PG_NAV_OBS  = 3'd3;    // 避障导航
     localparam [2:0] PG_NAV_FREE = 3'd4;    // 非避障导航
+    localparam [2:0] PG_TUNE     = 3'd5;    // 参数整定（2026-10-20 新增，一期：存 RAM）
 
     // ---- 非避障导航页：右下角辅助菜单几何（真源；改这里即可整体平移）----
     localparam integer NAV_AUX_X    = 840;  // 文字左界（24 的倍数 ⇒ 字组号 35）
@@ -114,6 +116,22 @@ module ui_render #(
     localparam integer NAV_AUX_Y0   = 420;  // 第 1 项框顶
     localparam integer NAV_AUX_STEP = 36;   // 项高
     localparam integer NAV_AUX_TDY  = 6;    // 文字相对框顶偏移（(36−24)/2）
+
+    // ---- 参数整定页几何（2026-10-20 新增，一期：11 行参数，存 RAM）----
+    //   内容区 x 208..1023。三列：中文标签（24px）x=240 / 数值（16px，5 格）x=384 /
+    //   单位（16px）x=480。行距 36，11 行占 y=72..467，最底 461 < 状态栏 540。
+    //   标题「参数整定」x=240 / y=24；第 6 个菜单项最底 455 < 状态栏 552，菜单不用改版式。
+    //   ★ 标签只有 4~5 个字（最长「转向角速度」「减速距离」），5×24=120 px，
+    //     240+120=360 < 384（数值左界），不重叠。
+    localparam integer TUNE_Y0      = 72;   // 第 1 行顶
+    localparam integer TUNE_STEP    = 36;   // 行高
+    localparam integer TUNE_TDY     = 6;    // 24px 标签相对行顶偏移 (36−24)/2
+    localparam integer TUNE_VDY     = 10;   // 16px 数字相对行顶偏移 (36−16)/2
+    localparam integer TUNE_LBL_X   = 240;  // 标签左界（24 的倍数 ⇒ 字组 10）
+    localparam integer TUNE_LBL_XW  = TUNE_LBL_X / LG_CELL;
+    localparam integer TUNE_VAL_XW  = 24;   // 数值左界 24×16 = 384
+    localparam integer TUNE_UNIT_XW = 30;   // 单位左界 30×16 = 480
+    localparam integer TUNE_ROWS    = 11;   // 参数行数（与 tune_ctrl 的 11 项一一对应）
 
     // ------------------------------------------------------------------
     // 文案取用（function：纯组合，综合稳）  {addr[11:0], len[5:0]}
@@ -126,7 +144,48 @@ module ui_render #(
                 3'd1:    menu_text = {UI_TXT_MENU_CAMERA_ADDR,   UI_TXT_MENU_CAMERA_LEN};
                 3'd2:    menu_text = {UI_TXT_MENU_RADAR_ADDR,    UI_TXT_MENU_RADAR_LEN};
                 3'd3:    menu_text = {UI_TXT_MENU_NAV_OBS_ADDR,  UI_TXT_MENU_NAV_OBS_LEN};
+                3'd4:    menu_text = {UI_TXT_MENU_NAV_FREE_ADDR, UI_TXT_MENU_NAV_FREE_LEN};
+                3'd5:    menu_text = {UI_TXT_MENU_TUNE_ADDR,     UI_TXT_MENU_TUNE_LEN};
                 default: menu_text = {UI_TXT_MENU_NAV_FREE_ADDR, UI_TXT_MENU_NAV_FREE_LEN};
+            endcase
+        end
+    endfunction
+
+    // ---- 参数整定页：11 行参数的中文标签（24px）----
+    //   ★ 顺序与 rtl\ui\tune_ctrl.v 的 o_sel 0..10、以及 num_text 字段号 0..10
+    //     三者必须完全一致：标签取 idx，数值取字段 idx，改一处就要三处同改。
+    function [17:0] tune_label_text;
+        input [3:0] idx;
+        begin
+            case (idx)
+                4'd0:    tune_label_text = {UI_TXT_TUNE_L0_ADDR,  UI_TXT_TUNE_L0_LEN};
+                4'd1:    tune_label_text = {UI_TXT_TUNE_L1_ADDR,  UI_TXT_TUNE_L1_LEN};
+                4'd2:    tune_label_text = {UI_TXT_TUNE_L2_ADDR,  UI_TXT_TUNE_L2_LEN};
+                4'd3:    tune_label_text = {UI_TXT_TUNE_L3_ADDR,  UI_TXT_TUNE_L3_LEN};
+                4'd4:    tune_label_text = {UI_TXT_TUNE_L4_ADDR,  UI_TXT_TUNE_L4_LEN};
+                4'd5:    tune_label_text = {UI_TXT_TUNE_L5_ADDR,  UI_TXT_TUNE_L5_LEN};
+                4'd6:    tune_label_text = {UI_TXT_TUNE_L6_ADDR,  UI_TXT_TUNE_L6_LEN};
+                4'd7:    tune_label_text = {UI_TXT_TUNE_L7_ADDR,  UI_TXT_TUNE_L7_LEN};
+                4'd8:    tune_label_text = {UI_TXT_TUNE_L8_ADDR,  UI_TXT_TUNE_L8_LEN};
+                4'd9:    tune_label_text = {UI_TXT_TUNE_L9_ADDR,  UI_TXT_TUNE_L9_LEN};
+                4'd10:   tune_label_text = {UI_TXT_TUNE_L10_ADDR, UI_TXT_TUNE_L10_LEN};
+                default: tune_label_text = {UI_TXT_TUNE_L0_ADDR,  UI_TXT_TUNE_L0_LEN};
+            endcase
+        end
+    endfunction
+
+    // ---- 参数整定页：数值单位（16px，跟在小数右侧）----
+    //   返回 {addr, len}；len = 0 表示该行不画单位（Kp/Ki/Kd 是无量纲）。
+    //   ★ 度号 '°' 与 '/' 字库里本来就有（LBL_DEG:/°），小写 's' 是本页新增。
+    function [17:0] tune_unit_text;
+        input [3:0] idx;
+        begin
+            case (idx)
+                4'd0:       tune_unit_text = {UI_TXT_TUNE_UMMS_ADDR,  UI_TXT_TUNE_UMMS_LEN};
+                4'd1:       tune_unit_text = {UI_TXT_TUNE_UMM_ADDR,   UI_TXT_TUNE_UMM_LEN};
+                4'd2, 4'd3: tune_unit_text = {UI_TXT_TUNE_UDEG_ADDR,  UI_TXT_TUNE_UDEG_LEN};
+                4'd4:       tune_unit_text = {UI_TXT_TUNE_UDEGS_ADDR, UI_TXT_TUNE_UDEGS_LEN};
+                default:    tune_unit_text = 18'd0;
             endcase
         end
     endfunction
@@ -286,16 +345,17 @@ module ui_render #(
     // ---------------- 大字段数组：菜单 4 项 + 状态栏 + 数据页 + 占位 ----------------
     //   同一条扫描行最多 4 段（数据页 y=240 那行：左轮速 / 右前轮速 / 角速度标签 / 角速度数值）
     reg [29:0] lg_seg [0:5];
-    integer    li, mi, ai;
+    integer    li, mi, ai, ti;
     always @(*) begin
         for (li = 0; li < 6; li = li + 1) lg_seg[li] = 30'd0;
 
-        // ---- 左侧菜单 5 项（★ 2026-10-19 由 4 项扩为 5 项）----
-        //   各项起始 y：72 / 144 / 216 / 288 / 360，每项 24 高、项间距 72。
+        // ---- 左侧菜单 6 项（2026-10-19 由 4 项扩为 5 项；2026-10-20 增第 6 项「参数整定」）----
+        //   各项起始 y：72 / 144 / 216 / 288 / 360 / 432，每项 24 高、项间距 72。
         //   第 4 项 y=288..311 与数据页「中心速度」标签**同行** —— 用独立槽位区分（见下）。
         //   第 5 项 y=360..383 与数据页「航位x」(336..359)、「航位y」(384..407) 均不相交。
-        //   5 项最底 383 < 状态栏 552，布局不用改（MENU_STEP 保持 72）。
-        for (mi = 0; mi < 5; mi = mi + 1) begin
+        //   第 6 项 y=432..455 —— 只与参数整定页的标签行（最底 461）相邻，两者互斥（页不同）。
+        //   6 项最底 455 < 状态栏框顶 540，布局不用改（MENU_STEP 保持 72）。
+        for (mi = 0; mi < 6; mi = mi + 1) begin
             if ((i_pixel_y >= (MENU_Y0 + mi * MENU_STEP)) &&
                 (i_pixel_y <  (MENU_Y0 + mi * MENU_STEP + LG_CELL))) begin
                 lg_seg[0] = seg_lg_rom(menu_text(mi[2:0]), LG_XW[5:0],
@@ -378,8 +438,26 @@ module ui_render #(
                                        6'd17, (i_pixel_y - 12'd504));
         end
 
-        // ---- 占位提示（页 0/1/3）----
-        if ((i_page != PG_DATA) && (i_pixel_y >= PAGE_Y) && (i_pixel_y < PAGE_Y + LG_CELL) &&
+        // ---- 参数整定页：11 行中文标签 + 标题（2026-10-20 新增）----
+        //   ★ 用 lg_seg[1]（菜单占 lg_seg[0]），与数据页标签、导航辅助菜单同一槽位，
+        //     靠 i_page 互斥 —— 同一时刻只有一个页面在写。
+        if (i_page == PG_TUNE) begin
+            if ((i_pixel_y >= 12'd24) && (i_pixel_y < (12'd24 + LG_CELL))) begin
+                lg_seg[2] = seg_lg_rom({UI_TXT_MENU_TUNE_ADDR, UI_TXT_MENU_TUNE_LEN},
+                                       TUNE_LBL_XW[5:0], (i_pixel_y - 12'd24));
+            end
+            for (ti = 0; ti < TUNE_ROWS; ti = ti + 1) begin
+                if ((i_pixel_y >= (TUNE_Y0 + ti * TUNE_STEP + TUNE_TDY)) &&
+                    (i_pixel_y <  (TUNE_Y0 + ti * TUNE_STEP + TUNE_TDY + LG_CELL))) begin
+                    lg_seg[1] = seg_lg_rom(tune_label_text(ti[3:0]), TUNE_LBL_XW[5:0],
+                                           (i_pixel_y - (TUNE_Y0 + ti * TUNE_STEP + TUNE_TDY)));
+                end
+            end
+        end
+
+        // ---- 占位提示（摄像头 / 雷达 / 避障导航三页；数据页与参数页有自己的内容）----
+        if ((i_page != PG_DATA) && (i_page != PG_TUNE) &&
+            (i_pixel_y >= PAGE_Y) && (i_pixel_y < PAGE_Y + LG_CELL) &&
             (placeholder_text[5:0] != 6'd0)) begin
             lg_seg[0] = seg_lg_rom(placeholder_text, PAGEXW[5:0], (i_pixel_y - PAGE_Y));
         end
@@ -475,6 +553,7 @@ module ui_render #(
 
     reg [36:0] sm_seg [0:5];
     integer    si;
+    reg [17:0] tu;          // 参数整定页：单位 {addr,len} 的组合暂存
     always @(*) begin
         for (si = 0; si < 6; si = si + 1) sm_seg[si] = 37'd0;
 
@@ -563,6 +642,30 @@ module ui_render #(
             if ((i_pixel_y >= 504) && (i_pixel_y < 528))
                 sm_seg[4] = seg_sm_rom(UI_TXT_LBL_RPM_ADDR, UI_TXT_LBL_RPM_LEN,
                                        6'd32, (i_pixel_y - 12'd504));
+        end
+
+        // ---- 参数整定页：11 行数值（16px，读 dyn_text_ram）+ 单位（静态 ROM）----
+        //   ★ 数值复用 num_text 的字段 0..10（字段号 = 行号，基址 = 行号 × 5）：
+        //     顶层在 page==PAGE_TUNE 时把 num_text 的 i_v0..i_v10 换成 tune_ctrl 的
+        //     显示值，所以这里完全沿用数据页那套「数字 → 字符串 → RAM」通路，
+        //     只换地址与坐标。小数点由 field_dec 统一按字段号决定，不用改。
+        //   ★ 单位只对 s>0 的行画（Kp/Ki/Kd 无量纲），xw 从 30 起 ⇒ x=480。
+        if (i_page == PG_TUNE) begin
+            for (ti = 0; ti < TUNE_ROWS; ti = ti + 1) begin
+                if ((i_pixel_y >= (TUNE_Y0 + ti * TUNE_STEP + TUNE_VDY)) &&
+                    (i_pixel_y <  (TUNE_Y0 + ti * TUNE_STEP + TUNE_VDY + SM_CELL))) begin
+                    sm_seg[0] = seg_sm_ram(ti * 5, 6'd5, TUNE_VAL_XW[5:0],
+                                           (i_pixel_y - (TUNE_Y0 + ti * TUNE_STEP + TUNE_VDY)));
+                    // ★ 不能对 function 调用直接做 bit/part-select（Verilog-2001 非法），
+                    //   先落到 tu 再取 {addr,len}。
+                    tu = tune_unit_text(ti[3:0]);
+                    if (tu[5:0] != 6'd0) begin
+                        sm_seg[1] = seg_sm_rom(tu[17:6], tu[5:0],
+                                               TUNE_UNIT_XW[5:0],
+                                               (i_pixel_y - (TUNE_Y0 + ti * TUNE_STEP + TUNE_VDY)));
+                    end
+                end
+            end
         end
     end
 
@@ -849,6 +952,19 @@ module ui_render #(
         (i_pixel_x >= 12'd832) && (i_pixel_x <= 12'd1023) &&
         (i_pixel_y >= nav_aux_top) && (i_pixel_y < (nav_aux_top + NAV_AUX_STEP));
 
+    // ---- 参数整定页：选中行高亮条（x 224..1023，行高 36）----
+    //   ★ 起点取 224 而不是 208：左侧菜单条占 x<208，留 16 px 缝，视觉上像"行选中"。
+    //   ★ i_tune_sel 来自 tune_ctrl 的 o_sel；非参数页时该信号无意义，用 i_page 门控。
+    //   ★ 2026-10-20：右边界收在 656（= 41 字组）。参数页内容最右是单位段
+    //     TUNE_UNIT_XW=30 起 4 字 = x 480..543，整行铺到 1023 会留下 480 px
+    //     纯蓝空条，视觉上把行高亮读成了"标题栏"。656 给单位右侧留 113 px 余量。
+    localparam [11:0] TUNE_HL_X1 = 12'd656;
+    wire tune_hi_band = (i_page == PG_TUNE) &&
+                        (i_pixel_x >= 12'd224) &&
+                        (i_pixel_x <  TUNE_HL_X1) &&
+                        (i_pixel_y >= (TUNE_Y0 + i_tune_sel * TUNE_STEP)) &&
+                        (i_pixel_y <  (TUNE_Y0 + i_tune_sel * TUNE_STEP + TUNE_STEP));
+
     // ------------------------------------------------------------------
     // 图层与颜色
     // ------------------------------------------------------------------
@@ -890,6 +1006,7 @@ module ui_render #(
 
         // 2) 菜单选中高亮
         if (menu_sel_band)      rgb = 24'h1D4ED8;
+        if (tune_hi_band)       rgb = 24'h1D4ED8;
 
         // 2b) 非避障导航页：辅助菜单窗口底 / 选中项底 / 坐标轴 / 已记录点 / 车绿点
         //     ★ 全部排在「大字 / 数字」之前 —— 文字压在它们上面才可读；

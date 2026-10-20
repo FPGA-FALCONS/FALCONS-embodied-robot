@@ -161,3 +161,23 @@ PLACEHOLDER_NAV:导航未实现
 #     而 ASCII 可打印字符（含 i/m/u）本来就在字库全集里 → 新增 0 个字符，
 #     字符数仍是 233，只是多一条文案。用「失败」则要新增 '失''败' 两个字形。
 IMU_FAIL:imu初始化错误
+# ---- 参数整定页（2026-10-20 新增；一期 = 参数运行时化 + 存 RAM，掉电丢失）----
+#   新增字形仅 **5 个汉字**（参 / 整 / 减 / 对 / 环）+ **1 个 ASCII**（小写 s）。
+#   其余全部复用：车速、距离、准、小角、大、转向、航向、速度、定、K、p、i、d、m、/、°
+#   ★ 文案里不能有前导/尾随空格（生成脚本按字面取长度，空格会占一个字符位）。
+MENU_TUNE:参数整定
+TUNE_L0:车速
+TUNE_L1:减速距离
+TUNE_L2:对准小角
+TUNE_L3:对准大角
+TUNE_L4:转向角速度
+TUNE_L5:航向Kp
+TUNE_L6:航向Ki
+TUNE_L7:航向Kd
+TUNE_L8:速度环Kp
+TUNE_L9:速度环Ki
+TUNE_L10:速度环Kd
+TUNE_UMMS:mm/s
+TUNE_UMM:mm
+TUNE_UDEG:°
+TUNE_UDEGS:°/s

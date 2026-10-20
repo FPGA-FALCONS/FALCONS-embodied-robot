@@ -166,6 +166,13 @@
   + 车绿点（12 px）+ 白色十字准心（臂长 10 px）+ 已记录点（6 px，16 个上限）+ 右下 5 项辅助菜单 + 右上角准心坐标（`x: 2.60m` 格式，0.01 m，右界 1007、离右边缘 16 px）。
   摇杆在本页**改为移动准心**（满杆 500 mm/s、死区 ±100），菜单栏**变暗**；`select` 循环辅助菜单，
   `确认` 按高亮项执行（记点 / 撤销 / 清除 / 开始间断或非间断寻点）。
+- ★ **参数整定页已实现（2026-10-20，一期：参数存 RAM）**：一级菜单扩为 **6 项**，第 6 项「**参数整定**」
+  （y=432 起，最底 455 < 状态栏框顶 540，`MENU_STEP` 仍 72）。11 行参数可在车上直接调：
+  车速 / 减速距离 / 对准小角 / 对准大角 / 转向角速度 / 航向 Kp,Ki,Kd / 速度环 Kp,Ki,Kd。
+  **CH8 上下移光标、CH4 左右调值**（摇杆必须回中再推，按住 400 ms 后每 120 ms 连发）、**CH5 下复位默认值、CH5 上退出本页**；
+  **手动档只显示不改**。导航层 9 个参数由 `parameter` 改成运行时端口，`K_slow` 由 `rtl/ui/div_iter.v` 现场算（不预存，避免与 `V_CRUISE`/`D_SLOW` 失配）。
+  ★ **掉电回默认值**（一期不做 Flash 持久化）；串口 `P<n>/I<n>/D<n>` 优先，页面**不跟随**串口。字库 **233 → 238 字**、文案 **286 → 346** 条（新增汉字仅 `减/对/环/参/整`）。
+  效果图：[默认](doc/img/tune_page_default.png)、[选中第 5 行](doc/img/tune_page_sel4.png)、[全上限](doc/img/tune_page_max.png)。详见 `doc\工作记录.md` §66。
   ★ **不驱动电机**：按寻点确认只把状态置为运行态（状态栏变绿并显示「导航中」），车一步不动 ——
   按需求方本轮要求"只留接口或状态机，并不真正开始导航"。
   ★ 两个易漏点：`num_text` 字段数 9→11（新增准心 x/y）；顶层必须门控掉本页的
@@ -199,7 +206,7 @@
   效果图：[SETUP](doc/img/nf_setup.png)、[记 3 点](doc/img/nf_points.png)、[高亮间断寻点](doc/img/nf_aux_gap.png)、[导航中](doc/img/nf_running.png)、[导航暂停](doc/img/nf_paused.png)、[避障页占位](doc/img/nf_obs_page.png)。详见 `doc\工作记录.md` §59。
 - 新增独立手柄测试顶层：方向/模式LED、半秒事件指示、原始脉宽CSV；电机13个输出恒0。
 - 当前回归：**14个测试台 / 622项检查通过**（2026-10-20 调参后复测：`ALIGN_IN` 30°→10°、`D_SLOW` 130→100，并补 `nav_ctrl_tb` G11 组 14 项参数边界断言；`MAX_DIFF_CRUISE` 曾调到 252，13:0x 已按需求方指示退回 **180**；ModelSim 实测 14/14 全过）。新增三台：`cordic_atan2` 12、`nav_ctrl` 105、`nav_sys` 79；`ui_render` 由 42 增到 **46**（IMU 失败红字 4 项）。
-- 未完成：UI 其余呈现问题、**避障导航页**（依赖雷达 2D 建图，雷达模块未接）、ToF 集成、**导航层参数整定**（`kp_yaw`/`ki_yaw`/`kd_yaw` 与 `a_max` 只在仿真里取过初值，需上车标定）、整车顶层集成测试、**`u_imu` 标定累加 / `u_hdmi` 像素计数**（都在 vendor IP 内、未改动；开机标定零点误差 0.39%、影响可忽略）、**IMU 看门狗的上板验证**（红字已于 2026-10-20 00:52 验证成功；看门狗需观察红字出现后约 500 ms 是否自行熄灭）、**`IMU_WD_RST_US` 参数未使用**（`rtl\top\falcons_top.v:719` 定义后从未被引用，实际复位保持 **1 µs** 而非注释所写 20 µs；复位对象是 `imu_top` 状态机而非 IMU 芯片，1 µs 已足够，功能无影响，仅参数与注释不符，修法见 `doc\工作记录.md` §62.8 末尾）、**起步加速度限幅**（`S_ALIGN`/`S_TRACK` 仍是阶跃给定，等效约 1.9 m/s²，方案假设 500 mm/s²）。★ **导航控制层已于 2026-10-19 23:03 实现**，非避障页的寻点任务现在会真正驱动车。
+- 未完成：UI 其余呈现问题、**避障导航页**（依赖雷达 2D 建图，雷达模块未接）、ToF 集成、**导航层参数标定**（`kp_yaw`/`ki_yaw`/`kd_yaw` 与 `a_max` 只在仿真里取过初值，需上车标定 —— **2026-10-20 起可在「参数整定」页在线调**，剩下的是标定动作本身；一期参数存 RAM、掉电丢）、整车顶层集成测试、**`u_imu` 标定累加 / `u_hdmi` 像素计数**（都在 vendor IP 内、未改动；开机标定零点误差 0.39%、影响可忽略）、**IMU 看门狗的上板验证**（红字已于 2026-10-20 00:52 验证成功；看门狗需观察红字出现后约 500 ms 是否自行熄灭）、**`IMU_WD_RST_US` 参数未使用**（`rtl\top\falcons_top.v:719` 定义后从未被引用，实际复位保持 **1 µs** 而非注释所写 20 µs；复位对象是 `imu_top` 状态机而非 IMU 芯片，1 µs 已足够，功能无影响，仅参数与注释不符，修法见 `doc\工作记录.md` §62.8 末尾）、**起步加速度限幅**（`S_ALIGN`/`S_TRACK` 仍是阶跃给定，等效约 1.9 m/s²，方案假设 500 mm/s²）。★ **导航控制层已于 2026-10-19 23:03 实现**，非避障页的寻点任务现在会真正驱动车。
 - ✅ **极性重构已上板验证通过（2026-10-17 23:32）**：需求方实测确认"烧录后显示的数据都是正确的"。
   内部"正 = 物理前进"的口径成立，`tgt`/`rpm`/`center_rpm`/屏幕/串口上报全部一致。
   回退值与换硬件后的重标步骤见 `doc\参数总表与待定清单.md`。
@@ -227,8 +234,12 @@ powershell -ExecutionPolicy Bypass -File sim/run_sim.ps1 -Simulator Icarus
 # ModelSim机器使用同一清单，每个测试独立进程
 powershell -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim '<ModelSim win64目录>'
 
-# 主工程：impl/pnr/falcons.fs
+# 主工程全量：impl/pnr/falcons.fs（约 8.6 分钟 = 综合 2 + 布局布线 6.6）
 powershell -ExecutionPolicy Bypass -File tools/build.ps1 -GowinSh '<IDE/bin/gw_sh.exe>'
+# 只综合（约 2 分钟，只更新资源/告警报告，不动位流）
+powershell -ExecutionPolicy Bypass -File tools/build.ps1 -Tcl build_syn.tcl -GowinSh '<IDE/bin/gw_sh.exe>'
+# 只布局布线（约 6.6 分钟；只改了 .cst/.sdc 时用，RTL 比网表新会被拒）
+powershell -ExecutionPolicy Bypass -File tools/build.ps1 -Tcl build_pnr.tcl -GowinSh '<IDE/bin/gw_sh.exe>'
 # 独立手柄：impl/rc_led_test/impl/pnr/rc_led_test.fs
 powershell -ExecutionPolicy Bypass -File tools/build.ps1 -Tcl build_rc_led.tcl -ArtifactDirectory 'impl/rc_led_test/impl/pnr' -GowinSh '<IDE/bin/gw_sh.exe>'
 
@@ -253,7 +264,8 @@ python tools/check_pin_constraints.py
 | `sim` | 应用与集成测试；包内单测仍在vendor各包的sim目录 |
 | `tools` | 构建、下载、字库生成、引脚检查等工具 |
 | `doc` | 需求、执行指南、参数、证据和历史工作记录 |
-| `build.tcl` / `build_rc_led.tcl` | 整车 / 独立手柄构建入口 |
+| `build.tcl` / `build_rc_led.tcl` | 整车 / 独立手柄全量构建入口（综合 + 布局布线） |
+| `build_syn.tcl` / `build_pnr.tcl` | 只综合 / 只布局布线入口；公共源与约束清单在 `scripts/build_common.tcl` |
 
 ## 维护约定
 

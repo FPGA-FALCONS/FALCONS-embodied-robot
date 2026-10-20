@@ -45,8 +45,29 @@ module nav_ctrl_tb;
     wire signed [15:0] o_psi;
     wire [4:0]         o_idx;
 
+    // ================= 运行时参数（2026-10-20）=================
+    //   nav_ctrl 的这 9 项已从 module parameter 改为端口，由参数整定页
+    //   （rtl\ui\tune_ctrl.v）在线修改。tb 里用 reg 驱动：既当默认值，
+    //   也用来测「运行中改参数下一个 10 ms 节拍就生效」（G12 组）。
+    //   ★ P_KSLOW 是派生量，实际由 tune_ctrl 的迭代除法器算；这里显式给
+    //     3072（= 300×1024/100）。改 P_V_CRUISE/P_D_SLOW 时本 tb 不做自动
+    //     同步 —— 除 G12 外所有断言的期望值都只对应这一组默认值。
+    reg signed [31:0] P_V_CRUISE = 32'sd300;
+    reg signed [31:0] P_D_SLOW   = 32'sd100;
+    reg signed [31:0] P_ALIGN_IN = 32'sd1000;
+    reg signed [31:0] P_ALIGN_OUT= 32'sd3500;
+    reg signed [31:0] P_MDC      = 32'sd180;
+    reg signed [31:0] P_KP       = 32'sd21;
+    reg signed [31:0] P_KI       = 32'sd4;
+    reg signed [31:0] P_KD       = 32'sd6;
+    reg signed [31:0] P_KSLOW    = 32'sd3072;
     nav_ctrl dut (
         .clk(clk), .rst_n(rst_n),
+        .i_v_cruise(P_V_CRUISE), .i_d_slow(P_D_SLOW),
+        .i_align_in(P_ALIGN_IN), .i_align_out(P_ALIGN_OUT),
+        .i_max_diff_cruise(P_MDC),
+        .i_kp_yaw(P_KP), .i_ki_yaw(P_KI), .i_kd_yaw(P_KD),
+        .i_k_slow_q10(P_KSLOW),
         .i_active(i_active), .i_run(i_run), .i_paused(i_paused),
         .i_mode(i_mode), .i_is_obs(i_is_obs),
         .i_cur_x_mm(i_cur_x), .i_cur_y_mm(i_cur_y),
@@ -73,6 +94,11 @@ module nav_ctrl_tb;
         .STOP_SETTLE_TICKS(3)
     ) u_fast (
         .clk(clk), .rst_n(rst_n),
+        .i_v_cruise(P_V_CRUISE), .i_d_slow(P_D_SLOW),
+        .i_align_in(P_ALIGN_IN), .i_align_out(P_ALIGN_OUT),
+        .i_max_diff_cruise(P_MDC),
+        .i_kp_yaw(P_KP), .i_ki_yaw(P_KI), .i_kd_yaw(P_KD),
+        .i_k_slow_q10(P_KSLOW),
         .i_active(i_active), .i_run(i_run), .i_paused(i_paused),
         .i_mode(i_mode), .i_is_obs(1'b0),
         .i_cur_x_mm(32'sd0), .i_cur_y_mm(32'sd0),
@@ -173,9 +199,8 @@ module nav_ctrl_tb;
         $display("=== nav_ctrl_tb (full) ===");
         // ★ 打印被测参数：避免"改了参数却跑的是旧编译"造成的假通过。
         //   G11 组的断言就是按这几个值写的，值不对必须立刻看见。
-        $display("  params: ALIGN_IN_DEG=%0d ALIGN_OUT_DEG=%0d D_SLOW_MM=%0d MAX_DIFF_CRUISE=%0d K_SLOW_Q10=%0d",
-                 dut.ALIGN_IN_DEG, dut.ALIGN_OUT_DEG, dut.D_SLOW_MM,
-                 dut.MAX_DIFF_CRUISE, dut.K_SLOW_Q10);
+        $display("  params: ALIGN_IN=%0d ALIGN_OUT=%0d D_SLOW=%0d MAX_DIFF_CRUISE=%0d K_SLOW_Q10=%0d",
+                 P_ALIGN_IN, P_ALIGN_OUT, P_D_SLOW, P_MDC, P_KSLOW);
 
         // ==================================================================
         // G1 起动与使能：i_active / i_run 的四种组合
@@ -587,6 +612,75 @@ module nav_ctrl_tb;
         tick1; tick1;
         chk_true("g11g_slope_50mm", (o_center >= 32'sd425) && (o_center <= 32'sd455));
 
+        // ==================================================================
+        // G12 运行时改参数立即生效（2026-10-20 参数端口化后新增）
+        //   ★ 目的：证明这 9 项参数是**寄存器**而不是编译期常量 —— 若任何一项
+        //     还被综合成常量（例如把端口优化回 parameter 默认值），下面每条都会
+        //     失败。这是"参数整定页真的改到控制环"的唯一仿真证据。
+        //   每条测完立刻恢复默认值（本组在最后，但保持这个习惯）。
+        // ==================================================================
+        $display("-- G12 运行时改参数 --");
+        begin : g12_runtime
+            integer d21, d42;
+
+            // (a) 航向 KP 21 → 42：ALIGN 中 psi=20°，比例项应翻倍
+            //     用"差值"而不是绝对值断言，避开 i/d 项初值的影响
+            do_reset;
+            set_pt(0, 1000, 0); i_pt_count = 5'd1;
+            start_task(1, 0, 0, 0, 0);
+            i_yaw = -32'sd2000;
+            tick1;
+            d21 = o_diff;
+            P_KP = 32'sd42;
+            tick1; tick1;
+            d42 = o_diff;
+            P_KP = 32'sd21;
+            chk_true("g12a_kp_changed_diff_grows", d42 > (d21 + 32'sd100));
+
+            // (b) MAX_DIFF_CRUISE 180 → 90：TRACK 中 psi=30°，差速按新限幅截断
+            do_reset;
+            set_pt(0, 1000, 0); i_pt_count = 5'd1;
+            start_task(1, 0, 0, 0, 0);
+            tick1;
+            i_yaw = -32'sd3000;
+            tick1;
+            chk_int("g12b_mdc180", o_diff, 32'sd180);
+            P_MDC = 32'sd90;
+            tick1; tick1;
+            chk_int("g12b_mdc90", o_diff, 32'sd90);
+            P_MDC = 32'sd180;
+
+            // (c) D_SLOW 100 → 200（同时把 K_SLOW 调到 1024）：ahead=150
+            //     默认：150 ≥ 100 → 全速 892
+            //     改后：150 < 200 → v = 150 mm/s ≈ 446 counts
+            do_reset;
+            set_pt(0, 150, 0); i_pt_count = 5'd1;
+            start_task(1, 0, 0, 0, 0);
+            tick1; tick1;
+            chk_int("g12c_dslow100_full", o_center, 32'sd892);
+            P_D_SLOW = 32'sd200; P_KSLOW = 32'sd1024;
+            tick1; tick1;
+            chk_true("g12c_dslow200_slow",
+                     (o_center >= 32'sd440) && (o_center <= 32'sd452));
+            P_D_SLOW = 32'sd100; P_KSLOW = 32'sd3072;
+
+            // (d) ALIGN_IN 1000 → 2000：同样 psi=15°，改前进 ALIGN、改后进 TRACK
+            do_reset;
+            set_pt(0, 1000, 0); i_pt_count = 5'd1;
+            start_task(1, 0, 0, 0, 0);
+            i_yaw = -32'sd1500;                    // psi = +15°
+            tick1;
+            chk_int("g12d_in1000_align", o_state, S_ALIGN);
+
+            do_reset;
+            set_pt(0, 1000, 0); i_pt_count = 5'd1;
+            start_task(1, 0, 0, 0, 0);
+            P_ALIGN_IN = 32'sd2000;
+            i_yaw = -32'sd1500;
+            tick1; tick1;
+            chk_int("g12d_in2000_track", o_state, S_TRACK);
+            P_ALIGN_IN = 32'sd1000;
+        end
         $display("=== nav_ctrl_tb: %0d checks, %0d errors ===", checks, errors);
         if (errors != 0) $display("FAIL: %0d / %0d 项未通过", errors, checks);
         else             $display("PASS: nav_ctrl_tb %0d 项全过", checks);

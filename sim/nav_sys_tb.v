@@ -96,9 +96,31 @@ module nav_sys_tb;
     wire signed [31:0] nav_center, nav_diff;
     wire [2:0]         nav_state;
 
+    // ★ 2026-10-20：nav_ctrl 的 8 个可调值已从 parameter 改成运行时端口
+    //   （参数整定页在线改）。联合台用默认值常量接上；nav_ctrl_tb 里另有
+    //   在线改值的 G12 组断言。悬空会让 i_v_cruise 之类变成 0/X，车根本不动。
+    localparam signed [31:0] P_V_CRUISE  = 32'sd300;
+    localparam signed [31:0] P_D_SLOW    = 32'sd100;
+    localparam signed [31:0] P_ALIGN_IN  = 32'sd1000;
+    localparam signed [31:0] P_ALIGN_OUT = 32'sd3500;
+    localparam signed [31:0] P_MDC       = 32'sd180;
+    localparam signed [31:0] P_KP        = 32'sd21;
+    localparam signed [31:0] P_KI        = 32'sd4;
+    localparam signed [31:0] P_KD        = 32'sd6;
+    localparam signed [31:0] P_KSLOW     = 32'sd3072;
+
     nav_ctrl u_nav (
         .clk(clk), .rst_n(rst_n),
         .i_active  (i_active & ui_active),    // 与顶层同一接法
+        .i_v_cruise       (P_V_CRUISE),
+        .i_d_slow         (P_D_SLOW),
+        .i_align_in       (P_ALIGN_IN),
+        .i_align_out      (P_ALIGN_OUT),
+        .i_max_diff_cruise(P_MDC),
+        .i_kp_yaw         (P_KP),
+        .i_ki_yaw         (P_KI),
+        .i_kd_yaw         (P_KD),
+        .i_k_slow_q10     (P_KSLOW),
         .i_run     (ui_run),
         .i_paused  (ui_paused),
         .i_mode    (ui_mode),
