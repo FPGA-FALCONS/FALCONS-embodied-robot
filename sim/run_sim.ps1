@@ -60,6 +60,7 @@ $ErrorActionPreference = 'Stop'
 $ProjectRoot = Split-Path -Parent $PSScriptRoot          # sim\ 的上一级 = 工程根
 $VendorRoot  = Join-Path $ProjectRoot 'vendor\verilog-reusable-modules\modules'
 $UiIncDir    = Join-Path $ProjectRoot 'rtl\ui'           # ui_text_index.vh 所在目录
+$HdmiIncDir  = Join-Path $VendorRoot 'hdmi_1024x600\rtl'      # disp_parameter_cfg.vh 所在目录
 $LogDir      = Join-Path $ProjectRoot 'logs'             # 完整测试输出落盘目录（.gitignore 已忽略 logs\）
 
 # ------------------------------------------------------------------
@@ -172,7 +173,17 @@ $sources = @(
     # 航位推算（2026-10-18 新增）
     "$ProjectRoot\rtl\odom\sin_lut_rom.v",
     "$ProjectRoot\rtl\odom\odom.v",
-    "$PSScriptRoot\odom_tb.v"
+    "$PSScriptRoot\odom_tb.v",
+    # 2026-10-20 新增：三处时序优化各自的模块级 tb
+    #   ★ disp_driver 依赖 disp_parameter_cfg.vh（同目录），必须给 +incdir
+    "$VendorRoot\hdmi_1024x600\rtl\disp_driver.v",
+    #   ★ imu_top 的闭包是两层：imu_top → spi_master_mode0 / bmi270_cfg_rom
+    "$VendorRoot\imu660ra\rtl\imu_top.v",
+    "$VendorRoot\imu660ra\rtl\spi_master_mode0.v",
+    "$VendorRoot\imu660ra\rtl\bmi270_cfg_rom.v",
+    "$PSScriptRoot\disp_driver_tb.v",
+    "$PSScriptRoot\dyn_text_ram_tb.v",
+    "$PSScriptRoot\imu_top_tb.v"
 )
 
 $tests = @(
@@ -191,7 +202,10 @@ $tests = @(
     @{ Name = 'nav_ctrl';  Top = 'nav_ctrl_tb';  Desc = '★ 导航控制：ALIGN⇄TRACK 迟滞/L1 到点/L2 切点四种降级/暂停制动/故障/避障准心' },
     @{ Name = 'nav_sys';   Top = 'nav_sys_tb';   Desc = '★ 联合台：UI 按键序列 → 控制层 → 电机指令，含暂停停车/完成回 SETUP/退出立停' },
     @{ Name = 'tune_ctrl'; Top = 'tune_ctrl_tb'; Desc = '★ 参数整定页：选行回绕/单步调值/上下限钳位/长按连发/复位/退出/手动档禁调/K_SLOW 重算' },
-    @{ Name = 'tune_page'; Top = 'tune_page_tb'; Desc = '★ 参数整定页渲染：菜单第 6 项/标题/11 行标签与数值/单位 5 行白字/高亮条/占位页互斥' }
+    @{ Name = 'tune_page'; Top = 'tune_page_tb'; Desc = '★ 参数整定页渲染：菜单第 6 项/标题/11 行标签与数值/单位 5 行白字/高亮条/占位页互斥' },
+    @{ Name = 'disp_driver'; Top = 'disp_driver_tb'; Desc = '★ HDMI 像素驱动：扫描计数/DE 窗口边界/逐拍像素透传' },
+    @{ Name = 'dyn_text_ram'; Top = 'dyn_text_ram_tb'; Desc = '★ 动态字库 RAM：64 地址读写/1 拍读延迟/双时钟并行' },
+    @{ Name = 'imu_top';    Top = 'imu_top_tb';    Desc = '★ IMU 角速度/加速度换算：增益系数与符号扩展/三轴独立' }
 )
 
 # ---------- 建库并编译 ----------
@@ -234,7 +248,7 @@ if ($Simulator -eq 'ModelSim') {
     if ($LASTEXITCODE -ne 0) { throw 'vlib failed' }
     foreach ($f in $sources) {
         if (-not (Test-Path $f)) { throw "Missing source: $f" }
-        $r = Invoke-Capture { & $vlog -work $libraryPath "+incdir+$UiIncDir" $f 2>&1 }
+        $r = Invoke-Capture { & $vlog -work $libraryPath "+incdir+$UiIncDir" "+incdir+$HdmiIncDir" $f 2>&1 }
         if ($r.ExitCode -ne 0) { $r.Output | ForEach-Object { Write-Host $_ }; throw "Compile failed: $f" }
     }
 } else {
@@ -256,7 +270,7 @@ foreach ($t in $tests) {
         $r = Invoke-Capture { & $vsim -c -work $libraryPath -do "run -all; quit -f" "$libName.$($t.Top)" 2>&1 }
     } else {
         $image = Join-Path $libraryPath "$($t.Top).out"
-        $c = Invoke-Capture { & $iverilog -g2012 -I $UiIncDir -s $t.Top -o $image @sources 2>&1 }
+        $c = Invoke-Capture { & $iverilog -g2012 -I $UiIncDir -I $HdmiIncDir -s $t.Top -o $image @sources 2>&1 }
         if ($c.ExitCode -ne 0) { $c.Output | ForEach-Object { Write-Host $_ }; throw "Compile failed: $($t.Top)" }
         $r = Invoke-Capture { & $vvp $image 2>&1 }
     }
