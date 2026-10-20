@@ -171,6 +171,11 @@ module nav_ctrl_tb;
 
     initial begin
         $display("=== nav_ctrl_tb (full) ===");
+        // ★ 打印被测参数：避免"改了参数却跑的是旧编译"造成的假通过。
+        //   G11 组的断言就是按这几个值写的，值不对必须立刻看见。
+        $display("  params: ALIGN_IN_DEG=%0d ALIGN_OUT_DEG=%0d D_SLOW_MM=%0d MAX_DIFF_CRUISE=%0d K_SLOW_Q10=%0d",
+                 dut.ALIGN_IN_DEG, dut.ALIGN_OUT_DEG, dut.D_SLOW_MM,
+                 dut.MAX_DIFF_CRUISE, dut.K_SLOW_Q10);
 
         // ==================================================================
         // G1 起动与使能：i_active / i_run 的四种组合
@@ -510,6 +515,77 @@ module nav_ctrl_tb;
         tick1;                                    // 到点判定
         chk_int("g10_at_point_hold", o_state, S_HOLD);
         chk_int("g10_at_point_psi", o_psi, 16'sd0);      // 零向量 → psi=0
+
+        // ==================================================================
+        // G11 三个可调参数的边界（2026-10-20 调参后补）
+        //   参数现值：ALIGN_IN_DEG=1000(10°) / D_SLOW_MM=100 / MAX_DIFF_CRUISE=180
+        //   ★ 这组是"改坏参数就报错"的守卫：若恢复旧值（3000 / 130 / 180）会失败
+        // ==================================================================
+        // (a) ALIGN_IN_DEG = 10°：偏 20° 必须留在 ALIGN（旧值 30° 会误进 TRACK）
+        do_reset;
+        set_pt(0, 1000, 0); i_pt_count = 5'd1;
+        start_task(1, 0, 0, 0, 0);
+        i_yaw = -32'sd2000;                        // 车头偏 -20° → psi = +20°
+        tick1;
+        chk_int("g11a_20deg_align", o_state, S_ALIGN);
+        chk_int("g11a_20deg_center0", o_center, 32'sd0);
+        chk_true("g11a_20deg_diff_pos", o_diff > 32'sd0);   // psi>0 → 左转
+
+        // (b) 偏 8° → 必须进 TRACK（证明门限确实在 10°，不是更小）
+        do_reset;
+        set_pt(0, 1000, 0); i_pt_count = 5'd1;
+        start_task(1, 0, 0, 0, 0);
+        i_yaw = -32'sd800;                         // psi = +8° < 10°
+        tick1;
+        chk_int("g11b_8deg_track", o_state, S_TRACK);
+
+        // (c) MAX_DIFF_CRUISE = 180：TRACK 中 psi=30° → 差速截到 180（若改回 252 这里会得 252）
+        do_reset;
+        set_pt(0, 1000, 0); i_pt_count = 5'd1;
+        start_task(1, 0, 0, 0, 0);
+        tick1;                                     // psi=0 → 进 TRACK
+        chk_int("g11c_pre_track", o_state, S_TRACK);
+        i_yaw = -32'sd3000;                        // psi = +30°（<35° 迟滞上限，留 TRACK）
+        tick1;
+        chk_int("g11c_still_track", o_state, S_TRACK);
+        chk_int("g11c_diff_clip", o_diff, 32'sd180);       // 42.94 °/s
+        chk_true("g11c_center_cruise", o_center > 32'sd800);
+
+        // (d) 同一 psi=30° 但在 ALIGN 下用 MAX_DIFF=612 → 不会被截到 180
+        do_reset;
+        set_pt(0, 1000, 0); i_pt_count = 5'd1;
+        start_task(1, 0, 0, 0, 0);
+        i_yaw = -32'sd3000;                        // 一开始就偏 30° → 留 ALIGN
+        tick1;
+        chk_int("g11d_align_state", o_state, S_ALIGN);
+        chk_true("g11d_align_above_cruise", o_diff > 32'sd180);  // 612 限幅有余量
+
+        // (e) D_SLOW_MM = 100：ahead=110 → 全速 892（旧值 130 会算出 754）
+        do_reset;
+        set_pt(0, 110, 0); i_pt_count = 5'd1;
+        start_task(1, 0, 0, 0, 0);
+        tick1;                                     // → TRACK
+        tick1;                                     // 巡航
+        chk_int("g11e_far_full", o_center, 32'sd892);
+
+        // (f) ahead=95 < 100 → 已进减速段（小于全速但大于 0）
+        do_reset;
+        set_pt(0, 95, 0); i_pt_count = 5'd1;
+        start_task(1, 0, 0, 0, 0);
+        tick1; tick1;
+        chk_true("g11f_slow_lt_full", o_center < 32'sd892);
+        chk_true("g11f_slow_gt_zero", o_center > 32'sd0);
+
+        // (g) 减速斜率 K_SLOW_Q10 = 3072（= 300/100 × 1024 派生）：ahead=50 → 150 mm/s
+        //     ★ 理论 446 counts，实测 437。差 2% 来自 sin_lut_rom 的 Q15 量化：
+        //       cos(0°) 存的是 32767 而非 32768，使 50 mm 的 ahead 量化为 49 mm
+        //       （49×3072=150528 → ×3046>>20 = 437）。故用区间断言守住量级，
+        //       不锁死具体值。旧 K_SLOW_Q10=2363 时会得 336，落在区间外。
+        do_reset;
+        set_pt(0, 50, 0); i_pt_count = 5'd1;
+        start_task(1, 0, 0, 0, 0);
+        tick1; tick1;
+        chk_true("g11g_slope_50mm", (o_center >= 32'sd425) && (o_center <= 32'sd455));
 
         $display("=== nav_ctrl_tb: %0d checks, %0d errors ===", checks, errors);
         if (errors != 0) $display("FAIL: %0d / %0d 项未通过", errors, checks);

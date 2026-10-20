@@ -1350,13 +1350,13 @@ module falcons_top (
 
     nav_ctrl #(
         .V_CRUISE_MMS    (300),    // 巡航 300 mm/s
-        .D_SLOW_MM       (130),    // ≥ v²/2a = 90，取 1.4 倍余量
+        .D_SLOW_MM       (100),    // = v²/2a × 1.11（a=500 → 90 mm）
         .ARRIVE_R_MM     (25),     // L1 到点半径
         .NP_CUT_DIST_MM  (90),     // L2 提前切点 = v²/2a
-        .NP_MIN_SPACE_MM (260),    // L2 最小点距 = 2·d_slow
+        .NP_MIN_SPACE_MM (260),    // L2 最小点距（D_SLOW=100 后仍取 260 更保守）
         .MAX_CENTER      (3072),   // = 1033 mm/s
         .MAX_DIFF        (612),    // 原地转向 ≈146 °/s
-        .MAX_DIFF_CRUISE (180)     // 行进中打舵限幅，防画龙
+        .MAX_DIFF_CRUISE (180)     // 行进中打舵限幅 ≈43 °/s
     ) u_nav_ctrl (
         .clk   (i_clk_50m),
         .rst_n (sys_rst_n),

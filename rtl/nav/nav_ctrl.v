@@ -120,20 +120,20 @@
 
 module nav_ctrl #(
     parameter integer V_CRUISE_MMS     = 300,     // 巡航速度 mm/s
-    parameter integer D_SLOW_MM        = 130,     // 开始减速的距离 mm（≥ v²/2a = 90）
+    parameter integer D_SLOW_MM        = 100,     // 开始减速的距离 mm（≥ v²/2a = 90，余量 1.11 倍）
     parameter integer ARRIVE_R_MM      = 25,      // L1 到点半径 mm
     parameter integer NP_CUT_DIST_MM   = 90,      // L2 提前切点距离 e（= v²/2a）
-    parameter integer ALIGN_IN_DEG     = 3000,    // ALIGN → TRACK 门限 30°（0.01°）
+    parameter integer ALIGN_IN_DEG     = 1000,    // ALIGN → TRACK 门限 10°（0.01°）
     parameter integer ALIGN_OUT_DEG    = 3500,    // TRACK → ALIGN 门限 35°（迟滞）
     parameter integer NP_CUT_DEG       = 1600,    // L2 段间转角门限 16°（仅文档口径）
-    parameter integer NP_MIN_SPACE_MM  = 260,     // L2 最小点距 mm（= 2·D_SLOW）
+    parameter integer NP_MIN_SPACE_MM  = 260,     // L2 最小点距 mm（D_SLOW=130 时为 2·D_SLOW；现 D_SLOW=100，仍取 260 更保守）
     parameter integer STOP_V_EPS       = 50,      // 停稳判据 mm/s
     parameter integer STOP_W_EPS       = 300,     // 停稳判据 0.01°/s（=3°/s）
     parameter integer STOP_SETTLE_TICKS= 10,      // 停稳保持节拍数（×10 ms = 100 ms）
     parameter integer TIMEOUT_TICKS    = 3000,    // 单点超时节拍数（×10 ms = 30 s）
     parameter integer MAX_CENTER       = 3072,    // center 限幅（计数/10ms，=1033 mm/s）
     parameter integer MAX_DIFF         = 612,     // 原地转向差速限幅（≈146 °/s）
-    parameter integer MAX_DIFF_CRUISE  = 180,     // 行进中差速限幅（防横向摆动）
+    parameter integer MAX_DIFF_CRUISE  = 180,     // 行进中差速限幅 ≈43 °/s（2·180·0.33617/161.5）
     parameter integer OM_CLIP          = 3000,    // ω 进 D 项的限幅（0.01°/s）
     // ---- 航向 PID（Q8，每 10 ms 算一次；初值供台架调）----
     parameter integer KP_YAW           = 21,      // 0.082：psi=10° → diff≈82

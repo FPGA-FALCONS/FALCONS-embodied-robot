@@ -289,6 +289,22 @@ foreach ($t in $tests) {
     $checksM   = [regex]::Match($textNZF, '(?m)^\s*#?\s*CHECKS:\s*(\d+)\s*$')
     $checkTotal = if ($checksM.Success) { [int]$checksM.Groups[1].Value } else { -1 }
 
+    #   ④ 兜底：有一类 tb（cordic_atan2 / nav_ctrl / nav_sys）逐项打印用 "ok" 前缀、
+    #      不打 `CHECKS: N`，只把总数放在结论行 `PASS: <名> <N> 项全过` 里。
+    #      这类 tb 的 pass 行数恒为 0，汇总会显示 pass=0 让人误判成"没跑"。
+    #      此时从结论行取 N 作为总数并让 passCount 对齐。
+    #      ★ 注意：这不做交叉校验（本来就没有 pass 行可对），只是把 tb 自报的数字显示出来；
+    #        有 CHECKS 行的 tb 仍走上面的严格比对，语义不变。
+    #      ★ 正则只用 ASCII 锚定：ModelSim 输出被 PowerShell 捕获时中文会变成乱码，
+    #        写成 `(\d+)\s*项` 会因字面量"项"对不上而永远不匹配。
+    if ($checkTotal -lt 0 -and $passCount -eq 0) {
+        $sumM = [regex]::Match($textNZF, '(?m)^\s*#?\s*PASS:\s*\S+\s+(\d+)\b')
+        if ($sumM.Success) {
+            $checkTotal = [int]$sumM.Groups[1].Value
+            $passCount  = $checkTotal
+        }
+    }
+
     if ($testExit -ne 0) {
         $status = 'FAIL'; $why = "退出码 $testExit"
     } elseif ($textNZF -match '(?m)^\s*#?\s*(?:FAIL|FATAL|\*\* Error)') {
