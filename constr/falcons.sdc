@@ -108,3 +108,44 @@ create_clock -name camera_pclk -period 19.048 [get_ports {camera_pclk}]
 //     ③ 改用 `set_false_path -from/-to` 配合原始时钟，同样受"generated clock 不可见"限制。
 //   在此之前，跨域违例继续按"人工按 Launch Clk == Latch Clk 过滤"的方式判读。
 // ============================================================================
+
+// ============================================================================
+// 跨时钟域分组 v2（2026-10-21 重做）—— 用 create_generated_clock 自己命名
+//
+// 上一版（见上方 :90-109）失败的原因：直接引用 PnR 报告里的
+// `...CLKOUT0.default_gen_clk`，而该名字是 PnR 阶段工具自动生成的，
+// SDC 解析阶段（read_netlist 之后、PnR 之前）时钟库里没有它 → TA2004。
+//
+// 本版改为**自己用 create_generated_clock 命名**（SUG940 §5.2.2）：
+//   * -source 选 PLL 的输入端口 i_clk_50m（两个 PLL 的 clkin 都接它）
+//   * -multiply_by / -divide_by 按各 IP 的 defparam 折算：
+//       display_pll: FCLKIN=50, IDIV=2, MDIV=49, ODIV0=25, ODIV1=5
+//                    → CLKOUT0 = 50*49/2/25 = 49 MHz   (×49/÷50)
+//                    → CLKOUT1 = 50*49/2/5  = 245 MHz  (×49/÷10)
+//       gowin_pll  : FCLKIN=50, IDIV=1, MDIV=16, ODIV0=4,  ODIV1=16
+//                    → CLKOUT0 = 50*16/1/4  = 200 MHz  (×4)
+//                    → CLKOUT1 = 50*16/1/16 = 50 MHz   (×1)
+//   * PLL 原语的引脚在综合网表里存在（`PLL PLL_inst`），get_pins 可解析
+//
+// 分四组：sys / 摄像头 PCLK / HDMI（像素+串行必须同组，5:1 同相）/
+//         DDR（200M + 50M + PHY 内部 fclkdiv）
+//
+// ⚠ 若本版仍报 TA2004，按以下顺序逐个剥离，剥到能过为止：
+//      ① 删 clk_ddrf 那行（DDR3 IP 内部路径最深，最可能解析不到）
+//      ② 删 set_clock_groups 里的 `clk_ddrf` 与 `clk_cam200 clk_cam50` 两组
+//      ③ 整段删掉，回到基线
+// ============================================================================
+
+// ---- HDMI PLL（u_hdmi 内部，clkin = i_clk_50m）----
+create_generated_clock -name clk_pixel -source [get_ports {i_clk_50m}] -multiply_by 49 -divide_by 50 [get_pins {u_hdmi/u_display_pll/PLL_inst/CLKOUT0}]
+create_generated_clock -name clk_serial -source [get_ports {i_clk_50m}] -multiply_by 49 -divide_by 10 [get_pins {u_hdmi/u_display_pll/PLL_inst/CLKOUT1}]
+
+// ---- 摄像头/DDR PLL（u_cam 内部，clkin = i_clk_50m）----
+create_generated_clock -name clk_cam200 -source [get_ports {i_clk_50m}] -multiply_by 4 [get_pins {u_cam/u_system_pll/PLL_inst/CLKOUT0}]
+create_generated_clock -name clk_cam50 -source [get_ports {i_clk_50m}] -multiply_by 1 -divide_by 1 [get_pins {u_cam/u_system_pll/PLL_inst/CLKOUT1}]
+
+// ---- DDR3 PHY 内部时钟分频器（200 MHz ÷ 4 = 50 MHz）----
+create_generated_clock -name clk_ddrf -source [get_pins {u_cam/u_system_pll/PLL_inst/CLKOUT0}] -divide_by 4 [get_pins {u_cam/u_frame_buffer/DDR3_Memory_Interface_Top/gw3_top/u_ddr_phy_top/fclkdiv/CLKOUT}]
+
+// ---- 四组异步 ----
+set_clock_groups -asynchronous -group [get_clocks {i_clk_50m}] -group [get_clocks {camera_pclk}] -group [get_clocks {clk_pixel clk_serial}] -group [get_clocks {clk_cam200 clk_cam50 clk_ddrf}]
