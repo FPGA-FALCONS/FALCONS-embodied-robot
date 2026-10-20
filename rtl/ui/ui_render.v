@@ -488,7 +488,13 @@ module ui_render #(
     //     24*8=192 直接溢出成错值。
     localparam [11:0] LG_CELL_N = LG_CELL;
     wire [5:0]  lg_slot     = x_look / LG_CELL_N;
-    wire [11:0] lg_col_look = x_look - lg_slot * LG_CELL_N;   // 对应 x_look 的格内列号
+    //   ★ 2026-10-20：`lg_slot * LG_CELL_N` 被综合器映射到了 DSP（PnR 报告里
+    //     `u_ui/n2020_s/DOUT[0]`，组合延迟 3.797 ns），是 pixel 域 7 条 setup 违例
+    //     的主因 —— 见 doc\工作记录.md §74。24 = 16 + 8，两个移位相加即纯 LUT + 进位链。
+    //     两个操作数都显式补到 12 位，避开上面注释那个 6 位截断的坑
+    //     （lg_slot 最大 42，42×24 = 1008 < 4096，12 位不会溢出）。
+    wire [11:0] lg_slot_x24 = {2'd0, lg_slot, 4'd0} + {3'd0, lg_slot, 3'd0};   // ×16 + ×8 = ×24
+    wire [11:0] lg_col_look = x_look - lg_slot_x24;   // 对应 x_look 的格内列号
 
     // ★ 位选必须用【当前 pixel_x】的列号：col(x) = (x_look − 2) mod 24，
     //   用条件减法避免再引一个除法器（x_look 落在组内前 2 列时，x 属于上一组的末尾）。

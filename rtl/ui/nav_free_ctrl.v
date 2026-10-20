@@ -445,8 +445,27 @@ module nav_free_ctrl #(
     //     或反向退到 x < −6.8 m），`car_px_w` 会变负或 >1023，而下面取的是 `[9:0]`——
     //     负值按补码截断成一个完全无关的正数，绿点就出现在画面里一个毫无意义的位置。
     //     钳到 [208,1023]×[0,599] 后，车出界时绿点停在对应边缘，位置始终可解释。
-    wire signed [31:0] car_px_raw = PX_ORIGIN + (((i_x_mm * SCALE_Q16) >>> 16));
-    wire signed [31:0] car_py_raw = PY_ORIGIN - (((i_y_mm * SCALE_Q16) >>> 16));
+    // ---- 车辆位置输入先打一拍（2026-10-20 修时序）----
+    //   实测 `u_odom/dyaw_acc_3_s1 → u_nav_free/mult_5763_s1` 共 7 条同域 SETUP
+    //   违约（−0.958 ~ −0.792），逻辑级数只有 14。14 级逻辑只值约 7 ns 却超时 1 ns，
+    //   说明是**纯布线**：`odom.o_x_mm` 那个寄存器的边界被综合器吸收进了消费者，
+    //   于是 `odom` 内部积分树 → `nav_free_ctrl` 的 32 位乘法器连成一条长链，
+    //   而两个模块在布局上被摆得很远。
+    //   修法：在本模块输入端再插一级寄存器，强制多一个 DFF 边界（跨两级不会被吸收）。
+    //   代价 1 拍（20 ns）—— 车辆位置是 10 ms 更新一次的量，完全无感。
+    reg signed [31:0] ix_d1, iy_d1;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            ix_d1 <= 32'sd0;
+            iy_d1 <= 32'sd0;
+        end else begin
+            ix_d1 <= i_x_mm;
+            iy_d1 <= i_y_mm;
+        end
+    end
+
+    wire signed [31:0] car_px_raw = PX_ORIGIN + (((ix_d1 * SCALE_Q16) >>> 16));
+    wire signed [31:0] car_py_raw = PY_ORIGIN - (((iy_d1 * SCALE_Q16) >>> 16));
     wire signed [31:0] car_px_w   = (car_px_raw < 32'sd208)  ? 32'sd208 :
                                     (car_px_raw > 32'sd1023) ? 32'sd1023 : car_px_raw;
     wire signed [31:0] car_py_w   = (car_py_raw < 32'sd0)    ? 32'sd0 :

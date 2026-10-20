@@ -64,3 +64,47 @@ create_clock -name camera_pclk -period 19.048 [get_ports {camera_pclk}]
 //   写了会直接报 ERROR (TA2004): Cannot get clock with name 'pixel_clk'（综合即失败）。
 //   若要做 CDC 约束，须改用布线后 report_clocks 得到的派生时钟实际名，
 //   写 set_clock_groups -asynchronous（属待办项，见 doc\设计落实待办.md）。
+
+// ============================================================================
+// 跨时钟域分组（2026-10-20 加，兑现上面那两条待办）
+//
+// 本设计有四个时钟：
+//   i_clk_50m      50.000 MHz  板载晶振（sys 域，控制链路全程在此域）
+//   camera_pclk    52.499 MHz  摄像头 DVP PCLK
+//   CLKOUT0        49.000 MHz  HDMI 像素域（u_hdmi 内部 PLL）
+//   CLKOUT1       245.000 MHz  HDMI 串行域（同一 PLL 的 5 倍频）
+//
+// 前三者互不同源，是真正的异步关系。指向像素域的所有跨域数据都经
+// falcons_top.v 里的两级同步器（page / menu_sel / tune_p / tune_active /
+// pt_px / pt_py …），所以这里声明 asynchronous 是**如实描述**，不是掩盖问题。
+//
+// ★ CLKOUT0 与 CLKOUT1 必须放在**同一组**：它们同源、相位固定（5:1），
+//   放不同组等于告诉工具"它们异步"，那是错的。
+//   代价：`pixel_pwr_cnt[3]`（= pixel_rst_n）到 u_OSER10_*/RESET 的那 8 条
+//   SETUP 仍会被分析并留在报告里 —— 它们是复位电平到串行器，不是数据路径，
+//   属结构性伪违规（见上方 :47-50 的历史记录），本次不动它们。
+//
+// ★ 只写 set_clock_groups，不写 set_false_path：pixel_clk 在约束解析阶段
+//   不是时钟对象，写了会 ERROR (TA2004)（见 :62-64）。
+//
+// ⚠⚠ 2026-10-20 实测失败 —— 这条命令**当前不能用**，保留在这里作为记录：
+//   set_clock_groups -asynchronous -group [get_clocks {i_clk_50m}] \
+//       -group [get_clocks {camera_pclk}] \
+//       -group [get_clocks {u_hdmi/u_display_pll/PLL_inst/CLKOUT0.default_gen_clk
+//                           u_hdmi/u_display_pll/PLL_inst/CLKOUT1.default_gen_clk}]
+//   综合在 PnR 读约束时直接失败：
+//     ERROR (TA2004) : "constr\falcons.sdc":92 |
+//       Cannot get clock with name 'u_hdmi/u_display_pll/PLL_inst/CLKOUT0.default_gen_clk'
+//     ERROR (TA2004) : ... | Cannot get clock with name '...CLKOUT1.default_gen_clk'
+//     BUILD FAILED (run all): [exit code: 1]
+//   原因：这两个名字是从**布线后**时序报告（Clock Summary / Timing Details）里抄来的，
+//   那里 PLL 的 generated clock 已经建立；而 SDC 是在 read_netlist 之后、PnR 之前解析的，
+//   此刻 generated clock 还不在时钟库里，`get_clocks` 取不到 → 直接终止。
+//   与 :62-64 记录的 `pixel_clk` 是同一类问题的不同表现。
+//   若要继续做这项，需要用 PnR 阶段确实可见的时钟对象名；待查的方法：
+//     ① 在 SDC 里临时写 `report_clocks`，从 PnR 日志读出该阶段的实际时钟名；
+//     ② 试 `get_clocks -include_generated_clocks {i_clk_50m}`（但那样会把 pixel/245M
+//        一起归进 i_clk_50m 组，等于声明它们**同步**，方向反了，不可用）；
+//     ③ 改用 `set_false_path -from/-to` 配合原始时钟，同样受"generated clock 不可见"限制。
+//   在此之前，跨域违例继续按"人工按 Launch Clk == Latch Clk 过滤"的方式判读。
+// ============================================================================

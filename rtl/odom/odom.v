@@ -217,12 +217,51 @@ module odom #(
     wire        [7:0]  idx_sin   = idx_sin_w[7:0];
     wire        [7:0]  idx_cos   = idx_sin + 8'd64;      // +90° = +64 点（256 点表的 1/4）
 
+    // ------------------------------------------------------------------
+    // ★ 2026-10-20 加一级流水：把"角度索引"和"本窗口位移"一起锁存一拍
+    //
+    //   起因：布线后报告 High Fanout 表里
+    //     `u_odom/idx_sin_w[6]` 扇出 **513**、worst slack 只有 **+0.299 ns**。
+    //   扇出来自 8 位地址同时驱动两个 256×16 的 LUT ROM（sin 与 cos），
+    //   而这条地址线原来是**纯组合**的：
+    //     yaw_wrap/dyaw_acc → yaw_mid → ×7457 → >>>20 → idx → LUT 地址
+    //   全是组合，余量只剩 0.3 ns —— 综合器换一次摆法就会掉进负值。
+    //
+    //   做法：在 `i_delta_valid` 拍把 idx 与 ds_q10 一起打进寄存器，LUT 地址
+    //   于是变成 DFF 输出；下游 `dx_q10/dy_q10` 与 `x_q10` 的更新统一延后一拍
+    //   （用 `delta_vld_d1` 使能）。
+    //   ★ 为什么必须**整条链**一起延：`ds_q10` 与 `cos_v` 必须在**同一拍**相乘，
+    //     只给 idx 打拍会让位移和角度差一拍，积分结果系统性错位。
+    //   ★ `idx_sin_r` 取的是 `delta_valid` 拍的值，那正是"本窗口中点"的索引
+    //     （见上方 :208-214 的中点积分说明），语义不变。
+    //   代价：位置更新晚 1 拍（20 ns）；`delta_valid` 周期是 10 ms，完全无感。
+    // ------------------------------------------------------------------
+    reg  [7:0]        idx_sin_r, idx_cos_r;
+    reg signed [31:0] ds_q10_r;
+    reg               delta_vld_d1;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            idx_sin_r    <= 8'd0;
+            idx_cos_r    <= 8'd64;
+            ds_q10_r     <= 32'sd0;
+            delta_vld_d1 <= 1'b0;
+        end else begin
+            if (i_delta_valid) begin
+                idx_sin_r <= idx_sin;
+                idx_cos_r <= idx_cos;
+                ds_q10_r  <= ds_q10;
+            end
+            delta_vld_d1 <= i_delta_valid;
+        end
+    end
+
     sin_lut_rom u_sin (
-        .i_idx (idx_sin),
+        .i_idx (idx_sin_r),
         .o_val (sin_v)
     );
     sin_lut_rom u_cos (
-        .i_idx (idx_cos),
+        .i_idx (idx_cos_r),
         .o_val (cos_v)
     );
 
@@ -258,8 +297,8 @@ module odom #(
     //     `sin_v` 来自 idx_sin = yaw 对应点 → sin(yaw)
     //     `cos_v` 来自 idx_cos = idx_sin + 64（+90°）→ sin(yaw+90°) = cos(yaw)
     // ------------------------------------------------------------------
-    wire signed [31:0] dx_q10 = (ds_q10 * cos_v) >>> 15;   // x += Δs · cos(yaw)
-    wire signed [31:0] dy_q10 = (ds_q10 * sin_v) >>> 15;   // y += Δs · sin(yaw)
+    wire signed [31:0] dx_q10 = (ds_q10_r * cos_v) >>> 15;   // x += Δs · cos(yaw)
+    wire signed [31:0] dy_q10 = (ds_q10_r * sin_v) >>> 15;   // y += Δs · sin(yaw)
 
     // 累加器（Q10 mm）与"下一拍值"（用 next 同时驱动寄存器与输出，避免慢一拍）
     reg signed [31:0] x_q10, y_q10;
@@ -329,13 +368,18 @@ module odom #(
                 dyaw_acc <= dyaw_acc + dyaw;
 
             // ---- 位移与速度（10 ms 一次）----
-            if (i_delta_valid) begin
+            //   ★ 2026-10-20：位置改用延后一拍的 `delta_vld_d1`，因为
+            //     idx → LUT → dx_q10 走了一级流水（见上方第 5 节）。速度不经过
+            //     那条链，仍用本拍的 `i_delta_valid`。
+            if (delta_vld_d1) begin
                 x_q10       <= x_next;
                 y_q10       <= y_next;
                 // ★ 必须用算术右移 `>>>`，不能写 `x_next[31:10]` ——
                 //   位选是**逻辑右移**，负航位会变成巨大的正数（实测倒车 y 显示 4193968）。
                 o_x_mm      <= x_next >>> 10;
                 o_y_mm      <= y_next >>> 10;
+            end
+            if (i_delta_valid) begin
                 o_v_mms     <= v_mms_w;
                 o_omega_enc <= omega_enc_w;
             end
