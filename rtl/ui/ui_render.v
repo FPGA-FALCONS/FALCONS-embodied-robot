@@ -84,7 +84,11 @@ module ui_render #(
     //   数据页「航向角」标签正上方用**红字**显示「imu初始化错误」。
     //   此刻航向角/角速度会恒为 0，没有这行提示根本分不清"车没转"和"IMU 没起来"。
     input  wire         i_imu_fail,
-    input  wire [3:0]   i_tune_sel      // 参数整定页当前选中行（0..10）
+    input  wire [3:0]   i_tune_sel,     // 参数整定页当前选中行（0..11）
+    // 2026-10-20（上板二次反馈）：参数页处于「编辑态」才变暗左侧菜单栏、才画行高亮条。
+    //   退出编辑态后 page 仍停在参数页（与导航页退出 nav_ui 同构），
+    //   此时菜单栏恢复正常亮度、高亮条消失，菜单键恢复可用。
+    input  wire         i_tune_active
 );
 
     // UI 文案索引（localparam；由 tools/gen_font_rom.py 生成，与本文件同目录）
@@ -126,12 +130,17 @@ module ui_render #(
     localparam integer TUNE_Y0      = 72;   // 第 1 行顶
     localparam integer TUNE_STEP    = 36;   // 行高
     localparam integer TUNE_TDY     = 6;    // 24px 标签相对行顶偏移 (36−24)/2
-    localparam integer TUNE_VDY     = 10;   // 16px 数字相对行顶偏移 (36−16)/2
+    // ★ 2026-10-20 上板修：数值点阵是 **16 宽 × 24 高**（`font_num` 是 24 行），
+    //   不是 16×16。原来 VDY 按 (36−16)/2=10 算、窗口又只有 SM_CELL=16 行，
+    //   于是只画出字形的第 0..15 行 —— 上板现象是"右侧数值与单位下部被截掉"。
+    //   改法：VDY = (36−24)/2 = 6（与标签同一基线），窗口高度用 TUNE_VH = 24。
+    localparam integer TUNE_VDY     = 6;    // 24px 数字相对行顶偏移 (36−24)/2
+    localparam integer TUNE_VH      = 24;   // 数值点阵行数（font_num: 16×24）
     localparam integer TUNE_LBL_X   = 240;  // 标签左界（24 的倍数 ⇒ 字组 10）
     localparam integer TUNE_LBL_XW  = TUNE_LBL_X / LG_CELL;
     localparam integer TUNE_VAL_XW  = 24;   // 数值左界 24×16 = 384
     localparam integer TUNE_UNIT_XW = 30;   // 单位左界 30×16 = 480
-    localparam integer TUNE_ROWS    = 11;   // 参数行数（与 tune_ctrl 的 11 项一一对应）
+    localparam integer TUNE_ROWS    = 12;   // 参数行数（与 tune_ctrl 的 12 项一一对应）
 
     // ------------------------------------------------------------------
     // 文案取用（function：纯组合，综合稳）  {addr[11:0], len[5:0]}
@@ -166,13 +175,18 @@ module ui_render #(
                 4'd5:    tune_label_text = {UI_TXT_TUNE_L5_ADDR,  UI_TXT_TUNE_L5_LEN};
                 4'd6:    tune_label_text = {UI_TXT_TUNE_L6_ADDR,  UI_TXT_TUNE_L6_LEN};
                 4'd7:    tune_label_text = {UI_TXT_TUNE_L7_ADDR,  UI_TXT_TUNE_L7_LEN};
-                4'd8:    tune_label_text = {UI_TXT_TUNE_L8_ADDR,  UI_TXT_TUNE_L8_LEN};
-                4'd9:    tune_label_text = {UI_TXT_TUNE_L9_ADDR,  UI_TXT_TUNE_L9_LEN};
-                4'd10:   tune_label_text = {UI_TXT_TUNE_L10_ADDR, UI_TXT_TUNE_L10_LEN};
+                // 2026-10-20（需求方）：积分限幅插在「航向 Kd」下、「速度环 Kp」上 ⇒
+                // 行号 8 = 积分限幅（字库常量 L11），行号 9/10/11 = 速度环三项（常量 L8/L9/L10）。
+                // 常量名里的数字是**文案编号**，与行号不再一一对应，改行序时只动这里。
+                4'd8:    tune_label_text = {UI_TXT_TUNE_L11_ADDR, UI_TXT_TUNE_L11_LEN};
+                4'd9:    tune_label_text = {UI_TXT_TUNE_L8_ADDR,  UI_TXT_TUNE_L8_LEN};
+                4'd10:   tune_label_text = {UI_TXT_TUNE_L9_ADDR,  UI_TXT_TUNE_L9_LEN};
+                4'd11:   tune_label_text = {UI_TXT_TUNE_L10_ADDR, UI_TXT_TUNE_L10_LEN};
                 default: tune_label_text = {UI_TXT_TUNE_L0_ADDR,  UI_TXT_TUNE_L0_LEN};
             endcase
         end
     endfunction
+
 
     // ---- 参数整定页：数值单位（16px，跟在小数右侧）----
     //   返回 {addr, len}；len = 0 表示该行不画单位（Kp/Ki/Kd 是无量纲）。
@@ -653,7 +667,7 @@ module ui_render #(
         if (i_page == PG_TUNE) begin
             for (ti = 0; ti < TUNE_ROWS; ti = ti + 1) begin
                 if ((i_pixel_y >= (TUNE_Y0 + ti * TUNE_STEP + TUNE_VDY)) &&
-                    (i_pixel_y <  (TUNE_Y0 + ti * TUNE_STEP + TUNE_VDY + SM_CELL))) begin
+                    (i_pixel_y <  (TUNE_Y0 + ti * TUNE_STEP + TUNE_VDY + TUNE_VH))) begin
                     sm_seg[0] = seg_sm_ram(ti * 5, 6'd5, TUNE_VAL_XW[5:0],
                                            (i_pixel_y - (TUNE_Y0 + ti * TUNE_STEP + TUNE_VDY)));
                     // ★ 不能对 function 调用直接做 bit/part-select（Verilog-2001 非法），
@@ -765,6 +779,13 @@ module ui_render #(
     function [1:0] field_dec;      // 返回该字段的小数位数（0 = 不画点）
         input [5:0] base_addr;
         begin
+            // ★ 2026-10-20（综合报错后补）：参数整定页复用数据页的字段 0..11，
+            //   但 12 项参数**全是整数**。若仍按 base_addr 查表，字段 6/7/8
+            //   （base 30/35/40）会被画上小数点 —— 航向 Kd=6 显示成 "  0.06"。
+            //   故参数页一律不画点；数据页行为完全不变。
+            if (i_page == PG_TUNE) begin
+                field_dec = 2'd0;
+            end else begin
             case (base_addr)
                 //   base 是 ui_render 里的**读取起始地址**：
                 //     f6 中心速度 = 6×5 = 30     → 0.01 m/s
@@ -778,6 +799,7 @@ module ui_render #(
                 6'd45, 6'd50: field_dec = 2'd2;
                 default:      field_dec = 2'd0;
             endcase
+            end
         end
     endfunction
 
@@ -892,6 +914,10 @@ module ui_render #(
     wire nav_ui     = nav_pg_any && i_menu_dim;   // 导航页且处于交互态
     wire nav_pg     = (i_page == PG_NAV_FREE);    // 只有非避障页有坐标系/准心/点
 
+    // ★ 2026-10-20：参数整定页也要把左侧菜单栏**变暗** —— 进页后摇杆/按键都归
+    //   参数编辑，不再切菜单，用亮度提示和导航交互态一致。
+    wire tune_ui    = (i_page == PG_TUNE) && i_tune_active;
+
     // ---- 坐标轴：只画轴、不画网格；都延伸到画面边缘 ----
     //   x 轴 y=300，从菜单右缘 208 到 1023；y 轴 x=412，全高 0..599。
     wire nav_axis_x = nav_pg && (i_pixel_y == NAV_ORG_Y) && (i_pixel_x >= MENU_W);
@@ -959,7 +985,7 @@ module ui_render #(
     //     TUNE_UNIT_XW=30 起 4 字 = x 480..543，整行铺到 1023 会留下 480 px
     //     纯蓝空条，视觉上把行高亮读成了"标题栏"。656 给单位右侧留 113 px 余量。
     localparam [11:0] TUNE_HL_X1 = 12'd656;
-    wire tune_hi_band = (i_page == PG_TUNE) &&
+    wire tune_hi_band = (i_page == PG_TUNE) && i_tune_active &&
                         (i_pixel_x >= 12'd224) &&
                         (i_pixel_x <  TUNE_HL_X1) &&
                         (i_pixel_y >= (TUNE_Y0 + i_tune_sel * TUNE_STEP)) &&
@@ -995,7 +1021,7 @@ module ui_render #(
         if (in_status_bar)      rgb = (nav_ui && i_nav_paused) ? 24'h994D00
                                     : (nav_ui && i_nav_run)    ? 24'h006600
                                     : ((i_ui_mode == 2'd0) ? 24'h660000 : 24'h202020);
-        else if (in_menu_bar)   rgb = nav_ui ? 24'h0B1019 : 24'h101828;
+        else if (in_menu_bar)   rgb = (nav_ui || tune_ui) ? 24'h0B1019 : 24'h101828;
         else                    rgb = 24'h000000;
 
         // 1b) 轮速文本框底色（盖在内容区黑底之上；文字与车图仍在其上）
@@ -1021,8 +1047,8 @@ module ui_render #(
         if (lg_glyph) begin
             if (lg_imu_fail_d1)                     rgb = 24'hFF4040;   // IMU 初始化失败：红
             else if (in_status_bar)                 rgb = 24'hFFFFFF;   // 状态栏：白
-            else if (in_menu_bar && menu_sel_band)  rgb = nav_ui ? 24'h8A7A2E : 24'hFFE066;   // 选中项
-            else if (in_menu_bar)                   rgb = nav_ui ? 24'h5A6170 : 24'hE5E7EB;   // 未选中
+            else if (in_menu_bar && menu_sel_band)  rgb = (nav_ui || tune_ui) ? 24'h8A7A2E : 24'hFFE066;   // 选中项
+            else if (in_menu_bar)                   rgb = (nav_ui || tune_ui) ? 24'h5A6170 : 24'hE5E7EB;   // 未选中
             else                                    rgb = 24'hFFFFFF;   // 标签/占位：白
         end
 

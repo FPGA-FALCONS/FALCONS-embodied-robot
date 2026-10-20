@@ -64,20 +64,24 @@ module tune_ctrl (
     input  wire               i_signal,     // 1 = 遥控信号有效
 
     // ---- 遥控输入（rc_input 已消抖，均为单拍脉冲或归一化量）----
-    input  wire signed [11:0] i_steer,      // CH4 左右，-1000..+1000
+    input  wire signed [11:0] i_steer,      // CH4 左右，-1000..+1000（调值）
+    input  wire signed [11:0] i_throttle,   // CH2 上下，-1000..+1000（选行）
+                                            //   ★ 2026-10-20 上板后改：选行由 CH8
+                                            //     （原 select/辅助菜单键）改为 CH2 摇杆。
+                                            //     `rc_throttle > 0` = 推杆向上 = 车前进，
+                                            //     约定**向上切换 = 行号减 1**。
     input  wire               i_confirm,    // CH5 下
     input  wire               i_back,       // CH5 上
-    input  wire               i_aux_up,     // CH8 上
-    input  wire               i_aux_down,   // CH8 下
 
-    // ---- 参数原值（11×32 位扁平，供 nav_ctrl / chassis_ctrl 使用）----
-    output wire [351:0]       o_param,
+    // ---- 参数原值（12×32 位扁平，供 nav_ctrl / chassis_ctrl 使用）----
+    //   2026-10-20 由 11 项扩到 12 项（新增第 12 项「积分限幅」，对应 nav_ctrl 的 i_i_limit）
+    output wire [383:0]       o_param,
 
-    // ---- 显示值（11×32 位扁平，已按单位换算，直接接 num_text）----
-    output wire [351:0]       o_disp,
+    // ---- 显示值（12×32 位扁平，已按单位换算，直接接 num_text）----
+    output wire [383:0]       o_disp,
 
     // ---- 页面状态 ----
-    output reg  [3:0]         o_sel,        // 当前选中行 0..10
+    output reg  [3:0]         o_sel,        // 当前选中行 0..11
     output reg  signed [31:0] o_k_slow_q10, // 派生减速斜率（Q10）
     output reg                o_exit,       // 退出页面脉冲
     output wire               o_div_busy    // 除法器忙（调试用）
@@ -91,15 +95,22 @@ module tune_ctrl (
         case (i)
             4'd0:  p_def = 32'd300;
             4'd1:  p_def = 32'd100;
-            4'd2:  p_def = 32'd1000;
+            4'd2:  p_def = 32'd800;  
             4'd3:  p_def = 32'd3500;
-            4'd4:  p_def = 32'd180;
-            4'd5:  p_def = 32'd21;
-            4'd6:  p_def = 32'd4;
+            4'd4:  p_def = 32'd126;  
+            4'd5:  p_def = 32'd40;  
+            4'd6:  p_def = 32'd3;   
             4'd7:  p_def = 32'd6;
-            4'd8:  p_def = 32'd0;
-            4'd9:  p_def = 32'd64;
-            4'd10: p_def = 32'd0;
+            // ★ 2026-10-20（需求方）：积分限幅插到「航向 Kd」下面、「速度环 Kp」上面，
+            //   因为它是航向控制环内部的量，跟速度环三项不是一类。
+            4'd8:  p_def = 32'd120;   // 积分限幅 cnt/10ms（需求方指定，≈0.95×MAX_DIFF_CRUISE）
+            // ★ 2026-10-20（需求方）：速度环默认改为 Kp=24、Ki=36（原 0 / 64）。
+            //   Q8 定点：24/256 = 0.09375、36/256 = 0.140625。
+            //   顶层 `KP_INIT`/`KI_INIT` 与 tune_kp_d/tune_ki_d 复位值必须同步，
+            //   否则页面显示值与实际生效值会不一致（页面不跟随串口，但跟随复位）。
+            4'd9:  p_def = 32'd24;    // 速度环 Kp
+            4'd10: p_def = 32'd36;    // 速度环 Ki
+            4'd11: p_def = 32'd0;     // 速度环 Kd
             default: p_def = 32'd0;
         endcase
     endfunction
@@ -114,9 +125,10 @@ module tune_ctrl (
             4'd5:  p_min = 32'd0;
             4'd6:  p_min = 32'd0;
             4'd7:  p_min = 32'd0;
-            4'd8:  p_min = 32'd0;
+            4'd8:  p_min = 32'd0;     // 0 = 完全禁用积分
             4'd9:  p_min = 32'd0;
             4'd10: p_min = 32'd0;
+            4'd11: p_min = 32'd0;
             default: p_min = 32'd0;
         endcase
     endfunction
@@ -131,9 +143,10 @@ module tune_ctrl (
             4'd5:  p_max = 32'd200;
             4'd6:  p_max = 32'd50;
             4'd7:  p_max = 32'd50;
-            4'd8:  p_max = 32'd255;
+            4'd8:  p_max = 32'd612;   // = MAX_DIFF（原地满舵差速）
             4'd9:  p_max = 32'd255;
             4'd10: p_max = 32'd255;
+            4'd11: p_max = 32'd255;
             default: p_max = 32'd0;
         endcase
     endfunction
@@ -148,9 +161,10 @@ module tune_ctrl (
             4'd5:  p_step = 32'd1;
             4'd6:  p_step = 32'd1;
             4'd7:  p_step = 32'd1;
-            4'd8:  p_step = 32'd1;
+            4'd8:  p_step = 32'd10;
             4'd9:  p_step = 32'd1;
             4'd10: p_step = 32'd1;
+            4'd11: p_step = 32'd1;
             default: p_step = 32'd0;
         endcase
     endfunction
@@ -160,15 +174,16 @@ module tune_ctrl (
         case (i)
             4'd0:  d_def = 32'd300;   // 300 mm/s
             4'd1:  d_def = 32'd100;   // 100 mm
-            4'd2:  d_def = 32'd10;    // 1000 × 0.01° = 10°
+            4'd2:  d_def = 32'd8;     // 800 × 0.01° = 8°
             4'd3:  d_def = 32'd35;    // 3500 × 0.01° = 35°
-            4'd4:  d_def = 32'd43;    // 180 cnt → 42.94 °/s → 43
-            4'd5:  d_def = 32'd21;
-            4'd6:  d_def = 32'd4;
+            4'd4:  d_def = 32'd30;    // 126 cnt → 30.06 °/s → 30
+            4'd5:  d_def = 32'd40;
+            4'd6:  d_def = 32'd3;
             4'd7:  d_def = 32'd6;
-            4'd8:  d_def = 32'd0;
-            4'd9:  d_def = 32'd64;
-            4'd10: d_def = 32'd0;
+            4'd8:  d_def = 32'd120;   // 积分限幅：counts 原值，不做换算
+            4'd9:  d_def = 32'd24;
+            4'd10: d_def = 32'd36;
+            4'd11: d_def = 32'd0;
             default: d_def = 32'd0;
         endcase
     endfunction
@@ -176,8 +191,8 @@ module tune_ctrl (
     // ------------------------------------------------------------------
     // 参数寄存器
     // ------------------------------------------------------------------
-    reg [31:0] p [0:10];
-    reg [31:0] d [0:10];
+    reg [31:0] p [0:11];
+    reg [31:0] d [0:11];
     integer    i;
     integer    j;
 
@@ -205,28 +220,24 @@ module tune_ctrl (
     // 按键边沿检测（rc_input 送来的是单拍脉冲，但这里统一按上升沿取，
     //   这样即使将来改成电平输出也不会连发）
     // ------------------------------------------------------------------
-    reg aux_up_d, aux_down_d, confirm_d, back_d;
+    reg confirm_d, back_d;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            aux_up_d   <= 1'b0;
-            aux_down_d <= 1'b0;
             confirm_d  <= 1'b0;
             back_d     <= 1'b0;
         end else begin
-            aux_up_d   <= i_aux_up;
-            aux_down_d <= i_aux_down;
             confirm_d  <= i_confirm;
             back_d     <= i_back;
         end
     end
 
-    wire aux_up_ev   = i_aux_up   & ~aux_up_d;
-    wire aux_down_ev = i_aux_down & ~aux_down_d;
     wire confirm_ev  = i_confirm  & ~confirm_d;
     wire back_ev     = i_back     & ~back_d;
 
-    // 页面激活才响应；手动档禁用调值（选行/退出不受影响）
+    // 页面激活才响应
     wire ui_on   = i_active & i_signal;
+    // ★ 选行与调值都要求 can_adj（手动档下 CH2 是底盘油门、CH4 是底盘转向，
+    //   不能让页面跟底盘抢摇杆；退出页面仍用 ui_on，见 o_exit）。
     wire can_adj = ui_on & ~i_manual;
 
     // ------------------------------------------------------------------
@@ -240,51 +251,89 @@ module tune_ctrl (
     localparam signed [11:0] STEER_DEADZONE = 12'sd200;
 
     wire signed [11:0] st = i_steer;
-    wire        dir_p = (st >  STEER_DEADZONE);
-    wire        dir_n = (st < -STEER_DEADZONE);
-    wire        dir_nz = dir_p | dir_n;
-    wire [1:0]  dir_cur = dir_p ? 2'd1 : (dir_n ? 2'd2 : 2'd0);
+    //   ★ 极性：`rc_steer` 的**正 = 推杆向左** —— `rtl\motor\chassis_ctrl.v` 里
+    //     `man_diff` 正 = 左转（tgt_left 慢），与 `i_steer` 同号，故 `i_steer > 0`
+    //     是物理左推。参数页约定「**右推 = 数值增大**」，所以这里按物理方向命名
+    //     后对调：右推 → dir 1（加）、左推 → dir 2（减）。
+    //     （2026-10-20 上板实测曾表现为"向左增大、向右减小"，即本条极性写反。）
+    wire        st_right = (st < -STEER_DEADZONE);
+    wire        st_left  = (st >  STEER_DEADZONE);
+    wire        dir_nz = st_right | st_left;
+    wire [1:0]  dir_cur = st_right ? 2'd1 : (st_left ? 2'd2 : 2'd0);
 
     reg [1:0]  dir_r;       // 上一拍的方向编码（0 回中 / 1 右 / 2 左）
     reg [15:0] hold_ms;     // 同向按住毫秒数
     reg [7:0]  rep_cnt;     // 连发分频计数（0..119）
-    reg        step_pulse;  // 单步骤触发
+    reg        step_pulse;  // 调值单步触发
+
+    // ---- 选行摇杆（CH2）----
+    //   ★ 2026-10-20 上板后改：选行由 CH8 键改为 **CH2 摇杆上下**（需求方要求）。
+    //     约定「摇杆向上 = 车前进方向 = 行号减 1」，即向上拨光标上移、向下拨下移。
+    //     与调值同构：推一次走一行、必须回中才能再推、按住 400 ms 后每 120 ms 一行。
+    localparam signed [11:0] THROTTLE_DEADZONE = 12'sd200;
+
+    wire signed [11:0] th = i_throttle;
+    wire        th_up   = (th >  THROTTLE_DEADZONE);   // 向上（= 车前进方向）
+    wire        th_down = (th < -THROTTLE_DEADZONE);   // 向下
+    wire        th_nz   = th_up | th_down;
+    wire [1:0]  th_cur  = th_up ? 2'd1 : (th_down ? 2'd2 : 2'd0);
+
+    reg [1:0]  th_r;        // 上一拍方向编码（0 回中 / 1 上 / 2 下）
+    reg [15:0] th_hold_ms;
+    reg [7:0]  th_rep_cnt;
+    reg        sel_step;    // 选行单步触发
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            dir_r      <= 2'd0;
-            hold_ms    <= 16'd0;
-            rep_cnt    <= 8'd0;
-            step_pulse <= 1'b0;
+            dir_r      <= 2'd0;  hold_ms    <= 16'd0;
+            rep_cnt    <= 8'd0;  step_pulse <= 1'b0;
+            th_r       <= 2'd0;  th_hold_ms <= 16'd0;
+            th_rep_cnt <= 8'd0;  sel_step   <= 1'b0;
         end else begin
             step_pulse <= 1'b0;
+            sel_step   <= 1'b0;
 
+            // ---- 调值（CH4）：回中或禁调 → 清计时、方向归零（下次推出必触发一步）----
             if (!can_adj || !dir_nz) begin
-                // 回中或禁调：清计时、方向归零（下次推出必触发一步）
                 dir_r   <= 2'd0;
                 hold_ms <= 16'd0;
                 rep_cnt <= 8'd0;
+            end else if (dir_cur != dir_r) begin
+                // 换向或刚推离死区：先走一步，然后进入长按计时
+                dir_r      <= dir_cur;
+                hold_ms    <= 16'd0;
+                rep_cnt    <= 8'd0;
+                step_pulse <= 1'b1;
             end else begin
-                if (dir_cur != dir_r) begin
-                    // 换向或刚推离死区：先走一步，然后进入长按计时
-                    dir_r      <= dir_cur;
-                    hold_ms    <= 16'd0;
-                    rep_cnt    <= 8'd0;
-                    step_pulse <= 1'b1;
-                end else begin
-                    if (ms_tick && hold_ms != 16'hFFFF)
-                        hold_ms <= hold_ms + 16'd1;
+                if (ms_tick && hold_ms != 16'hFFFF) hold_ms <= hold_ms + 16'd1;
+                if (hold_ms >= 16'd400 && ms_tick) begin
+                    if (rep_cnt == 8'd119) begin
+                        rep_cnt    <= 8'd0;
+                        step_pulse <= 1'b1;
+                    end else begin
+                        rep_cnt <= rep_cnt + 8'd1;
+                    end
+                end
+            end
 
-                    if (hold_ms >= 16'd400) begin
-                        // 长按连发：每 120 ms 一步
-                        if (ms_tick) begin
-                            if (rep_cnt == 8'd119) begin
-                                rep_cnt    <= 8'd0;
-                                step_pulse <= 1'b1;
-                            end else begin
-                                rep_cnt <= rep_cnt + 8'd1;
-                            end
-                        end
+            // ---- 选行（CH2）：同一套节拍，独立计数器 ----
+            if (!can_adj || !th_nz) begin
+                th_r       <= 2'd0;
+                th_hold_ms <= 16'd0;
+                th_rep_cnt <= 8'd0;
+            end else if (th_cur != th_r) begin
+                th_r       <= th_cur;
+                th_hold_ms <= 16'd0;
+                th_rep_cnt <= 8'd0;
+                sel_step   <= 1'b1;
+            end else begin
+                if (ms_tick && th_hold_ms != 16'hFFFF) th_hold_ms <= th_hold_ms + 16'd1;
+                if (th_hold_ms >= 16'd400 && ms_tick) begin
+                    if (th_rep_cnt == 8'd119) begin
+                        th_rep_cnt <= 8'd0;
+                        sel_step   <= 1'b1;
+                    end else begin
+                        th_rep_cnt <= th_rep_cnt + 8'd1;
                     end
                 end
             end
@@ -292,17 +341,19 @@ module tune_ctrl (
     end
 
     // ------------------------------------------------------------------
-    // 选行（CH8）
+    // 选行（0..11 回绕）—— 向上切换 = 行号减 1
+    //   ★ 判方向用组合的 `th_up` 而不是寄存的 `th_r`：首触发那一拍
+    //     `th_r <= th_cur` 还没生效，读 `th_r` 会拿到回中值 0 而判成"向下"。
     // ------------------------------------------------------------------
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             o_sel <= 4'd0;
-        end else if (ui_on) begin
-            if (aux_up_ev) begin
-                if (o_sel == 4'd0) o_sel <= 4'd10;
+        end else if (can_adj && sel_step) begin
+            if (th_up) begin
+                if (o_sel == 4'd0) o_sel <= 4'd11;
                 else               o_sel <= o_sel - 4'd1;
-            end else if (aux_down_ev) begin
-                if (o_sel == 4'd10) o_sel <= 4'd0;
+            end else begin
+                if (o_sel == 4'd11) o_sel <= 4'd0;
                 else                o_sel <= o_sel + 4'd1;
             end
         end
@@ -316,7 +367,7 @@ module tune_ctrl (
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            for (i = 0; i < 11; i = i + 1) p[i] <= p_def(i[3:0]);
+            for (i = 0; i < 12; i = i + 1) p[i] <= p_def(i[3:0]);
             edit_ev  <= 1'b0;
             edit_val <= 32'd0;
         end else begin
@@ -326,15 +377,15 @@ module tune_ctrl (
             //   确认键也不该顺手把参数复位掉（顶层注释承诺"只显示不改"）。
             //   退出页面仍走 ui_on（见下方 o_exit），否则手动档下退不出去。
             if (can_adj && (step_pulse || confirm_ev)) begin
-                for (i = 0; i < 11; i = i + 1) begin
+                for (i = 0; i < 12; i = i + 1) begin
                     if (o_sel == i[3:0]) begin
                         if (confirm_ev) begin
                             p[i]     <= p_def(o_sel);
                             edit_val <= p_def(o_sel);
                             edit_ev  <= 1'b1;
                         end else if (step_pulse) begin
-                            if (dir_p) begin
-                                // 加：不越过上限
+                            if (st_right) begin
+                                // 物理右推 = 加：不越过上限
                                 if (p[i] > (p_max(o_sel) - p_step(o_sel)))
                                     p[i] <= p_max(o_sel);
                                 else
@@ -378,9 +429,9 @@ module tune_ctrl (
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            for (j = 0; j < 11; j = j + 1) d[j] <= d_def(j[3:0]);
+            for (j = 0; j < 12; j = j + 1) d[j] <= d_def(j[3:0]);
         end else if (edit_ev) begin
-            for (j = 0; j < 11; j = j + 1) begin
+            for (j = 0; j < 12; j = j + 1) begin
                 if (o_sel == j[3:0]) d[j] <= disp_new;
             end
         end
@@ -462,7 +513,7 @@ module tune_ctrl (
     // ------------------------------------------------------------------
     genvar gi;
     generate
-        for (gi = 0; gi < 11; gi = gi + 1) begin : g_pack
+        for (gi = 0; gi < 12; gi = gi + 1) begin : g_pack
             assign o_param[gi*32 +: 32] = p[gi];
             assign o_disp [gi*32 +: 32] = d[gi];
         end

@@ -54,19 +54,20 @@ module nav_ctrl_tb;
     //     同步 —— 除 G12 外所有断言的期望值都只对应这一组默认值。
     reg signed [31:0] P_V_CRUISE = 32'sd300;
     reg signed [31:0] P_D_SLOW   = 32'sd100;
-    reg signed [31:0] P_ALIGN_IN = 32'sd1000;
+    reg signed [31:0] P_ALIGN_IN = 32'sd800;
     reg signed [31:0] P_ALIGN_OUT= 32'sd3500;
-    reg signed [31:0] P_MDC      = 32'sd180;
-    reg signed [31:0] P_KP       = 32'sd21;
-    reg signed [31:0] P_KI       = 32'sd4;
+    reg signed [31:0] P_MDC      = 32'sd126;
+    reg signed [31:0] P_KP       = 32'sd40;
+    reg signed [31:0] P_KI       = 32'sd3;
     reg signed [31:0] P_KD       = 32'sd6;
     reg signed [31:0] P_KSLOW    = 32'sd3072;
+reg signed [31:0] P_I_LIMIT  = 32'sd120;   // 积分限幅（需求方指定 120，≈0.95×MAX_DIFF_CRUISE）
     nav_ctrl dut (
         .clk(clk), .rst_n(rst_n),
         .i_v_cruise(P_V_CRUISE), .i_d_slow(P_D_SLOW),
         .i_align_in(P_ALIGN_IN), .i_align_out(P_ALIGN_OUT),
         .i_max_diff_cruise(P_MDC),
-        .i_kp_yaw(P_KP), .i_ki_yaw(P_KI), .i_kd_yaw(P_KD),
+        .i_kp_yaw(P_KP), .i_ki_yaw(P_KI), .i_kd_yaw(P_KD), .i_i_limit(P_I_LIMIT),
         .i_k_slow_q10(P_KSLOW),
         .i_active(i_active), .i_run(i_run), .i_paused(i_paused),
         .i_mode(i_mode), .i_is_obs(i_is_obs),
@@ -97,7 +98,7 @@ module nav_ctrl_tb;
         .i_v_cruise(P_V_CRUISE), .i_d_slow(P_D_SLOW),
         .i_align_in(P_ALIGN_IN), .i_align_out(P_ALIGN_OUT),
         .i_max_diff_cruise(P_MDC),
-        .i_kp_yaw(P_KP), .i_ki_yaw(P_KI), .i_kd_yaw(P_KD),
+        .i_kp_yaw(P_KP), .i_ki_yaw(P_KI), .i_kd_yaw(P_KD), .i_i_limit(P_I_LIMIT),
         .i_k_slow_q10(P_KSLOW),
         .i_active(i_active), .i_run(i_run), .i_paused(i_paused),
         .i_mode(i_mode), .i_is_obs(1'b0),
@@ -556,15 +557,24 @@ module nav_ctrl_tb;
         chk_int("g11a_20deg_center0", o_center, 32'sd0);
         chk_true("g11a_20deg_diff_pos", o_diff > 32'sd0);   // psi>0 → 左转
 
-        // (b) 偏 8° → 必须进 TRACK（证明门限确实在 10°，不是更小）
+        // (b) 门限 = ALIGN_IN_DEG = 800（8°）：用 7° 与 9° 从两侧夹住
+        //     ★ 不用 8° 本身：它恰好等于门限，CORDIC 的 ±0.01° 量化可能算出 801
+        //       而落在门外，断言会偶发抖动（实测 psi=800 时 got S_ALIGN）
         do_reset;
         set_pt(0, 1000, 0); i_pt_count = 5'd1;
         start_task(1, 0, 0, 0, 0);
-        i_yaw = -32'sd800;                         // psi = +8° < 10°
+        i_yaw = -32'sd700;                         // psi = +7° < 8°
         tick1;
-        chk_int("g11b_8deg_track", o_state, S_TRACK);
+        chk_int("g11b_7deg_track", o_state, S_TRACK);
 
-        // (c) MAX_DIFF_CRUISE = 180：TRACK 中 psi=30° → 差速截到 180（若改回 252 这里会得 252）
+        do_reset;
+        set_pt(0, 1000, 0); i_pt_count = 5'd1;
+        start_task(1, 0, 0, 0, 0);
+        i_yaw = -32'sd900;                         // psi = +9° > 8°
+        tick1;
+        chk_int("g11b_9deg_align", o_state, S_ALIGN);
+
+        // (c) MAX_DIFF_CRUISE = 126（≈30.06 °/s）：TRACK 中 psi=30° → 差速截到 126
         do_reset;
         set_pt(0, 1000, 0); i_pt_count = 5'd1;
         start_task(1, 0, 0, 0, 0);
@@ -573,7 +583,7 @@ module nav_ctrl_tb;
         i_yaw = -32'sd3000;                        // psi = +30°（<35° 迟滞上限，留 TRACK）
         tick1;
         chk_int("g11c_still_track", o_state, S_TRACK);
-        chk_int("g11c_diff_clip", o_diff, 32'sd180);       // 42.94 °/s
+        chk_int("g11c_diff_clip", o_diff, 32'sd126);       // 30.06 °/s
         chk_true("g11c_center_cruise", o_center > 32'sd800);
 
         // (d) 同一 psi=30° 但在 ALIGN 下用 MAX_DIFF=612 → 不会被截到 180
@@ -583,7 +593,7 @@ module nav_ctrl_tb;
         i_yaw = -32'sd3000;                        // 一开始就偏 30° → 留 ALIGN
         tick1;
         chk_int("g11d_align_state", o_state, S_ALIGN);
-        chk_true("g11d_align_above_cruise", o_diff > 32'sd180);  // 612 限幅有余量
+        chk_true("g11d_align_above_cruise", o_diff > 32'sd126);  // 612 限幅有余量
 
         // (e) D_SLOW_MM = 100：ahead=110 → 全速 892（旧值 130 会算出 754）
         do_reset;
@@ -623,32 +633,34 @@ module nav_ctrl_tb;
         begin : g12_runtime
             integer d21, d42;
 
-            // (a) 航向 KP 21 → 42：ALIGN 中 psi=20°，比例项应翻倍
+            // (a) 航向 KP 40 → 80：ALIGN 中 psi=9°(900)，比例项翻倍
             //     用"差值"而不是绝对值断言，避开 i/d 项初值的影响
+            //     ★ psi 取 900 而不是 2000：Kp=40 时 p_term=468 已接近 MAX_DIFF 612，
+            //       翻倍后 936 会撞上限，差值被限幅吃掉，测不出比例关系
             do_reset;
             set_pt(0, 1000, 0); i_pt_count = 5'd1;
             start_task(1, 0, 0, 0, 0);
-            i_yaw = -32'sd2000;
+            i_yaw = -32'sd900;
             tick1;
             d21 = o_diff;
-            P_KP = 32'sd42;
+            P_KP = 32'sd80;
             tick1; tick1;
             d42 = o_diff;
-            P_KP = 32'sd21;
+            P_KP = 32'sd40;
             chk_true("g12a_kp_changed_diff_grows", d42 > (d21 + 32'sd100));
 
-            // (b) MAX_DIFF_CRUISE 180 → 90：TRACK 中 psi=30°，差速按新限幅截断
+            // (b) MAX_DIFF_CRUISE 126 → 90：TRACK 中 psi=30°，差速按新限幅截断
             do_reset;
             set_pt(0, 1000, 0); i_pt_count = 5'd1;
             start_task(1, 0, 0, 0, 0);
             tick1;
             i_yaw = -32'sd3000;
             tick1;
-            chk_int("g12b_mdc180", o_diff, 32'sd180);
+            chk_int("g12b_mdc126", o_diff, 32'sd126);
             P_MDC = 32'sd90;
             tick1; tick1;
             chk_int("g12b_mdc90", o_diff, 32'sd90);
-            P_MDC = 32'sd180;
+            P_MDC = 32'sd126;
 
             // (c) D_SLOW 100 → 200（同时把 K_SLOW 调到 1024）：ahead=150
             //     默认：150 ≥ 100 → 全速 892
@@ -679,7 +691,65 @@ module nav_ctrl_tb;
             i_yaw = -32'sd1500;
             tick1; tick1;
             chk_int("g12d_in2000_track", o_state, S_TRACK);
-            P_ALIGN_IN = 32'sd1000;
+            P_ALIGN_IN = 32'sd800;
+        end
+
+        // ------------------------------------------------------------------
+        // G13 积分限幅 i_i_limit（2026-10-20 由 parameter I_LIMIT=400 端口化）
+        //   原 400 与 MAX_DIFF_CRUISE=180 失配 2.2 倍：积分涨过 180 后
+        //   输出被 clamp32(...,180) 截死 → PID 退化成 bang-bang → 直行摆头。
+        //   这里在 S_ALIGN（限幅 MAX_DIFF=612）里比 0 与 400 两个极端。
+        // ------------------------------------------------------------------
+        begin : g13_ilimit
+            integer di0, di400;
+            // psi = +30°（3000）> ALIGN_IN 8° ⇒ 老实待在 S_ALIGN
+            // 静止时 omega=0 ⇒ d_term=0；p_term = 3000×40>>8 = 468
+            P_I_LIMIT = 32'sd0;             // 完全禁用积分
+            do_reset;
+            set_pt(0, 2000, 0);
+            start_task(1, 0, 0, 0, 0);
+            i_yaw = -32'sd3000;
+            repeat (4) tick1;
+            di0 = o_diff;
+            // 理论 p_term = 3000×40>>8 = 468；psi_ext_r 量化后有残差，取区间
+            chk_true("g13_ilimit0_is_ponly", (di0 >= 450) && (di0 <= 490));
+
+            P_I_LIMIT = 32'sd400;           // 原 parameter 值
+            do_reset;
+            set_pt(0, 2000, 0);
+            start_task(1, 0, 0, 0, 0);
+            i_yaw = -32'sd3000;
+            repeat (20) tick1;              // 积分每 tick 涨 (3000×4)>>8 = 46
+            di400 = o_diff;
+            // 468 + 400 = 868 → clamp 到 MAX_DIFF 612
+            chk_int("g13_ilimit400_sat", di400, 612);
+            chk_true("g13_i_limit_grows_diff", di400 > di0 + 100);
+
+            P_I_LIMIT = 32'sd120;           // 恢复默认
+        end
+
+        // ------------------------------------------------------------------
+        // G14 默认积分限幅 120 的封顶值（摆头根因的回归防线）
+        //   ★ 在 S_ALIGN 里测，不能在 S_TRACK 里测：
+        //     S_TRACK 的差速上限是 MAX_DIFF_CRUISE=126，而 Kp=40 时 psi=8° 的
+        //     p_term 已是 125，只要积分超过 1 就饱和，任何 i_i_limit 都被截成同一个
+        //     126，测不出限幅值本身。S_ALIGN 的上限是 MAX_DIFF=612，有观测余量。
+        //   p_term = 3000×40>>8 = 468，积分封顶 120 ⇒ 合计 588 < 612 不饱和。
+        //   若把默认值改回 400 ⇒ 868 撞 612 上限，"不饱和"立即失败。
+        // ------------------------------------------------------------------
+        begin : g14_default_ilimit
+            do_reset;
+            set_pt(0, 2000, 0);
+            start_task(1, 0, 0, 0, 0);
+            i_yaw = -32'sd3000;             // psi = +30° > 8° ⇒ 留在 S_ALIGN
+            repeat (40) tick1;              // i_inc = 3000×3>>8 = 35，约 4 tick 封顶 120
+            chk_int("g14_state_align", o_state, S_ALIGN);
+            // ★ 直接读内部积分寄存器 i_lim_r，不用 o_diff 推断：
+            //   o_diff = p_term + i_lim_r 里 p_term 依赖 psi_r 的精确值
+            //   （实测跑满 40 tick 后 psi_r=3095 而非 3000，p=483），
+            //   把 603 写死会随 LUT/量化变动而误报。i_lim_r 只由 i_i_limit 决定。
+            chk_int("g14_i_limit_capped_120", dut.i_lim_r, 32'sd120);
+            chk_true("g14_not_saturated612", o_diff < 32'sd612);
         end
         $display("=== nav_ctrl_tb: %0d checks, %0d errors ===", checks, errors);
         if (errors != 0) $display("FAIL: %0d / %0d 项未通过", errors, checks);

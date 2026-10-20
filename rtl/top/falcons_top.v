@@ -228,8 +228,8 @@ module falcons_top (
     //     上板若表现为"起步猛冲 / 到速后来回振荡"，先把 Ki 降回来再试。
     //   注意 speed_pid.v 里也有一套同名默认值（26/3/0），那是**库的默认值**；
     //   本工程由顶层这三个 localparam 显式覆盖，实际生效值以这里为准。
-    localparam integer KP_INIT = 0;                     // 0.0  —— 用户指定
-    localparam integer KI_INIT = 64;                    // 0.25 —— 用户指定
+    localparam integer KP_INIT = 24;                    // 24/256 = 0.09375 —— 2026-10-20 用户指定（原 0）
+    localparam integer KI_INIT = 36;                    // 36/256 = 0.140625 —— 2026-10-20 用户指定（原 64）
     localparam integer KD_INIT = 0;                     // 0.0  —— 用户指定（先关微分，编码器量化噪声会被放大）
 
     // ==================================================================
@@ -370,10 +370,16 @@ module falcons_top (
     //     而 `nav_ui_active` 由后面的 nav_free_ctrl 例化产生。
     wire nav_lock;
     // ★ 2026-10-20：参数整定页信号（先声明后用 —— 页面状态机在文件靠前就要用）
-    //   tune_lock = 当前停在参数页 ⇒ 菜单键与确认键全部屏蔽，只能用返回键退出。
+    //   tune_active = 参数页处于「编辑态」：CH2 选行、CH4 调值、CH5 下复位、CH5 上退出编辑。
+    //   tune_lock   = 停在参数页 **且** 处于编辑态 ⇒ 菜单键与确认键全部屏蔽。
+    //   ★ 2026-10-20 上板二次修：退出编辑态**不换页**，page 仍停在 PAGE_TUNE ——
+    //     与导航页退出 nav_ui 完全同构（只退交互态、不换页）。需求方原话：
+    //     「退出参数页，右侧页面要仍留在参数页，跟退出导航的是相似的」。
+    //     此时菜单键恢复可用，再按确认即重新进编辑态。
     wire tune_exit;
     wire tune_lock;
-    assign tune_lock = (page == PAGE_TUNE);
+    reg  tune_active;
+    assign tune_lock = (page == PAGE_TUNE) && tune_active;
 
     // ToF 急停（模块未做出：保持 0；将来接上后由 distance < D_STOP 触发）
     wire tof_estop = 1'b0;
@@ -424,6 +430,7 @@ module falcons_top (
             estop_latch <= 1'b0;
             page        <= PAGE_DEFAULT;
             menu_sel    <= PAGE_DEFAULT;   // ★ 高亮与页面必须同源，否则确认一次就跳走
+            tune_active <= 1'b0;
         end else begin
             // 底盘使能与 S1 停机锁存都搬进了 `rc_drive_guard`（见第 3 节开头说明）
             // 急停锁存：S4 或 ToF 触发置位；再按 S4 清除
@@ -454,18 +461,20 @@ module falcons_top (
             //   退出该页仍可用板载 S3（key3_press，不受此门控影响），等独立返回键接入后
             //   再由 nav_free_ctrl 的 i_back 走 SETUP→IDLE。
             // ★ 2026-10-20：参数整定页（PAGE_TUNE）的交互与导航页同构 ——
-            //   CH8 上/下选行、CH4 左右调值、CH5 下复位该行、CH5 上退出。
-            //   所以这里把菜单键与确认键**全部屏蔽**（tune_lock），只留返回键退出；
+            //   CH2 上/下选行、CH4 左右调值、CH5 下复位该行、CH5 上退出。
+            //   所以这里把菜单键与确认键**全部屏蔽**（tune_lock），只留返回键退编辑态；
             //   否则按确认会既"复位参数"又"切到菜单高亮项"，两个动作打架。
+            //   ★ 退出编辑态**不换页**：page 与 menu_sel 此刻都已是 PAGE_TUNE，不赋值即保持。
             end else if (tune_exit) begin
-                page     <= PAGE_DATA;                 // 参数页 → 回运行数据显示页
-                menu_sel <= PAGE_DATA;                 // 高亮同步，避免确认一次就跳走
+                tune_active <= 1'b0;
             end else if (rc_menu_up && !nav_lock && !tune_lock) begin
                 menu_sel <= (menu_sel == 3'd0) ? PAGE_LAST : (menu_sel - 3'd1);
             end else if (rc_menu_down && !nav_lock && !tune_lock) begin
                 menu_sel <= (menu_sel == PAGE_LAST) ? 3'd0 : (menu_sel + 3'd1);
             end else if (rc_confirm && !nav_lock && !tune_lock) begin
                 page <= menu_sel;                      // ★ 确认才进入该项页面（门控在下层）
+                // 进参数页即进编辑态；切到别的页则退出编辑态
+                tune_active <= (menu_sel == PAGE_TUNE);
             end
         end
     end
@@ -537,34 +546,36 @@ module falcons_top (
 
     // ------------------------------------------------------------------
     // 参数整定页的 11 项参数（2026-10-20，一期：存 RAM，掉电丢失）
-    //   ★ 位序：第 k 项在 tune_p[k*32 +: 32]，k = 0..10，与 rtl\ui\tune_ctrl.v
+    //   ★ 位序：第 k 项在 tune_p[k*32 +: 32]，k = 0..11，与 rtl\ui\tune_ctrl.v
     //     的 o_sel、ui_render 的字段号、num_text 的字段号**四处一致**。
     //   ★ 这里只声明 wire，实例 u_tune_ctrl 在文件末尾（第 12c 节）—— Verilog
     //     允许先声明后实例化，但不能先使用后声明。
     // ------------------------------------------------------------------
-    wire [351:0] tune_p;        // 参数值本身（给 nav_ctrl / speed_pid）
-    wire [351:0] tune_disp;     // 显示值（已按单位换算，给 num_text）
+    wire [383:0] tune_p;        // 参数值本身（给 nav_ctrl / speed_pid）
+    wire [383:0] tune_disp;     // 显示值（已按单位换算，给 num_text）
     wire [3:0]   tune_sel;      // 当前选中行 0..10
     wire signed [31:0] tune_k_slow;   // = V_CRUISE×1024/D_SLOW，由 tune_ctrl 的除法器算
 
     //   速度环 PID 的两路写方（串口 / 页面）：靠"页面值变化沿"触发，避免每拍覆盖
-    //   串口刚写入的值。复位初值与 tune_ctrl 的默认值保持一致（0 / 64 / 0）。
-    reg [31:0] tune_p8_d, tune_p9_d, tune_p10_d;
-    wire tune_p8_ev  = (tune_p[287:256] != tune_p8_d);
-    wire tune_p9_ev  = (tune_p[319:288] != tune_p9_d);
-    wire tune_p10_ev = (tune_p[351:320] != tune_p10_d);
+    //   串口刚写入的值。复位初值与 tune_ctrl 的默认值保持一致（24 / 36 / 0）。
+    // ★ 2026-10-20：速度环三项从参数索引 8/9/10 后移到 **9/10/11**
+    //   （积分限幅插到索引 8，见 rtl\ui\tune_ctrl.v 的 p_def 注释）。
+    //   变量名按语义改 —— 原 tune_p8_d 等已与新索引错位，留着必误读。
+    reg [31:0] tune_kp_d, tune_ki_d, tune_kd_d;
+    wire tune_kp_ev = (tune_p[319:288] != tune_kp_d);
+    wire tune_ki_ev = (tune_p[351:320] != tune_ki_d);
+    wire tune_kd_ev = (tune_p[383:352] != tune_kd_d);
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
-            tune_p8_d  <= 32'd0;
-            tune_p9_d  <= 32'sd64;
-            tune_p10_d <= 32'd0;
+            tune_kp_d <= 32'd24;
+            tune_ki_d <= 32'sd36;
+            tune_kd_d <= 32'd0;
         end else begin
-            tune_p8_d  <= tune_p[287:256];
-            tune_p9_d  <= tune_p[319:288];
-            tune_p10_d <= tune_p[351:320];
+            tune_kp_d <= tune_p[319:288];
+            tune_ki_d <= tune_p[351:320];
+            tune_kd_d <= tune_p[383:352];
         end
     end
-
     chassis_ctrl #(
         .PWM_BITS     (PWM_BITS),
         .KP_INIT      (KP_INIT),
@@ -724,11 +735,11 @@ module falcons_top (
             //     维护自己的副本），串口改完再看页面会看到旧值。两个入口本就分属调试
             //     与正式两条路，不建议混用；要统一得把 kp_r 反灌给 tune_ctrl，本期不做。
             if (cmd_kp_valid)      kp_r <= cmd_kp;
-            else if (tune_p8_ev)   kp_r <= tune_p[271:256];
+            else if (tune_kp_ev)   kp_r <= tune_p[303:288];
             if (cmd_ki_valid)      ki_r <= cmd_ki;
-            else if (tune_p9_ev)   ki_r <= tune_p[303:288];
+            else if (tune_ki_ev)   ki_r <= tune_p[335:320];
             if (cmd_kd_valid)      kd_r <= cmd_kd;
-            else if (tune_p10_ev)  kd_r <= tune_p[335:320];
+            else if (tune_kd_ev)  kd_r <= tune_p[367:352];
 
             count_clear_r <= key2_press | cmd_count_clear;
             stall_clear_r <= key2_press | cmd_stall_clear;
@@ -1422,6 +1433,7 @@ module falcons_top (
         .i_kp_yaw         (tune_p[191:160]),   // 21
         .i_ki_yaw         (tune_p[223:192]),   // 4
         .i_kd_yaw         (tune_p[255:224]),   // 6
+        .i_i_limit        (tune_p[287:256]),   // 默认 90（积分限幅，原 I_LIMIT=400）
         .i_k_slow_q10     (tune_k_slow),       // 3072 = 300×1024/100
         .i_active  (nav_ctrl_active),
         .i_run     (nav_run),
@@ -1462,20 +1474,20 @@ module falcons_top (
     //     CH4 左/右    调值（越过 ±200 死区变一次，必须回中才能再触发；
     //                       按住超 400 ms 后每 120 ms 连发一步）
     //     CH5 下(确认) 当前行恢复默认值
-    //     CH5 上(返回) 退出页面（顶层观 tune_exit，回运行数据显示页）
+    //     CH5 上(返回) 退出**编辑态**（不换页：page 仍停在参数页，菜单高亮也留在本项；
+    //                  退出后菜单键恢复可用，再按确认即重新进编辑态）
     //   手动档（manual_drive=1）时 can_adj=0：只显示不改，摇杆归底盘。
     // ==================================================================
     tune_ctrl u_tune_ctrl (
         .clk        (i_clk_50m),
         .rst_n      (sys_rst_n),
-        .i_active   (tune_lock),          // 只在参数整定页工作
+        .i_active   (tune_active),        // 只在参数页的编辑态工作
         .i_manual   (manual_drive),       // 手动档：不允许调
         .i_signal   (rc_signal_ok),
         .i_steer    (rc_steer),
         .i_confirm  (rc_confirm),         // CH5 下拨
         .i_back     (rc_back),            // CH5 上拨
-        .i_aux_up   (rc_aux_up),          // CH8 上拨
-        .i_aux_down (rc_aux_down),        // CH8 下拨
+        .i_throttle (rc_throttle),        // CH2 上下（选行）
         .o_param    (tune_p),
         .o_disp     (tune_disp),
         .o_sel      (tune_sel),
@@ -1486,11 +1498,16 @@ module falcons_top (
 
     // 参数页选中行 → pixel 域（4 位，两级同步；人操作级别慢变量）
     reg [3:0] tune_ps1, tune_ps2;
+    // 参数页编辑态 → pixel 域（1 位，两级同步）。用于两件事：
+    //   ① 编辑态时左侧菜单栏变暗；② 未进编辑态时不画行高亮条。
+    reg tune_act_ps1, tune_act_ps2;
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
             tune_ps1 <= 4'd0; tune_ps2 <= 4'd0;
+            tune_act_ps1 <= 1'b0; tune_act_ps2 <= 1'b0;
         end else begin
             tune_ps1 <= tune_sel; tune_ps2 <= tune_ps1;
+            tune_act_ps1 <= tune_active; tune_act_ps2 <= tune_act_ps1;
         end
     end
 
@@ -1501,6 +1518,27 @@ module falcons_top (
     wire signed [31:0] nav_cur_x_cm = nav_cur_x_mm / 32'sd10;
     wire signed [31:0] nav_cur_y_cm = nav_cur_y_mm / 32'sd10;
 
+    //   ★ 2026-10-20 时序：num_text 的 v7/v8/v9/v10 四路显示量（航位 x/y、准心 x/y）都经过
+    //     "除以 10 → 参数页 mux → num_text 内部输入寄存器"这条纯组合链，起点全是别的模块的
+    //     输出寄存器。20:05 那版报 `u_nav_free/o_cur_x_mm_6_s0 → u_num_text/v9_r_28_s0`（1 条，−1.374）；
+    //     给 x 单独打拍后，重排又把 `u_odom/y_q10_12_s4 → u_num_text/v8_r_*` 挪出来（10 条，−1.13~−1.154）。
+    //     这四路都是 10 ms 级慢变量，统一打一拍，把长链切成两段，一次覆盖 4 条可能路径。
+    //     代价：航位/准心显示晚一个时钟（20 ns），不可观测。
+    reg signed [31:0] odom_x_cm_r, odom_y_cm_r, nav_cur_x_cm_r, nav_cur_y_cm_r;
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) begin
+            odom_x_cm_r   <= 32'sd0;
+            odom_y_cm_r   <= 32'sd0;
+            nav_cur_x_cm_r <= 32'sd0;
+            nav_cur_y_cm_r <= 32'sd0;
+        end else begin
+            odom_x_cm_r   <= odom_x_cm;
+            odom_y_cm_r   <= odom_y_cm;
+            nav_cur_x_cm_r <= nav_cur_x_cm;
+            nav_cur_y_cm_r <= nav_cur_y_cm;
+        end
+    end
+
     // ---- num_text 的 11 路输入：数据页用真实量，参数整定页用 tune_ctrl 的显示值 ----
     wire tune_page = (page == PAGE_TUNE);
     wire signed [31:0] nt_v0  = tune_page ? tune_disp[31:0]    : yaw_deg;
@@ -1510,15 +1548,22 @@ module falcons_top (
     wire signed [31:0] nt_v4  = tune_page ? tune_disp[159:128] : rpm3_disp;
     wire signed [31:0] nt_v5  = tune_page ? tune_disp[191:160] : gyro_deg_s;
     wire signed [31:0] nt_v6  = tune_page ? tune_disp[223:192] : center_cms_show;
-    wire signed [31:0] nt_v7  = tune_page ? tune_disp[255:224] : odom_x_cm;
-    wire signed [31:0] nt_v8  = tune_page ? tune_disp[287:256] : odom_y_cm;
-    wire signed [31:0] nt_v9  = tune_page ? tune_disp[319:288] : nav_cur_x_cm;
-    wire signed [31:0] nt_v10 = tune_page ? tune_disp[351:320] : nav_cur_y_cm;
+    wire signed [31:0] nt_v7  = tune_page ? tune_disp[255:224] : odom_x_cm_r;
+    wire signed [31:0] nt_v8  = tune_page ? tune_disp[287:256] : odom_y_cm_r; // 参数 8 积分限幅
+    wire signed [31:0] nt_v9  = tune_page ? tune_disp[319:288] : nav_cur_x_cm_r; // 参数 9 速度环 Kp
+    wire signed [31:0] nt_v10 = tune_page ? tune_disp[351:320] : nav_cur_y_cm_r; // 参数 10 速度环 Ki
+    wire signed [31:0] nt_v11 = tune_page ? tune_disp[383:352] : 32'sd0;
+    // ★ 2026-10-20（综合报错后补）：哪些字段"带小数"（= num_text 里"整数部分至少几位"）。
+    //   数据页：字段 6 中心速度 / 7 航位 x / 8 航位 y / 9 准心 x / 10 准心 y，均 2 位小数
+    //           → bit 6..10 置 1 → 12'b0111_1100_0000（= 0x7C0）
+    //   参数页：12 项全是整数 → 全 0。否则航向 Kd=6 会显示成 "  006"，
+    //           且 ui_render 的 field_dec 还会在百位后画点，变成 "  0.06"。
+    wire [11:0] nt_frac_mask = tune_page ? 12'b0000_0000_0000 : 12'b0111_1100_0000;
 
     num_text #(
         .CLK_HZ     (CLK_HZ),
         .REFRESH_MS (100),
-        .NUM_FIELDS (11)
+        .NUM_FIELDS (12)
     ) u_num_text (
         .clk    (i_clk_50m),
         .rst_n  (sys_rst_n),
@@ -1534,9 +1579,11 @@ module falcons_top (
         .i_v5   (nt_v5),             // 字段 5：角速度 / 参数 5 航向 Kp
         .i_v6   (nt_v6),             // 字段 6：中心速度 / 参数 6 航向 Ki
         .i_v7   (nt_v7),             // 字段 7：航位 x / 参数 7 航向 Kd
-        .i_v8   (nt_v8),             // 字段 8：航位 y / 参数 8 速度环 Kp
-        .i_v9   (nt_v9),             // 字段 9：准心 x / 参数 9 速度环 Ki
-        .i_v10  (nt_v10),            // 字段 10：准心 y / 参数 10 速度环 Kd
+        .i_v8   (nt_v8),             // 字段 8：航位 y / 参数 8 积分限幅
+        .i_v9   (nt_v9),             // 字段 9：准心 x / 参数 9 速度环 Kp
+        .i_v10  (nt_v10),            // 字段 10：准心 y / 参数 10 速度环 Ki
+        .i_v11  (nt_v11),            // 字段 11：参数 11 速度环 Kd（数据页恒 0）
+        .i_frac_mask(nt_frac_mask),   // 哪些字段带小数（按页面切换，见声明处）
         .o_we   (dyn_we),
         .o_addr (dyn_waddr),
         .o_data (dyn_wdata)
@@ -1589,7 +1636,8 @@ module falcons_top (
         // ★ 2026-10-19：IMU 初始化失败 → 数据页「航向角」上方红字「imu初始化错误」
         .i_imu_fail     (imufail_ps2),
         // ★ 2026-10-20：参数整定页的选中行（画高亮条用）
-        .i_tune_sel     (tune_ps2)
+        .i_tune_sel     (tune_ps2),
+        .i_tune_active  (tune_act_ps2)
     );
 
     // ==================================================================

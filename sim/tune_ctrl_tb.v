@@ -18,9 +18,10 @@ module tune_ctrl_tb;
     reg i_manual = 1'b0;
     reg i_signal = 1'b1;
     reg signed [11:0] i_steer = 12'sd0;
-    reg i_confirm = 1'b0, i_back = 1'b0, i_aux_up = 1'b0, i_aux_down = 1'b0;
+    reg i_confirm = 1'b0, i_back = 1'b0;
+reg signed [11:0] i_throttle = 12'sd0;   // CH2：选行（向上 = 行号减 1）
 
-    wire [351:0]       o_param, o_disp;
+    wire [383:0]       o_param, o_disp;
     wire [3:0]         o_sel;
     wire signed [31:0] o_k_slow_q10;
     wire               o_exit, o_div_busy;
@@ -30,7 +31,7 @@ module tune_ctrl_tb;
         .i_active(i_active), .i_manual(i_manual), .i_signal(i_signal),
         .i_steer(i_steer),
         .i_confirm(i_confirm), .i_back(i_back),
-        .i_aux_up(i_aux_up), .i_aux_down(i_aux_down),
+        .i_throttle(i_throttle),
         .o_param(o_param), .o_disp(o_disp),
         .o_sel(o_sel), .o_k_slow_q10(o_k_slow_q10),
         .o_exit(o_exit), .o_div_busy(o_div_busy)
@@ -66,17 +67,10 @@ module tune_ctrl_tb;
         end
     endtask
 
-    // 摇杆推一下（右 = 加）再回中；中间留有足够拍数让 p[] 更新完成
+    // 摇杆推一下（物理右 = 加）再回中；中间留有足够拍数让 p[] 更新完成
+    //   ★ 极性：`i_steer` 的**正 = 推杆向左**（与 chassis_ctrl 的 man_diff 同号），
+    //     所以"物理右推"要给负值。改 RTL 极性时这两个 task 必须同步反号。
     task push_pos;
-        begin
-            @(posedge clk); #1 i_steer = 12'sd600;
-            repeat (5) @(posedge clk);
-            #1 i_steer = 12'sd0;
-            repeat (5) @(posedge clk);
-        end
-    endtask
-
-    task push_neg;
         begin
             @(posedge clk); #1 i_steer = -12'sd600;
             repeat (5) @(posedge clk);
@@ -85,20 +79,31 @@ module tune_ctrl_tb;
         end
     endtask
 
-    task pulse_aux_up;
+    task push_neg;
         begin
-            @(posedge clk); #1 i_aux_up = 1'b1;
+            @(posedge clk); #1 i_steer = 12'sd600;
+            repeat (5) @(posedge clk);
+            #1 i_steer = 12'sd0;
+            repeat (5) @(posedge clk);
+        end
+    endtask
+
+    // ★ 2026-10-20：选行由 CH8 键改为 CH2 摇杆。
+    //   `rc_throttle` 正 = 推杆向上 = 车前进方向 ⇒ 向上 = 行号减 1。
+    task pulse_aux_up;              // 选行上移
+        begin
+            @(posedge clk); #1 i_throttle = 12'sd600;
             repeat (3) @(posedge clk);
-            #1 i_aux_up = 1'b0;
+            #1 i_throttle = 12'sd0;
             repeat (3) @(posedge clk);
         end
     endtask
 
-    task pulse_aux_down;
+    task pulse_aux_down;            // 选行下移
         begin
-            @(posedge clk); #1 i_aux_down = 1'b1;
+            @(posedge clk); #1 i_throttle = -12'sd600;
             repeat (3) @(posedge clk);
-            #1 i_aux_down = 1'b0;
+            #1 i_throttle = 12'sd0;
             repeat (3) @(posedge clk);
         end
     endtask
@@ -137,15 +142,17 @@ module tune_ctrl_tb;
 
         chk_int("g1_p0_vcruise",  `P(0), 300);
         chk_int("g1_p1_dslow",    `P(1), 100);
-        chk_int("g1_p2_align_in", `P(2), 1000);
+        chk_int("g1_p2_align_in", `P(2), 800);
         chk_int("g1_p3_align_out",`P(3), 3500);
-        chk_int("g1_p4_mdc",      `P(4), 180);
-        chk_int("g1_p5_kp",       `P(5), 21);
-        chk_int("g1_p6_ki",       `P(6), 4);
+        chk_int("g1_p4_mdc",      `P(4), 126);
+        chk_int("g1_p5_kp",       `P(5), 40);
+        chk_int("g1_p6_ki",       `P(6), 3);
         chk_int("g1_p7_kd",       `P(7), 6);
-        chk_int("g1_p8_kpspd",    `P(8), 0);
-        chk_int("g1_p9_kispd",    `P(9), 64);
-        chk_int("g1_p10_kdspd",   `P(10), 0);
+        // ★ 2026-10-20：积分限幅插到索引 8（航向 Kd 下、速度环 Kp 上），速度环三项后移到 9/10/11
+        chk_int("g1_p8_ilimit",   `P(8), 120);   // 积分限幅（需求方指定）
+        chk_int("g1_p9_kpspd",    `P(9), 24);    // 2026-10-20 需求方指定（原 0）
+        chk_int("g1_p10_kispd",   `P(10), 36);   // 2026-10-20 需求方指定（原 64）
+        chk_int("g1_p11_kdspd",   `P(11), 0);
         chk_int("g1_sel0", o_sel, 0);
         chk_int("g1_kslow", o_k_slow_q10, 3072);
 
@@ -154,10 +161,14 @@ module tune_ctrl_tb;
         // ------------------------------------------------------------------
         chk_int("g2_d0_vcruise",   `D(0), 300);
         chk_int("g2_d1_dslow",     `D(1), 100);
-        chk_int("g2_d2_align_in",  `D(2), 10);      // 1000 × 0.01° = 10°
+        chk_int("g2_d2_align_in",  `D(2), 8);      // 800 × 0.01° = 8°
         chk_int("g2_d3_align_out", `D(3), 35);      // 3500 × 0.01° = 35°
-        chk_int("g2_d4_mdc",       `D(4), 43);      // 180 cnt → 42.94 → 43 °/s
-        chk_int("g2_d5_kp",        `D(5), 21);
+        chk_int("g2_d4_mdc",       `D(4), 30);     // 126 cnt → 30.06 → 30 °/s
+        chk_int("g2_d5_kp",        `D(5), 40);
+        chk_int("g2_d8_ilimit",    `D(8), 120);
+        chk_int("g2_d9_kpspd",     `D(9), 24);
+        chk_int("g2_d10_kispd",    `D(10), 36);
+        chk_int("g2_d11_kdspd",    `D(11), 0);
 
         // ------------------------------------------------------------------
         // G3 非激活页 / 无信号：一切按键与摇杆都无效
@@ -179,18 +190,19 @@ module tune_ctrl_tb;
         i_signal = 1'b1;
 
         // ------------------------------------------------------------------
-        // G4 选行：下 0→1..→10→0 回绕；上 0→10
+        // G4 选行（CH2 摇杆）：下 0→1…→11→0 回绕；上 0→11
+        //   2026-10-20 改：选行由 CH8 键改为 CH2 摇杆，行数 11→12
         // ------------------------------------------------------------------
         pulse_aux_down;
         chk_int("g4_sel1", o_sel, 1);
-        for (k = 0; k < 9; k = k + 1) pulse_aux_down;
-        chk_int("g4_sel10", o_sel, 10);
+        for (k = 0; k < 10; k = k + 1) pulse_aux_down;
+        chk_int("g4_sel11", o_sel, 11);
         pulse_aux_down;
         chk_int("g4_sel_wrap0", o_sel, 0);
         pulse_aux_up;
-        chk_int("g4_sel_wrap10", o_sel, 10);
+        chk_int("g4_sel_wrap11", o_sel, 11);
         pulse_aux_up;
-        chk_int("g4_sel9", o_sel, 9);
+        chk_int("g4_sel10", o_sel, 10);
 
         // ------------------------------------------------------------------
         // G5 单步调值：必须回中才能再触发（一次 push 只走一步）
@@ -232,15 +244,15 @@ module tune_ctrl_tb;
         // G7 CH5 下拨 = 当前行恢复默认值
         // ------------------------------------------------------------------
         pulse_confirm;
-        chk_int("g7_reset_p2", `P(2), 1000);
-        chk_int("g7_reset_d2", `D(2), 10);
+        chk_int("g7_reset_p2", `P(2), 800);
+        chk_int("g7_reset_d2", `D(2), 8);
 
         // ------------------------------------------------------------------
         // G8 长按连发：400 ms 后每 120 ms 一步
         // ------------------------------------------------------------------
         rst_n = 1'b0; tick(10); rst_n = 1'b1; tick(200);
         chk_int("g8_base", `P(0), 300);
-        @(posedge clk); #1 i_steer = 12'sd600;
+        @(posedge clk); #1 i_steer = -12'sd600;   // 物理右推 = 加
         //   初触发 1 步（300→310）已在推离死区当拍发生，
         //   再等 520 ms 应有 1 次连发（400 ms 到点 + 120 ms 计数满）
         wait_ms(520);
@@ -265,12 +277,14 @@ module tune_ctrl_tb;
         chk_int("g9_exit_pulse", exit_cnt, 1);
 
         // ------------------------------------------------------------------
-        // G10 手动档：能选行、不能改值、确认键也不复位
+        // G10 手动档：CH2/CH4 都归底盘、不选行不改值，确认键也不复位，但能退出
+        //   ★ 2026-10-20 行为变更：选行改到 CH2 后，CH2 在手动档是油门，
+        //     故选行也受 can_adj 门控（原先 CH8 选行不受手动档限制）。
         // ------------------------------------------------------------------
         rst_n = 1'b0; tick(10); rst_n = 1'b1; tick(200);
         i_manual = 1'b1;
         pulse_aux_down;
-        chk_int("g10_sel_ok", o_sel, 1);        // 选行不受手动档限制
+        chk_int("g10_sel_blocked", o_sel, 0);   // 手动档下 CH2 不选行
         for (k = 0; k < 5; k = k + 1) push_pos;
         chk_int("g10_no_adjust", `P(1), 100);   // 摇杆归底盘，参数不动
         pulse_confirm;
@@ -305,11 +319,11 @@ module tune_ctrl_tb;
         rst_n = 1'b0; tick(10); rst_n = 1'b1; tick(200);
         for (k = 0; k < 4; k = k + 1) pulse_aux_down;   // o_sel = 4
         chk_int("g12_sel4", o_sel, 4);
-        chk_int("g12_mdc_180", `D(4), 43);
-        push_pos;                                        // 180 → 190
+        chk_int("g12_mdc_126", `D(4), 30);               // 126×0.33617×2/0.1615 = 30.06 → 30
+        push_pos;                                        // 126 → 136
         tick(5);
-        chk_int("g12_mdc_190", `P(4), 190);
-        chk_int("g12_mdc_190_disp", `D(4), 45);          // 190×0.33617×2/0.1615 = 45.3
+        chk_int("g12_mdc_136", `P(4), 136);
+        chk_int("g12_mdc_136_disp", `D(4), 32);          // 136×0.33617×2/0.1615 = 32.4 → 32
 
         // ------------------------------------------------------------------
         $display("");

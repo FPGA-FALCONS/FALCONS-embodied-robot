@@ -130,8 +130,7 @@ module nav_ctrl #(
     parameter integer TIMEOUT_TICKS    = 3000,    // 单点超时节拍数（×10 ms = 30 s）
     parameter integer MAX_CENTER       = 3072,    // center 限幅（计数/10ms，=1033 mm/s）
     parameter integer MAX_DIFF         = 612,     // 原地转向差速限幅（≈146 °/s）
-    parameter integer OM_CLIP          = 3000,    // ω 进 D 项的限幅（0.01°/s）
-    parameter integer I_LIMIT          = 400      // 积分限幅（≈ MAX_DIFF，防饱和）
+    parameter integer OM_CLIP          = 3000     // ω 进 D 项的限幅（0.01°/s）
 )(
     input  wire                clk,
     input  wire                rst_n,
@@ -148,12 +147,21 @@ module nav_ctrl #(
     // ==================================================================
     input  wire signed [31:0]  i_v_cruise,       // 300    mm/s  巡航线速度
     input  wire signed [31:0]  i_d_slow,         // 100    mm    开始减速的纵向距离（硬约束 ≥ v²/2a）
-    input  wire signed [31:0]  i_align_in,       // 1000   0.01° ALIGN → TRACK 门限（10°）
+    input  wire signed [31:0]  i_align_in,       // 800    0.01° ALIGN → TRACK 门限（8°）
     input  wire signed [31:0]  i_align_out,      // 3500   0.01° TRACK → ALIGN 门限（35°）
-    input  wire signed [31:0]  i_max_diff_cruise,// 180    cnt/10ms 行进中差速限幅（≈43 °/s）
-    input  wire signed [31:0]  i_kp_yaw,         // 21     Q8    航向 PID 比例
-    input  wire signed [31:0]  i_ki_yaw,         // 4      Q8    航向 PID 积分
+    input  wire signed [31:0]  i_max_diff_cruise,// 126    cnt/10ms 行进中差速限幅（≈30 °/s）
+    input  wire signed [31:0]  i_kp_yaw,         // 40     Q8    航向 PID 比例
+    input  wire signed [31:0]  i_ki_yaw,         // 3      Q8    航向 PID 积分
     input  wire signed [31:0]  i_kd_yaw,         // 6      Q8    航向 PID 微分
+    input  wire signed [31:0]  i_i_limit,        // 120    cnt/10ms 积分项限幅
+                                                 //   ★ 2026-10-20 上板后新增：原为 module
+                                                 //     parameter `I_LIMIT = 400`，而行进中
+                                                 //     差速上限 `MAX_DIFF_CRUISE = 180` ——
+                                                 //     积分单独就能涨到 400（2.2 倍），
+                                                 //     输出被 clamp 成恒定 ±180，PID 退化成
+                                                 //     bang-bang，表现为"走直线左右摆头"。
+                                                 //     需求方实测「航向积分清零后能走直」，
+                                                 //     确认根因即此，故把限幅开放为运行时参数。
     input  wire signed [31:0]  i_k_slow_q10,     // 3072   派生量 (V_CRUISE×1024)/D_SLOW，
                                                  //        由 tune_ctrl 的迭代除法器算好后送进来
                                                  //        （放到本模块会让 nav_ctrl 里出现真除法）
@@ -405,8 +413,26 @@ module nav_ctrl #(
     wire signed [31:0] i_inc   = (psi_c16 * ki16) >>> 8;
     wire signed [31:0] d_term  = (om16    * kd16) >>> 8;
     wire signed [31:0] i_sum   = i_acc + i_inc;
-    wire signed [31:0] i_lim   = (i_sum >  I_LIMIT) ?  I_LIMIT :
-                                 (i_sum < -I_LIMIT) ? -I_LIMIT : i_sum;
+    //   ★ 2026-10-20 时序：`i_i_limit` 从 `tune_ctrl` 的参数数组经 `o_param` 打包直连进来，
+    //     扇出 6 个 32 位比较器（`i_sum` 的 6 个高位）。20:05 那版报 6 条同域 setup 违例
+    //     （−1.271 ~ −1.424，路径 `u_tune_ctrl/p[8]_s0 → u_nav_ctrl/i_lim_r_*`）。
+    //     这里把参数先打一拍，切断 "参数寄存器 → 比较器 → i_lim_r" 的长组合链。
+    //     代价：调参后积分上限晚 10 ms 生效（人工手调感知不到）。
+    (* syn_keep = 1 *) reg  signed [31:0] i_limit_r;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) i_limit_r <= 32'sd120;
+        else        i_limit_r <= i_i_limit;
+    end
+    //   第二级：`i_sum`（= i_acc + i_inc，i_inc 是乘法器输出）也先落一拍，
+    //   让比较器前只剩"寄存器 → 比较 → mux → 寄存器"，不再叠加法器。
+    //   多出的 1 拍延迟不影响功能：i_acc 每 10 ms 才回存一次。
+    reg  signed [31:0] i_sum_r;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) i_sum_r <= 32'sd0;
+        else        i_sum_r <= i_acc + i_inc;
+    end
+    wire signed [31:0] i_lim   = (i_sum_r >  i_limit_r) ?  i_limit_r :
+                                 (i_sum_r < -i_limit_r) ? -i_limit_r : i_sum_r;
     wire signed [31:0] u_pid   = p_term + i_lim_r - d_term;
     // ★ 不带负号：psi>0（目标在左）⇒ 需左转 ⇒ diff 必须为**正**
     //   （`chassis_ctrl.v:148-149`：tgt_left=center−diff、tgt_right=center+diff，

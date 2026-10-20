@@ -42,6 +42,9 @@ module tune_page_tb;
     reg  [15:0]  ptv_i   = 16'd0;
     reg          imufail_i = 1'b0;
     reg  [3:0]   tsel_i = 4'd0;
+    // 参数页「编辑态」（= falcons_top 的 tune_active）。默认 1：本 tb 早先的用例
+    //   都假定"已在参数页且可编辑"；G9 专门测未进编辑态那一态。
+    reg          tact_i = 1'b1;
 
     wire [23:0] rgb;
     wire [5:0]  dyn_raddr;
@@ -75,7 +78,8 @@ module tune_page_tb;
         .o_dyn_raddr    (dyn_raddr),
         .i_dyn_rdata    (dyn_rdata),
         .i_imu_fail     (imufail_i),
-        .i_tune_sel     (tsel_i)
+        .i_tune_sel     (tsel_i),
+        .i_tune_active  (tact_i)
     );
 
     // 布局常量（与 ui_render.v 一致）
@@ -97,6 +101,11 @@ module tune_page_tb;
     localparam [23:0] C_BLUE   = 24'h1D4ED8;
     localparam [23:0] C_YELLOW = 24'hFFE066;
     localparam [23:0] C_GRAY   = 24'hE5E7EB;
+    // ★ 参数页菜单条变暗后的三色（2026-10-20 需求方要求：进页后菜单栏变暗）
+    localparam [23:0] C_YELLOW_DIM = 24'h8A7A2E;
+    localparam [23:0] C_GRAY_DIM   = 24'h5A6170;
+    localparam [23:0] C_MENUBG_DIM = 24'h0B1019;
+    localparam [23:0] C_MENUBG = 24'h101828;      // 正常亮度菜单底
 
     integer checks = 0, errors = 0;
     integer wcnt;           // scan_color 的结果
@@ -194,6 +203,23 @@ module tune_page_tb;
         chk_zero("g1_menu_item6_not_yellow_when_unsel", wcnt);
 
         // ------------------------------------------------------------------
+        // G1b 参数页：左侧菜单条**整体变暗**（不进页时是 FFE066/E5E7EB/101828）
+        //   变暗后：选中项 8A7A2E、未选中 5A6170、底色 0B1019
+        // ------------------------------------------------------------------
+        page = 3'd5; menusel = 3'd5;
+        repeat (5) @(posedge pixel_clk);
+        scan_color(24, 207, 432, 455, C_YELLOW_DIM);
+        chk_pos("g1b_tune_menu_dim_sel", wcnt);
+        scan_color(24, 207, 432, 455, C_YELLOW);
+        chk_zero("g1b_tune_menu_not_bright_sel", wcnt);
+        scan_color(24, 207, 72, 95, C_GRAY_DIM);
+        chk_pos("g1b_tune_menu_dim_unsel", wcnt);
+        scan_color(24, 207, 72, 95, C_GRAY);
+        chk_zero("g1b_tune_menu_not_bright_unsel", wcnt);
+        scan_color(24, 200, 496, 532, C_MENUBG_DIM);
+        chk_pos("g1b_tune_menu_dim_bg", wcnt);
+
+        // ------------------------------------------------------------------
         // G2 参数页标题「参数整定」：4 字 × 24 = 96 px，x 240..335，y 24..47
         // ------------------------------------------------------------------
         page = 3'd5; menusel = 3'd5; tsel_i = 4'd0;
@@ -202,9 +228,9 @@ module tune_page_tb;
         chk_pos("g2_tune_title", wcnt);
 
         // ------------------------------------------------------------------
-        // G3 11 行标签逐行有白字
+        // G3 12 行标签逐行有白字
         // ------------------------------------------------------------------
-        for (i = 0; i < 11; i = i + 1) begin
+        for (i = 0; i < 12; i = i + 1) begin
             scan_color(LBL_X0, LBL_X1,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_TDY,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_TDY + 23,
@@ -222,14 +248,18 @@ module tune_page_tb;
         chk_pos("g3_label_row8",  row_lbl[8]);
         chk_pos("g3_label_row9",  row_lbl[9]);
         chk_pos("g3_label_row10", row_lbl[10]);
+        chk_pos("g3_label_row11", row_lbl[11]);
 
         // ------------------------------------------------------------------
-        // G4 11 行数值逐行有绿字（5 字符 × 16 = 80 px）
+        // G4 12 行数值逐行有绿字（5 字符 × 16 = 80 px）
+        //   ★ 2026-10-20 改：原先只扫 VDY..VDY+15（16 行），而 font_num 是
+        //     16 宽 × 24 高 —— 正好漏掉了「下部被截断」这个上板 bug。
+        //     这里扫满 24 行，截断会立刻失败。
         // ------------------------------------------------------------------
-        for (i = 0; i < 11; i = i + 1) begin
+        for (i = 0; i < 12; i = i + 1) begin
             scan_color(VAL_X0, VAL_X1,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_VDY,
-                       TUNE_Y0 + i * TUNE_STEP + TUNE_VDY + 15,
+                       TUNE_Y0 + i * TUNE_STEP + TUNE_VDY + 23,
                        C_GREEN);
             row_val[i] = wcnt;
         end
@@ -244,6 +274,7 @@ module tune_page_tb;
         chk_pos("g4_value_row8",  row_val[8]);
         chk_pos("g4_value_row9",  row_val[9]);
         chk_pos("g4_value_row10", row_val[10]);
+        chk_pos("g4_value_row11", row_val[11]);
 
         // ------------------------------------------------------------------
         // G5 单位：第 0..4 行有，第 5..10 行无
@@ -330,6 +361,26 @@ module tune_page_tb;
         // 参数页标题也不应在数据页出现（y 24..47 x 240..335 白色）
         scan_color(LBL_X0, LBL_X0 + 95, 24, 47, C_WHITE);
         chk_zero("g8_title_hidden_on_data_page", wcnt);
+
+        // ------------------------------------------------------------------
+        // G9 参数页但**未进编辑态**（= 按返回退出编辑后那一态，与导航页退出 nav_ui 同构）
+        //   page 仍停在参数页 ⇒ 标题与 12 行内容照常显示；
+        //   但菜单栏恢复正常亮度、选中行高亮条消失。
+        //   ★ 若把 i_tune_active 从这两处门控里去掉，本组第 2/4 条会立刻失败。
+        // ------------------------------------------------------------------
+        page = 3'd5; menusel = 3'd5; tsel_i = 4'd0; tact_i = 1'b0;
+        repeat (5) @(posedge pixel_clk);
+        scan_color(24, 207, 432, 455, C_YELLOW);
+        chk_pos("g9_idle_menu_bright_sel", wcnt);
+        scan_color(24, 207, 432, 455, C_YELLOW_DIM);
+        chk_zero("g9_idle_menu_not_dim_sel", wcnt);
+        scan_color(24, 200, 496, 532, C_MENUBG);
+        chk_pos("g9_idle_menu_bg_bright", wcnt);
+        scan_color(HL_X0, HL_X1, 72, 107, C_BLUE);
+        chk_zero("g9_idle_no_hl_band", wcnt);
+        scan_color(LBL_X0, LBL_X0 + 95, 24, 47, C_WHITE);
+        chk_pos("g9_idle_title_still_shown", wcnt);
+        tact_i = 1'b1;
 
         // ------------------------------------------------------------------
         $display("");

@@ -108,6 +108,7 @@ module nav_sys_tb;
     localparam signed [31:0] P_KI        = 32'sd4;
     localparam signed [31:0] P_KD        = 32'sd6;
     localparam signed [31:0] P_KSLOW     = 32'sd3072;
+localparam signed [31:0] P_I_LIMIT   = 32'sd90;
 
     nav_ctrl u_nav (
         .clk(clk), .rst_n(rst_n),
@@ -120,6 +121,7 @@ module nav_sys_tb;
         .i_kp_yaw         (P_KP),
         .i_ki_yaw         (P_KI),
         .i_kd_yaw         (P_KD),
+        .i_i_limit        (P_I_LIMIT),
         .i_k_slow_q10     (P_KSLOW),
         .i_run     (ui_run),
         .i_paused  (ui_paused),

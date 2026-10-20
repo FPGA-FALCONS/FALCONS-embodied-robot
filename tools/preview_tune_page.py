@@ -3,7 +3,7 @@
 """preview_tune_page.py —— 按 ui_render.v 的真实布局，离屏渲染「参数整定页」预览图
 
 为什么需要这个脚本：
-  * 参数整定页是 11 行「标签 + 5 格数值 + 单位」的三列排布，行高只有 36 px，
+  * 参数整定页是 12 行「标签 + 5 格数值 + 单位」的三列排布，行高只有 36 px，
     数值右边缘 464 与单位起点 480 之间只剩 16 px 缝。这类"贴边布局"靠读代码
     算间隙极易漏掉一个前导空格 —— 只有把像素画出来才能一眼确认。
   * 点阵数据**直接读 rtl/common/font_num.v / font_rom_lg.v / ui_text_rom.v**，
@@ -17,11 +17,11 @@
     python tools/preview_tune_page.py --preset min        # 全部取区间下限
 
 布局常量的出处（改布局时请同步这里，否则预览会失真）：
-    rtl/ui/ui_render.v   TUNE_Y0=72  TUNE_STEP=36  TUNE_TDY=6  TUNE_VDY=10
+    rtl/ui/ui_render.v   TUNE_Y0=72  TUNE_STEP=36  TUNE_TDY=6  TUNE_VDY    = 6 
                          TUNE_LBL_XW=10(x=240)  TUNE_VAL_XW=24(x=384)
-                         TUNE_UNIT_XW=30(x=480)  TUNE_ROWS=11
+                         TUNE_UNIT_XW=30(x=480)  TUNE_ROWS=12
                          高亮条 x>=224，y = TUNE_Y0+sel*TUNE_STEP .. +TUNE_STEP
-    rtl/ui/tune_ctrl.v   11 项默认值/区间/步长/显示换算（见下面 PRESETS）
+    rtl/ui/tune_ctrl.v   12 项默认值/区间/步长/显示换算（见下面 PRESETS）
 """
 
 import argparse
@@ -46,6 +46,10 @@ C_STATUS_BG = (0x20, 0x20, 0x20)   # 状态栏底色（光标档 20/20/20；手�
 C_TEXT      = (0xFF, 0xFF, 0xFF)   # 菜单未选中 / 标签 / 单位
 C_TEXT_SEL  = (0xFF, 0xE0, 0x66)   # 菜单选中项（亮黄）
 C_MENU_TEXT = (0xE5, 0xE7, 0xEB)   # 菜单未选中（近白，ui_render.v 的 24'hE5E7EB）
+# ★ 参数整定页整条菜单栏变暗（2026-10-20）：ui_render.v 的 tune_ui
+C_MENU_BG_DIM   = (0x0B, 0x10, 0x19)
+C_MENU_TEXT_DIM = (0x5A, 0x61, 0x70)
+C_TEXT_SEL_DIM  = (0x8A, 0x7A, 0x2E)
 C_NUM       = (0x7C, 0xFC, 0x98)   # 实时数值（亮绿）
 
 # ---------------------------------------------------------------------------
@@ -62,11 +66,11 @@ STATUS_Y    = 552
 TUNE_Y0     = 72
 TUNE_STEP   = 36
 TUNE_TDY    = 6          # 24 px 标签相对行顶的偏移
-TUNE_VDY    = 10         # 16 px 数值相对行顶的偏移
+TUNE_VDY    = 6          # 24 px 数值相对行顶的偏移 (36-24)/2
 TUNE_LBL_XW = 10         # 标签 x = 240
 TUNE_VAL_XW = 24         # 数值 x = 384
 TUNE_UNIT_XW= 30         # 单位 x = 480
-TUNE_ROWS   = 11
+TUNE_ROWS   = 12
 TUNE_HL_X0  = 224        # 高亮条左边界（不侵入 208 px 菜单条）
 TUNE_HL_X1  = 655        # 高亮条右边界（= ui_render.v TUNE_HL_X1-1）
 
@@ -182,15 +186,18 @@ def fmt_field(v, min_digits=1):
 # ---------------------------------------------------------------------------
 # 参数表（与 rtl/ui/tune_ctrl.v 的 p_def / d_def 默认值一一对应）
 # ---------------------------------------------------------------------------
-LBL_NAMES = [f"TUNE_L{i}" for i in range(11)]
+# ★ 2026-10-20：积分限幅插到行 8（航向 Kd 下、速度环 Kp 上），
+#   速度环三项后移到行 9/10/11。字库常量名里的数字是**文案编号**，
+#   与行号不再一一对应 —— 必须与 rtl\ui\ui_render.v 的 tune_label_text 完全一致。
+LBL_NAMES = [f"TUNE_L{i}" for i in range(8)] + ["TUNE_L11", "TUNE_L8", "TUNE_L9", "TUNE_L10"]
 UNIT_NAMES = ["TUNE_UMMS", "TUNE_UMM", "TUNE_UDEG", "TUNE_UDEG", "TUNE_UDEGS",
-              "", "", "", "", "", ""]
+              "", "", "", "", "", "", ""]
 
 # (参数默认值, 显示值)
-PRESET_DEFAULT = [300, 100, 1000, 3500, 180, 21, 4, 6, 0, 64, 0]
+PRESET_DEFAULT = [300, 100, 800, 3500, 126, 40, 3, 6, 120, 24, 36, 0]
 # 显示换算：p2/p3 是 0.01° 单位（÷100），p4 是 counts 单位（×0.238)
-PRESET_MIN = [50, 50, 100, 1000, 30, 0, 0, 0, 0, 0, 0]
-PRESET_MAX = [600, 300, 5000, 9000, 612, 200, 50, 50, 255, 255, 255]
+PRESET_MIN = [50, 50, 100, 1000, 30, 0, 0, 0, 0, 0, 0, 0]
+PRESET_MAX = [600, 300, 5000, 9000, 612, 200, 50, 50, 612, 255, 255, 255]
 
 
 def to_disp(idx, raw):
@@ -211,9 +218,13 @@ def to_disp(idx, raw):
 # 主绘制
 # ---------------------------------------------------------------------------
 def draw_page(cv, lg_glyphs, num_glyphs, text_items, text_stream,
-              sel, presets, menu_sel):
+              sel, presets, menu_sel, active=True):
     # --- 左侧菜单条 ---
-    cv.rect(0, 0, MENU_W - 1, SCREEN_H - 1, C_MENU_BG)
+    # ★ 参数页整条菜单栏变暗（ui_render.v 的 tune_ui，2026-10-20 需求方要求）
+    #   active=False = 已退出编辑态那一态：菜单栏恢复正常亮度、不画行高亮条
+    #   （page 仍停在参数页，与导航页退出 nav_ui 同构）
+    cv.rect(0, 0, MENU_W - 1, SCREEN_H - 1,
+            C_MENU_BG_DIM if active else C_MENU_BG)
     # 菜单选中项底色：ui_render.v 的 menu_sel_band
     #   x 0..207，y = MENU_Y0 + menu_sel*MENU_STEP - 12 .. +36（共 48 px）
     y_b = MENU_Y0 + menu_sel * MENU_STEP - 12
@@ -235,7 +246,10 @@ def draw_page(cv, lg_glyphs, num_glyphs, text_items, text_stream,
             continue
         addr, ln = text_items[nm]
         y = MENU_Y0 + i * MENU_STEP
-        color = C_TEXT_SEL if i == menu_sel else C_MENU_TEXT
+        if active:
+            color = C_TEXT_SEL_DIM if i == menu_sel else C_MENU_TEXT_DIM
+        else:
+            color = C_TEXT_SEL if i == menu_sel else C_MENU_TEXT
         for k in range(ln):
             ch = text_stream.get(addr + k, 0)
             # ui_text_rom 存的是"字库索引"，不是码点，需反查。
@@ -244,9 +258,10 @@ def draw_page(cv, lg_glyphs, num_glyphs, text_items, text_stream,
                 continue
             cv.glyph(lg_glyphs[code], LG_XW * LG_CELL + k * LG_CELL, y, LG_W, color)
 
-    # --- 参数页高亮条（在文字之下）---
-    cv.rect(TUNE_HL_X0, TUNE_Y0 + sel * TUNE_STEP,
-            TUNE_HL_X1, TUNE_Y0 + sel * TUNE_STEP + TUNE_STEP - 1, C_MENU_SEL)
+    # --- 参数页高亮条（在文字之下；仅编辑态画）---
+    if active:
+        cv.rect(TUNE_HL_X0, TUNE_Y0 + sel * TUNE_STEP,
+                TUNE_HL_X1, TUNE_Y0 + sel * TUNE_STEP + TUNE_STEP - 1, C_MENU_SEL)
 
     # --- 标题「参数整定」y = 24 ---
     addr, ln = text_items["MENU_TUNE"]
@@ -256,7 +271,7 @@ def draw_page(cv, lg_glyphs, num_glyphs, text_items, text_stream,
             continue
         cv.glyph(lg_glyphs[code], TUNE_LBL_XW * LG_CELL + k * LG_CELL, 24, LG_W, C_TEXT)
 
-    # --- 11 行：标签 / 数值 / 单位 ---
+    # --- 12 行：标签 / 数值 / 单位 ---
     for i in range(TUNE_ROWS):
         y_lbl = TUNE_Y0 + i * TUNE_STEP + TUNE_TDY
         y_val = TUNE_Y0 + i * TUNE_STEP + TUNE_VDY
@@ -301,6 +316,7 @@ def main():
     ap.add_argument("--sel", type=int, default=0, help="高亮行 0..10")
     ap.add_argument("--menu-sel", type=int, default=5, help="菜单选中项 0..5（默认 5=参数整定）")
     ap.add_argument("--preset", choices=["default", "min", "max"], default="default")
+    ap.add_argument("--idle", action="store_true", help="画已退出编辑态那一态：菜单栏不暗、无行高亮条")
     args = ap.parse_args()
 
     lg_glyphs, idx_lg = parse_font(os.path.join(ROOT, "rtl", "common", "font_rom_lg.v"),
@@ -320,9 +336,9 @@ def main():
 
     cv = Canvas()
     draw_page(cv, lg_glyphs, num_glyphs, text_items, text_stream,
-              args.sel, presets, args.menu_sel)
+              args.sel, presets, args.menu_sel, active=(not args.idle))
     cv.save(args.out)
-    print(f"wrote {args.out}  ({SCREEN_W}x{SCREEN_H})  sel={args.sel} menu_sel={args.menu_sel} preset={args.preset}")
+    print(f"wrote {args.out}  ({SCREEN_W}x{SCREEN_H})  sel={args.sel} menu_sel={args.menu_sel} preset={args.preset}" + ("  idle" if args.idle else ""))
 
 
 if __name__ == "__main__":
