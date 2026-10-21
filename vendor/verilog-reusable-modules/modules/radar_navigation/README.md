@@ -7,11 +7,11 @@
 ## 工程文件
 
 - [本模块清单](rtl/files.f)：2 个文件，正式入口和内部适配器。
-- [导航清单](../auto_navigation/rtl/files.f)：13 个文件。
+- [导航清单](../auto_navigation/rtl/files.f)：14 个文件。
 - [m10_radar.v](../m10_radar/rtl/m10_radar.v) 与 [m10_packet_parser.v](../m10_radar/rtl/m10_packet_parser.v)：2 个公共雷达文件，支持随点保存位姿。
 - [uart_byte_rx.v](../uart/rtl/uart_byte_rx.v)：1 个公共 UART 接收器，整车已加入时不重复加入。
 
-共 18 个 RTL，不存在另一套私有雷达或 UART。若通过整车 deps/modules.list 与 scripts/vendor_sources.tcl 接入，应加入 auto_navigation、radar_navigation 和 m10_radar，并复用原有 uart；m10_radar 包的原点云显示文件继续保留，相关显示依赖按该包说明加入。
+共 19 个 RTL，不存在另一套私有雷达或 UART。若通过整车 deps/modules.list 与 scripts/vendor_sources.tcl 接入，应加入 auto_navigation、radar_navigation 和 m10_radar，并复用原有 uart；m10_radar 包的原点云显示文件继续保留，相关显示依赖按该包说明加入。
 
 固定 50 MHz，M10 GPS UART 460800 / 8N1。控制接口为 cmd_valid、target_x_mm、target_y_mm、emergency_stop、ctrl_done、ctrl_linear_active；控制器自行转向和直行，整个目标点任务完成且停稳后确认。地图 256×256、100 mm/格、中心原点，未知允许规划通过。
 

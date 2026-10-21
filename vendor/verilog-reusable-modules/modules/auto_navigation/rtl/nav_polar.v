@@ -25,6 +25,7 @@ module nav_polar (
     input  wire               reset_n,
 
     input  wire               in_valid,
+    input  wire               in_scan_start,
     output wire               in_ready,
     input  wire        [15:0] in_angle_cdeg,
     input  wire        [15:0] in_distance_mm,
@@ -34,6 +35,7 @@ module nav_polar (
     input  wire signed [31:0] in_pose_yaw_cdeg,
 
     output wire               out_valid,
+    output wire               out_scan_start,
     input  wire               out_ready,
     output wire               out_hit,
     output wire signed [15:0] out_hit_x,
@@ -61,6 +63,7 @@ module nav_polar (
     localparam signed [63:0] MAP_EXTENT_Q16 = 64'sd1677721600;  // MAP_MM << 16
 
     reg [ 2:0] state;
+    reg        scan_start_pending;
     reg        pending;
     reg        hit_inside_q;  // 地图内判定结果，与端点一起锁存
     reg [14:0] latched_pose_x_map_mm, latched_pose_y_map_mm;
@@ -185,6 +188,14 @@ module nav_polar (
 
     assign in_ready  = reset_n && state == IDLE;
     assign out_valid = reset_n && pending;
+    assign out_scan_start = scan_start_pending;
+
+    // 换圈标记跨过非法填充槽，随下一条有效射线送出，保持与射线顺序一致。
+    always @(posedge clk or negedge reset_n) begin
+        if (!reset_n) scan_start_pending <= 1'b0;
+        else if (in_valid && in_ready && in_scan_start) scan_start_pending <= 1'b1;
+        else if (out_valid && out_ready) scan_start_pending <= 1'b0;
+    end
     // out_hit 的含义是"端点是一个真实障碍物"，而不只是"端点在地图内"。无回波
     // （no-echo）采样的端点被推到量程上限，因此距离等于上限就能认出它：这种采样下游
     // 仍然看到 out_valid 为高（沿射线清除单元格），但 out_hit 为低，不写入任何障碍物。

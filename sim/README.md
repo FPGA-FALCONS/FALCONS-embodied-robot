@@ -121,3 +121,10 @@ powershell -File sim\run_sim.ps1
 `python tools/preview_navigation.py --modelsim D:/apps/modelsim/win64` 调实际 `ui_render` 与 `nav_map_view`，输出 `logs/nav_ui_preview/` 下的 14 张 1024×600 PNG、总览和逐图索引。包括雷达地图、空列表、目的地与四个菜单选择、运行、暂停、已到达、无路、整车急停、手动接管、遥控失联。
 
 示例地图 / 状态来自测试台输入，不是实车截图，也不用于证明状态切换流程。规划、转向和普通避障都归“导航中”，不会生成 RTL 没有的额外状态文字。图片及 ModelSim 临时库不提交 Git；预览台不计入自检项数。
+
+
+## 同圈建图回归（2026-10-21）
+
+新增 `nav_scan_accumulator_tb`（18 项），覆盖同圈命中优先、跨圈清障、新圈命中保护、重叠膨胀和完整 256×256 记录整理。`radar_map_tb` 扩至 16 项，真实串口验证换圈和无效槽；`obstacle_motion_tb` 适配跨圈确认清障，仍按 50 MHz 真实时间推进车辆。
+
+完整 ModelSim 回归 27 台 / 2301 项通过；命令为 `powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64`，定向可加 `-Only nav_scan_accumulator,radar_map,obstacle_motion`。周期及资源 / 时序结果见[接入验证](../doc/自动导航接入验证.md)。

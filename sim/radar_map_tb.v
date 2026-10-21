@@ -21,7 +21,7 @@ module radar_map_tb;
     integer cycles=0,errors=0,checks=0,j;
     always @(posedge clk) cycles<=cycles+1;
     task check;
-        input condition; input [255:0] msg;
+        input condition; input [511:0] msg;
         begin checks=checks+1; if(condition!==1'b1) begin errors=errors+1; $display("FAIL: %0s",msg); end else $display("pass %0s",msg); end
     endtask
     task pose_update;
@@ -37,11 +37,16 @@ module radar_map_tb;
         end
     endtask
     task packet;
+        input [15:0] angle, distance;
+        input invalid_first;
         begin
-            byte_out(8'ha5);byte_out(8'h5a);byte_out(0);byte_out(0);
+            byte_out(8'ha5);byte_out(8'h5a);byte_out(angle[15:8]);byte_out(angle[7:0]);
             byte_out(0);byte_out(60);
-            byte_out(8'h02);byte_out(8'h26);
-            for(j=1;j<42;j=j+1) begin byte_out(8'hff);byte_out(8'hff);end
+            for(j=0;j<42;j=j+1) begin
+                if(j == (invalid_first ? 1 : 0)) begin
+                    byte_out(distance[15:8]);byte_out(distance[7:0]);
+                end else begin byte_out(8'hff);byte_out(8'hff);end
+            end
             repeat(10) byte_out(0);
             byte_out(8'hfa);byte_out(8'hfb);
             repeat(3000) @(negedge clk);
@@ -52,12 +57,35 @@ module radar_map_tb;
         repeat(66000) @(negedge clk);
         check(!valid,"pose held invalid before ready");ready=1;
         pose_update(0);check(valid && px==0 && py==0 && pa==0,"coherent initial pose");
-        packet();check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+133],"forward radar maps +x");
-        pose_update(9000);packet();check(dut.u_adapter.u_navigation.u_nav.u_map.raw[133*256+128],"left yaw maps +y");
+        packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+133],"forward radar maps +x");
+        pose_update(9000);packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[133*256+128],"left yaw maps +y");
         pose_update(18000);check(pa==-18000,"positive 180 normalized");
-        packet();check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+122],"rear heading maps -x");
-        pose_update(-9000);packet();check(dut.u_adapter.u_navigation.u_nav.u_map.raw[122*256+128],"right yaw maps -y");
+        packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+122],"rear heading maps -x");
+        pose_update(-9000);packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[122*256+128],"right yaw maps -y");
         check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+133],"history retained across scans");
+        pose_update(0);
+        packet(34500,16'hffff,0);
+        packet(0,550,1);
+        packet(1500,1500,0);
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[126*256+133],
+              "near hit survives farther same-circle ray");
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[124*256+142],
+              "far hit enters map immediately without waiting for next circle");
+        packet(34500,16'hffff,0);
+        packet(0,1500,1);
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[126*256+133],
+              "clear evidence waits until its circle ends");
+        packet(34500,16'hffff,0);
+        packet(0,16'hffff,0);
+        // 换圈首包全是填充槽，下一包的有效射线仍必须携带换圈标记。
+        packet(1500,1500,0);
+        repeat(500000) @(negedge clk);
+        check(!dut.u_adapter.u_navigation.u_nav.u_map.raw[126*256+133],
+              "next completed circle clears old hit despite invalid boundary slots");
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[124*256+142],
+              "new far obstacle survives deferred cleanup");
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[133*256+128],
+              "unobserved side obstacle remains across circle cleanup");
         clear=1;repeat(2) @(negedge clk);check(!valid,"clear invalidates pose");clear=0;
         repeat(66000) @(negedge clk);
         check(!dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+133],"clear resets old map");
@@ -66,5 +94,5 @@ module radar_map_tb;
         if(!errors) $display("PASS: radar_map");
         $finish;
     end
-    initial begin #30000000;$display("FAIL: radar_map timeout");$finish;end
+    initial begin #100000000;$display("FAIL: radar_map timeout");$finish;end
 endmodule

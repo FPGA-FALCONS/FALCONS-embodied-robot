@@ -53,7 +53,7 @@ module obstacle_motion_tb;
         .o_pt_px(), .o_pt_py(), .o_pt_v(), .o_car_px(), .o_car_py(), .o_cur_px(), .o_cur_py()
     );
 
-    reg obs_valid = 0, hit = 0;
+    reg obs_valid = 0, hit = 0, scan_start = 0;
     reg signed [15:0] hit_x = 0, hit_y = 0;
     reg signed [31:0] origin_x = 0, origin_y = 0, ray_x = 0;
     wire obs_ready;
@@ -61,7 +61,7 @@ module obstacle_motion_tb;
         .clk(clk), .reset_n(rst_n), .pose_valid(1'b1), .pose_x_mm(x), .pose_y_mm(y),
         .goal_valid(goal), .goal_x({8'd0, gx}), .goal_y({8'd0, gy}),
         .plan_enable(goal), .motion_enable(run), .display_enable(1'b0), .map_enable(1'b1),
-        .ctrl_done(done), .ctrl_linear_active(linear), .obs_valid(obs_valid), .obs_ready(obs_ready),
+        .ctrl_done(done), .ctrl_linear_active(linear), .obs_scan_start(scan_start), .obs_valid(obs_valid), .obs_ready(obs_ready),
         .obs_grid_x(hit_x), .obs_grid_y(hit_y), .obs_grid_valid(hit),
         .obs_origin_x_mm(origin_x), .obs_origin_y_mm(origin_y),
         .obs_ray_dx_q16(ray_x), .obs_ray_dy_q16(32'sd0),
@@ -149,7 +149,10 @@ module obstacle_motion_tb;
         observation(1);
         wait (estop && done);
         check(center == 0 && velocity == 0 && goal, "near raw obstacle stops vehicle without cancelling destination");
+        scan_start = 1;
         observation(0);
+        observation(0);
+        scan_start = 0;
         wait (!estop && center > 0);
         check(goal && run, "clear observation permits replanning and resumption");
         wait (gx == 132 && gy == 132);

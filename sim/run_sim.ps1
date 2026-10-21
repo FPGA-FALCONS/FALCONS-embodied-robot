@@ -196,9 +196,10 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$ProjectRoot\rtl\ui\nav_map_view.v", "$PSScriptRoot\nav_map_view_tb.v",
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
               "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
-              "$PSScriptRoot\obstacle_motion_tb.v")
+              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v")
 
 $tests = @(
+    @{ Name = 'nav_scan_accumulator'; Top = 'nav_scan_accumulator_tb'; Desc = 'Circle hit priority / deferred clears / concurrent circle updates' },
     @{ Name = 'nav_pose'; Top = 'nav_pose_tb'; Desc = 'Real odometry pipeline to navigation pose' },
     @{ Name = 'obstacle_motion'; Top = 'obstacle_motion_tb'; Desc = 'UI / real BFS / point controller / moving differential vehicle' },
     @{ Name = 'nav_map_view'; Top = 'nav_map_view_tb'; Desc = 'Independent map / route double buffering' },

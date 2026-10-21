@@ -53,6 +53,7 @@ module nav_top #(
     input  wire               ctrl_linear_active,
 
     input  wire               obs_valid,
+    input  wire               obs_scan_start,
     output wire               obs_ready,
     input  wire signed [15:0] obs_grid_x,
                               obs_grid_y,
@@ -110,6 +111,11 @@ module nav_top #(
     wire [15:0] map_rd_x, map_rd_y;
     wire map_rd_rsp_valid, map_rd_raw, map_rd_cost;
     wire map_idle;
+    wire scan_wr_valid, scan_wr_ready, scan_wr_val;
+    wire [15:0] scan_wr_x, scan_wr_y;
+    wire scanner_ready, circle_ready;
+    wire observation_enabled = !obs_scan_start || circle_ready;
+    assign obs_ready = scanner_ready && observation_enabled;
 
     nav_scanner #(
         .GRID_W (GRID_W),
@@ -119,8 +125,8 @@ module nav_top #(
     ) u_scan (
         .clk        (clk),
         .reset_n    (reset_n),
-        .obs_valid  (obs_valid),
-        .obs_ready  (obs_ready),
+        .obs_valid  (obs_valid && observation_enabled),
+        .obs_ready  (scanner_ready),
         .grid_x     (obs_grid_x),
         .grid_y     (obs_grid_y),
         .grid_valid (obs_grid_valid),
@@ -129,15 +135,35 @@ module nav_top #(
         .ray_dx_q16 (obs_ray_dx_q16),
         .ray_dy_q16 (obs_ray_dy_q16),
         .map_enable (map_enable),
-        .wr_valid   (map_wr_valid),
-        .wr_ready   (map_wr_ready),
-        .wr_val     (map_wr_val),
-        .wr_x       (map_wr_x),
-        .wr_y       (map_wr_y),
+        .wr_valid   (scan_wr_valid),
+        .wr_ready   (scan_wr_ready),
+        .wr_val     (scan_wr_val),
+        .wr_x       (scan_wr_x),
+        .wr_y       (scan_wr_y),
         .busy       (),
         .accepted   (),
         .dropped    (),
         .map_dropped(st_map_dropped)
+    );
+
+    nav_scan_accumulator #(
+        .GRID_W(GRID_W),
+        .GRID_H(GRID_H)
+    ) u_scan_accumulator (
+        .clk       (clk),
+        .reset_n   (reset_n),
+        .scan_begin(obs_valid && obs_ready && obs_scan_start),
+        .scan_ready(circle_ready),
+        .in_valid  (scan_wr_valid),
+        .in_ready  (scan_wr_ready),
+        .in_value  (scan_wr_val),
+        .in_x      (scan_wr_x),
+        .in_y      (scan_wr_y),
+        .wr_valid  (map_wr_valid),
+        .wr_ready  (map_wr_ready),
+        .wr_value  (map_wr_val),
+        .wr_x      (map_wr_x),
+        .wr_y      (map_wr_y)
     );
 
     nav_map #(

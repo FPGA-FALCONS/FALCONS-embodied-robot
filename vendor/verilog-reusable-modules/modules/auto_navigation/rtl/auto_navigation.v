@@ -149,7 +149,22 @@ module auto_navigation #(
 
     // 单一观测握手同时传递射线与可选障碍端点；无命中仍需清理射线。
     // nav_scanner 是下游唯一背压来源，显示旁路不能驱动 ready。
-    wire grid_valid, grid_ready;
+    // M10 每包第一槽的角度回绕表示换圈。标记随点穿过极坐标流水，
+    // 不能直接使用输入侧整圈脉冲清理仍在下游处理的上一条射线。
+    reg packet_seen;
+    reg [15:0] previous_packet_angle;
+    wire point_scan_start = packet_seen && point_index == 0 &&
+                            point_angle_cdeg < previous_packet_angle;
+    always @(posedge clk or negedge reset_n) begin
+        if (!reset_n) begin
+            packet_seen <= 1'b0;
+            previous_packet_angle <= 0;
+        end else if (point_valid && point_ready && point_index == 0) begin
+            packet_seen <= 1'b1;
+            previous_packet_angle <= point_angle_cdeg;
+        end
+    end
+    wire grid_valid, grid_ready, grid_scan_start;
     wire [15:0] grid_x, grid_y;
     // 图内真实障碍命中；无回波或图外端点为 0，但仍有射线观测。
     wire obs_grid_hit;
@@ -162,6 +177,7 @@ module auto_navigation #(
         .clk             (clk),
         .reset_n         (reset_n),
         .in_valid        (point_valid),
+        .in_scan_start   (point_scan_start),
         .in_ready        (point_ready),
         .in_angle_cdeg   (point_angle_cdeg),
         .in_distance_mm  (point_distance_mm),
@@ -170,6 +186,7 @@ module auto_navigation #(
         .in_pose_y_mm    (point_pose_y_mm),
         .in_pose_yaw_cdeg(point_pose_yaw_cdeg),
         .out_valid       (grid_valid),
+        .out_scan_start  (grid_scan_start),
         .out_ready       (grid_ready),
         .out_hit         (obs_grid_hit),
         .out_hit_x       (grid_x),
@@ -222,6 +239,7 @@ module auto_navigation #(
         .ctrl_done         (ctrl_done),
         .ctrl_linear_active     (ctrl_linear_active),
         .obs_valid         (grid_valid),
+        .obs_scan_start    (grid_scan_start),
         .obs_ready         (obs_ready),
         .obs_grid_x        (grid_x),
         .obs_grid_y        (grid_y),

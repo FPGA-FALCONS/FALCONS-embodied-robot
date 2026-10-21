@@ -3,6 +3,7 @@ lidar_scan_monitor.v
 nav_polar.v
 nav_map.v
 nav_scanner.v
+nav_scan_accumulator.v
 nav_planner.v
 nav_route.v
 nav_segments.v
