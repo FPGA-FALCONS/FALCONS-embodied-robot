@@ -192,13 +192,14 @@ $sources += @(Get-ChildItem "$VendorRoot\auto_navigation\rtl\*.v" | ForEach-Obje
 $sources += @(Get-ChildItem "$VendorRoot\radar_navigation\rtl\*.v" | ForEach-Object { $_.FullName })
 $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rtl\m10_packet_parser.v",
               "$ProjectRoot\rtl\nav\nav_point_ctrl.v", "$PSScriptRoot\nav_point_ctrl_tb.v",
-              "$ProjectRoot\rtl\nav\nav_pose.v", "$PSScriptRoot\radar_map_tb.v",
+              "$ProjectRoot\rtl\nav\nav_pose.v", "$PSScriptRoot\radar_map_tb.v", "$PSScriptRoot\nav_pose_tb.v",
               "$ProjectRoot\rtl\ui\nav_map_view.v", "$PSScriptRoot\nav_map_view_tb.v",
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
               "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
               "$PSScriptRoot\obstacle_motion_tb.v")
 
 $tests = @(
+    @{ Name = 'nav_pose'; Top = 'nav_pose_tb'; Desc = 'Real odometry pipeline to navigation pose' },
     @{ Name = 'obstacle_motion'; Top = 'obstacle_motion_tb'; Desc = 'UI / real BFS / point controller / moving differential vehicle' },
     @{ Name = 'nav_map_view'; Top = 'nav_map_view_tb'; Desc = 'Independent map / route double buffering' },
     @{ Name = 'nav_point_ctrl'; Top = 'nav_point_ctrl_tb'; Desc = 'Point task / live target / emergency handshake' },

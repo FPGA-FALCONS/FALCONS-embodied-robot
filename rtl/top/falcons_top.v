@@ -1378,13 +1378,13 @@ module falcons_top (
         else if (imu_calib_done) nav_calibrated <= 1;
     end
     wire nav_reset_n = sys_rst_n && !count_clear_r;
-    wire navigation_pose_valid;
+    wire navigation_pose_valid, navigation_pose_tick;
     wire signed [31:0] navigation_x_mm, navigation_y_mm, navigation_yaw_cdeg;
     nav_pose u_nav_pose (
         .clk(i_clk_50m), .rst_n(sys_rst_n), .clear(count_clear_r),
         .ready(nav_calibrated && imu_init_done && !imu_err_flag),
         .position_tick(delta_valid), .x_mm(odom_x_mm), .y_mm(odom_y_mm),
-        .yaw_cdeg(yaw_raw_s), .pose_valid(navigation_pose_valid),
+        .yaw_cdeg(yaw_raw_s), .pose_valid(navigation_pose_valid), .pose_tick(navigation_pose_tick),
         .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
         .pose_yaw_cdeg(navigation_yaw_cdeg)
     );
@@ -1475,7 +1475,7 @@ module falcons_top (
         .clk(i_clk_50m), .rst_n(sys_rst_n),
         .i_cmd_valid(planner_cmd_valid), .i_emergency_stop(planner_emergency_stop),
         .i_target_x_mm(planner_target_x), .i_target_y_mm(planner_target_y),
-        .i_tick(delta_valid), .i_x_mm(navigation_x_mm), .i_y_mm(navigation_y_mm),
+        .i_tick(navigation_pose_tick), .i_x_mm(navigation_x_mm), .i_y_mm(navigation_y_mm),
         .i_yaw_centi(navigation_yaw_cdeg), .i_v_mms(odom_v_mms), .i_stall(stall_vec),
         .i_v_cruise(tune_p[31:0]), .i_d_slow(tune_p[63:32]),
         .i_align_in(tune_p[95:64]), .i_align_out(tune_p[127:96]),
