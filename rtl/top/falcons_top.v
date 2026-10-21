@@ -343,20 +343,57 @@ module falcons_top (
     // ★ 2026-10-19：导航控制层（u_nav_ctrl）的输出线。u_nav_ctrl 在文件后部例化，
     //   但这些线要在 u_chassis（第 500 多行）就用，所以必须在**这里**声明。
     //   放后面声明 → Verilog 先按隐式 1 位 net 处理，位宽变 1 位，综合后极难查。
-    wire signed [31:0] nav_cur_x_mm, nav_cur_y_mm;
-    wire [2:0]   nav_aux_sel;
-    wire [4:0]   nav_pt_count;      // 预留（未消费）：将来自检/上报用
-    wire         nav_run, nav_mode; // nav_mode 预留（未消费）：0 间断 / 1 非间断
-    wire [1:0]   nav_state;         // 0=SETUP 1=RUNNING 2=PAUSED（预留：给导航控制层）
-    wire         nav_ui_active;     // 导航页交互态（菜单锁、状态栏）
-    wire         nav_paused;        // 导航暂停
-    wire [159:0] nav_pt_px, nav_pt_py;
-    wire [255:0] nav_pt_x_mm, nav_pt_y_mm;   // 点表 mm 版（给导航控制层）
-    wire [15:0]  nav_pt_v;
-    wire [9:0]   nav_car_px, nav_car_py, nav_cur_px, nav_cur_py;
+    wire signed [31:0] free_nav_cur_x_mm, free_nav_cur_y_mm;
+    wire [2:0]   free_nav_aux_sel;
+    wire [4:0]   free_nav_pt_count;      // 预留（未消费）：将来自检/上报用
+    wire         free_nav_run, free_nav_mode; // free_nav_mode 预留（未消费）：0 间断 / 1 非间断
+    wire [1:0]   free_nav_state;         // 0=SETUP 1=RUNNING 2=PAUSED（预留：给导航控制层）
+    wire         free_nav_ui_active;     // 导航页交互态（菜单锁、状态栏）
+    wire         free_nav_paused;        // 导航暂停
+    wire [159:0] free_nav_pt_px, free_nav_pt_py;
+    wire [255:0] free_nav_pt_x_mm, free_nav_pt_y_mm;   // 点表 mm 版（给导航控制层）
+    wire [15:0]  free_nav_pt_v;
+    wire [9:0]   free_nav_car_px, free_nav_car_py, free_nav_cur_px, free_nav_cur_py;
 
     // 导航控制层的回告（先声明后用：u_nav_free 在上、u_nav_ctrl 在下）
     wire         nav_ctrl_done, nav_ctrl_fault;
+
+    reg [2:0] page;      // 界面【已确认进入】的页面 0=数据 1=摄像头 2=雷达 3=避障导航 4=非避障导航
+
+    // 避障页为新增功能；原非避障 UI 和控制链保持独立用于调试。
+    wire signed [31:0]      obs_cur_x_mm;
+    wire signed [31:0]      nav_cur_x_mm = (page == PAGE_NAV_OBS) ? obs_cur_x_mm : free_nav_cur_x_mm;
+    wire signed [31:0]      obs_cur_y_mm;
+    wire signed [31:0]      nav_cur_y_mm = (page == PAGE_NAV_OBS) ? obs_cur_y_mm : free_nav_cur_y_mm;
+    wire [2:0]              obs_aux_sel;
+    wire [2:0]              nav_aux_sel = (page == PAGE_NAV_OBS) ? obs_aux_sel : free_nav_aux_sel;
+    wire [4:0]              obs_pt_count;
+    wire [4:0]              nav_pt_count = (page == PAGE_NAV_OBS) ? obs_pt_count : free_nav_pt_count;
+    wire                    obs_run;
+    wire                    nav_run = (page == PAGE_NAV_OBS) ? obs_run : free_nav_run;
+    wire [1:0]              obs_ui_state;
+    wire [1:0]              nav_state = (page == PAGE_NAV_OBS) ? obs_ui_state : free_nav_state;
+    wire                    obs_ui_active;
+    wire                    nav_ui_active = (page == PAGE_NAV_OBS) ? obs_ui_active : free_nav_ui_active;
+    wire                    obs_paused;
+    wire                    nav_paused = (page == PAGE_NAV_OBS) ? obs_paused : free_nav_paused;
+    wire [159:0]            obs_pt_px;
+    wire [159:0]            nav_pt_px = (page == PAGE_NAV_OBS) ? obs_pt_px : free_nav_pt_px;
+    wire [159:0]            obs_pt_py;
+    wire [159:0]            nav_pt_py = (page == PAGE_NAV_OBS) ? obs_pt_py : free_nav_pt_py;
+    wire [15:0]             obs_pt_v;
+    wire [15:0]             nav_pt_v = (page == PAGE_NAV_OBS) ? obs_pt_v : free_nav_pt_v;
+    wire [9:0]              obs_car_px;
+    wire [9:0]              nav_car_px = (page == PAGE_NAV_OBS) ? obs_car_px : free_nav_car_px;
+    wire [9:0]              obs_car_py;
+    wire [9:0]              nav_car_py = (page == PAGE_NAV_OBS) ? obs_car_py : free_nav_car_py;
+    wire [9:0]              obs_cur_px;
+    wire [9:0]              nav_cur_px = (page == PAGE_NAV_OBS) ? obs_cur_px : free_nav_cur_px;
+    wire [9:0]              obs_cur_py;
+    wire [9:0]              nav_cur_py = (page == PAGE_NAV_OBS) ? obs_cur_py : free_nav_cur_py;
+    wire obs_goal_valid;
+    wire [7:0] obs_goal_x, obs_goal_y;
+    wire obs_ctrl_done = 1'b0;
 
     wire               nav_auto_valid;
     wire signed [31:0] nav_auto_center, nav_auto_diff;
@@ -366,7 +403,6 @@ module falcons_top (
     wire [4:0]         nav_dbg_idx;
     wire [2:0]         nav_fsm_state;
     reg estop_latch;     // 急停锁存（S4 切换；ToF 触发也会置位）
-    reg [2:0] page;      // 界面【已确认进入】的页面 0=数据 1=摄像头 2=雷达 3=避障导航 4=非避障导航
     reg [2:0] menu_sel;  // 菜单【高亮选中项】（摇杆拨动改它，按确认才赋给 page）
                         // ★ 复位值统一取 PAGE_DEFAULT（= 数据页），见第 0 节
 
@@ -382,7 +418,7 @@ module falcons_top (
     //   按下返回键退出交互态后，菜单恢复可操作（摇杆能切、确认能进），
     //   这正是需求方说的"返回菜单选择（此时菜单不冻结）"。
     //   ★ `nav_lock` 必须**先声明、后 assign**：page 的 always 块在文件靠前就要用它，
-    //     而 `nav_ui_active` 由后面的 nav_free_ctrl 例化产生。
+    //     而 `free_nav_ui_active` 由后面的 nav_free_ctrl 例化产生。
     wire nav_lock;
     // ★ 2026-10-20：参数整定页信号（先声明后用 —— 页面状态机在文件靠前就要用）
     //   tune_active = 参数页处于「编辑态」：CH2 选行、CH4 调值、CH5 下复位、CH5 上退出编辑。
@@ -753,9 +789,9 @@ module falcons_top (
             if (cmd_kd_valid)      kd_r <= cmd_kd;
             else if (tune_kd_ev)  kd_r <= tune_p[367:352];
 
-            count_clear_r <= (key2_press | cmd_count_clear) & ~nav_run;
+            count_clear_r <= (key2_press | cmd_count_clear) & ~obs_run;
             stall_clear_r <= key2_press | cmd_stall_clear;
-            yaw_clear_r   <= (key2_press | cmd_count_clear) & ~nav_run;   // S2 同时清零航向角
+            yaw_clear_r   <= (key2_press | cmd_count_clear) & ~obs_run;   // S2 同时清零航向角
         end
     end
 
@@ -1351,11 +1387,11 @@ module falcons_top (
     wire signed [31:0] planner_target_x, planner_target_y;
     radar_navigation u_radar_navigation (
         .clk(i_clk_50m), .reset_n(nav_reset_n),
-        .map_enable(navigation_pose_valid), .plan_enable(1'b0), .motion_enable(1'b0),
+        .map_enable(navigation_pose_valid), .plan_enable(obs_goal_valid), .motion_enable(1'b0),
         .radar_rx(i_radar_rx), .pose_valid(navigation_pose_valid),
         .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
         .pose_yaw_cdeg(navigation_yaw_cdeg),
-        .goal_valid(1'b0), .goal_x_cell(8'd0), .goal_y_cell(8'd0),
+        .goal_valid(obs_goal_valid), .goal_x_cell(obs_goal_x), .goal_y_cell(obs_goal_y),
         .ctrl_done(1'b0), .ctrl_linear_active(1'b0),
         .cmd_valid(planner_cmd_valid), .emergency_stop(planner_emergency_stop),
         .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
@@ -1379,9 +1415,9 @@ module falcons_top (
     // 6b. 非避障导航页控制器（2026-10-19 新增）
     // ==================================================================
     //   它只维护这一页的**可交互状态**：准心位置、已记录点表、辅助菜单高亮、运行态。
-    //   ★ 按「间断寻点 / 非间断寻点」+ 确认后**只把 nav_run 拉高，车一步不动** ——
+    //   ★ 按「间断寻点 / 非间断寻点」+ 确认后**只把 free_nav_run 拉高，车一步不动** ——
     //     需求方本轮明确："任务导航只需留下接口或状态机等，并不真正开始导航。"
-    //     真接入时把 {nav_run, nav_mode, nav_pt_*} 接到导航控制层
+    //     真接入时把 {free_nav_run, free_nav_mode, nav_pt_*} 接到导航控制层
     //     （方案见 doc\导航控制方案.md）。
     //   ★ 摇杆用 `rc_steer / rc_throttle` 的**原始归一化值**，不用 `steer_in` ——
     //     后者在光标档被强制 0（那是给底盘的），准心要的是摇杆本身。
@@ -1393,8 +1429,8 @@ module falcons_top (
     ) u_nav_free (
         .clk        (i_clk_50m),
         .rst_n      (sys_rst_n),
-        .i_active   (nav_page_any),         // ★ 两页共用同一套状态机
-        .i_is_obs   (page == PAGE_NAV_OBS), // 避障页：辅助菜单 4 项、第 3 项=开始导航
+        .i_active   (nav_page_now),         // ★ 两页共用同一套状态机
+        .i_is_obs   (1'b0), // 避障页：辅助菜单 4 项、第 3 项=开始导航
         .i_clear    (count_clear_r),        // 与编码器计数/航向角同源清零
         .i_x_mm     (odom_x_mm),
         .i_y_mm     (odom_y_mm),
@@ -1408,24 +1444,41 @@ module falcons_top (
         // ---- 与导航/控制层对接 ----
         .i_ctrl_done  (nav_ctrl_done),   // 来自 u_nav_ctrl.o_done（仅最后一点）
         .i_ctrl_fault (nav_ctrl_fault),  // 来自 u_nav_ctrl.o_fault
-        .o_cur_x_mm (nav_cur_x_mm),
-        .o_cur_y_mm (nav_cur_y_mm),
-        .o_aux_sel  (nav_aux_sel),
-        .o_pt_count (nav_pt_count),
-        .o_nav_state     (nav_state),
-        .o_nav_ui_active (nav_ui_active),
-        .o_nav_run       (nav_run),
-        .o_nav_paused    (nav_paused),
-        .o_nav_mode      (nav_mode),
-        .o_pt_px    (nav_pt_px),
-        .o_pt_py    (nav_pt_py),
-        .o_pt_v     (nav_pt_v),
-        .o_pt_x_mm  (nav_pt_x_mm),
-        .o_pt_y_mm  (nav_pt_y_mm),
-        .o_car_px   (nav_car_px),
-        .o_car_py   (nav_car_py),
-        .o_cur_px   (nav_cur_px),
-        .o_cur_py   (nav_cur_py)
+        .o_cur_x_mm (free_nav_cur_x_mm),
+        .o_cur_y_mm (free_nav_cur_y_mm),
+        .o_aux_sel  (free_nav_aux_sel),
+        .o_pt_count (free_nav_pt_count),
+        .o_nav_state     (free_nav_state),
+        .o_nav_ui_active (free_nav_ui_active),
+        .o_nav_run       (free_nav_run),
+        .o_nav_paused    (free_nav_paused),
+        .o_nav_mode      (free_nav_mode),
+        .o_pt_px    (free_nav_pt_px),
+        .o_pt_py    (free_nav_pt_py),
+        .o_pt_v     (free_nav_pt_v),
+        .o_pt_x_mm  (free_nav_pt_x_mm),
+        .o_pt_y_mm  (free_nav_pt_y_mm),
+        .o_car_px   (free_nav_car_px),
+        .o_car_py   (free_nav_car_py),
+        .o_cur_px   (free_nav_cur_px),
+        .o_cur_py   (free_nav_cur_py)
+    );
+
+    nav_obstacle_ui #(.CLK_HZ(CLK_HZ)) u_nav_obstacle_ui (
+        .clk(i_clk_50m), .rst_n(sys_rst_n), .i_active(page == PAGE_NAV_OBS),
+        .i_clear(count_clear_r), .i_x_mm(odom_x_mm), .i_y_mm(odom_y_mm),
+        .i_manual(manual_drive), .i_steer(rc_steer), .i_throttle(rc_throttle),
+        .i_confirm(rc_confirm), .i_back(rc_back), .i_aux_up(rc_aux_up), .i_aux_down(rc_aux_down),
+        .i_nav_state(planner_nav_state),
+        .i_command_idle(!planner_cmd_valid && !planner_emergency_stop && !obs_ctrl_done),
+        .i_pause(key1_press || estop_latch || !rc_signal_ok), .i_ctrl_fault(1'b0),
+        .o_cur_x_mm(obs_cur_x_mm), .o_cur_y_mm(obs_cur_y_mm), .o_aux_sel(obs_aux_sel),
+        .o_pt_count(obs_pt_count), .o_nav_state(obs_ui_state),
+        .o_nav_ui_active(obs_ui_active), .o_nav_run(obs_run), .o_nav_paused(obs_paused),
+        .o_goal_valid(obs_goal_valid), .o_goal_x_cell(obs_goal_x), .o_goal_y_cell(obs_goal_y),
+        .o_pt_px(obs_pt_px), .o_pt_py(obs_pt_py), .o_pt_v(obs_pt_v),
+        .o_car_px(obs_car_px), .o_car_py(obs_car_py),
+        .o_cur_px(obs_cur_px), .o_cur_py(obs_cur_py)
     );
 
     // ★ 菜单锁：导航页 **且** 处于交互态。返回键退出交互态后菜单即恢复可操作。
@@ -1450,7 +1503,7 @@ module falcons_top (
     //   因为 invalid 会让 chassis_ctrl 输出 0 占空比（= 断驱动、靠惯性滑行），
     //   而 valid + 目标 0 会让四路 speed_pid 主动把轮速拉向 0（= 主动制动）。
     //   同时 `i_enable = run_en | nav_auto_valid` 保证导航期间底盘使能不依赖遥控解锁。
-    assign nav_ctrl_active = nav_page_any & nav_ui_active;
+    assign nav_ctrl_active = nav_page_now & free_nav_ui_active;
 
     // ★ 2026-10-20：8 个可调值（巡航速度 / 减速距离 / 两个对准门限 / 行进差速限幅 /
     //   航向 PID 三项）已从 module parameter 改为**运行时端口**，由 u_tune_ctrl 在线
@@ -1477,15 +1530,15 @@ module falcons_top (
         .i_i_limit        (tune_p[287:256]),   // 默认 90（积分限幅，原 I_LIMIT=400）
         .i_k_slow_q10     (tune_k_slow),       // 3072 = 300×1024/100
         .i_active  (nav_ctrl_active),
-        .i_run     (nav_run),
-        .i_paused  (nav_paused),
-        .i_mode    (nav_mode),                 // 0 间断 / 1 非间断
+        .i_run     (free_nav_run),
+        .i_paused  (free_nav_paused),
+        .i_mode    (free_nav_mode),                 // 0 间断 / 1 非间断
         .i_is_obs  (page == PAGE_NAV_OBS),     // 避障页：目标取准心
-        .i_cur_x_mm(nav_cur_x_mm),
-        .i_cur_y_mm(nav_cur_y_mm),
-        .i_pt_x_mm (nav_pt_x_mm),
-        .i_pt_y_mm (nav_pt_y_mm),
-        .i_pt_count(nav_pt_count),
+        .i_cur_x_mm(free_nav_cur_x_mm),
+        .i_cur_y_mm(free_nav_cur_y_mm),
+        .i_pt_x_mm (free_nav_pt_x_mm),
+        .i_pt_y_mm (free_nav_pt_y_mm),
+        .i_pt_count(free_nav_pt_count),
         .i_tick    (delta_valid),              // 10 ms，与 odom 测速同拍
         .i_x_mm      (odom_x_mm),
         .i_y_mm      (odom_y_mm),

@@ -815,8 +815,8 @@ module ui_render_tb;
         check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_RADAR_LEN, UI_TXT_PLACEHOLDER_RADAR_ADDR,
                      24'hFFFFFF, "ph_p2_radar");
         page = 3'd3; repeat (4) @(posedge pixel_clk);
-        check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_NAV_LEN, UI_TXT_PLACEHOLDER_NAV_ADDR,
-                     24'hFFFFFF, "ph_p3_nav_obs");
+        cnt_ph = 0; scan(256, 272);
+        check_zero("ph_obs_none", cnt_ph);
         // ★ 2026-10-19：非避障导航页已实现（坐标系/准心/辅助菜单），不再有占位文案
         page = 3'd4; repeat (4) @(posedge pixel_clk);
         cnt_ph = 0; scan(256, 272);
@@ -825,7 +825,7 @@ module ui_render_tb;
         //   反向断言：占位页不得出现车图（车图只在 page 0）
         //   ★ 不能用 page 4 做这条：非避障导航页本身会画**白色十字准心**（约 33 px），
         //     会被 scan_car 当成"白色像素"。所以移到仍未实现的 page 3（避障导航）。
-        page = 3'd3; repeat (4) @(posedge pixel_clk);
+        page = 3'd2; repeat (4) @(posedge pixel_clk);
         scan_car;
         check_zero("car_absent_on_page3", cnt_car);
 

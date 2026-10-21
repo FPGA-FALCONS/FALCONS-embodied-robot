@@ -191,9 +191,13 @@ $sources = @(
 $sources += @(Get-ChildItem "$VendorRoot\auto_navigation\rtl\*.v" | ForEach-Object { $_.FullName })
 $sources += @(Get-ChildItem "$VendorRoot\radar_navigation\rtl\*.v" | ForEach-Object { $_.FullName })
 $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rtl\m10_packet_parser.v",
-              "$ProjectRoot\rtl\nav\nav_pose.v", "$PSScriptRoot\radar_map_tb.v")
+              "$ProjectRoot\rtl\nav\nav_pose.v", "$PSScriptRoot\radar_map_tb.v",
+              "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
+              "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v")
 
 $tests = @(
+    @{ Name = 'obstacle_page'; Top = 'obstacle_page_tb'; Desc = 'Obstacle page and multiple destinations' },
+    @{ Name = 'obstacle_plan'; Top = 'obstacle_plan_tb'; Desc = 'Obstacle UI to real BFS preplanning' },
     @{ Name = 'radar_map'; Top = 'radar_map_tb'; Desc = 'UART radar to world map and coherent pose' },
     @{ Name = 'rc_led_test'; Top = 'rc_led_test_tb'; Desc = 'RC-only board top: PWM to LEDs, keys and permanent motor inhibit' },
     @{ Name = 'rc_probe_report'; Top = 'rc_probe_report_tb'; Desc = 'RC diagnostic CSV: real UART decode and atomic snapshot' },
@@ -203,12 +207,12 @@ $tests = @(
     @{ Name = 'chassis_ctrl'; Top = 'chassis_ctrl_tb'; Desc = '★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算' },
     @{ Name = 'num_text';     Top = 'num_text_tb';     Desc = '实时数值格式化（9 字段、负数、前导空格、饱和）' },
     @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮随 menu_sel/状态栏/光标档文案/动态数值/占位页/非避障导航页' },
-    @{ Name = 'nav_free';     Top = 'nav_free_tb';     Desc = '非避障导航页：准心/钳位/点表/辅助菜单/三态寻点状态机' },
+    @{ Name = 'nav_free';     Top = 'nav_free_tb';     Desc = '原非避障调试选点（保持原功能）' },
     @{ Name = 'speed_report'; Top = 'speed_report_tb'; Desc = '串口 CSV 上行：12 列格式/负数/边界/大数' },
     @{ Name = 'odom';      Top = 'odom_tb';      Desc = '★ 航位推算：静止/直行位移/航向参与/角度解缠' },
     @{ Name = 'cordic_atan2'; Top = 'cordic_atan2_tb'; Desc = '★ CORDIC 四象限 atan2：象限/正前后/零向量/对角/幅值 10mm~10m' },
     @{ Name = 'nav_ctrl';  Top = 'nav_ctrl_tb';  Desc = '★ 导航控制：ALIGN⇄TRACK 迟滞/L1 到点/L2 切点四种降级/暂停制动/故障/避障准心' },
-    @{ Name = 'nav_sys';   Top = 'nav_sys_tb';   Desc = '★ 联合台：UI 按键序列 → 控制层 → 电机指令，含暂停停车/完成回 SETUP/退出立停' },
+    @{ Name = 'nav_sys';   Top = 'nav_sys_tb';   Desc = '原非避障 UI 与控制器联合回归' },
     @{ Name = 'tune_ctrl'; Top = 'tune_ctrl_tb'; Desc = '★ 参数整定页：选行回绕/单步调值/上下限钳位/长按连发/复位/退出/手动档禁调/K_SLOW 重算' },
     @{ Name = 'tune_page'; Top = 'tune_page_tb'; Desc = '★ 参数整定页渲染：菜单第 6 项/标题/11 行标签与数值/单位 5 行白字/高亮条/占位页互斥' },
     @{ Name = 'disp_driver'; Top = 'disp_driver_tb'; Desc = '★ HDMI 像素驱动：扫描计数/DE 窗口边界/逐拍像素透传' },
@@ -216,7 +220,11 @@ $tests = @(
     @{ Name = 'imu_top';    Top = 'imu_top_tb';    Desc = '★ IMU 角速度/加速度换算：增益系数与符号扩展/三轴独立' }
 )
 
-if ($Only.Count) { $tests = @($tests | Where-Object { $Only -contains $_.Name }) }
+if ($Only.Count) {
+    $Only = @($Only -split ',')
+    $tests = @($tests | Where-Object { $Only -contains $_.Name })
+    if (-not $tests.Count) { throw 'No tests selected' }
+}
 
 # ---------- 建库并编译 ----------
 Write-Host ''

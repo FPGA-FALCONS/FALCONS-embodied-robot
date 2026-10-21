@@ -211,7 +211,14 @@ module ui_render #(
     function [17:0] nav_aux_text;
         input [2:0] idx;
         begin
-            case (idx)
+            if (i_page == PG_NAV_OBS) begin
+                case (idx)
+                    0: nav_aux_text = {UI_TXT_AUX_SET_POINT_ADDR, UI_TXT_AUX_SET_POINT_LEN};
+                    1: nav_aux_text = {UI_TXT_AUX_UNDO_POINT_ADDR, UI_TXT_AUX_UNDO_POINT_LEN};
+                    2: nav_aux_text = {UI_TXT_AUX_START_NAV_ADDR, UI_TXT_AUX_START_NAV_LEN};
+                    default: nav_aux_text = {UI_TXT_AUX_CLEAR_ALL_ADDR, UI_TXT_AUX_CLEAR_ALL_LEN};
+                endcase
+            end else case (idx)
                 3'd0:    nav_aux_text = {UI_TXT_AUX_SET_POINT_ADDR,  UI_TXT_AUX_SET_POINT_LEN};
                 3'd1:    nav_aux_text = {UI_TXT_AUX_UNDO_POINT_ADDR, UI_TXT_AUX_UNDO_POINT_LEN};
                 3'd2:    nav_aux_text = {UI_TXT_AUX_POINT_GAP_ADDR,  UI_TXT_AUX_POINT_GAP_LEN};
@@ -257,7 +264,6 @@ module ui_render #(
         case (i_page)
             PG_CAMERA:   placeholder_text = {UI_TXT_PLACEHOLDER_CAM_ADDR,   UI_TXT_PLACEHOLDER_CAM_LEN};
             PG_RADAR:    placeholder_text = {UI_TXT_PLACEHOLDER_RADAR_ADDR, UI_TXT_PLACEHOLDER_RADAR_LEN};
-            PG_NAV_OBS:  placeholder_text = {UI_TXT_PLACEHOLDER_NAV_ADDR,   UI_TXT_PLACEHOLDER_NAV_LEN};
 
             default:     placeholder_text = 18'd0;
         endcase
@@ -381,14 +387,17 @@ module ui_render #(
         //     背景 x 832..1023、y 414..599；项框 y = 420 + i*36（高 36）；
         //     文字 x = 840（35 组 × 24）、y = 项框顶 + 6（(36−24)/2 垂直居中）。
         //   ★ 最长项「清除所有路径点」7 字 × 24 = 168 px，840+168 = 1008 ≤ 1023 ✓
-        if (i_page == PG_NAV_FREE) begin
+        if ((i_page == PG_NAV_FREE) || (i_page == PG_NAV_OBS)) begin
             for (ai = 0; ai < 5; ai = ai + 1) begin
+                if (i_page != PG_NAV_OBS || ai < 4) begin
                 if ((i_pixel_y >= (NAV_AUX_Y0 + ai * NAV_AUX_STEP + NAV_AUX_TDY)) &&
                     (i_pixel_y <  (NAV_AUX_Y0 + ai * NAV_AUX_STEP + NAV_AUX_TDY + LG_CELL))) begin
                     lg_seg[1] = seg_lg_rom(nav_aux_text(ai[2:0]), NAV_AUX_XW,
                                            (i_pixel_y - (NAV_AUX_Y0 + ai * NAV_AUX_STEP + NAV_AUX_TDY)));
                 end
             end
+        end
+
         end
 
         // ---- 状态栏档位文字 ----
@@ -590,7 +599,7 @@ module ui_render #(
         //       现象是「冒号不显示」。同理 `m` 必须跟着挪，否则数值末格会压住它。
         //     数值是 5 字符（符号 + 4 位）⇒ 「x:」与数字之间出现两个空格，
         //     与样例 "x:  2.60m" 的间距一致。
-        if (i_page == PG_NAV_FREE) begin
+        if ((i_page == PG_NAV_FREE) || (i_page == PG_NAV_OBS)) begin
             if ((i_pixel_y >= 12'd24) && (i_pixel_y < 12'd48)) begin
                 sm_seg[0] = seg_sm_rom(UI_TXT_NAV_COORD_X_ADDR, UI_TXT_NAV_COORD_X_LEN,
                                        6'd54, (i_pixel_y - 12'd24));
@@ -918,7 +927,7 @@ module ui_render #(
     // ★ 2026-10-19：避障页与非避障页**共用**同一套状态机与菜单变暗效果
     wire nav_pg_any = (i_page == PG_NAV_FREE) || (i_page == PG_NAV_OBS);
     wire nav_ui     = nav_pg_any && i_menu_dim;   // 导航页且处于交互态
-    wire nav_pg     = (i_page == PG_NAV_FREE);    // 只有非避障页有坐标系/准心/点
+    wire nav_pg     = (i_page == PG_NAV_FREE) || (i_page == PG_NAV_OBS);    // 只有非避障页有坐标系/准心/点
 
     // ★ 2026-10-20：参数整定页也要把左侧菜单栏**变暗** —— 进页后摇杆/按键都归
     //   参数编辑，不再切菜单，用亮度提示和导航交互态一致。
