@@ -896,7 +896,12 @@ module falcons_top (
     // ---- 看门狗本体（说明见上面的参数区）----
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) begin
-            imu_local_rst_n <= 1'b1;
+            // ★ 2026-10-21：系统复位同样拉低 IMU 局部复位，让 imu_top 从 S_IDLE
+            //   重走初始化 + 零偏标定。原实现这里置 1（= 复位期间把 IMU 放开），
+            //   导致按 S0 复位键后 IMU 保持旧状态、标定失败无法重试。
+            //   代价：复位后要等约 3.2 秒（20 ms 上电等待 + 配置写入 + 3 秒标定）
+            //   才有数据，期间 o_data_valid=0、界面数值保持 0。
+            imu_local_rst_n <= 1'b0;
             imu_wd_ms_div   <= 16'd0;
             imu_wd_ms_cnt   <= 16'd0;
             imu_wd_us_cnt   <= 10'd0;
