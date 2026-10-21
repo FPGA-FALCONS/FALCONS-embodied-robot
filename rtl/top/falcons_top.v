@@ -343,6 +343,21 @@ module falcons_top (
     // ★ 2026-10-19：导航控制层（u_nav_ctrl）的输出线。u_nav_ctrl 在文件后部例化，
     //   但这些线要在 u_chassis（第 500 多行）就用，所以必须在**这里**声明。
     //   放后面声明 → Verilog 先按隐式 1 位 net 处理，位宽变 1 位，综合后极难查。
+    wire signed [31:0] nav_cur_x_mm, nav_cur_y_mm;
+    wire [2:0]   nav_aux_sel;
+    wire [4:0]   nav_pt_count;      // 预留（未消费）：将来自检/上报用
+    wire         nav_run, nav_mode; // nav_mode 预留（未消费）：0 间断 / 1 非间断
+    wire [1:0]   nav_state;         // 0=SETUP 1=RUNNING 2=PAUSED（预留：给导航控制层）
+    wire         nav_ui_active;     // 导航页交互态（菜单锁、状态栏）
+    wire         nav_paused;        // 导航暂停
+    wire [159:0] nav_pt_px, nav_pt_py;
+    wire [255:0] nav_pt_x_mm, nav_pt_y_mm;   // 点表 mm 版（给导航控制层）
+    wire [15:0]  nav_pt_v;
+    wire [9:0]   nav_car_px, nav_car_py, nav_cur_px, nav_cur_py;
+
+    // 导航控制层的回告（先声明后用：u_nav_free 在上、u_nav_ctrl 在下）
+    wire         nav_ctrl_done, nav_ctrl_fault;
+
     wire               nav_auto_valid;
     wire signed [31:0] nav_auto_center, nav_auto_diff;
     wire               nav_ctrl_active;      // 导航页 + 交互态
@@ -383,9 +398,6 @@ module falcons_top (
 
     // ToF 急停（模块未做出：保持 0；将来接上后由 distance < D_STOP 触发）
     wire tof_estop = 1'b0;
-    // ★ 预留、暂未使用：雷达 RX（C14），本轮未接模块；引脚已在约束里分配。
-    //   它不再被任何逻辑消费 —— 未用信号交给综合优化即可（理由见文件末尾第 9 节）。
-    wire radar_rx_unused = i_radar_rx;
 
     // ToF 尚未实现（模块没做出来）：四线置安全空闲态，等 tof_i2c 模块接入
     //   SCL 空闲高、SHUT 高（不关断）、SDA 高阻（不驱动总线）
@@ -741,9 +753,9 @@ module falcons_top (
             if (cmd_kd_valid)      kd_r <= cmd_kd;
             else if (tune_kd_ev)  kd_r <= tune_p[367:352];
 
-            count_clear_r <= key2_press | cmd_count_clear;
+            count_clear_r <= (key2_press | cmd_count_clear) & ~nav_run;
             stall_clear_r <= key2_press | cmd_stall_clear;
-            yaw_clear_r   <= key2_press | cmd_count_clear;   // S2 同时清零航向角
+            yaw_clear_r   <= (key2_press | cmd_count_clear) & ~nav_run;   // S2 同时清零航向角
         end
     end
 
@@ -1313,6 +1325,50 @@ module falcons_top (
         .o_omega_enc   (odom_omega_enc)
     );
 
+    // 雷达与规划共用定位原点；暂不授权自动动作，后续接入页面及控制握手。
+    reg nav_calibrated;
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) nav_calibrated <= 0;
+        else if (imu_calib_busy || imu_err_flag) nav_calibrated <= 0;
+        else if (imu_calib_done) nav_calibrated <= 1;
+    end
+    wire nav_reset_n = sys_rst_n && !count_clear_r;
+    wire navigation_pose_valid;
+    wire signed [31:0] navigation_x_mm, navigation_y_mm, navigation_yaw_cdeg;
+    nav_pose u_nav_pose (
+        .clk(i_clk_50m), .rst_n(sys_rst_n), .clear(count_clear_r),
+        .ready(nav_calibrated && imu_init_done && !imu_err_flag),
+        .position_tick(delta_valid), .x_mm(odom_x_mm), .y_mm(odom_y_mm),
+        .yaw_cdeg(yaw_raw_s), .pose_valid(navigation_pose_valid),
+        .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
+        .pose_yaw_cdeg(navigation_yaw_cdeg)
+    );
+    wire map_disp_valid, map_disp_occupied, map_disp_start, map_disp_done;
+    wire route_disp_valid, route_disp_start, route_disp_done;
+    wire [7:0] route_disp_x, route_disp_y;
+    wire [3:0] planner_nav_state;
+    wire planner_cmd_valid, planner_emergency_stop;
+    wire signed [31:0] planner_target_x, planner_target_y;
+    radar_navigation u_radar_navigation (
+        .clk(i_clk_50m), .reset_n(nav_reset_n),
+        .map_enable(navigation_pose_valid), .plan_enable(1'b0), .motion_enable(1'b0),
+        .radar_rx(i_radar_rx), .pose_valid(navigation_pose_valid),
+        .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
+        .pose_yaw_cdeg(navigation_yaw_cdeg),
+        .goal_valid(1'b0), .goal_x_cell(8'd0), .goal_y_cell(8'd0),
+        .ctrl_done(1'b0), .ctrl_linear_active(1'b0),
+        .cmd_valid(planner_cmd_valid), .emergency_stop(planner_emergency_stop),
+        .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
+        .nav_state(planner_nav_state),
+        .display_enable((page == PAGE_RADAR) || nav_page_any),
+        .map_disp_valid(map_disp_valid), .map_disp_occupied(map_disp_occupied),
+        .map_disp_frame_start(map_disp_start), .map_disp_frame_done(map_disp_done),
+        .route_disp_valid(route_disp_valid), .route_disp_x_cell(route_disp_x),
+        .route_disp_y_cell(route_disp_y), .route_disp_frame_start(route_disp_start),
+        .route_disp_frame_done(route_disp_done),
+        .cloud_valid(), .cloud_angle_cdeg(), .cloud_distance_mm()
+    );
+
     // 显示口径 0.01 m（= 1 cm）：odom 输出 mm，÷10。
     //   ★ 5 字符字段量程 ±99.99 m，精度锁 0.01 m（见 §42.2）。
     //   ★ 常数除法综合成移位相加，不是真除法器。
@@ -1329,21 +1385,6 @@ module falcons_top (
     //     （方案见 doc\导航控制方案.md）。
     //   ★ 摇杆用 `rc_steer / rc_throttle` 的**原始归一化值**，不用 `steer_in` ——
     //     后者在光标档被强制 0（那是给底盘的），准心要的是摇杆本身。
-    wire signed [31:0] nav_cur_x_mm, nav_cur_y_mm;
-    wire [2:0]   nav_aux_sel;
-    wire [4:0]   nav_pt_count;      // 预留（未消费）：将来自检/上报用
-    wire         nav_run, nav_mode; // nav_mode 预留（未消费）：0 间断 / 1 非间断
-    wire [1:0]   nav_state;         // 0=SETUP 1=RUNNING 2=PAUSED（预留：给导航控制层）
-    wire         nav_ui_active;     // 导航页交互态（菜单锁、状态栏）
-    wire         nav_paused;        // 导航暂停
-    wire [159:0] nav_pt_px, nav_pt_py;
-    wire [255:0] nav_pt_x_mm, nav_pt_y_mm;   // 点表 mm 版（给导航控制层）
-    wire [15:0]  nav_pt_v;
-    wire [9:0]   nav_car_px, nav_car_py, nav_cur_px, nav_cur_py;
-
-    // 导航控制层的回告（先声明后用：u_nav_free 在上、u_nav_ctrl 在下）
-    wire         nav_ctrl_done, nav_ctrl_fault;
-
     nav_free_ctrl #(
         .CLK_HZ       (CLK_HZ),
         .CURSOR_SPEED (500),        // 满杆 500 mm/s（需求方 2026-10-19 选定）
@@ -1749,7 +1790,7 @@ module falcons_top (
     //     （`/* synthesis syn_keep = 1 */`、`preserve` 之类）—— 光靠一条没人用的
     //     wire 是接不住的，IO 上的悬空也照样报。
     //   ★ 本文件里下列信号都属于**预留、暂未使用**，只保留定义与注释、不做伪消费：
-    //       radar_rx_unused（雷达 RX C14）/ i_tof_int（ToF 中断 C20）/
+    //       i_tof_int（ToF 中断 C20）/
     //       rc_select（路径点导航页辅助菜单换项 §33）/ rc_chan_us / rc_timeout /
     //       rc_valid / count_flat / enc_dir_vec / pid_sat / yaw_valid /
     //       frame_start / frame_sync / key1~key4_hold / IMU 状态与诊断位等。

@@ -28,7 +28,9 @@ ov5640_capture   ★ 并行 DVP OV5640 初始化与采集（摄像头页）。20
 # ---- 已就位、按阶段接入（把包名移出注释即进入编译）----
 # 注：imu660ra / gyro_tilt_comp / yaw_integrate 已在上面"当前已接入"段生效，
 #     这里的重复条目已删除（2026-10-16 文档复查）
-# m10_radar        M10 雷达包解析 + 点云显示（雷达页，待接入；RX 接 C14）
+m10_radar        M10 GPS 读取与随点位姿解析，RX 接 C14
+auto_navigation  障碍地图、后台 BFS 与车前检查
+radar_navigation 整车雷达导航正式入口
 # （ov5640_capture 已于 2026-10-17 接入，见上方"当前已接入"段）
 
 # tof_vl53l0x   2026-10-18新增就位；尚未接入falcons_top，暂不加入整车编译/电机仲裁。

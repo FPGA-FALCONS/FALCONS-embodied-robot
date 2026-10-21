@@ -40,7 +40,8 @@
 param(
     [string]$ModelSim = 'D:\Apps\modeltech64_10.6d\win64',
     [string]$Library  = 'work_sim',
-    [ValidateSet('ModelSim','Icarus')][string]$Simulator = 'ModelSim'
+    [ValidateSet('ModelSim','Icarus')][string]$Simulator = 'ModelSim',
+    [string[]]$Only = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -186,7 +187,14 @@ $sources = @(
     "$PSScriptRoot\imu_top_tb.v"
 )
 
+# 导航的正式依赖，不编译独立雷达/显示示例。
+$sources += @(Get-ChildItem "$VendorRoot\auto_navigation\rtl\*.v" | ForEach-Object { $_.FullName })
+$sources += @(Get-ChildItem "$VendorRoot\radar_navigation\rtl\*.v" | ForEach-Object { $_.FullName })
+$sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rtl\m10_packet_parser.v",
+              "$ProjectRoot\rtl\nav\nav_pose.v", "$PSScriptRoot\radar_map_tb.v")
+
 $tests = @(
+    @{ Name = 'radar_map'; Top = 'radar_map_tb'; Desc = 'UART radar to world map and coherent pose' },
     @{ Name = 'rc_led_test'; Top = 'rc_led_test_tb'; Desc = 'RC-only board top: PWM to LEDs, keys and permanent motor inhibit' },
     @{ Name = 'rc_probe_report'; Top = 'rc_probe_report_tb'; Desc = 'RC diagnostic CSV: real UART decode and atomic snapshot' },
     @{ Name = 'reset_sync'; Top = 'reset_sync_tb'; Desc = 'Cold boot and key debounce without prior reset press' },
@@ -207,6 +215,8 @@ $tests = @(
     @{ Name = 'dyn_text_ram'; Top = 'dyn_text_ram_tb'; Desc = '★ 动态字库 RAM：64 地址读写/1 拍读延迟/双时钟并行' },
     @{ Name = 'imu_top';    Top = 'imu_top_tb';    Desc = '★ IMU 角速度/加速度换算：增益系数与符号扩展/三轴独立' }
 )
+
+if ($Only.Count) { $tests = @($tests | Where-Object { $Only -contains $_.Name }) }
 
 # ---------- 建库并编译 ----------
 Write-Host ''
