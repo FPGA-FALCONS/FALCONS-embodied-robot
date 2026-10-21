@@ -139,3 +139,17 @@ powershell -File sim\run_sim.ps1
 ## 50 mm 地图回归（2026-10-21）
 
 地图改为 256×256、50 mm/格、12.8×12.8 m 后，完整回归 28 台 / 2323 项通过。新增 `nav_geometry_tb` 18 项，包括所有 32801 个可达量化输入的精确 floor 对比；串口建图增至 20 项，选点 / 规划 / 实际运动测试均适配新中心及格号。命令不变，定向可用 `-Only nav_geometry,radar_map,obstacle_page,obstacle_plan,obstacle_motion`。原非避障测试文件不变。
+
+
+## 雷达坐标与综合网表回归（2026-10-21）
+
+`radar_coordinates_tb` 从 UART 验证四象限、轴旁、平移位姿、地图与双缓冲显示，再回放前 72 包实物报文；`nav_geometry_tb` 补充 9730 次普通角度换算。定向运行 `-Only radar_coordinates,nav_geometry`，完整回归仍用 `sim/run_sim.ps1`。
+
+此次故障只在综合后出现，因此 RTL 通过后还需执行以下命令（仓库根目录）：
+
+```powershell
+& D:/Apps/Gowin/Gowin_V1.9.12.03_x64/IDE/bin/gw_sh.exe sim/build_radar_polar.tcl
+powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_radar_gate.ps1 -Netlist logs/radar_polar_gate/impl/gwsynthesis/nav_polar_gate.vg
+```
+
+这会将独立综合的 `nav_polar` 替换回相同 UART、建图与显示测试链；其余模块保持 RTL。产物位于 `logs/radar_polar_gate/`，不烧录、不替换整车位流。它不是整车全部模块的门级时序仿真；完整构建、实际整车网表复核和资源/Fmax 见[本轮验证](../doc/雷达坐标翻转修复验证_20261021.md)。

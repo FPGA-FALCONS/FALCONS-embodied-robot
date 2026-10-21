@@ -198,11 +198,12 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$ProjectRoot\rtl\ui\nav_map_view.v", "$PSScriptRoot\nav_map_view_tb.v",
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
               "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
-              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v")
+              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v")
 
 $tests = @(
     @{ Name = 'ui_pipeline'; Top = 'ui_pipeline_tb'; Desc = 'Real HDMI scan / six complete pages / baseline pixel fingerprints' },
     @{ Name = 'imu_calib'; Top = 'imu_calib_tb'; Desc = 'IMU calibration pipeline / coherent samples / seed / reject / completion / timeout' },
+    @{ Name = 'radar_coordinates'; Top = 'radar_coordinates_tb'; Desc = 'UART quadrants / world map / display / 72 captured packets' },
     @{ Name = 'nav_geometry'; Top = 'nav_geometry_tb'; Desc = '50 mm grid quantization / signed map boundaries / 10 m rays' },
     @{ Name = 'nav_scan_accumulator'; Top = 'nav_scan_accumulator_tb'; Desc = 'Circle hit priority / deferred clears / concurrent circle updates' },
     @{ Name = 'nav_pose'; Top = 'nav_pose_tb'; Desc = 'Real odometry pipeline to navigation pose' },

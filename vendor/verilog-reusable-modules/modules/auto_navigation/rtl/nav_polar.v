@@ -101,7 +101,10 @@ module nav_polar (
     // [-9000, 9000] 以限制 CORDIC 的收敛范围，折叠时把初始 x 取负以保证落在同一象限。
     reg signed [16:0] normalized_angle_cdeg;
     reg signed [14:0] folded_angle_cdeg;
-    reg signed [31:0] initial_cordic_x;
+    reg signed [17:0] cordic_gain;
+    // 先选带符号系数再相乘，避免乘后条件取负被错误合并为 DSP 固定减法。
+    wire signed [31:0] initial_cordic_x =
+        $signed({1'b0, effective_distance_mm}) * cordic_gain;
     always @* begin
         normalized_angle_cdeg = $signed(in_pose_yaw_cdeg[16:0]) - $signed({1'b0, in_angle_cdeg});
         if (normalized_angle_cdeg < -17'sd18000)
@@ -110,13 +113,13 @@ module nav_polar (
             normalized_angle_cdeg = normalized_angle_cdeg - 17'sd36000;
 
         folded_angle_cdeg = normalized_angle_cdeg;
-        initial_cordic_x  = $signed({16'd0, effective_distance_mm}) * 32'sd39797;
+        cordic_gain      = 18'sd39797;
         if (normalized_angle_cdeg > 17'sd9000) begin
             folded_angle_cdeg = normalized_angle_cdeg - 17'sd18000;
-            initial_cordic_x  = -initial_cordic_x;
+            cordic_gain      = -18'sd39797;
         end else if (normalized_angle_cdeg < -17'sd9000) begin
             folded_angle_cdeg = normalized_angle_cdeg + 17'sd18000;
-            initial_cordic_x  = -initial_cordic_x;
+            cordic_gain      = -18'sd39797;
         end
     end
 
