@@ -824,6 +824,19 @@ module falcons_top (
     wire               imu_init_done, imu_err_flag, imu_calib_done, imu_calib_fail;
     wire [7:0]         imu_err_code, imu_state_dbg;
 
+    // ---- ★ 2026-10-21：零偏标定失败也按「IMU 不可用」上报 ----
+    // 原实现只认 imu_err_flag（停在 S_ERROR），但零偏标定超时失败时状态机已回到
+    //   S_RUN，屏幕完全无提示：数据照常输出，只是 CALIB_APPLY 分支不生效（bias=0），
+    //   yaw 带着零偏持续漂移，现象上只能靠事后怀疑「是不是没标定成」。
+    // 现在与初始化失败走同一条显示路径（红字「imu初始化错误」+ 中心速度字段显示诊断码）。
+    wire               imu_fail_any = imu_err_flag | imu_calib_fail;
+
+    // 诊断码低位区分来源：
+    //   初始化失败 → err_code（≥1，01=CHIP_ID / 02=配置校验，屏幕读作「S.01」「S.02」）；
+    //   标定失败   → 固定填 90（此时 state=S_RUN=14、err_code 无意义），屏幕读作「14.90」。
+    // 注意两者语义不同：14.90 表示 **IMU 通信是好的，只是零偏没标定出来**。
+    wire [7:0]         imu_err_dbg  = imu_calib_fail ? 8'd90 : imu_err_code;
+
     // ---- IMU 初始化失败自恢复看门狗（2026-10-19 新增）----
     // 背景：vendor 的 imu_top 进 S_ERROR 后**没有任何出口**（该状态只置 err_flag_r，
     //   不做状态转移），一旦上电初始化偶发失败（CHIP_ID 读不到 0x24，重试
@@ -1248,7 +1261,7 @@ module falcons_top (
             navrun_ps1 <= nav_run;         navrun_ps2 <= navrun_ps1;
             navui_ps1  <= nav_ui_active;   navui_ps2  <= navui_ps1;
             navpz_ps1  <= nav_paused;      navpz_ps2  <= navpz_ps1;
-            imufail_ps1 <= imu_err_flag;   imufail_ps2 <= imufail_ps1;
+            imufail_ps1 <= imu_fail_any;   imufail_ps2 <= imufail_ps1;
         end
     end
 
@@ -1309,14 +1322,17 @@ module falcons_top (
     //   定位完成后删除本段，并把 `.i_v6` 恢复成 `center_cms`。
     // ------------------------------------------------------------------
     wire signed [31:0] imu_diag = ($signed({1'b0, imu_state_dbg}) * 32'sd100)
-                                + $signed({1'b0, imu_err_code});
+                                + $signed({1'b0, imu_err_dbg});
 
     // ★ 2026-10-19：诊断值只在失败时占用该字段。
     //   正常时显示真实中心速度（否则这一行永远是 14.00，等于把功能弄坏）。
     //   失败时同时出现红字「imu初始化错误」，两者一起看：红字说明原因，
     //   数值说明卡在哪个状态（S=state、EE=err_code），便于区分 CHIP_ID 失败(01)
     //   与 INTERNAL_STATUS 失败(02)。
-    wire signed [31:0] center_cms_show = imu_err_flag ? imu_diag : center_cms;
+    // ★ 2026-10-21：标定失败也走这条路径（见上面的 imu_fail_any / imu_err_dbg）。
+    //   此时数值是 **14.90**，与初始化失败的 S.01/S.02 不同 —— 14.90 说明通信正常、
+    //   只是零偏没标定出来，应当去查 CALIB_DEV_TH / 上电静置 / PWR_CTRL 后的等待时间。
+    wire signed [31:0] center_cms_show = imu_fail_any ? imu_diag : center_cms;
 
     // ---- 角速度：gyro_tilt_comp 输出的单位是 **0.01 °/s** ----
     //   ★ 2026-10-18 修正：原来写 `gyro_z_comp >>> 16`，把 0.01 °/s 当成了 Q16
