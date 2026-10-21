@@ -51,6 +51,7 @@ module ui_render_tb;
     reg  [15:0]  ptv_i   = 16'd0;
     reg          imufail_i = 1'b0;      // ★ 2026-10-19：IMU 初始化失败提示
 
+    reg map_i = 0, route_i = 0;
     wire [23:0] rgb;
     wire [5:0]  dyn_raddr;
     reg  [7:0]  dyn_rdata = 8'd24;          // 字库索引 24 = '8'（合法字符，能点亮）
@@ -99,6 +100,7 @@ module ui_render_tb;
     `include "ui_text_index.vh"
 
     ui_render dut (
+        .i_map_pixel(map_i), .i_route_pixel(route_i), .i_planner_state(4'd0),
         .i_pixel_clk    (pixel_clk),
         .i_reset_n      (rst_n),
         .i_pixel_x      (px),
@@ -812,8 +814,8 @@ module ui_render_tb;
         check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_CAM_LEN, UI_TXT_PLACEHOLDER_CAM_ADDR,
                      24'hFFFFFF, "ph_p1_camera");
         page = 3'd2; repeat (4) @(posedge pixel_clk);
-        check_seg_lg(264, 9, UI_TXT_PLACEHOLDER_RADAR_LEN, UI_TXT_PLACEHOLDER_RADAR_ADDR,
-                     24'hFFFFFF, "ph_p2_radar");
+        cnt_ph = 0; scan(256, 272);
+        check_zero("ph_radar_none", cnt_ph);
         page = 3'd3; repeat (4) @(posedge pixel_clk);
         cnt_ph = 0; scan(256, 272);
         check_zero("ph_obs_none", cnt_ph);
@@ -1050,6 +1052,25 @@ module ui_render_tb;
         end
 
         $display("======== 结果 ========");
+        // 新图层仅用于雷达 / 避障页，障碍覆盖路线；原非避障页不受影响。
+        page = 3'd2; px = 700; py = 400; preq = 1; vact = 1;
+        map_i = 1; route_i = 0;
+        repeat (6) @(negedge pixel_clk);
+        if (rgb == 24'hE87946) $display("  pass  radar_raw_obstacle_color");
+        else begin errors = errors + 1; $display("FAIL: radar obstacle color %h", rgb); end
+        map_i = 0; route_i = 1;
+        repeat (6) @(negedge pixel_clk);
+        if (rgb == 24'h3B82F6) $display("  pass  radar_route_color");
+        else begin errors = errors + 1; $display("FAIL: radar route color %h", rgb); end
+        page = 3'd3; map_i = 1;
+        repeat (6) @(negedge pixel_clk);
+        if (rgb == 24'hE87946) $display("  pass  obstacle_layer_over_route");
+        else begin errors = errors + 1; $display("FAIL: obstacle priority %h", rgb); end
+        page = 3'd4;
+        repeat (6) @(negedge pixel_clk);
+        if (rgb == 24'h000000) $display("  pass  free_debug_ignores_map_route");
+        else begin errors = errors + 1; $display("FAIL: free debug layer %h", rgb); end
+
         if (errors == 0) $display("PASS: ui_render all checks passed");
         else             $display("FAIL: %0d checks failed", errors);
         $finish;

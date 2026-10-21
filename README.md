@@ -15,15 +15,15 @@
 | 实现细节、硬件规划 | [实现说明](doc/使用FPGA实现的差速小车功能设计_ai优化版.md)（冲突时服从需求原文） |
 | 参数与遗留任务 | [参数总表](doc/参数总表与待定清单.md)、[设计待办](doc/设计落实待办.md) |
 | 导航侧接口与**控制层**（方案 + RTL 已实现） | [导航控制方案](doc/导航控制方案.md) |
-| 雷达建图与避障规划模块（已交付，待整车接入） | [模块说明](vendor/verilog-reusable-modules/modules/radar_navigation/README.md)、[完整交接文档](vendor/verilog-reusable-modules/modules/radar_navigation/docs/delivery_handoff.md) |
-| 自动导航整车接入（进行中） | [详细接入方案](doc/自动导航接入方案.md)：最小闭环、多目标调度、地图与路线双缓冲、现有跟踪迁移；暂不显示原始点云；[验证记录](doc/自动导航接入验证.md) |
+| 雷达建图与避障规划模块（已接入，待实车验证） | [模块说明](vendor/verilog-reusable-modules/modules/radar_navigation/README.md)、[完整交接文档](vendor/verilog-reusable-modules/modules/radar_navigation/docs/delivery_handoff.md) |
+| 自动导航整车接入 | [详细接入方案](doc/自动导航接入方案.md)：最小闭环、多目标调度、地图与路线双缓冲、新增避障执行器，原非避障调试保留；暂不显示原始点云；[验证记录](doc/自动导航接入验证.md) |
 | 历史过程与完整文档索引 | [工作记录](doc/工作记录.md)、[文档索引](doc/README.md) |
 
 ## 当前状态（2026-10-21）
 
 **功能面**：中文 **6 页**界面（运行数据显示 / 摄像头 / 雷达建图 / 避障导航 / 非避障导航 / 参数整定）、
 HT10A 六路 PWM 遥控、四路轮速 PID 闭环、IMU 偏航链路（含开机零点标定）、航位推算 `odom`、
-导航控制层（`cordic_atan2` + `nav_ctrl` 三态机）、参数整定页（12 项在线可调）、
+原非避障控制 `nav_ctrl`、独立避障点位控制 `nav_point_ctrl`、雷达建图 / BFS / 多目的地与双缓冲显示、参数整定页（12 项在线可调）、
 OV5640 → DDR3 帧缓存、12 列 CSV 串口上报。
 
 **上板验证**：
@@ -31,16 +31,16 @@ OV5640 → DDR3 帧缓存、12 列 CSV 串口上报。
 - 2026-10-20：参数整定页上板验证通过
 - **Flash 里固化的是 2026-10-20 20:55 那版**（User Code `0x00000C26`）；2026-10-21 的 SRAM 版含最新 RTL、未固化
 
-**时序**（2026-10-21 02:21 重建，`build.tcl` 436 秒）：
+**接入前时序基线**（2026-10-21 02:21 重建，`build.tcl` 436 秒；新增导航后的整车报告待最终构建）：
 - **同域真违例 4 条**：sys 域 1 条（TNS −0.107 ns）、pixel 域 3 条（TNS −0.193 ns）—— 缺口都 < 0.5%
 - `i_clk_50m` Fmax **49.733 MHz**（约束 50.000）、pixel `CLKOUT0` **48.807 MHz**（约束 49.000）
 - 报告总违例 Setup 62 / Hold 18（2026-10-21 起 SDC 用 `create_generated_clock` + `set_clock_groups` 分组，跨域噪音不再混入统计）
 - 详见 [交接单 §4.1](doc/交接单.md)、[时序违例分析](doc/时序违例分析_20261021.md)
 
-**仿真**：19 个测试台 / **2186 项检查全部 PASS**（2026-10-21 实测）。
+**仿真**：新增雷达建图、避障选点、BFS、点位控制、显示双缓冲及实际运动闭环；最新全回归与周期见[接入验证记录](doc/自动导航接入验证.md)。原非避障 UI、控制器和对应测试原样保留。
 
 **未完成 / 已知限制**（完整清单见 [交接单 §8](doc/交接单.md)）：
-- RK3588 通路未定；ToF 急停模块未做（阈值 300 mm 仅占位）；雷达与导航显示正在接入，自动运动尚未授权
+- RK3588 通路未定；ToF 急停模块未做（阈值 300 mm 仅占位）；避障自动运动和显示已接线，尚未做本轮实车验证
 - 导航层参数（`kp_yaw` / `ki_yaw` / `kd_yaw`）只在仿真取过初值，**需上车标定**（参数整定页可在线调，掉电丢）
 - 起步加速度限幅未做（`S_ALIGN` / `S_TRACK` 仍是阶跃给定，等效约 1.9 m/s²；方案假设 500 mm/s²）
 - 安全相关实测未做：关闭发射机后接收机是否继续输出旧值、断线行为、S1/S4、低速落地
@@ -55,7 +55,7 @@ OV5640 → DDR3 帧缓存、12 列 CSV 串口上报。
 ## 构建与测试
 
 ```powershell
-# 全量应用/集成自检（19 台 / 2186 项，约 8~10 分钟；★ 必须带 -NoProfile -ExecutionPolicy Bypass）
+# 全量应用 / 集成自检（25 台，含按真实时间推进的运动模型）
 # 默认用 ModelSim（本机 D:\Apps\modeltech64_10.6d\win64）
 powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1
 # 没有 ModelSim 的机器用 Icarus

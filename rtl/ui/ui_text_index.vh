@@ -5,7 +5,7 @@
 //       或 char_index*24+row 从 font_rom_lg（24x24）取 24bit 行点阵。
 
 localparam integer UI_FONT_CHAR_COUNT = 241;
-localparam integer UI_TEXT_TOTAL_CHARS = 350;
+localparam integer UI_TEXT_TOTAL_CHARS = 352;
 
 // {名, 文案, 起始地址, 字符数}
 localparam [11:0] UI_TXT_MENU_VEHICLE_ADDR = 12'd0;  // 运行数据显示
@@ -222,4 +222,6 @@ localparam [11:0] UI_TXT_TUNE_UDEGS_ADDR = 12'd343;  // °/s
 localparam [5:0] UI_TXT_TUNE_UDEGS_LEN  = 6'd3;
 localparam [11:0] UI_TXT_TUNE_L11_ADDR = 12'd346;  // 积分限幅
 localparam [5:0] UI_TXT_TUNE_L11_LEN  = 6'd4;
+localparam [11:0] UI_TXT_ST_NO_PATH_ADDR = 12'd350;  // 无路
+localparam [5:0] UI_TXT_ST_NO_PATH_LEN  = 6'd2;
 

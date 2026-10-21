@@ -62,7 +62,12 @@ module ui_render #(
     input  wire        i_arm_hint,      // 1 = 想启动但油门不在中位
     input  wire [2:0]  i_menu_sel,      // 菜单【高亮选中项】
 
-    // ---- 非避障导航页（2026-10-19 新增，全部来自 nav_free_ctrl + 两级同步）----
+    // ---- 雷达 / 避障显示；位图在像素时钟域读取 ----
+    input  wire         i_map_pixel,
+    input  wire         i_route_pixel,
+    input  wire [3:0]   i_planner_state,
+
+    // ---- 导航页面公共显示；由顶层选择对应页面的数据 ----
     input  wire         i_nav_run,      // 1 = 导航中（状态栏变绿并显示「导航中」）
     input  wire         i_nav_paused,   // 1 = 导航暂停（状态栏浅橙 994D00 并显示「导航暂停」）
     input  wire         i_menu_dim,     // 1 = 导航页交互态（菜单栏变暗、摇杆不再切菜单）
@@ -215,7 +220,8 @@ module ui_render #(
                 case (idx)
                     0: nav_aux_text = {UI_TXT_AUX_SET_POINT_ADDR, UI_TXT_AUX_SET_POINT_LEN};
                     1: nav_aux_text = {UI_TXT_AUX_UNDO_POINT_ADDR, UI_TXT_AUX_UNDO_POINT_LEN};
-                    2: nav_aux_text = {UI_TXT_AUX_START_NAV_ADDR, UI_TXT_AUX_START_NAV_LEN};
+                    2: nav_aux_text = i_nav_run ? {UI_TXT_AUX_PAUSE_NAV_ADDR, UI_TXT_AUX_PAUSE_NAV_LEN} :
+                                                   {UI_TXT_AUX_START_NAV_ADDR, UI_TXT_AUX_START_NAV_LEN};
                     default: nav_aux_text = {UI_TXT_AUX_CLEAR_ALL_ADDR, UI_TXT_AUX_CLEAR_ALL_LEN};
                 endcase
             end else case (idx)
@@ -253,6 +259,10 @@ module ui_render #(
         else if (!i_signal_ok)      status_text = {UI_TXT_ST_NOSIGNAL_ADDR,    UI_TXT_ST_NOSIGNAL_LEN};
         else if (i_arm_hint)        status_text = {UI_TXT_ST_ARM_DENY_ADDR,    UI_TXT_ST_ARM_DENY_LEN};
         // ★ 2026-10-19：非避障导航页按下「间断/非间断寻点」后进入运行态，状态栏显示「导航中」
+        else if (i_page == PG_NAV_OBS && i_planner_state == 4'd3)
+                                   status_text = {UI_TXT_ST_ARRIVED_ADDR, UI_TXT_ST_ARRIVED_LEN};
+        else if (i_page == PG_NAV_OBS && i_planner_state == 4'd4)
+                                   status_text = {UI_TXT_ST_NO_PATH_ADDR, UI_TXT_ST_NO_PATH_LEN};
         else if (i_nav_paused)      status_text = {UI_TXT_ST_PAUSED_ADDR,      UI_TXT_ST_PAUSED_LEN};
         else if (i_nav_run)         status_text = {UI_TXT_ST_RUNNING_ADDR,     UI_TXT_ST_RUNNING_LEN};
         else if (i_ui_mode == 2'd0) status_text = {UI_TXT_ST_MANUAL_ADDR,      UI_TXT_ST_MANUAL_LEN};
@@ -263,7 +273,7 @@ module ui_render #(
     always @(*) begin
         case (i_page)
             PG_CAMERA:   placeholder_text = {UI_TXT_PLACEHOLDER_CAM_ADDR,   UI_TXT_PLACEHOLDER_CAM_LEN};
-            PG_RADAR:    placeholder_text = {UI_TXT_PLACEHOLDER_RADAR_ADDR, UI_TXT_PLACEHOLDER_RADAR_LEN};
+            PG_RADAR:    placeholder_text = 18'd0;
 
             default:     placeholder_text = 18'd0;
         endcase
@@ -1052,6 +1062,8 @@ module ui_render #(
         // 2b) 非避障导航页：辅助菜单窗口底 / 选中项底 / 坐标轴 / 已记录点 / 车绿点
         //     ★ 全部排在「大字 / 数字」之前 —— 文字压在它们上面才可读；
         //       只有十字准心放到最后（见 6b），保证准心永远可见。
+        if ((i_page == PG_RADAR || i_page == PG_NAV_OBS) && i_route_pixel) rgb = 24'h3B82F6;
+        if ((i_page == PG_RADAR || i_page == PG_NAV_OBS) && i_map_pixel)   rgb = 24'hE87946;
         if (nav_aux_bg)                rgb = 24'h101828;
         if (nav_aux_hi)                rgb = 24'h1D4ED8;
         if (nav_axis_x || nav_axis_y)  rgb = 24'h5A6470;   // 轴：中性灰蓝，不与白点混淆

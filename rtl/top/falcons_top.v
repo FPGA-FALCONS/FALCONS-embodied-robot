@@ -1403,7 +1403,7 @@ module falcons_top (
         .cmd_valid(planner_cmd_valid), .emergency_stop(planner_emergency_stop),
         .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
         .nav_state(planner_nav_state),
-        .display_enable((page == PAGE_RADAR) || nav_page_any),
+        .display_enable((page == PAGE_RADAR) || (page == PAGE_NAV_OBS)),
         .map_disp_valid(map_disp_valid), .map_disp_occupied(map_disp_occupied),
         .map_disp_frame_start(map_disp_start), .map_disp_frame_done(map_disp_done),
         .route_disp_valid(route_disp_valid), .route_disp_x_cell(route_disp_x),
@@ -1718,7 +1718,29 @@ module falcons_top (
         .o_rdata (dyn_rdata)
     );
 
+    wire map_pixel, route_pixel;
+    reg [3:0] planner_state_ps1, planner_state_ps2;
+    always @(posedge pixel_clk or negedge pixel_rst_n) begin
+        if (!pixel_rst_n) begin
+            planner_state_ps1 <= 0;
+            planner_state_ps2 <= 0;
+        end else begin
+            planner_state_ps1 <= planner_nav_state;
+            planner_state_ps2 <= planner_state_ps1;
+        end
+    end
+    nav_map_view u_nav_map_view (
+        .clk(i_clk_50m), .rst_n(sys_rst_n),
+        .map_valid(map_disp_valid), .map_occupied(map_disp_occupied),
+        .map_start(map_disp_start), .map_done(map_disp_done),
+        .route_valid(route_disp_valid), .route_x(route_disp_x), .route_y(route_disp_y),
+        .route_start(route_disp_start), .route_done(route_disp_done),
+        .pixel_clk(pixel_clk), .pixel_rst_n(pixel_rst_n), .frame_start(frame_start),
+        .pixel_x(pixel_x), .pixel_y(pixel_y), .map_pixel(map_pixel), .route_pixel(route_pixel)
+    );
+
     ui_render u_ui (
+        .i_map_pixel(map_pixel), .i_route_pixel(route_pixel), .i_planner_state(planner_state_ps2),
         .i_pixel_clk    (pixel_clk),
         .i_reset_n      (pixel_rst_n),
         .i_pixel_x      (pixel_x),

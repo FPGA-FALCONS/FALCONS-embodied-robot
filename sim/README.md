@@ -1,4 +1,25 @@
-# sim\ —— 本工程的仿真（应用层单模块测试 + 将来的跨模块集成）
+# sim —— 应用层自检与跨模块集成
+
+## 自动导航接入新增验证（2026-10-21）
+
+批量入口现有 25 台，原 19 台继续保留。新增以下 6 台；完整结果和周期见[接入验证](../doc/自动导航接入验证.md)，下文早期计数为历史记录。
+
+| 测试名（`-Only`） | 检查内容 |
+| --- | --- |
+| radar_map | UART 实包、公共位姿、四朝向障碍、清零 |
+| obstacle_page | 独立避障页面、16 目的地、暂停 / 手动接管、无路不跳点 |
+| obstacle_plan | UI 目标接真实 BFS，未授权运动时预规划 |
+| nav_point_ctrl | 动态目标、先转再走、完成电平、停车握手与抢占 |
+| nav_map_view | 地图 / 路线双缓冲、空路线、覆盖旧点、中止帧、完整线段 |
+| obstacle_motion | 真实 UI + BFS + 点位控制，两个目的地、转弯、暂停恢复、近障停车及清除后续行 |
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64
+# 也可只跑一个或一组，逗号分隔
+powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64 -Only nav_map_view,obstacle_motion
+```
+
+`obstacle_motion` 的 RTL 以 50 MHz 运行，车辆和定位每 500000 周期推进 10 ms，规划期间照常运动。底盘是理想差速模型，测试车速为 1 m/s，停稳观察缩为 2 个控制周期；整车仍保留原默认 300 mm/s、10 周期停稳配置。该台不模拟电机惯性 / 滑移，不能据此判定实车安全距离。UART → 世界地图由另一台实包测试覆盖，本台在雷达转换后的射线接口注入障碍。
 
 ## 这里放什么
 
