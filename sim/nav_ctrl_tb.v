@@ -116,7 +116,8 @@ reg signed [31:0] P_I_LIMIT  = 32'sd120;   // 积分限幅（需求方指定 120
     localparam [2:0] S_IDLE = 3'd0, S_ALIGN = 3'd1, S_TRACK = 3'd2,
                      S_HOLD = 3'd3, S_DONE = 3'd4, S_FAULT = 3'd5;
 
-    integer errors = 0, checks = 0;
+    integer errors = 0, checks = 0, cycles = 0;
+    always @(posedge clk) cycles = cycles + 1;
     reg done_seen = 1'b0;
     reg fault_seen = 1'b0;
     integer done_cnt = 0;
@@ -751,6 +752,65 @@ reg signed [31:0] P_I_LIMIT  = 32'sd120;   // 积分限幅（需求方指定 120
             chk_int("g14_i_limit_capped_120", dut.i_lim_r, 32'sd120);
             chk_true("g14_not_saturated612", o_diff < 32'sd612);
         end
+        // 16 度阈值两侧及叉积正负：投影在 M_A1 锁存，M_A2 使用。
+        do_reset;
+        set_pt(0, 1024, 0); set_pt(1, 2048, 294);
+        start_task(2, 1, 0, 0, 0);
+        tick1;
+        chk_true("g15_positive_threshold", dut.cut_ok_r);
+        set_pt(1, 2048, 295);
+        tick1;
+        chk_true("g15_positive_above", !dut.cut_ok_r);
+        set_pt(1, 2048, -294);
+        tick1;
+        chk_true("g15_negative_threshold", dut.cut_ok_r);
+        set_pt(1, 2048, -295);
+        tick1;
+        chk_true("g15_negative_above", !dut.cut_ok_r);
+        set_pt(1, 0, 0);
+        tick1;
+        chk_true("g15_reverse_dot", !dut.cut_ok_r);
+
+        // 字节并行比较与完整有符号 <= 对照，覆盖进位边界及随机数据。
+        begin : g16_compare
+            integer k, seed;
+            reg signed [31:0] lhs, rhs;
+            reg forward_ok;
+            do_reset;
+            set_pt(0, 1024, 0);
+            start_task(1, 0, 0, 0, 0);
+            seed = 32'h12345678;
+            force dut.cross_s = lhs;
+            for (k = 0; k < 264; k = k + 1) begin
+                @(negedge clk);
+                lhs = $random(seed);
+                rhs = $random(seed);
+                case (k % 4)
+                    0: rhs[31:8] = lhs[31:8];
+                    1: rhs[31:16] = lhs[31:16];
+                    2: rhs[31:24] = lhs[31:24];
+                endcase
+                case (k)
+                    0: begin lhs = 0; rhs = 0; end
+                    1: begin lhs = 32'sh80000000; rhs = 32'sh7fffffff; end
+                    2: begin lhs = 32'sh7fffffff; rhs = 32'sh80000000; end
+                    3: begin lhs = 32'sh00010000; rhs = 32'sh0000ffff; end
+                    4: begin lhs = 32'sh0000ffff; rhs = 32'sh00010000; end
+                    5: begin lhs = 32'sh80000100; rhs = 32'sh800000ff; end
+                    6: begin lhs = 32'sh7fffffff; rhs = 32'sh7fffffff; end
+                    7: begin lhs = -1; rhs = -1; end
+                endcase
+                forward_ok = ((k % 16) != 15);
+                dut.cut_limit_r = rhs;
+                dut.cut_forward_r = forward_ok;
+                dut.mst = dut.M_V1;
+                repeat (2) @(posedge clk);
+                #1;
+                chk_int("g16_signed_byte_compare", dut.cut_ok_r, forward_ok && (lhs <= rhs));
+            end
+            release dut.cross_s;
+        end
+        $display("CYCLES: %0d", cycles);
         $display("=== nav_ctrl_tb: %0d checks, %0d errors ===", checks, errors);
         if (errors != 0) $display("FAIL: %0d / %0d 项未通过", errors, checks);
         else             $display("PASS: nav_ctrl_tb %0d 项全过", checks);

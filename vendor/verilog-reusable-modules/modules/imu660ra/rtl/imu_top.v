@@ -320,6 +320,14 @@ module imu_top #(
     wire signed [31:0] gyro_y_cs = ($signed(gyro_y_raw) * 32'sd25000) >>> 12;
     wire signed [31:0] gyro_z_cs = ($signed(gyro_z_raw) * 32'sd25000) >>> 12;
 
+    // 完整采样后分三拍处理：换算锁存、标定判定、提交结果。
+    // valid[1] 对应提交拍；加速度与陀螺始终使用同一份采样。
+    reg [1:0] sample_valid;
+    reg signed [31:0] sample_gx, sample_gy, sample_gz;
+    reg signed [15:0] sample_ax, sample_ay, sample_az;
+    reg sample_timeout;
+    reg sample_accept, sample_seed_last, sample_calib_last;
+
     //---------------------------------------------------------------
     // 零偏标定
     //
@@ -345,17 +353,17 @@ module imu_top #(
     reg  signed [31:0] bias_x_r, bias_y_r, bias_z_r;
 
     // 与均值的偏差（取绝对值）
-    wire signed [31:0] dev_x = gyro_x_cs - calib_mean_x;
-    wire signed [31:0] dev_y = gyro_y_cs - calib_mean_y;
-    wire signed [31:0] dev_z = gyro_z_cs - calib_mean_z;
+    wire signed [31:0] dev_x = sample_gx - calib_mean_x;
+    wire signed [31:0] dev_y = sample_gy - calib_mean_y;
+    wire signed [31:0] dev_z = sample_gz - calib_mean_z;
     wire        [31:0] adev_x = dev_x[31] ? (~dev_x + 32'sd1) : dev_x;
     wire        [31:0] adev_y = dev_y[31] ? (~dev_y + 32'sd1) : dev_y;
     wire        [31:0] adev_z = dev_z[31] ? (~dev_z + 32'sd1) : dev_z;
 
     // 读数的绝对值（用于绝对门禁）
-    wire        [31:0] abs_gx = gyro_x_cs[31] ? (~gyro_x_cs + 32'sd1) : gyro_x_cs;
-    wire        [31:0] abs_gy = gyro_y_cs[31] ? (~gyro_y_cs + 32'sd1) : gyro_y_cs;
-    wire        [31:0] abs_gz = gyro_z_cs[31] ? (~gyro_z_cs + 32'sd1) : gyro_z_cs;
+    wire        [31:0] abs_gx = sample_gx[31] ? (~sample_gx + 32'sd1) : sample_gx;
+    wire        [31:0] abs_gy = sample_gy[31] ? (~sample_gy + 32'sd1) : sample_gy;
+    wire        [31:0] abs_gz = sample_gz[31] ? (~sample_gz + 32'sd1) : sample_gz;
 
     // 绝对门禁：三轴读数之和必须落在零偏的合理范围内。
     // 这一步专门拦"匀速转动"——它抖动为 0，纯偏差判据看不出任何异常。
@@ -373,9 +381,42 @@ module imu_top #(
     wire [31:0] calib_cnt_next = calib_cnt + 32'd1;
 
     // 累加和的"下一拍值"（供求均值/零偏时使用，避免表达式位宽截断警告）
-    wire signed [47:0] seed_sum_x = calib_sum_x + gyro_x_cs;
-    wire signed [47:0] seed_sum_y = calib_sum_y + gyro_y_cs;
-    wire signed [47:0] seed_sum_z = calib_sum_z + gyro_z_cs;
+    wire signed [47:0] seed_sum_x = calib_sum_x + sample_gx;
+    wire signed [47:0] seed_sum_y = calib_sum_y + sample_gy;
+    wire signed [47:0] seed_sum_z = calib_sum_z + sample_gz;
+
+    always @(posedge i_clock or negedge i_reset_n) begin
+        if (!i_reset_n) begin
+            sample_valid      <= 2'b00;
+            sample_gx         <= 32'sd0;
+            sample_gy         <= 32'sd0;
+            sample_gz         <= 32'sd0;
+            sample_ax         <= 16'sd0;
+            sample_ay         <= 16'sd0;
+            sample_az         <= 16'sd0;
+            sample_timeout    <= 1'b0;
+            sample_accept     <= 1'b0;
+            sample_seed_last  <= 1'b0;
+            sample_calib_last <= 1'b0;
+        end else begin
+            sample_valid <= {sample_valid[0],
+                             op_done && ((state == S_RUN) || (state == S_CALIB))};
+            if (op_done && ((state == S_RUN) || (state == S_CALIB))) begin
+                sample_gx      <= gyro_x_cs;
+                sample_gy      <= gyro_y_cs;
+                sample_gz      <= gyro_z_cs;
+                sample_ax      <= acc_x_mg[15:0];
+                sample_ay      <= acc_y_mg[15:0];
+                sample_az      <= acc_z_mg[15:0];
+                sample_timeout <= calib_timeout;
+            end
+            if (sample_valid[0]) begin
+                sample_accept     <= calib_accum;
+                sample_seed_last  <= !calib_seed_done && (calib_cnt_next == CALIB_SEED_N);
+                sample_calib_last <= (calib_cnt_next >= CALIB_SAMPLES);
+            end
+        end
+    end
 
     // 标定超时计数（按采样节拍计；1 kHz 采样时即毫秒数）
     always @(posedge i_clock or negedge i_reset_n) begin
@@ -664,17 +705,17 @@ module imu_top #(
                 //-----------------------------------------------
                 // 零偏标定：连续读取陀螺，满足静止判据的样本才计入
                 S_CALIB: begin
-                    if (!op_fired && !op_busy && sample_tick) begin
+                    if (!op_fired && !op_busy && !(|sample_valid) && sample_tick) begin
                         spi_start_r <= 1'b1;
                         cmd_type    <= C_RDN;
                         cmd_addr    <= 8'h0C;
                         cmd_len     <= 16'd14;
-                    end else if (op_done) begin
+                    end else if (sample_valid[1]) begin
                         //---- 累加有效样本 ----
-                        if (calib_accum) begin
-                            calib_sum_x <= calib_sum_x + gyro_x_cs;
-                            calib_sum_y <= calib_sum_y + gyro_y_cs;
-                            calib_sum_z <= calib_sum_z + gyro_z_cs;
+                        if (sample_accept) begin
+                            calib_sum_x <= calib_sum_x + sample_gx;
+                            calib_sum_y <= calib_sum_y + sample_gy;
+                            calib_sum_z <= calib_sum_z + sample_gz;
                             calib_cnt   <= calib_cnt_next;
                         end
 
@@ -688,15 +729,15 @@ module imu_top #(
                         // （仍是复位值 0），给出 data_valid 会让下游把无效的角速度
                         // 当成有效数据，也会让 imu_top_tb 的"扣除零偏后≈0"检查
                         // 退化成"0≈0"。两个信号语义不同，必须分开。
-                        acc_x_r     <= acc_x_mg[15:0];
-                        acc_y_r     <= acc_y_mg[15:0];
-                        acc_z_r     <= acc_z_mg[15:0];
+                        acc_x_r     <= sample_ax;
+                        acc_y_r     <= sample_ay;
+                        acc_z_r     <= sample_az;
                         acc_valid_r <= 1'b1;
 
                         //---- 阶段 A 结束：建立均值初值 ----
                         // 用位选取移位结果的低 32 位，避免综合器报"表达式位宽截断"
                         // （>>>4 得 44 位 → 取 [35:4]；>>>9 得 39 位 → 取 [40:9]）
-                        if ((!calib_seed_done) && (calib_cnt_next == CALIB_SEED_N)) begin
+                        if (sample_seed_last) begin
                             calib_mean_x    <= seed_sum_x[35:4];
                             calib_mean_y    <= seed_sum_y[35:4];
                             calib_mean_z    <= seed_sum_z[35:4];
@@ -704,7 +745,7 @@ module imu_top #(
                         end
 
                         //---- 收满样本：计算零偏 ----
-                        if (calib_accum && (calib_cnt_next >= CALIB_SAMPLES)) begin
+                        if (sample_accept && sample_calib_last) begin
                             bias_x_r     <= seed_sum_x[40:9];
                             bias_y_r     <= seed_sum_y[40:9];
                             bias_z_r     <= seed_sum_z[40:9];
@@ -712,7 +753,7 @@ module imu_top #(
                             state        <= S_RUN;
                         end
                         //---- 超时：判为失败，零偏保持 0 ----
-                        else if (calib_timeout) begin
+                        else if (sample_timeout) begin
                             calib_fail_r <= 1'b1;
                             state        <= S_RUN;
                         end
@@ -720,26 +761,26 @@ module imu_top #(
                 end
                 //-----------------------------------------------
                 S_RUN: begin
-                    if (!op_fired && !op_busy && sample_tick) begin
+                    if (!op_fired && !op_busy && !(|sample_valid) && sample_tick) begin
                         // 读 0x0C 起 12 字节：加速度 6 + 陀螺 6（连续区）
                         spi_start_r <= 1'b1;
                         cmd_type    <= C_RDN;
                         cmd_addr    <= 8'h0C;
                         cmd_len     <= 16'd14;       // 地址 + dummy + 12
-                    end else if (op_done) begin
+                    end else if (sample_valid[1]) begin
                         // 角速度：按参数决定是否扣除标定得到的零偏
                         if ((CALIB_APPLY != 0) && calib_done_r) begin
-                            gyro_x_r <= gyro_x_cs - bias_x_r;
-                            gyro_y_r <= gyro_y_cs - bias_y_r;
-                            gyro_z_r <= gyro_z_cs - bias_z_r;
+                            gyro_x_r <= sample_gx - bias_x_r;
+                            gyro_y_r <= sample_gy - bias_y_r;
+                            gyro_z_r <= sample_gz - bias_z_r;
                         end else begin
-                            gyro_x_r <= gyro_x_cs;
-                            gyro_y_r <= gyro_y_cs;
-                            gyro_z_r <= gyro_z_cs;
+                            gyro_x_r <= sample_gx;
+                            gyro_y_r <= sample_gy;
+                            gyro_z_r <= sample_gz;
                         end
-                        acc_x_r      <= acc_x_mg[15:0];
-                        acc_y_r      <= acc_y_mg[15:0];
-                        acc_z_r      <= acc_z_mg[15:0];
+                        acc_x_r      <= sample_ax;
+                        acc_y_r      <= sample_ay;
+                        acc_z_r      <= sample_az;
                         data_valid_r <= 1'b1;
                         acc_valid_r  <= 1'b1;
                     end

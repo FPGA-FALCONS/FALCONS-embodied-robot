@@ -23,16 +23,21 @@ module nav_ui_preview_tb;
     reg [7:0] text_memory [0:63];
     reg [7:0] text_q;
     always @(posedge pixel_clk) text_q <= text_memory[text_address];
+    reg [11:0] scan_px = 0, scan_py = 0;
+    always @(posedge pixel_clk) begin
+        scan_px <= px;
+        scan_py <= py;
+    end
     nav_map_view view (
         .clk(clk), .rst_n(rst_n), .map_valid(map_valid), .map_occupied(occupied),
         .map_start(map_start), .map_done(map_done),
         .route_valid(route_valid), .route_x(route_x), .route_y(route_y),
         .route_start(route_start), .route_done(route_done),
         .pixel_clk(pixel_clk), .pixel_rst_n(rst_n), .frame_start(frame_start),
-        .pixel_x(px), .pixel_y(py), .map_pixel(map_pixel), .route_pixel(route_pixel)
+        .pixel_x(scan_px), .pixel_y(scan_py), .map_pixel(map_pixel), .route_pixel(route_pixel)
     );
     ui_render render (
-        .i_pixel_clk(pixel_clk), .i_reset_n(rst_n), .i_pixel_x(px), .i_pixel_y(py),
+        .i_pixel_clk(pixel_clk), .i_reset_n(rst_n), .i_pixel_x(scan_px), .i_pixel_y(scan_py),
         .i_pixel_req(1'b1), .i_video_active(1'b1), .o_pixel_rgb888(rgb),
         .i_page(page), .i_ui_mode(ui_mode), .i_estop(estop), .i_signal_ok(signal_ok),
         .i_arm_hint(1'b0), .i_menu_sel(page), .i_map_pixel(map_pixel),
@@ -116,7 +121,7 @@ module nav_ui_preview_tb;
                 @(negedge pixel_clk);
                 for (col = 0; col < 1024; col = col + 1) begin
                     px = col;
-                    #1;
+                    @(posedge pixel_clk); #1;
                     $fwrite(fd, "%0d %0d %0d\n", rgb[23:16], rgb[15:8], rgb[7:0]);
                     @(negedge pixel_clk);
                 end

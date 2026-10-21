@@ -14,10 +14,9 @@
 //   16x16 的小字通路**保留但不再有任何段**（译码全 0，综合器会把它优化掉），
 //   这样将来若要把某块内容改回小字，只要往 sm_seg 里加段即可，不必重写通路。
 //
-// 【提前 2 拍取数】字符索引（ROM/RAM）与点阵行（font_rom）各延迟 1 拍，共 2 拍。
-//   做法：始终请求「x+2 所在的字组」——数据 2 拍后有效时 x 已推进到 x+2，仍在同一字组内。
-//   ★ 坑（已踩过，见工作记录 §30.5）：**位选 bit_sel 必须用当前 x（组合）**，
-//     只有"段门控"随数据打拍。位选若也打拍，整屏文字会整体平移。
+// 【像素流水】大字提前 2 个像素请求，小字多一拍选段，提前 3 个像素。
+//   字模列号随字符、字模行同步传递，不再从当前坐标组合计算到最终 RGB。
+//   输入坐标由扫描寄存器在像素沿后推进，输出仍由下一个像素沿采样。
 //
 // 【文本段（seg）】同一条扫描行可能有多段文字，所以译码结果是若干段描述符，
 //   再按当前 slot 选出命中的那一段。
@@ -515,10 +514,12 @@ module ui_render #(
     wire [11:0] lg_slot_x24 = {2'd0, lg_slot, 4'd0} + {3'd0, lg_slot, 3'd0};   // ×16 + ×8 = ×24
     wire [11:0] lg_col_look = x_look - lg_slot_x24;   // 对应 x_look 的格内列号
 
-    // ★ 位选必须用【当前 pixel_x】的列号：col(x) = (x_look − 2) mod 24，
-    //   用条件减法避免再引一个除法器（x_look 落在组内前 2 列时，x 属于上一组的末尾）。
-    wire [11:0] lg_col      = (lg_col_look >= 12'd2) ? (lg_col_look - 12'd2)
-                                                    : (lg_col_look + 12'd22);
+    // 预读像素的列号跟随两级 ROM，在扫描前进到该像素时到达位选端。
+    reg [4:0] lg_bit_sel_d1, lg_bit_sel;
+    always @(posedge i_pixel_clk) begin
+        lg_bit_sel_d1 <= 5'd23 - lg_col_look[4:0];
+        lg_bit_sel    <= lg_bit_sel_d1;
+    end
 
     // ---- 选段：同一条扫描行可能有多段，取命中当前 slot 的那一段 ----
     //   ★ 2026-10-19：顺带标出"当前命中的段是 IMU 失败提示"（它要染红）。
@@ -575,8 +576,6 @@ module ui_render #(
         .o_row_bits (lg_row_bits)
     );
 
-    // ★ 位选保持【组合】用当前列号（见文件头的坑说明）
-    wire [4:0] lg_bit_sel = 5'd23 - lg_col[4:0];
     wire       lg_glyph   = lg_in_text_d1 && lg_row_bits[lg_bit_sel];
 
     // ==================================================================
@@ -588,7 +587,9 @@ module ui_render #(
     //   组宽 16 px → 4 个字符 64 px（24 宽时是 96 px），数字间距从 ~11 px 收到 ~3 px，
     //   而字高仍 24 与中文标签等高。
     //   ★ 段格式与 lg 通路**完全一致**（40 位，带 row），所以只是换了一套字模与组宽。
-    wire [5:0] sm_slot = x_look[9:4];
+    // 选段寄存、字符读取、字模读取共三拍，提前三个像素请求。
+    wire [11:0] sm_x_look = i_pixel_x + 12'd3;
+    wire [5:0] sm_slot = sm_x_look[9:4];
 
     reg [36:0] sm_seg [0:5];
     integer    si;
@@ -720,11 +721,19 @@ module ui_render #(
         end
     end
 
-    wire        sm_in_text = sm_sel[36];
-    wire        sm_src     = sm_sel[35];
-    wire [5:0]  sm_off     = sm_slot - sm_sel[10:5];
-    wire [5:0]  sm_ram_rd  = sm_sel[22:17] + sm_off;
-    wire [11:0] sm_rom_rd  = sm_sel[34:23] + sm_off;
+    // 只保留选中段后续使用的字段，长度只用于上面的区间选择。
+    reg [30:0] sm_sel_q;
+    reg [5:0]  sm_slot_q;
+    always @(posedge i_pixel_clk) begin
+        sm_sel_q  <= {sm_sel[36:17], sm_sel[10:0]};
+        sm_slot_q <= sm_slot;
+    end
+
+    wire        sm_in_text = sm_sel_q[30];
+    wire        sm_src     = sm_sel_q[29];
+    wire [5:0]  sm_off     = sm_slot_q - sm_sel_q[10:5];
+    wire [5:0]  sm_ram_rd  = sm_sel_q[16:11] + sm_off;
+    wire [11:0] sm_rom_rd  = sm_sel_q[28:17] + sm_off;
 
     // 动态数值 RAM 的读口
     assign o_dyn_raddr = sm_ram_rd;
@@ -749,9 +758,9 @@ module ui_render #(
     always @(posedge i_pixel_clk) begin
         sm_in_text_d1 <= sm_in_text;
         sm_src_d1     <= sm_src;
-        sm_row_d1     <= sm_sel[4:0];
-        sm_xw_d1      <= sm_sel[10:5];
-        sm_fbase_d1   <= sm_sel[22:17];
+        sm_row_d1     <= sm_sel_q[4:0];
+        sm_xw_d1      <= sm_sel_q[10:5];
+        sm_fbase_d1   <= sm_sel_q[16:11];
     end
     //   src = 0 → 动态数值 RAM；src = 1 → 静态文案 ROM
     //   ★ ROM 段的 [22:17] 恒为 0，于是小数点判定的 field_dec(0) = 0（不画点），
@@ -770,7 +779,13 @@ module ui_render #(
         .o_row_bits (sm_row_bits)
     );
 
-    wire [3:0]  sm_bit_sel = 4'd15 - i_pixel_x[3:0];
+    // 选段、字符、字模各一拍；列号与其预读像素保持相同延迟。
+    reg [3:0] sm_bit_sel_d1, sm_bit_sel_d2, sm_bit_sel;
+    always @(posedge i_pixel_clk) begin
+        sm_bit_sel_d1 <= 4'd15 - sm_x_look[3:0];
+        sm_bit_sel_d2 <= sm_bit_sel_d1;
+        sm_bit_sel    <= sm_bit_sel_d2;
+    end
     wire        sm_glyph   = sm_in_text_d1 && sm_row_bits[sm_bit_sel];
 
     // ------------------------------------------------------------------

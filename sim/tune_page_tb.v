@@ -50,12 +50,19 @@ module tune_page_tb;
     wire [5:0]  dyn_raddr;
     reg  [7:0]  dyn_rdata = 8'd24;          // 字库索引 24 = '8'（合法字形，能点亮）
 
+    // 与实际扫描器一致：像素坐标在沿后推进，再由下一沿消费。
+    reg [11:0] scan_px = 0, scan_py = 0;
+    always @(posedge pixel_clk) begin
+        scan_px <= px;
+        scan_py <= py;
+    end
+
     ui_render dut (
         .i_map_pixel(1'b0), .i_route_pixel(1'b0), .i_planner_state(4'd0),
         .i_pixel_clk    (pixel_clk),
         .i_reset_n      (rst_n),
-        .i_pixel_x      (px),
-        .i_pixel_y      (py),
+        .i_pixel_x      (scan_px),
+        .i_pixel_y      (scan_py),
         .i_pixel_req    (preq),
         .i_video_active (vact),
         .o_pixel_rgb888 (rgb),
@@ -128,6 +135,7 @@ module tune_page_tb;
                     px = x[11:0]; py = y[11:0];
                     vact = 1'b1; preq = 1'b1;
                     @(posedge pixel_clk);
+                    #1;
                     if (rgb == col) wcnt = wcnt + 1;
                 end
             end

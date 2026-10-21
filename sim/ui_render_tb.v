@@ -99,12 +99,19 @@ module ui_render_tb;
     //   起始地址整体前移 2。硬编码 51 之类会静默指向错误的字符流，断言会假红或假绿。
     `include "ui_text_index.vh"
 
+    // 与实际扫描器一致：像素坐标在沿后推进，再由下一沿消费。
+    reg [11:0] scan_px = 0, scan_py = 0;
+    always @(posedge pixel_clk) begin
+        scan_px <= px;
+        scan_py <= py;
+    end
+
     ui_render dut (
         .i_map_pixel(map_i), .i_route_pixel(route_i), .i_planner_state(4'd0),
         .i_pixel_clk    (pixel_clk),
         .i_reset_n      (rst_n),
-        .i_pixel_x      (px),
-        .i_pixel_y      (py),
+        .i_pixel_x      (scan_px),
+        .i_pixel_y      (scan_py),
         .i_pixel_req    (preq),
         .i_video_active (vact),
         .o_pixel_rgb888 (rgb),
@@ -134,8 +141,8 @@ module ui_render_tb;
 
     // ------------------------------------------------------------------
     // 扫描若干行：逐像素设置坐标并采样本拍的输出
-    //   注意屏幕坐标偏移：模块"提前 2 拍"取数，输出对应 x−2 的像素，
-    //   分类窗口留了 ≥16 px 余量，不影响判定。
+    //   坐标在沿后由 scan_px/scan_py 推进，#1 后采样该像素的组合输出。
+    //   文字内部预读 2/3 拍，外部像素位置不变。
     // ------------------------------------------------------------------
     task scan;
         input integer y0;
@@ -148,6 +155,7 @@ module ui_render_tb;
                     vact = 1'b1;
                     preq = 1'b1;
                     @(posedge pixel_clk);
+                    #1;
 
                     // ---- 按区域 + 颜色分类 ----
                     // ★ 2026-10-17：左侧菜单/档位改为 24 px 大字（行距 72、起点 x=24），
@@ -221,6 +229,7 @@ module ui_render_tb;
                     vact = 1'b1;
                     preq = 1'b1;
                     @(posedge pixel_clk);
+                    #1;
                     if (rgb == 24'h1D4ED8) cnt_hl_win = cnt_hl_win + 1;
                 end
             end
@@ -669,6 +678,10 @@ module ui_render_tb;
             for (oi = 0; oi <= 10; oi = oi + 1) err_off[oi] = 0;
             // ---- 第一遍：只用段中部像素探测采样偏移 ----
             for (yy = 0; yy < LG_CELL; yy = yy + 1) begin
+                // 区域跳读前补水平消隐，避免上一行字符残留进入检查窗口。
+                px = 0; py = ybase + yy; vact = 0; preq = 0;
+                repeat (4) @(posedge pixel_clk);
+                #1;
                 for (xx = ((xw > 2) ? ((xw - 2) * LG_CELL) : 2);
                      xx <= (xw + len) * LG_CELL + 10; xx = xx + 1) begin
                     px = xx[11:0];
@@ -705,6 +718,10 @@ module ui_render_tb;
             err_left  = 0;
             err_other = 0;
             for (yy = 0; yy < LG_CELL; yy = yy + 1) begin
+                // 区域跳读前补水平消隐，避免上一行字符残留进入检查窗口。
+                px = 0; py = ybase + yy; vact = 0; preq = 0;
+                repeat (4) @(posedge pixel_clk);
+                #1;
                 for (xx = ((xw > 2) ? ((xw - 2) * LG_CELL) : 2);
                      xx <= (xw + len) * LG_CELL + 10; xx = xx + 1) begin
                     px = xx[11:0];

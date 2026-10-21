@@ -164,6 +164,7 @@ $sources = @(
     "$PSScriptRoot\chassis_ctrl_tb.v",
     "$PSScriptRoot\num_text_tb.v",
     "$PSScriptRoot\ui_render_tb.v",
+    "$PSScriptRoot\ui_pipeline_tb.v",
     "$PSScriptRoot\nav_free_tb.v",
     "$PSScriptRoot\cordic_atan2_tb.v",
     "$PSScriptRoot\nav_ctrl_tb.v",
@@ -184,7 +185,8 @@ $sources = @(
     "$VendorRoot\imu660ra\rtl\bmi270_cfg_rom.v",
     "$PSScriptRoot\disp_driver_tb.v",
     "$PSScriptRoot\dyn_text_ram_tb.v",
-    "$PSScriptRoot\imu_top_tb.v"
+    "$PSScriptRoot\imu_top_tb.v",
+    "$PSScriptRoot\imu_calib_tb.v"
 )
 
 # 导航的正式依赖，不编译独立雷达/显示示例。
@@ -199,6 +201,8 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v")
 
 $tests = @(
+    @{ Name = 'ui_pipeline'; Top = 'ui_pipeline_tb'; Desc = 'Real HDMI scan / six complete pages / baseline pixel fingerprints' },
+    @{ Name = 'imu_calib'; Top = 'imu_calib_tb'; Desc = 'IMU calibration pipeline / coherent samples / seed / reject / completion / timeout' },
     @{ Name = 'nav_geometry'; Top = 'nav_geometry_tb'; Desc = '50 mm grid quantization / signed map boundaries / 10 m rays' },
     @{ Name = 'nav_scan_accumulator'; Top = 'nav_scan_accumulator_tb'; Desc = 'Circle hit priority / deferred clears / concurrent circle updates' },
     @{ Name = 'nav_pose'; Top = 'nav_pose_tb'; Desc = 'Real odometry pipeline to navigation pose' },

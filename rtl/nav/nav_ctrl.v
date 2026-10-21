@@ -343,18 +343,17 @@ module nav_ctrl #(
     // 段间转角判据（两段都在 odom 相对系，见头部第四节）
     wire signed [31:0] s_dot   = (dx_r * sp_dx) + (dy_r * sp_dy);
     wire signed [31:0] s_cross = (dx_r * sp_dy) - (dy_r * sp_dx);
-    wire signed [31:0] dot_s   = s_dot >>> 10;
-    wire signed [31:0] cross_s = (s_cross < 0) ? ((-s_cross) >>> 10) : (s_cross >>> 10);
-    wire signed [31:0] cut_ok  = (dot_s > 32'sd0) &&
-                                 (cross_s <= ((dot_s * TAN_CUT_Q10) >>> 10));
+    wire signed [31:0] dot_s   = dot_r >>> 10;
+    wire signed [31:0] cross_s = (cross_r < 0) ? ((-cross_r) >>> 10) : (cross_r >>> 10);
+    wire signed [31:0] cut_limit = (dot_s * TAN_CUT_Q10) >>> 10;
     wire               space_ok = ((sp_dx * sp_dx) + (sp_dy * sp_dy)) >= SPACE2_MIN;
-    // ★ 2026-10-19 晚 时序：这两个判据原本只在 M_A4 组合计算，链路是
-    //   `dot_r(reg) → ×294(DSP) → >>10 → 比较 → cut_ok → o_diff 的 mux`
-    //   实测 **26.4 ns / slack −2.598**（`n965_s/DOUT[11] → o_diff_*`，11 条同域违约的元凶）。
-    //   改为提前一拍寄存：`cut_ok` 放 M_A2（dot_r/cross_r 刚由 M_A1 锁存即可用）、
-    //   `space_ok` 放 M_V1（与 v_slow 的乘法并行，互相独立走 DSP）。
-    //   M_A5 决策时直接用寄存器值，D 端到 mux 只剩纯选择。
-    reg                cut_ok_r;
+    // M_A2 锁存阈值，M_V1 并行比较四个字节，M_V2 合并结果。
+    // 最高字节按有符号比较，其余按无符号比较，保持完整 32 位判据。
+    reg signed [31:0] cut_limit_r;
+    reg               cut_forward_r;
+    reg [2:0]         cut_lt_r, cut_eq_r;
+    reg               cut_le_low_r;
+    reg               cut_ok_r;
     reg                space_ok_r;
 
     // 距离判据
@@ -485,7 +484,12 @@ module nav_ctrl #(
             diff_pid_r   <= 32'sd0;
             dot_r        <= 32'sd0;
             cross_r      <= 32'sd0;
-            cut_ok_r     <= 1'b0;
+            cut_limit_r   <= 32'sd0;
+            cut_forward_r <= 1'b0;
+            cut_lt_r      <= 3'd0;
+            cut_eq_r      <= 3'd0;
+            cut_le_low_r  <= 1'b0;
+            cut_ok_r      <= 1'b0;
             space_ok_r   <= 1'b0;
             psi_r        <= 16'sd0;
             i_lim_r      <= 32'sd0;
@@ -590,19 +594,32 @@ module nav_ctrl #(
                         mst    <= M_A2;
                     end
                     M_A2: begin
-                        ahead_r  <= ahead_q8;
-                        left_r   <= left_q8;
-                        cut_ok_r <= cut_ok;      // ★ 提前一拍寄存（见 cut_ok_r 声明处）
-                        mst      <= M_V1;
+                        ahead_r       <= ahead_q8;
+                        left_r        <= left_q8;
+                        cut_limit_r   <= cut_limit;
+                        cut_forward_r <= (dot_s > 32'sd0);
+                        mst           <= M_V1;
                     end
                     // ---- 速度规划三级流水（见 v_cnt 附近的时序说明）----
                     M_V1: begin
+                        cut_lt_r[2]  <= $signed(cross_s[31:24]) < $signed(cut_limit_r[31:24]);
+                        cut_lt_r[1]  <= cross_s[23:16] < cut_limit_r[23:16];
+                        cut_lt_r[0]  <= cross_s[15:8]  < cut_limit_r[15:8];
+                        cut_eq_r[2]  <= cross_s[31:24] == cut_limit_r[31:24];
+                        cut_eq_r[1]  <= cross_s[23:16] == cut_limit_r[23:16];
+                        cut_eq_r[0]  <= cross_s[15:8]  == cut_limit_r[15:8];
+                        cut_le_low_r <= cross_s[7:0] <= cut_limit_r[7:0];
                         ahead_mm_r <= ahead_r >>> 8;
                         v_slow_r   <= ahead_mm16 * ks16;
                         space_ok_r <= space_ok;  // ★ 同上，与上面两个乘法并行
                         mst        <= M_V2;
                     end
                     M_V2: begin
+                        cut_ok_r <= cut_forward_r &&
+                                    (cut_lt_r[2] ||
+                                     (cut_eq_r[2] && cut_lt_r[1]) ||
+                                     (cut_eq_r[2] && cut_eq_r[1] && cut_lt_r[0]) ||
+                                     ((&cut_eq_r) && cut_le_low_r));
                         v_ref_r <= (ahead_mm_r >= i_d_slow) ? v_cruise_q10mm :
                                    (ahead_mm_r > 32'sd0)     ? v_slow_r : 32'sd0;
                         mst     <= M_V3;
