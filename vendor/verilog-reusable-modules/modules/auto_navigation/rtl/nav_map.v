@@ -19,7 +19,7 @@
 module nav_map #(
     parameter integer GRID_W  = 256,
                       GRID_H  = 256,
-                      INFLATE = 2
+                      INFLATE = 4
 ) (
     input  wire               clk,
                               reset_n,

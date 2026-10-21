@@ -7,12 +7,12 @@
 // 接线、坐标、启动和控制流程见 ../docs/delivery_handoff.md。
 // ============================================================================
 module radar_navigation #(
-    parameter integer FORWARD_CHECK_CELLS = 3,
+    parameter integer FORWARD_CHECK_CELLS = 6,
     parameter integer VEHICLE_WIDTH_MM    = 180,
     parameter integer FRONT_OFFSET_MM     = 150,
     parameter integer LATERAL_MARGIN_MM   = 20,
     // 规划时障碍向横纵各预留的格数，同时用于停后局部接出和路线复核。
-    parameter integer PLAN_INFLATE_CELLS  = 2
+    parameter integer PLAN_INFLATE_CELLS  = 4
 ) (
     // 公共时钟与复位；除串口输入外，输入应已完整同步到此时钟域。
     input  wire               clk,
@@ -30,7 +30,7 @@ module radar_navigation #(
     input  wire signed [31:0] pose_y_mm,
     input  wire signed [31:0] pose_yaw_cdeg,
 
-    // 目标持续有效；格号 0..255，每格 100 mm，原点在中心格线。
+    // 目标持续有效；格号 0..255，每格 50 mm，原点在中心格线。
     input  wire               goal_valid,
     input  wire         [7:0] goal_x_cell,
     input  wire         [7:0] goal_y_cell,

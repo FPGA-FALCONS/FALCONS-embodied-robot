@@ -8,17 +8,17 @@
 // 接口约定：
 //   - 单时钟、异步低有效复位；输入/输出各一组 valid/ready，同时只有一份采样在途。
 //   - 雷达角 0..35999，单位 0.01°、顺时针；yaw 为 [-18000,18000)、逆时针。
-//   - 位置 signed mm，范围 [-12800,12800)；距离 0..10000 mm，超过 10000 包括 FFFF 拒绝。
+//   - 位置 signed mm，范围 [-6400,6400)；距离 0..10000 mm，超过 10000 包括 FFFF 拒绝。
 //   - out_ray_* 是 signed Q16 mm 位移；out_hit_x/y 是 signed 格号，图外端点不截边。
 //   - out_hit 仅表示图内真实命中；接收时的位姿保持至观测被接受。
 //   - out_rejected 单拍：非法输入无输出；合法端点出图时同时保留后续 out_valid。
 // 关键不变量：
 //   - 世界角 = yaw - 雷达角，归一化至 [-18000,18000)；四个轴用精确值保住格界。
-//   - 格号 floor((世界毫米+12800)/100)；负的图外坐标也必须向下取整。
+//   - 格号 floor((世界毫米+6400)/50)；负的图外坐标也必须向下取整。
 //   - 旋转、偏移量锁存、常数乘法量化分拍，输出背压时几何数据全部保持。
 // 禁止事项：
 //   - 不要用出队时当前位姿替换采样位姿；本模块不补偿雷达安装平移或安装偏角。
-//   - 39797、119305、41944 分别对应 CORDIC 增益、二进制角度刻度、100 mm 量化常数。
+//   - 39797、119305、83887 分别对应 CORDIC 增益、二进制角度刻度、50 mm 量化常数。
 // ============================================================================
 module nav_polar (
     input  wire               clk,
@@ -46,9 +46,9 @@ module nav_polar (
     output reg  signed [31:0] out_ray_dy_q16,
     output reg                out_rejected
 );
-    localparam integer MAP_MM = 25600;  // 256 个单元格 x 100 mm
-    localparam integer HALF_MM = 12800;  // MAP_MM / 2，把世界坐标搬进 [0, MAP_MM)
-    localparam integer CELL_MM = 100;
+    localparam integer MAP_MM = 12800;  // 256 个单元格 x 50 mm
+    localparam integer HALF_MM = 6400;  // MAP_MM / 2，把世界坐标搬进 [0, MAP_MM)
+    localparam integer CELL_MM = 50;
     localparam integer MAX_RANGE_MM = 10000;
     localparam integer CORDIC_ITERS = 16;
 
@@ -60,7 +60,7 @@ module nav_polar (
                      QUANT2   = 3'd3,
                      OUTPUT   = 3'd4;
 
-    localparam signed [63:0] MAP_EXTENT_Q16 = 64'sd1677721600;  // MAP_MM << 16
+    localparam signed [63:0] MAP_EXTENT_Q16 = 64'sd838860800;  // MAP_MM << 16
 
     reg [ 2:0] state;
     reg        scan_start_pending;
@@ -126,8 +126,8 @@ module nav_polar (
     // 到输出端再用 out_hit 为低与真实障碍物分开。把零当非法，射线就永远清不掉；
     // 把量程上限当命中，则会在每个空旷方向上凭空造出正好 10 m 处的障碍物。
     wire input_legal = in_pose_valid && in_angle_cdeg < 16'd36000 &&
-        in_distance_mm <= MAX_RANGE_MM[15:0] && in_pose_x_mm >= -32'sd12800 &&
-        in_pose_x_mm < 32'sd12800 && in_pose_y_mm >= -32'sd12800 && in_pose_y_mm < 32'sd12800 &&
+        in_distance_mm <= MAX_RANGE_MM[15:0] && in_pose_x_mm >= -32'sd6400 &&
+        in_pose_x_mm < 32'sd6400 && in_pose_y_mm >= -32'sd6400 && in_pose_y_mm < 32'sd6400 &&
         in_pose_yaw_cdeg >= -32'sd18000 && in_pose_yaw_cdeg < 32'sd18000;
 
     wire signed [63:0] range_q16 = $signed({48'd0, latched_distance_mm}) <<< 16;
@@ -169,7 +169,7 @@ module nav_polar (
     // 的代价是一个 observation 时钟的延迟，valid/ready 握手（handshake）可以吸收它，
     // 同时让乘法独占一个完整周期。
     //
-    // ceil(2^22 / 100) = 41944；对每个 15 位输入，完整乘积都给出精确的向下取整，
+    // ceil(2^22 / 50) = 83887；对每个 15 位输入，完整乘积都给出精确的向下取整，
     // 因此不需要"除以常数单元格尺寸"的除法器。
     reg signed [16:0] offset_x_r, offset_y_r;
     reg signed [15:0] hit_x, hit_y;
@@ -177,12 +177,12 @@ module nav_polar (
     function signed [15:0] signed_cell;
         input signed [16:0] offset_mm;
         reg [16:0] magnitude;
-        reg [32:0] product;
+        reg [33:0] product;
         begin
-            magnitude = offset_mm < 0 ? (-offset_mm + 17'd99) : offset_mm;
-            product   = magnitude * 16'd41944;
-            if (offset_mm < 0) signed_cell = -$signed({1'b0, product[32:22]});
-            else signed_cell = $signed({1'b0, product[32:22]});
+            magnitude = offset_mm < 0 ? (-offset_mm + 17'd49) : offset_mm;
+            product   = magnitude * 17'd83887;
+            if (offset_mm < 0) signed_cell = -$signed({1'b0, product[33:22]});
+            else signed_cell = $signed({1'b0, product[33:22]});
         end
     endfunction
 
@@ -203,8 +203,8 @@ module nav_polar (
     assign out_hit         = pending && hit_inside_q && !latched_no_echo;
     assign out_hit_x       = hit_x;
     assign out_hit_y       = hit_y;
-    assign out_origin_x_mm = $signed({17'd0, latched_pose_x_map_mm}) - 32'sd12800;
-    assign out_origin_y_mm = $signed({17'd0, latched_pose_y_map_mm}) - 32'sd12800;
+    assign out_origin_x_mm = $signed({17'd0, latched_pose_x_map_mm}) - 32'sd6400;
+    assign out_origin_y_mm = $signed({17'd0, latched_pose_y_map_mm}) - 32'sd6400;
 
     // 地图内判定结果与端点一起锁存，这样即使下游停顿（stall），out_hit 也保持稳定。
     always @(posedge clk or negedge reset_n) begin
@@ -214,8 +214,8 @@ module nav_polar (
             hit_inside_q             <= 1'b0;
             out_ray_dx_q16           <= 32'sd0;
             out_ray_dy_q16           <= 32'sd0;
-            latched_pose_x_map_mm    <= 15'd12800;
-            latched_pose_y_map_mm    <= 15'd12800;
+            latched_pose_x_map_mm    <= 15'd6400;
+            latched_pose_y_map_mm    <= 15'd6400;
             latched_distance_mm      <= 16'd0;
             latched_world_angle_cdeg <= 16'sd0;
             cordic_x                 <= 32'sd0;
@@ -228,8 +228,8 @@ module nav_polar (
             case (state)
                 IDLE: begin
                     if (in_valid && in_ready) begin
-                        latched_pose_x_map_mm    <= in_pose_x_mm + 32'sd12800;
-                        latched_pose_y_map_mm    <= in_pose_y_mm + 32'sd12800;
+                        latched_pose_x_map_mm    <= in_pose_x_mm + 32'sd6400;
+                        latched_pose_y_map_mm    <= in_pose_y_mm + 32'sd6400;
                         latched_distance_mm      <= effective_distance_mm;
                         latched_world_angle_cdeg <= normalized_angle_cdeg;
                         if (input_legal) begin

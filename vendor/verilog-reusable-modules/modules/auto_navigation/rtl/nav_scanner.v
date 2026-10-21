@@ -19,8 +19,8 @@
 module nav_scanner #(
     parameter integer GRID_W  = 256,
                       GRID_H  = 256,
-                      CELL_MM = 100,
-    parameter signed  HALF_MM = 12800
+                      CELL_MM = 50,
+    parameter signed  HALF_MM = 6400
 ) (
     input  wire               clk,
                               reset_n,
@@ -65,7 +65,7 @@ module nav_scanner #(
         reg        [31:0] product;
         begin
             shifted = mm + HALF_MM;
-            product = shifted * 32'd41944;
+            product = shifted * ((32'd4194304 + CELL_MM - 1) / CELL_MM);
             to_cell = shifted < 0 ? 16'd0 : product[31:22];
         end
     endfunction

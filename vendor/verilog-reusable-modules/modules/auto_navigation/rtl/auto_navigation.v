@@ -9,7 +9,7 @@
 //   - 全部端口同一 50 MHz 时钟域，reset_n 异步低有效；多位异步输入由框架整体同步。
 //   - 随点位姿对应距离接收时刻，背压时整份载荷保持；不接收时间戳。
 //   - 世界 x/y 为 signed mm，yaw 为逆时针 0.01°；雷达 0° 朝前、顺时针增大。
-//   - 地图 256×256、100 mm/格，世界范围 [-12800,12800)；目标输入是格号。
+//   - 地图 256×256、50 mm/格，世界范围 [-6400,6400)；目标输入是格号。
 //   - goal_valid 是持续电平，无接受握手；四使能独立，撤使能不清地图或重置坐标。
 //   - 完整端口、初始化及控制器协议见 ../docs/delivery_handoff.md。
 // 关键不变量：
@@ -17,15 +17,15 @@
 //   - 目标点任务 valid↑→done↑→valid↓→done↓；同向终点可更新，完成包含转向和直行。
 //   - emergency_stop 抢占；必须先见 ctrl_done=0，再接收本次停稳的 ctrl_done=1。
 // 禁止事项：
-//   - 不要把屏幕像素或毫米坐标直接接到 goal_*_cell；(128,128) 格中心是 (50,50) mm。
+//   - 不要把屏幕像素或毫米坐标直接接到 goal_*_cell；(128,128) 格中心是 (25,25) mm。
 //   - 不要用显示流控制底盘，也不要把诊断状态替代 cmd_valid / emergency_stop。
 // ============================================================================
 module auto_navigation #(
-    parameter integer FORWARD_CHECK_CELLS = 3,
+    parameter integer FORWARD_CHECK_CELLS = 6,
     parameter integer VEHICLE_WIDTH_MM    = 180,
     parameter integer FRONT_OFFSET_MM     = 150,
     parameter integer LATERAL_MARGIN_MM   = 20,
-    parameter integer PLAN_INFLATE_CELLS  = 2
+    parameter integer PLAN_INFLATE_CELLS  = 4
 ) (
     // 50 MHz 公共时钟；所有控制/位姿多位输入需已同步到此域。
     input  wire               clk,
@@ -53,9 +53,9 @@ module auto_navigation #(
     input  wire         [5:0] point_index,
     // 该点采样位姿有效；与点一起锁存，不能用当前有效标志替代。
     input  wire               point_pose_valid,
-    // 采样时世界 x，signed mm；[-12800,12800)。
+    // 采样时世界 x，signed mm；[-6400,6400)。
     input  wire signed [31:0] point_pose_x_mm,
-    // 采样时世界 y，signed mm；[-12800,12800)。
+    // 采样时世界 y，signed mm；[-6400,6400)。
     input  wire signed [31:0] point_pose_y_mm,
     // 采样时世界偏航，signed 0.01°，逆时针，[-18000,18000)。
     input  wire signed [31:0] point_pose_yaw_cdeg,
@@ -64,9 +64,9 @@ module auto_navigation #(
 
     // 当前位置有效；定位失效须主动撤销，冻结且保持 1 无法被识别。
     input  wire               pose_valid,
-    // 当前世界 x，signed mm；初始车头为 +x，范围 [-12800,12800)。
+    // 当前世界 x，signed mm；初始车头为 +x，范围 [-6400,6400)。
     input  wire signed [31:0] pose_x_mm,
-    // 当前世界 y，signed mm；初始车左为 +y，范围 [-12800,12800)。
+    // 当前世界 y，signed mm；初始车左为 +y，范围 [-6400,6400)。
     input  wire signed [31:0] pose_y_mm,
     // 当前绝对 yaw，signed 0.01°，逆时针，[-18000,18000)。
     input  wire signed [31:0] pose_yaw_cdeg,
@@ -78,7 +78,7 @@ module auto_navigation #(
 
     // 持续目标有效电平，无接受脉冲；撤销取消自动动作，不清地图。
     input  wire               goal_valid,
-    // 目标世界格 x=0..255；格中心 x=100*x-12750 mm。
+    // 目标世界格 x=0..255；格中心 x=50*x-6375 mm。
     input  wire         [7:0] goal_x_cell,
     // 目标世界格 y=0..255；正向与世界 +y 相同，非屏幕行号。
     input  wire         [7:0] goal_y_cell,
@@ -142,8 +142,8 @@ module auto_navigation #(
     output wire               route_disp_frame_start,
     output wire               route_disp_frame_done
 );
-    wire pose_inside = pose_x_mm >= -32'sd12800 && pose_x_mm < 32'sd12800 &&
-        pose_y_mm >= -32'sd12800 && pose_y_mm < 32'sd12800 && pose_yaw_cdeg >= -32'sd18000 &&
+    wire pose_inside = pose_x_mm >= -32'sd6400 && pose_x_mm < 32'sd6400 &&
+        pose_y_mm >= -32'sd6400 && pose_y_mm < 32'sd6400 && pose_yaw_cdeg >= -32'sd18000 &&
         pose_yaw_cdeg < 32'sd18000;
     wire navigation_pose_valid = pose_valid && pose_inside;
 
@@ -215,8 +215,8 @@ module auto_navigation #(
     nav_top #(
         .GRID_W             (256),
         .GRID_H             (256),
-        .CELL_MM            (100),
-        .HALF_MM            (12800),
+        .CELL_MM            (50),
+        .HALF_MM            (6400),
         .MAX_WP             (1024),
         .FORWARD_CHECK_CELLS(FORWARD_CHECK_CELLS),
         .VEHICLE_WIDTH_MM   (VEHICLE_WIDTH_MM),

@@ -128,3 +128,8 @@ powershell -File sim\run_sim.ps1
 新增 `nav_scan_accumulator_tb`（18 项），覆盖同圈命中优先、跨圈清障、新圈命中保护、重叠膨胀和完整 256×256 记录整理。`radar_map_tb` 扩至 16 项，真实串口验证换圈和无效槽；`obstacle_motion_tb` 适配跨圈确认清障，仍按 50 MHz 真实时间推进车辆。
 
 完整 ModelSim 回归 27 台 / 2301 项通过；命令为 `powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64`，定向可加 `-Only nav_scan_accumulator,radar_map,obstacle_motion`。周期及资源 / 时序结果见[接入验证](../doc/自动导航接入验证.md)。
+
+
+## 50 mm 地图回归（2026-10-21）
+
+地图改为 256×256、50 mm/格、12.8×12.8 m 后，完整回归 28 台 / 2323 项通过。新增 `nav_geometry_tb` 18 项，包括所有 32801 个可达量化输入的精确 floor 对比；串口建图增至 20 项，选点 / 规划 / 实际运动测试均适配新中心及格号。命令不变，定向可用 `-Only nav_geometry,radar_map,obstacle_page,obstacle_plan,obstacle_motion`。原非避障测试文件不变。

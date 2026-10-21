@@ -57,38 +57,51 @@ module radar_map_tb;
         repeat(66000) @(negedge clk);
         check(!valid,"pose held invalid before ready");ready=1;
         pose_update(0);check(valid && px==0 && py==0 && pa==0,"coherent initial pose");
-        packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+133],"forward radar maps +x");
-        pose_update(9000);packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[133*256+128],"left yaw maps +y");
+        packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+139],"forward radar maps +x");
+        pose_update(9000);packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[139*256+128],"left yaw maps +y");
         pose_update(18000);check(pa==-18000,"positive 180 normalized");
-        packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+122],"rear heading maps -x");
-        pose_update(-9000);packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[122*256+128],"right yaw maps -y");
-        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+133],"history retained across scans");
+        packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+117],"rear heading maps -x");
+        pose_update(-9000);packet(0,550,0);check(dut.u_adapter.u_navigation.u_nav.u_map.raw[117*256+128],"right yaw maps -y");
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+139],"history retained across scans");
         pose_update(0);
         packet(34500,16'hffff,0);
         packet(0,550,1);
         packet(1500,1500,0);
-        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[126*256+133],
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[125*256+138],
               "near hit survives farther same-circle ray");
-        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[124*256+142],
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[120*256+156],
               "far hit enters map immediately without waiting for next circle");
         packet(34500,16'hffff,0);
         packet(0,1500,1);
-        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[126*256+133],
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[125*256+138],
               "clear evidence waits until its circle ends");
         packet(34500,16'hffff,0);
         packet(0,16'hffff,0);
         // 换圈首包全是填充槽，下一包的有效射线仍必须携带换圈标记。
         packet(1500,1500,0);
         repeat(500000) @(negedge clk);
-        check(!dut.u_adapter.u_navigation.u_nav.u_map.raw[126*256+133],
+        check(!dut.u_adapter.u_navigation.u_nav.u_map.raw[125*256+138],
               "next completed circle clears old hit despite invalid boundary slots");
-        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[124*256+142],
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[120*256+156],
               "new far obstacle survives deferred cleanup");
-        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[133*256+128],
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[139*256+128],
               "unobserved side obstacle remains across circle cleanup");
         clear=1;repeat(2) @(negedge clk);check(!valid,"clear invalidates pose");clear=0;
         repeat(66000) @(negedge clk);
-        check(!dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+133],"clear resets old map");
+        check(!dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+139],"clear resets old map");
+        pose_update(0);
+        packet(0,49,0);
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+128],
+              "49 mm front hit belongs to center cell");
+        check(dut.u_adapter.u_navigation.u_nav.u_map.cost[132*256+132] &&
+              !dut.u_adapter.u_navigation.u_nav.u_map.cost[128*256+133],
+              "inflation extends four cells (200 mm), not five");
+        packet(0,50,0);
+        check(dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+129],
+              "50 mm front hit enters next cell");
+        packet(0,10000,0);
+        check(!dut.u_adapter.u_navigation.u_nav.u_map.raw[128*256+255],
+              "10 m no-echo ray clips at map edge without creating boundary hit");
         $display("CHECKS: %0d",checks);
         $display("METRICS: radar_map cycles=%0d checks=%0d errors=%0d",cycles,checks,errors);
         if(!errors) $display("PASS: radar_map");

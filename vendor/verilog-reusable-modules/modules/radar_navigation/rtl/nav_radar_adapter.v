@@ -19,11 +19,11 @@
 //   - 定位源准备好后置 pose_valid，位置与朝向必须作为一组原子更新。
 // ============================================================================
 module nav_radar_adapter #(
-    parameter integer FORWARD_CHECK_CELLS = 3,
+    parameter integer FORWARD_CHECK_CELLS = 6,
     parameter integer VEHICLE_WIDTH_MM    = 180,
     parameter integer FRONT_OFFSET_MM     = 150,
     parameter integer LATERAL_MARGIN_MM   = 20,
-    parameter integer PLAN_INFLATE_CELLS  = 2
+    parameter integer PLAN_INFLATE_CELLS  = 4
 ) (
     // 50 MHz 公共时钟；所有控制/位姿多位输入需已同步到此域。
     input  wire               clk,
@@ -43,9 +43,9 @@ module nav_radar_adapter #(
 
     // 当前位置有效；定位失效须主动撤销，冻结且保持 1 无法被识别。
     input  wire               pose_valid,
-    // 当前世界 x，signed mm；初始车头为 +x，范围 [-12800,12800)。
+    // 当前世界 x，signed mm；初始车头为 +x，范围 [-6400,6400)。
     input  wire signed [31:0] pose_x_mm,
-    // 当前世界 y，signed mm；初始车左为 +y，范围 [-12800,12800)。
+    // 当前世界 y，signed mm；初始车左为 +y，范围 [-6400,6400)。
     input  wire signed [31:0] pose_y_mm,
     // 当前绝对 yaw，signed 0.01°，逆时针，[-18000,18000)。
     input  wire signed [31:0] pose_yaw_cdeg,
@@ -57,7 +57,7 @@ module nav_radar_adapter #(
 
     // 持续目标有效电平，无接受脉冲；撤销取消自动动作，不清地图。
     input  wire               goal_valid,
-    // 目标世界格 x=0..255；格中心 x=100*x-12750 mm。
+    // 目标世界格 x=0..255；格中心 x=50*x-6375 mm。
     input  wire         [7:0] goal_x_cell,
     // 目标世界格 y=0..255；正向与世界 +y 相同，非屏幕行号。
     input  wire         [7:0] goal_y_cell,

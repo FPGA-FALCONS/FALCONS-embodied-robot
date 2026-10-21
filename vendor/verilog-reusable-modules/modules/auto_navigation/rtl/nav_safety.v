@@ -7,7 +7,7 @@
 // stop_cause：0 正常，1 未就绪或数据错误，3 位置范围越界。
 // ============================================================================
 module nav_safety #(
-    parameter signed [31:0] MAP_HALF = 32'sd12800
+    parameter signed [31:0] MAP_HALF = 32'sd6400
 ) (
     input  wire               reset_n,
     input  wire               pose_valid,

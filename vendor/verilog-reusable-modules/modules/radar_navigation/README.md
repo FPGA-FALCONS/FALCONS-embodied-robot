@@ -13,6 +13,6 @@
 
 共 19 个 RTL，不存在另一套私有雷达或 UART。若通过整车 deps/modules.list 与 scripts/vendor_sources.tcl 接入，应加入 auto_navigation、radar_navigation 和 m10_radar，并复用原有 uart；m10_radar 包的原点云显示文件继续保留，相关显示依赖按该包说明加入。
 
-固定 50 MHz，M10 GPS UART 460800 / 8N1。控制接口为 cmd_valid、target_x_mm、target_y_mm、emergency_stop、ctrl_done、ctrl_linear_active；控制器自行转向和直行，整个目标点任务完成且停稳后确认。地图 256×256、100 mm/格、中心原点，未知允许规划通过。
+固定 50 MHz，M10 GPS UART 460800 / 8N1。控制接口为 cmd_valid、target_x_mm、target_y_mm、emergency_stop、ctrl_done、ctrl_linear_active；控制器自行转向和直行，整个目标点任务完成且停稳后确认。地图 256×256、50 mm/格、中心原点，未知允许规划通过。
 
 本次为模块库交付，尚未加入整车顶层或编译包列表。整车后续需连接选点、定位、控制器握手、手动/自动授权及显示，并重新进行集成与上板验证。本交付不含临时文件、仿真测试、测试工具、测量顶层和媒体。

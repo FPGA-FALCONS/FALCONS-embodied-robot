@@ -1,5 +1,5 @@
 // 避障导航选点页；原非避障页面不受本模块影响。
-// 世界位置为毫米，原点和显示比例沿用原选点页；目标提交为 100 mm 地图格。
+// 世界位置为毫米，原点像素不变，每格显示 6 px；目标提交为 50 mm 地图格。
 // 列表仅设置时编辑，暂停保留当前点；目的地到达后完成撤销握手再提交下一点。
 `timescale 1ns/1ps
 
@@ -8,13 +8,13 @@ module nav_obstacle_ui #(
     parameter integer CURSOR_SPEED = 500,     // mm/s @ 满杆
     parameter integer DEADZONE     = 100,     // 摇杆死区（±1000 归一化）
     parameter integer MAX_POINTS   = 16,
-    parameter integer X_MIN_MM     = -3400,
-    parameter integer X_MAX_MM     = 10183,
-    parameter integer Y_MIN_MM     = -4983,
-    parameter integer Y_MAX_MM     = 5000,
+    parameter integer X_MIN_MM     = -1700,
+    parameter integer X_MAX_MM     = 5091,
+    parameter integer Y_MIN_MM     = -2491,
+    parameter integer Y_MAX_MM     = 2500,
     parameter integer PX_ORIGIN    = 412,     // 原点像素 x
     parameter integer PY_ORIGIN    = 300,     // 原点像素 y
-    parameter integer SCALE_Q16    = 3932     // 0.06 px/mm 的 Q16（= 0.059998）
+    parameter integer SCALE_Q16    = 7864     // 0.12 px/mm 的 Q16（= 0.119995）
 )(
     input  wire                clk,
     input  wire                rst_n,
@@ -265,13 +265,13 @@ module nav_obstacle_ui #(
             o_goal_valid <= 0;
         end else case (goal_phase)
             0: if (o_nav_state == ST_RUNNING && i_command_idle) begin
-                offset_x <= selected_x + 16'd12800;
-                offset_y <= selected_y + 16'd12800;
+                offset_x <= selected_x + 16'd6400;
+                offset_y <= selected_y + 16'd6400;
                 goal_phase <= 1;
             end
             1: begin
-                o_goal_x_cell <= offset_x / 16'd100;
-                o_goal_y_cell <= offset_y / 16'd100;
+                o_goal_x_cell <= offset_x / 16'd50;
+                o_goal_y_cell <= offset_y / 16'd50;
                 o_goal_valid <= 1;
                 goal_phase <= 2;
             end

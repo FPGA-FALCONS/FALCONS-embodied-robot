@@ -128,9 +128,9 @@ module nav_ui_preview_tb;
     initial begin
         if (!$value$plusargs("OUT=%s", output_dir)) output_dir = "logs/nav_ui_preview";
         for (n = 0; n < 64; n = n + 1) text_memory[n] = 0;
-        // 准心坐标 5.55 m / 2.25 m，对应格中心 (183,150)。
-        text_memory[47] = 21; text_memory[48] = 21; text_memory[49] = 21;
-        text_memory[52] = 18; text_memory[53] = 18; text_memory[54] = 21;
+        // 准心坐标 2.775 m / 1.125 m，对应格中心 (183,150)。
+        text_memory[47] = 18; text_memory[48] = 23; text_memory[49] = 23;
+        text_memory[52] = 17; text_memory[53] = 17; text_memory[54] = 18;
         repeat (6) @(negedge clk); rst_n = 1;
         map_image(0);
         capture("00_radar_map");

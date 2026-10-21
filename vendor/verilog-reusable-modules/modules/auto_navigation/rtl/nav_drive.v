@@ -20,9 +20,9 @@
 module nav_drive #(
     parameter integer GRID_W              = 256,
                       GRID_H              = 256,
-                      CELL_MM             = 100,
-    parameter signed  HALF_MM             = 12800,
-    parameter integer FORWARD_CHECK_CELLS = 3,
+                      CELL_MM             = 50,
+    parameter signed  HALF_MM             = 6400,
+    parameter integer FORWARD_CHECK_CELLS = 6,
     parameter integer VEHICLE_WIDTH_MM    = 180,
     parameter integer FRONT_OFFSET_MM     = 150,
     parameter integer LATERAL_MARGIN_MM   = 20

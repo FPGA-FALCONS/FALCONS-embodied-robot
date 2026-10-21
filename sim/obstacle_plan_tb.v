@@ -49,7 +49,7 @@ module obstacle_plan_tb;
         key(0);key(1);key(1);key(0);
         wait_cycles=0;
         while(route_length==0 && wait_cycles<1000000) begin @(negedge clk);wait_cycles=wait_cycles+1;end
-        check(goal && gx==138 && gy==128,"UI target reaches actual planner");
+        check(goal && gx==148 && gy==128,"UI target reaches actual planner");
         check(feedback==2,"preplanning is paused without motion grant");
         check(route_length>0,"BFS publishes a route on initialized free map");
         key(2);check(paused && goal,"pause keeps planner goal");

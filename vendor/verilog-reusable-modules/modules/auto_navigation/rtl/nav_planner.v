@@ -27,33 +27,33 @@ module nav_planner #(
     parameter integer QMAX          = 8192,
     // 规划器输出中继点的距离上限，实际间距 GAP=W_MAX-1 格。
     // 集成后的 nav_segments 合并连续同向中继，控制器只在最终拐点/前缀末点停稳。
-    parameter integer W_MAX         = 20,
+    parameter integer W_MAX         = 39,
     // ---- 长直线横向居中（streaming centering）----------------------------
     // 0 = 不平移中间段；1 = 按 cost 余量居中，首段和末段不平移。
     parameter integer CENTER_EN     = 1,
     // 参与居中的最短段（格）。太短的段没有可平移的余量，硬平移只会破坏几何。
-    parameter integer L_MIN         = 6,
+    parameter integer L_MIN         = 12,
     // 法向探针深度（格，每侧）。能测到 PROBE_D 格；超过则记为 PROBE_D+1（"无界"）。
-    // 候选偏移为两侧最小间隙差的一半；PROBE_D=5 时探测候选最大为 2 格。
-    parameter integer PROBE_D       = 5,
+    // 候选偏移为两侧最小间隙差的一半；PROBE_D=10 时探测候选最大为 5 格。
+    parameter integer PROBE_D       = 10,
     // 沿段探针的等密度间距（格）：在段内每 PROBE_STEP 格取一个探测位置
     // （p = PROBE_STEP, 2*PROBE_STEP, ... < 段长），每个位置两侧各探 PROBE_D 格。
     // 长段增加探测位置，以覆盖段中和靠近端点的局部凸起。
     // 每个位置的成本 = 2*PROBE_D 次读；太小会显著增加轮次时长，建议 2~8。
-    parameter integer PROBE_STEP    = 4,
+    parameter integer PROBE_STEP    = 8,
     // 只有当前整段最小间隙 < CLEAR_TRIGGER 时才尝试居中（"只修贴边"，空旷处不折腾）。
-    parameter integer CLEAR_TRIGGER = 4,
+    parameter integer CLEAR_TRIGGER = 8,
     // 起点"逃逸窗口"半径（格）：车辆可能已经处在膨胀带里（墙是后来观测到的），
     // 此时起点四邻在 cost 图上全是阻挡 → BFS 到不了起点 → no_path。允许 BFS 在
     // 起点周围该半径内穿过"raw 自由、只是被膨胀覆盖"的格子，把路线接出去；
     // 真正的障碍（raw=1）不受影响。取值应与 nav_map 的 INFLATE 一致。
-    parameter integer BFS_RELAX     = 2,
+    parameter integer BFS_RELAX     = 4,
     // 全路线长度最大增加量（格）。**关键**：平移一段时，路线总长的变化只取决于两侧
     // 相邻段的方向：
     //   * 两侧相邻段同向（Z 形，如 ↑→↑）：一段 +o、一段 −o ⇒ 总长不变 ⇒ 不设限；
     //   * 两侧相邻段反向（C/⊓ 形，如 ↑→↓）：两段都 +|o| ⇒ 总长 +2|o| ⇒ 用本预算约束。
     // 所以本参数只约束 C 形段（累计记账、可被"缩短方向"的平移退款）。
-    parameter integer PATH_INC_MAX  = 10
+    parameter integer PATH_INC_MAX  = 20
 ) (
     input  wire               clk,
     input  wire               reset_n,
@@ -90,7 +90,7 @@ module nav_planner #(
 );
     localparam integer N = GRID_W * GRID_H;
     localparam integer WKLIM = 4096;  // 行走步数上限，仅作安全网（safety net）
-    // 中继点间距：默认 W_MAX=20，对应 GAP=19 格；同向点在下游合并。
+    // 中继点间距：默认 W_MAX=39，对应 GAP=38 格；同向点在下游合并。
     // **约束：W_MAX 必须 >= 2**。W_MAX=1 会让 GAP=0，发射状态里 `em_rem > GAP`
     // 恒真、每拍产出同一个中继点，形成死循环（没有运行时保护，靠参数选择保证）。
     localparam integer GAP = W_MAX - 1;

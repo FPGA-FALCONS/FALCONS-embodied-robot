@@ -19,18 +19,18 @@
 //   - 不要让显示反压建图；不要等待 motion_stopped 才允许开始普通规划。
 // ============================================================================
 module nav_top #(
-    parameter integer        FORWARD_CHECK_CELLS = 3,
+    parameter integer        FORWARD_CHECK_CELLS = 6,
     parameter integer        VEHICLE_WIDTH_MM    = 180,
     parameter integer        FRONT_OFFSET_MM     = 150,
     parameter integer        LATERAL_MARGIN_MM   = 20,
-    parameter integer        PLAN_INFLATE_CELLS  = 2,
+    parameter integer        PLAN_INFLATE_CELLS  = 4,
     parameter integer        GRID_W              = 256,
     parameter integer        GRID_H              = 256,
-    parameter integer        CELL_MM             = 100,
-    parameter signed         HALF_MM             = 12800,
+    parameter integer        CELL_MM             = 50,
+    parameter signed         HALF_MM             = 6400,
     parameter integer        MAX_WP              = 1024,
     parameter         [22:0] REPLAN_PERIOD       = 23'd5_000_000,  // 50 MHz / 100 ms
-    parameter integer        W_MAX               = 20
+    parameter integer        W_MAX               = 39
 ) (
     input  wire               clk,
     input  wire               reset_n,
