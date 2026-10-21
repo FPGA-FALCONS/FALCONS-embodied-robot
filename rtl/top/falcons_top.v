@@ -393,10 +393,19 @@ module falcons_top (
     wire [9:0]              nav_cur_py = (page == PAGE_NAV_OBS) ? obs_cur_py : free_nav_cur_py;
     wire obs_goal_valid;
     wire [7:0] obs_goal_x, obs_goal_y;
-    wire obs_ctrl_done = 1'b0;
-
     wire               nav_auto_valid;
     wire signed [31:0] nav_auto_center, nav_auto_diff;
+    wire [3:0] planner_nav_state;
+    wire planner_cmd_valid, planner_emergency_stop;
+    wire signed [31:0] planner_target_x, planner_target_y;
+    wire obs_ctrl_done, obs_linear_active, obs_ctrl_fault;
+    wire obs_auto_valid;
+    wire signed [31:0] obs_auto_center, obs_auto_diff;
+    wire obs_owns_control = planner_cmd_valid || planner_emergency_stop;
+    wire auto_selected_valid = obs_owns_control ? obs_auto_valid : nav_auto_valid;
+    wire signed [31:0] auto_selected_center = obs_owns_control ? obs_auto_center : nav_auto_center;
+    wire signed [31:0] auto_selected_diff = obs_owns_control ? obs_auto_diff : nav_auto_diff;
+
     wire               nav_ctrl_active;      // 导航页 + 交互态
     wire signed [31:0] nav_dbg_ahead, nav_dbg_left;
     wire signed [15:0] nav_dbg_psi;
@@ -632,8 +641,8 @@ module falcons_top (
     ) u_chassis (
         .clk          (i_clk_50m),
         .rst_n        (sys_rst_n),
-        .i_enable     (run_en | nav_auto_valid),
-        .i_estop      (estop_latch | tof_estop),
+        .i_enable     (manual_drive ? run_en : auto_selected_valid),
+        .i_estop      (estop_latch | tof_estop | (!manual_drive && planner_emergency_stop)),
         .i_manual     (chassis_manual),
         .i_steer      (steer_in),
         .i_throttle   (throttle_in),
@@ -642,9 +651,9 @@ module falcons_top (
         //     已经实现了"手动压制导航"（决策 A3），这里不需要再加门控。
         //   ★ 暂停时 u_nav_ctrl 给 valid=1、center=diff=0 → 四路 speed_pid 主动把
         //     轮速拉到 0（主动制动），比"断 PWM 靠滑行"更能保证真的停住。
-        .i_auto_valid (nav_auto_valid),
-        .i_auto_center(nav_auto_center),
-        .i_auto_diff  (nav_auto_diff),
+        .i_auto_valid (auto_selected_valid),
+        .i_auto_center(auto_selected_center),
+        .i_auto_diff  (auto_selected_diff),
         .i_kp         (kp_r),
         .i_ki         (ki_r),
         .i_kd         (kd_r),
@@ -1382,17 +1391,15 @@ module falcons_top (
     wire map_disp_valid, map_disp_occupied, map_disp_start, map_disp_done;
     wire route_disp_valid, route_disp_start, route_disp_done;
     wire [7:0] route_disp_x, route_disp_y;
-    wire [3:0] planner_nav_state;
-    wire planner_cmd_valid, planner_emergency_stop;
-    wire signed [31:0] planner_target_x, planner_target_y;
     radar_navigation u_radar_navigation (
         .clk(i_clk_50m), .reset_n(nav_reset_n),
-        .map_enable(navigation_pose_valid), .plan_enable(obs_goal_valid), .motion_enable(1'b0),
+        .map_enable(navigation_pose_valid), .plan_enable(obs_goal_valid),
+        .motion_enable(obs_run && !manual_drive && rc_signal_ok && !estop_latch && !tof_estop && !obs_ctrl_fault),
         .radar_rx(i_radar_rx), .pose_valid(navigation_pose_valid),
         .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
         .pose_yaw_cdeg(navigation_yaw_cdeg),
         .goal_valid(obs_goal_valid), .goal_x_cell(obs_goal_x), .goal_y_cell(obs_goal_y),
-        .ctrl_done(1'b0), .ctrl_linear_active(1'b0),
+        .ctrl_done(obs_ctrl_done), .ctrl_linear_active(obs_linear_active),
         .cmd_valid(planner_cmd_valid), .emergency_stop(planner_emergency_stop),
         .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
         .nav_state(planner_nav_state),
@@ -1464,6 +1471,21 @@ module falcons_top (
         .o_cur_py   (free_nav_cur_py)
     );
 
+    nav_point_ctrl u_nav_point_ctrl (
+        .clk(i_clk_50m), .rst_n(sys_rst_n),
+        .i_cmd_valid(planner_cmd_valid), .i_emergency_stop(planner_emergency_stop),
+        .i_target_x_mm(planner_target_x), .i_target_y_mm(planner_target_y),
+        .i_tick(delta_valid), .i_x_mm(navigation_x_mm), .i_y_mm(navigation_y_mm),
+        .i_yaw_centi(navigation_yaw_cdeg), .i_v_mms(odom_v_mms), .i_stall(stall_vec),
+        .i_v_cruise(tune_p[31:0]), .i_d_slow(tune_p[63:32]),
+        .i_align_in(tune_p[95:64]), .i_align_out(tune_p[127:96]),
+        .i_max_diff_cruise(tune_p[159:128]), .i_kp_yaw(tune_p[191:160]),
+        .i_ki_yaw(tune_p[223:192]), .i_kd_yaw(tune_p[255:224]),
+        .i_i_limit(tune_p[287:256]), .i_k_slow_q10(tune_k_slow),
+        .o_auto_valid(obs_auto_valid), .o_center(obs_auto_center), .o_diff(obs_auto_diff),
+        .o_done(obs_ctrl_done), .o_linear_active(obs_linear_active), .o_fault(obs_ctrl_fault)
+    );
+
     nav_obstacle_ui #(.CLK_HZ(CLK_HZ)) u_nav_obstacle_ui (
         .clk(i_clk_50m), .rst_n(sys_rst_n), .i_active(page == PAGE_NAV_OBS),
         .i_clear(count_clear_r), .i_x_mm(odom_x_mm), .i_y_mm(odom_y_mm),
@@ -1471,7 +1493,7 @@ module falcons_top (
         .i_confirm(rc_confirm), .i_back(rc_back), .i_aux_up(rc_aux_up), .i_aux_down(rc_aux_down),
         .i_nav_state(planner_nav_state),
         .i_command_idle(!planner_cmd_valid && !planner_emergency_stop && !obs_ctrl_done),
-        .i_pause(key1_press || estop_latch || !rc_signal_ok), .i_ctrl_fault(1'b0),
+        .i_pause(key1_press || estop_latch || !rc_signal_ok), .i_ctrl_fault(obs_ctrl_fault),
         .o_cur_x_mm(obs_cur_x_mm), .o_cur_y_mm(obs_cur_y_mm), .o_aux_sel(obs_aux_sel),
         .o_pt_count(obs_pt_count), .o_nav_state(obs_ui_state),
         .o_nav_ui_active(obs_ui_active), .o_nav_run(obs_run), .o_nav_paused(obs_paused),

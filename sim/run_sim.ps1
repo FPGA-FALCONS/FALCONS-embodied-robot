@@ -191,11 +191,13 @@ $sources = @(
 $sources += @(Get-ChildItem "$VendorRoot\auto_navigation\rtl\*.v" | ForEach-Object { $_.FullName })
 $sources += @(Get-ChildItem "$VendorRoot\radar_navigation\rtl\*.v" | ForEach-Object { $_.FullName })
 $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rtl\m10_packet_parser.v",
+              "$ProjectRoot\rtl\nav\nav_point_ctrl.v", "$PSScriptRoot\nav_point_ctrl_tb.v",
               "$ProjectRoot\rtl\nav\nav_pose.v", "$PSScriptRoot\radar_map_tb.v",
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
               "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v")
 
 $tests = @(
+    @{ Name = 'nav_point_ctrl'; Top = 'nav_point_ctrl_tb'; Desc = 'Point task / live target / emergency handshake' },
     @{ Name = 'obstacle_page'; Top = 'obstacle_page_tb'; Desc = 'Obstacle page and multiple destinations' },
     @{ Name = 'obstacle_plan'; Top = 'obstacle_plan_tb'; Desc = 'Obstacle UI to real BFS preplanning' },
     @{ Name = 'radar_map'; Top = 'radar_map_tb'; Desc = 'UART radar to world map and coherent pose' },
