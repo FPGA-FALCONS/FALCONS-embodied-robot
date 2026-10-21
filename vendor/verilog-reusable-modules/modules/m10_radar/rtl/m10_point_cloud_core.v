@@ -48,6 +48,7 @@ module m10_point_cloud_core #(
     wire [2:0] last_error_reason;
     m10_radar #(.CLK_FREQ_HZ(CLK_FREQ_HZ)) u_radar (
         .clk(clk), .reset_n(reset_n), .radar_rx(radar_rx),
+        .capture_context(97'd0), .point_context(),
         .point_valid(point_valid), .point_ready(point_ready),
         .point_angle_cdeg(point_angle_cdeg), .point_distance_mm(point_distance_mm),
         .point_index(point_index), .packet_valid(packet_valid),

@@ -58,3 +58,7 @@ M10 HDMI 示例直接引用 `modules/hdmi_1024x600/rtl/` 中现有显示时序�
 ## TOF200C / VL53L0X
 
 modules/tof_vl53l0x的初始化/tuning依据Pololu和ST实现转写；来源及指纹见该包docs/SOURCES.md，Pololu/ST许可原文保留在third_party/Pololu_ST_LICENSE.txt。该包在本项目vendor内直接维护，不再向旧源仓库推送。
+
+## 2026-10-21 自动导航与 M10 随点信息
+
+新增 modules/auto_navigation 与 modules/radar_navigation 的 RTL 和交接说明，来源 find_road_test 的 f3809b246ef34e2e9856e3a74baaef891f52ada7。公共 M10 读取与解析增加固定 97 位随点信息，在 UART 接收到距离低字节时保存，随双包距离缓存同步读取；这是导航本地实现，不是厂商驱动代码。公共 UART 接收器与来源相同，未作修改。GPS102 协议与原有第三方来源说明继续适用。

@@ -15,6 +15,7 @@
 | 实现细节、硬件规划 | [实现说明](doc/使用FPGA实现的差速小车功能设计_ai优化版.md)（冲突时服从需求原文） |
 | 参数与遗留任务 | [参数总表](doc/参数总表与待定清单.md)、[设计待办](doc/设计落实待办.md) |
 | 导航侧接口与**控制层**（方案 + RTL 已实现） | [导航控制方案](doc/导航控制方案.md) |
+| 雷达建图与避障规划模块（已交付，待整车接入） | [模块说明](vendor/verilog-reusable-modules/modules/radar_navigation/README.md)、[完整交接文档](vendor/verilog-reusable-modules/modules/radar_navigation/docs/delivery_handoff.md) |
 | 历史过程与完整文档索引 | [工作记录](doc/工作记录.md)、[文档索引](doc/README.md) |
 
 ## 当前状态（2026-10-21）

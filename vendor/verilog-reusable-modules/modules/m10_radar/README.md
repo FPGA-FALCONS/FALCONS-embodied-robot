@@ -67,6 +67,8 @@ M10 供电要求为 4.75～5.25 V、约 400 mA，表列最大 450 mA；手册原
 | `clk` | 输入 | 系统时钟，频率须与参数一致 |
 | `reset_n` | 输入 | 低有效复位，清除接收状态、缓存和诊断 |
 | `radar_rx` | 输入，异步 | 雷达 TX，空闲高，固定 460800 8N1 |
+| `capture_context` | 输入，97 位 | 在每个距离低字节接收时保存的外部信息；导航接 `{pose_valid, x_mm, y_mm, yaw_cdeg}` |
+| `point_context` | 输出，97 位 | 与当前测量槽对应的外部信息，随 point_valid/point_ready 保持和消费 |
 | `point_valid` / `point_ready` | 输出 / 输入 | 测量槽 ready/valid 握手 |
 | `point_angle_cdeg` | 输出，16 位 | 角度，单位 0.01°，范围 0…35999 |
 | `point_distance_mm` | 输出，16 位 | 归一化后的毫米距离；FFFF 为填充，0 为无有效距离 |
@@ -89,6 +91,7 @@ M10 供电要求为 4.75～5.25 V、约 400 mA，表列最大 450 mA；手册原
 ```verilog
 m10_radar #(.CLK_FREQ_HZ(50_000_000)) u_radar (
     .clk(clk), .reset_n(reset_n), .radar_rx(radar_tx),
+    .capture_context(97'd0), .point_context(),
     .point_valid(point_valid), .point_ready(point_ready),
     .point_angle_cdeg(angle_cdeg), .point_distance_mm(distance_mm),
     .point_index(point_index), .packet_valid(packet_valid),
@@ -96,7 +99,7 @@ m10_radar #(.CLK_FREQ_HZ(50_000_000)) u_radar (
 );
 ```
 
-`point_valid && point_ready` 时消费一个槽。背压时，角度、距离和索引保持不变。每个提交包输出 42 个槽，包括零距离及填充；消费方按用途过滤 0/FFFF，不能通过删槽重新排列角度。原始字节输出没有 ready 输入，消费方须及时接收每个 `rx_valid` 脉冲。
+`point_valid && point_ready` 时消费一个槽。背压时，角度、距离、索引和 point_context 保持不变。每个提交包输出 42 个槽，包括零距离及填充；消费方按用途过滤 0/FFFF，不能通过删槽重新排列角度。原始字节输出没有 ready 输入，消费方须及时接收每个 `rx_valid` 脉冲。
 
 双包缓存满时丢弃新整包，不覆盖待消费数据。UART 数据流无法用此 ready 信号暂停；长时间背压仍会丢包并记录 OVERFLOW。`packet_valid` 只表示成功入队，不表示这一包已由下游消费。
 
@@ -167,3 +170,9 @@ m10_radar #(.CLK_FREQ_HZ(50_000_000)) u_radar (
 `constraints/m10_radar.sdc` 是独立读取默认 50 MHz 的模板，约束周期为 20 ns，仅豁免外部异步 RX 到同步入口及外部复位路径。嵌入其他顶层时须按端口/实例名称合并并检查约束，修改时钟时同步调整周期；ACG720 HDMI 示例使用自身完整约束，不同时加载这份 50 MHz 模板。
 
 读取和点云 RTL 不包含器件专用 PLL/DVI IP。ACG720 示例的 49/245 MHz PLL、加密 DVI 和管脚映射属于 GW5AT-138B，换器件时需重生成对应 IP 并重做约束；换分辨率时还需调整固定显示时序和绘图区布局。完整构建应检查 setup、hold、recovery、removal 和 TNS，尤其保留 HDMI 串行器复位时序检查。
+
+## 导航使用的随点信息（2026-10-21）
+
+m10_radar 和 m10_packet_parser 增加固定 97 位 capture_context/point_context，双包缓存中每个距离槽保存一份，并与距离同步读出；雷达模块不解释这 97 位的业务含义。导航使用 1 位有效标志与三个有符号 32 位定位量，格式和接线见 [导航交接文档](../radar_navigation/docs/delivery_handoff.md)。
+
+独立点云显示 m10_point_cloud_core 不使用定位，已明确把 capture_context 接零、point_context 留空。仅使用雷达点的其他消费者也应这样接；需要位姿关联时由调用者同步提供实际信息。该关联时刻是 FPGA 接收到距离字节时，不是 GPS 校准后的光学采样时刻。GPS102 包格式、角度和距离归一化规则、UART 和原始点云显示路径保持原有行为。

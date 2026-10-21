@@ -37,3 +37,9 @@
 根据用户最新要求，以本项目作为唯一维护/推送目标，旧模块库只作历史来源。此前“最后同步c9b8025”描述的是原整体快照；本次仅更新rc_pwm_receiver并新增tof_vl53l0x，其他模块保持不变。
 
 新增RC归一化及观察例程、ToF驱动/测试/许可。主工程使用的rc_pwm_capture字节未变，应用9项/241检查回归通过。ToF目前是就位包，尚未加入整车顶层。详细范围与证据见[同步记录](../doc/遥控与ToF模块同步_20261018.md)。
+
+## 2026-10-21 导航与公共雷达模块交付
+
+在现有模块库 modules 下新增 auto_navigation、radar_navigation，对应更新 m10_radar 的读取与解析，并为原点云显示核心明确绑定新增旁带端口。UART 与来源一致，保持不动；没有独立 vendor/radar_navigation 副本。来源 find_road_test 的 f3809b246ef34e2e9856e3a74baaef891f52ada7。
+
+完整接口与流程见 [导航交接文档](verilog-reusable-modules/modules/radar_navigation/docs/delivery_handoff.md)，本次验证见 [交付来源](verilog-reusable-modules/modules/radar_navigation/ORIGIN.md)。交付只包含 RTL、清单和文档，尚未接入 falcons_top 或 deps/modules.list；模块和应用回归与整车上板验证分别记录。

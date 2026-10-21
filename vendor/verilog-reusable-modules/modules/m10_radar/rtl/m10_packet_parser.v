@@ -4,6 +4,8 @@
 // Point angles are centidegrees; distances are millimetres.
 // Two packet banks retain complete packets while the point consumer stalls.
 // A packet received while both banks are occupied is discarded in its entirety.
+// An opaque 97-bit acquisition context is captured at each distance low byte.
+// It is buffered with that slot, read synchronously, and held until acceptance.
 module m10_packet_parser #(
     parameter integer CLK_FREQ_HZ = 50000000,
     parameter integer BYTE_TIMEOUT_CLKS = CLK_FREQ_HZ / 100
@@ -13,6 +15,8 @@ module m10_packet_parser #(
     input wire [7:0] rx_data,
     input wire rx_valid,
     input wire rx_error,
+    input wire [96:0] capture_context,
+    output wire [96:0] point_context,
     output wire point_valid,
     input wire point_ready,
     output wire [15:0] point_angle_cdeg,
@@ -118,6 +122,10 @@ module m10_packet_parser #(
     reg [10:0] bank_step_base [0:1];
     reg [5:0] bank_step_remainder [0:1];
     reg [15:0] distances [0:83];
+    reg [96:0] contexts [0:83];
+    reg output_loaded;
+    reg [15:0] output_distance;
+    reg [96:0] output_context;
     reg output_active;
     reg [5:0] output_index;
     reg [15:0] output_angle;
@@ -145,10 +153,25 @@ module m10_packet_parser #(
     wire [6:0] read_address = (read_bank ? 7'd42 : 7'd0) + output_index;
 
     // Standard valid/ready interface: data and valid remain stable while stalled.
-    assign point_valid = output_active;
+    assign point_valid = output_active && output_loaded;
     assign point_angle_cdeg = output_angle;
-    assign point_distance_mm = distances[read_address];
+    assign point_distance_mm = output_distance;
+    assign point_context = output_context;
     assign point_index = output_index;
+
+    // Registered reads infer synchronous RAM, rather than a 97-bit-wide
+    // combinational multiplexer across all 84 slot contexts. A one-clock bubble
+    // between points loads both memories before valid is asserted.
+    always @(posedge clk) begin
+        if (rst_n && rx_valid && !rx_error && state == S_DISTANCE_LO && receive_keep) begin
+            distances[write_address] <= received_distance;
+            contexts[write_address] <= capture_context;
+        end
+        if (rst_n && output_active && !output_loaded) begin
+            output_distance <= distances[read_address];
+            output_context <= contexts[read_address];
+        end
+    end
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -166,6 +189,7 @@ module m10_packet_parser #(
             read_bank <= 0;
             bank_pending <= 0;
             output_active <= 0;
+            output_loaded <= 0;
             output_index <= 0;
             output_angle <= 0;
             output_fraction <= 0;
@@ -187,6 +211,7 @@ module m10_packet_parser #(
             if (!output_active) begin
                 if (bank_pending[read_bank]) begin
                     output_active <= 1;
+                    output_loaded <= 0;
                     output_index <= 0;
                     output_angle <= bank_first_angle[read_bank];
                     output_fraction <= 0;
@@ -194,7 +219,10 @@ module m10_packet_parser #(
                     output_step_base <= bank_step_base[read_bank];
                     output_step_remainder <= bank_step_remainder[read_bank];
                 end
+            end else if (!output_loaded) begin
+                output_loaded <= 1;
             end else if (point_ready) begin
+                output_loaded <= 0;
                 if (output_index == 6'd41) begin
                     output_active <= 0;
                     bank_pending[read_bank] <= 0;
@@ -261,8 +289,6 @@ module m10_packet_parser #(
                         previous_distance_invalid <= received_distance_invalid;
                         if (!received_distance_invalid)
                             valid_distance_count <= valid_distance_count + 1'b1;
-                        if (receive_keep)
-                            distances[write_address] <= received_distance;
                         if (received_index == 6'd41) begin
                             time_index <= 0;
                             state <= S_TIME;

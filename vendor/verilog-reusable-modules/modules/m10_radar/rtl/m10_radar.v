@@ -8,6 +8,8 @@ module m10_radar #(
     input wire clk,
     input wire reset_n,
     input wire radar_rx,
+    input wire [96:0] capture_context,
+    output wire [96:0] point_context,
     output wire point_valid,
     input wire point_ready,
     output wire [15:0] point_angle_cdeg,
@@ -46,7 +48,8 @@ module m10_radar #(
     );
     m10_packet_parser #(.CLK_FREQ_HZ(CLK_FREQ_HZ)) u_parser (
         .clk(clk), .rst_n(reset_n), .rx_data(rx_data), .rx_valid(rx_valid),
-        .rx_error(rx_error), .point_valid(point_valid), .point_ready(point_ready),
+        .rx_error(rx_error), .capture_context(capture_context), .point_context(point_context),
+        .point_valid(point_valid), .point_ready(point_ready),
         .point_angle_cdeg(point_angle_cdeg), .point_distance_mm(point_distance_mm),
         .point_index(point_index), .packet_valid(packet_valid),
         .packet_error(packet_error), .packet_overflow(packet_overflow),

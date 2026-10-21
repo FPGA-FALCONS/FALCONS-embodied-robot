@@ -211,3 +211,7 @@ do run_test.do
 - [TOF200C/VL53L0X](modules/tof_vl53l0x/README.md)：独立驱动、测试及SAFE/WARN/STOP板级例程。
 
 本vendor的唯一维护仓库为FALCONS-embodied-robot；应用接线映射以工程doc/HT10A接线与验收.md为准，不能照搬独立观察例程。
+
+## 自动导航
+
+新增 [radar_navigation](modules/radar_navigation/README.md) 正式入口与 [auto_navigation](modules/auto_navigation/README.md) 内部模块；直接复用本库更新后的 m10_radar 和原有 uart。完整接口及使用流程见 [导航交接文档](modules/radar_navigation/docs/delivery_handoff.md)。本次仅交付 RTL 与文档，尚未加入整车顶层。
