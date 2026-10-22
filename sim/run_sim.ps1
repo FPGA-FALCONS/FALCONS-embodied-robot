@@ -200,7 +200,11 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
               "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v")
 
+$sources += @("$ProjectRoot\rtl\common\display_mm_to_cm.v", "$PSScriptRoot\display_mm_to_cm_tb.v", "$PSScriptRoot\ui_layers_tb.v")
+
 $tests = @(
+    @{ Name = 'ui_layers'; Top = 'ui_layers_tb'; Desc = 'Parallel layer priority / 131072 overlap and palette combinations' },
+    @{ Name = 'display_mm_to_cm'; Top = 'display_mm_to_cm_tb'; Desc = 'Signed display conversion / int32 limits / continuous pipeline / reset' },
     @{ Name = 'nav_planner'; Top = 'nav_planner_tb'; Desc = 'Indoor rooms / diagonal walls / straight-first BFS / centered segments / queue wrap' },
     @{ Name = 'ui_pipeline'; Top = 'ui_pipeline_tb'; Desc = 'Real HDMI scan / six complete pages / baseline pixel fingerprints' },
     @{ Name = 'imu_calib'; Top = 'imu_calib_tb'; Desc = 'IMU calibration pipeline / coherent samples / seed / reject / completion / timeout' },

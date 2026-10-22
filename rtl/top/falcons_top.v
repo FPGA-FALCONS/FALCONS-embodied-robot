@@ -362,9 +362,7 @@ module falcons_top (
 
     // 避障页为新增功能；原非避障 UI 和控制链保持独立用于调试。
     wire signed [31:0]      obs_cur_x_mm;
-    wire signed [31:0]      nav_cur_x_mm = (page == PAGE_NAV_OBS) ? obs_cur_x_mm : free_nav_cur_x_mm;
     wire signed [31:0]      obs_cur_y_mm;
-    wire signed [31:0]      nav_cur_y_mm = (page == PAGE_NAV_OBS) ? obs_cur_y_mm : free_nav_cur_y_mm;
     wire [2:0]              obs_aux_sel;
     wire [2:0]              nav_aux_sel = (page == PAGE_NAV_OBS) ? obs_aux_sel : free_nav_aux_sel;
     wire [4:0]              obs_pt_count;
@@ -1350,9 +1348,25 @@ module falcons_top (
     //     做法：取绝对值 → 右移（此时是正数，floor 就是向零）→ 再补符号。
     //     溢出检查：|gyro_z_comp| ≤ 200000，×10486 = 2.10e9 < 2^31 ✓
     //     （-200000 取反成 +200000 也在 int32 范围内，不存在 -2^31 的边界问题）
-    wire signed [31:0] gyro_abs     = (gyro_z_comp < 0) ? -gyro_z_comp : gyro_z_comp;
-    wire        [31:0] gyro_abs_deg = (gyro_abs * 32'sd10486) >>> 20;   // 正值，floor = 向零
-    wire signed [31:0] gyro_deg_s   = (gyro_z_comp < 0) ? -gyro_abs_deg : gyro_abs_deg;
+    // 仅显示支路增加流水，补偿数据供控制使用的时序保持不变。
+    reg signed [31:0] gyro_show;
+    reg        [31:0] gyro_abs;
+    reg               gyro_negative;
+    reg signed [31:0] gyro_deg_s;
+    wire [31:0] gyro_abs_deg = (gyro_abs * 32'd10486) >> 20;
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) begin
+            gyro_show     <= 0;
+            gyro_abs      <= 0;
+            gyro_negative <= 0;
+            gyro_deg_s    <= 0;
+        end else begin
+            gyro_show     <= gyro_z_comp;
+            gyro_abs      <= gyro_show < 0 ? -gyro_show : gyro_show;
+            gyro_negative <= gyro_show < 0;
+            gyro_deg_s    <= gyro_negative ? -gyro_abs_deg : gyro_abs_deg;
+        end
+    end
 
     // ==================================================================
     // 航位推算 odom（2026-10-18 新增，依据 设计文档 §5.3）
@@ -1412,10 +1426,16 @@ module falcons_top (
     wire map_disp_valid, map_disp_occupied, map_disp_start, map_disp_done;
     wire route_disp_valid, route_disp_start, route_disp_done;
     wire [7:0] route_disp_x, route_disp_y;
+    reg navigation_motion_enable;
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) navigation_motion_enable <= 0;
+        else navigation_motion_enable <= obs_run && !manual_drive && rc_signal_ok &&
+                                         !estop_latch && !tof_estop && !obs_ctrl_fault;
+    end
     radar_navigation u_radar_navigation (
         .clk(i_clk_50m), .reset_n(nav_reset_n),
         .map_enable(navigation_pose_valid), .plan_enable(obs_goal_valid),
-        .motion_enable(obs_run && !manual_drive && rc_signal_ok && !estop_latch && !tof_estop && !obs_ctrl_fault),
+        .motion_enable(navigation_motion_enable),
         .radar_rx(i_radar_rx), .pose_valid(navigation_pose_valid),
         .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
         .pose_yaw_cdeg(navigation_yaw_cdeg),
@@ -1432,12 +1452,6 @@ module falcons_top (
         .route_disp_frame_done(route_disp_done),
         .cloud_valid(), .cloud_angle_cdeg(), .cloud_distance_mm()
     );
-
-    // 显示口径 0.01 m（= 1 cm）：odom 输出 mm，÷10。
-    //   ★ 5 字符字段量程 ±99.99 m，精度锁 0.01 m（见 §42.2）。
-    //   ★ 常数除法综合成移位相加，不是真除法器。
-    wire signed [31:0] odom_x_cm = odom_x_mm / 32'sd10;
-    wire signed [31:0] odom_y_cm = odom_y_mm / 32'sd10;
 
     // ==================================================================
     // 6b. 非避障导航页控制器（2026-10-19 新增）
@@ -1651,30 +1665,29 @@ module falcons_top (
     // 调试观测口（nav_dbg_* / nav_fsm_state）本轮不消费：综合会把它们优化掉，
     //   留着是为了将来接 SignalTap 一类在线观测，不必改端口。
 
-    // 准心坐标 → 0.01 m（与航位显示同一口径；字段 9 / 10）
-    wire signed [31:0] nav_cur_x_cm = nav_cur_x_mm / 32'sd10;
-    wire signed [31:0] nav_cur_y_cm = nav_cur_y_mm / 32'sd10;
-
-    //   ★ 2026-10-20 时序：num_text 的 v7/v8/v9/v10 四路显示量（航位 x/y、准心 x/y）都经过
-    //     "除以 10 → 参数页 mux → num_text 内部输入寄存器"这条纯组合链，起点全是别的模块的
-    //     输出寄存器。20:05 那版报 `u_nav_free/o_cur_x_mm_6_s0 → u_num_text/v9_r_28_s0`（1 条，−1.374）；
-    //     给 x 单独打拍后，重排又把 `u_odom/y_q10_12_s4 → u_num_text/v8_r_*` 挪出来（10 条，−1.13~−1.154）。
-    //     这四路都是 10 ms 级慢变量，统一打一拍，把长链切成两段，一次覆盖 4 条可能路径。
-    //     代价：航位/准心显示晚一个时钟（20 ns），不可观测。
-    reg signed [31:0] odom_x_cm_r, odom_y_cm_r, nav_cur_x_cm_r, nav_cur_y_cm_r;
-    always @(posedge i_clk_50m or negedge sys_rst_n) begin
-        if (!sys_rst_n) begin
-            odom_x_cm_r   <= 32'sd0;
-            odom_y_cm_r   <= 32'sd0;
-            nav_cur_x_cm_r <= 32'sd0;
-            nav_cur_y_cm_r <= 32'sd0;
-        end else begin
-            odom_x_cm_r   <= odom_x_cm;
-            odom_y_cm_r   <= odom_y_cm;
-            nav_cur_x_cm_r <= nav_cur_x_cm;
-            nav_cur_y_cm_r <= nav_cur_y_cm;
-        end
-    end
+    // 各来源独立换算、寄存，页面选择不再进入除法路径。
+    wire signed [31:0] odom_x_cm_r, odom_y_cm_r;
+    wire signed [31:0] free_cur_x_cm, free_cur_y_cm, obs_cur_x_cm, obs_cur_y_cm;
+    wire signed [31:0] nav_cur_x_cm_r = page == PAGE_NAV_OBS ? obs_cur_x_cm : free_cur_x_cm;
+    wire signed [31:0] nav_cur_y_cm_r = page == PAGE_NAV_OBS ? obs_cur_y_cm : free_cur_y_cm;
+    display_mm_to_cm u_show_odom_x (
+        .clk(i_clk_50m), .reset_n(sys_rst_n), .mm(odom_x_mm), .cm(odom_x_cm_r)
+    );
+    display_mm_to_cm u_show_odom_y (
+        .clk(i_clk_50m), .reset_n(sys_rst_n), .mm(odom_y_mm), .cm(odom_y_cm_r)
+    );
+    display_mm_to_cm u_show_free_x (
+        .clk(i_clk_50m), .reset_n(sys_rst_n), .mm(free_nav_cur_x_mm), .cm(free_cur_x_cm)
+    );
+    display_mm_to_cm u_show_free_y (
+        .clk(i_clk_50m), .reset_n(sys_rst_n), .mm(free_nav_cur_y_mm), .cm(free_cur_y_cm)
+    );
+    display_mm_to_cm u_show_obs_x (
+        .clk(i_clk_50m), .reset_n(sys_rst_n), .mm(obs_cur_x_mm), .cm(obs_cur_x_cm)
+    );
+    display_mm_to_cm u_show_obs_y (
+        .clk(i_clk_50m), .reset_n(sys_rst_n), .mm(obs_cur_y_mm), .cm(obs_cur_y_cm)
+    );
 
     // ---- num_text 的 11 路输入：数据页用真实量，参数整定页用 tune_ctrl 的显示值 ----
     wire tune_page = (page == PAGE_TUNE);

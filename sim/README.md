@@ -167,3 +167,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_radar_gate.ps1 -Netl
 输出位于 `logs/bfs_straight/fixtures/`：地图、参考路径、两组 RTL 周期 / 队列统计及航点 CSV。对比历史 RTL 时，在独立仿真库编译对应 `nav_planner.v` 和同一测试台，传入匹配的 `+FIXTURE_DIR`（工作目录 `sim/`）。生成器 `--order fixed` 仅用于更早的固定枚举 BFS 参考，默认 `straight` 用于当前 BFS；正式 RTL 没有旧算法分支。当前台检查新的居中默认和采样规则，因此旧居中 RTL 应被这些新检查检出，不能期待旧版全过。
 
 已有两组输出时，从仓库根目录运行 `python sim/plot_bfs_indoor.py`，绘制实际 RTL 航点对照图，可用 `--baseline`、`--current`、`--output` 和 `--labels` 指定本轮输入和标题。绘图额外依赖 matplotlib、numpy，不影响自检。BFS 首轮结果见[直行优先验证](../doc/BFS直行优先验证_20261022.md)，当前居中与端点修正见[居中验证](../doc/路线居中修正验证_20261022.md)。
+
+
+## 2026-10-22 整车时序流水回归
+
+新增 `display_mm_to_cm_tb`（22204 份连续 int32 显示换算输入，22216 周期）和 `ui_layers_tb`（131072 个图层 / 配色组合）。两台各记一组汇总检查；完整应用为 34 台 / 3191 项。参数整定增加单拍推杆后回中的三项检查，运动闭环使用与整车相同的一拍普通运动许可。六页真实扫描指纹不变。局部参数页窗口在跳读前走消隐并预读，不修改像素期望。
+
+仅运行新增专项：`powershell -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64 -Only ui_layers,display_mm_to_cm`。完整证据及布线后结果见[流水优化验证](../doc/Fmax流水优化验证_20261022.md)。

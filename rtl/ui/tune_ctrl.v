@@ -264,6 +264,7 @@ module tune_ctrl (
     reg [1:0]  dir_r;       // 上一拍的方向编码（0 回中 / 1 右 / 2 左）
     reg [15:0] hold_ms;     // 同向按住毫秒数
     reg [7:0]  rep_cnt;     // 连发分频计数（0..119）
+    reg        step_add, select_up;
     reg        step_pulse;  // 调值单步触发
 
     // ---- 选行摇杆（CH2）----
@@ -285,11 +286,15 @@ module tune_ctrl (
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
+            step_add   <= 1'b0;
+            select_up  <= 1'b0;
             dir_r      <= 2'd0;  hold_ms    <= 16'd0;
             rep_cnt    <= 8'd0;  step_pulse <= 1'b0;
             th_r       <= 2'd0;  th_hold_ms <= 16'd0;
             th_rep_cnt <= 8'd0;  sel_step   <= 1'b0;
         end else begin
+            step_add  <= st_right;
+            select_up <= th_up;
             step_pulse <= 1'b0;
             sel_step   <= 1'b0;
 
@@ -342,14 +347,13 @@ module tune_ctrl (
 
     // ------------------------------------------------------------------
     // 选行（0..11 回绕）—— 向上切换 = 行号减 1
-    //   ★ 判方向用组合的 `th_up` 而不是寄存的 `th_r`：首触发那一拍
-    //     `th_r <= th_cur` 还没生效，读 `th_r` 会拿到回中值 0 而判成"向下"。
+    //   方向与单步事件同拍锁存，摇杆译码不再串入数值更新路径。
     // ------------------------------------------------------------------
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             o_sel <= 4'd0;
         end else if (can_adj && sel_step) begin
-            if (th_up) begin
+            if (select_up) begin
                 if (o_sel == 4'd0) o_sel <= 4'd11;
                 else               o_sel <= o_sel - 4'd1;
             end else begin
@@ -363,11 +367,13 @@ module tune_ctrl (
     // 参数更新：单步调值 / 恢复默认
     // ------------------------------------------------------------------
     reg        edit_ev;         // 本拍有参数被改（触发显示值重算与 K_SLOW 重算）
+    reg [3:0]  edit_index;
     reg [31:0] edit_val;        // 改后的值（供显示换算）
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (i = 0; i < 12; i = i + 1) p[i] <= p_def(i[3:0]);
+            edit_index <= 0;
             edit_ev  <= 1'b0;
             edit_val <= 32'd0;
         end else begin
@@ -377,6 +383,7 @@ module tune_ctrl (
             //   确认键也不该顺手把参数复位掉（顶层注释承诺"只显示不改"）。
             //   退出页面仍走 ui_on（见下方 o_exit），否则手动档下退不出去。
             if (can_adj && (step_pulse || confirm_ev)) begin
+                edit_index <= o_sel;
                 for (i = 0; i < 12; i = i + 1) begin
                     if (o_sel == i[3:0]) begin
                         if (confirm_ev) begin
@@ -384,7 +391,7 @@ module tune_ctrl (
                             edit_val <= p_def(o_sel);
                             edit_ev  <= 1'b1;
                         end else if (step_pulse) begin
-                            if (st_right) begin
+                            if (step_add) begin
                                 // 物理右推 = 加：不越过上限
                                 if (p[i] > (p_max(o_sel) - p_step(o_sel)))
                                     p[i] <= p_max(o_sel);
@@ -421,9 +428,9 @@ module tune_ctrl (
     wire [31:0] mul_deg = edit_val * 32'd328;
     wire [31:0] mul_ws  = edit_val * 32'd7813;
 
-    wire [31:0] disp_new = (o_sel == 4'd2 || o_sel == 4'd3)
+    wire [31:0] disp_new = (edit_index == 4'd2 || edit_index == 4'd3)
                          ? (mul_deg >> 15)
-                         : (o_sel == 4'd4)
+                         : (edit_index == 4'd4)
                          ? ((mul_ws + 32'd16384) >> 15)
                          : edit_val;
 
@@ -432,7 +439,7 @@ module tune_ctrl (
             for (j = 0; j < 12; j = j + 1) d[j] <= d_def(j[3:0]);
         end else if (edit_ev) begin
             for (j = 0; j < 12; j = j + 1) begin
-                if (o_sel == j[3:0]) d[j] <= disp_new;
+                if (edit_index == j[3:0]) d[j] <= disp_new;
             end
         end
     end

@@ -496,9 +496,9 @@ module ui_render #(
     end
 
     // ==================================================================
-    // 提前 2 拍取数：请求 (x+2) 所在的字组
+    // 提前 3 拍取数：请求 (x+3) 所在的字组
     // ==================================================================
-    wire [11:0] x_look = i_pixel_x + 12'd2;
+    wire [11:0] x_look = i_pixel_x + 12'd3;
 
     // ---- 24 px/组 不是 2 的幂：一次常数除法 + 一次乘法回算格内列号 ----
     //   ★ 用【无符号 12 位常量】参与运算：直接写 LG_CELL（integer，有符号 32 位）会引入
@@ -514,10 +514,11 @@ module ui_render #(
     wire [11:0] lg_slot_x24 = {2'd0, lg_slot, 4'd0} + {3'd0, lg_slot, 3'd0};   // ×16 + ×8 = ×24
     wire [11:0] lg_col_look = x_look - lg_slot_x24;   // 对应 x_look 的格内列号
 
-    // 预读像素的列号跟随两级 ROM，在扫描前进到该像素时到达位选端。
-    reg [4:0] lg_bit_sel_d1, lg_bit_sel;
+    // 预读列号随选段寄存和两级 ROM 传递，共三拍。
+    reg [4:0] lg_bit_sel_d0, lg_bit_sel_d1, lg_bit_sel;
     always @(posedge i_pixel_clk) begin
-        lg_bit_sel_d1 <= 5'd23 - lg_col_look[4:0];
+        lg_bit_sel_d0 <= 5'd23 - lg_col_look[4:0];
+        lg_bit_sel_d1 <= lg_bit_sel_d0;
         lg_bit_sel    <= lg_bit_sel_d1;
     end
 
@@ -541,9 +542,23 @@ module ui_render #(
         end
     end
 
-    wire        lg_in_text = lg_sel[29];
-    wire [5:0]  lg_off     = lg_slot - lg_sel[10:5];
-    wire [11:0] lg_rom_rd  = lg_sel[28:17] + lg_off;
+    // 只保存字符寻址、字模行和颜色实际使用的字段。
+    reg [11:0] lg_addr_q;
+    reg [5:0]  lg_start_q, lg_slot_q;
+    reg [4:0]  lg_row_q;
+    reg        lg_valid_q, lg_fail_q;
+    always @(posedge i_pixel_clk) begin
+        lg_addr_q  <= lg_sel[28:17];
+        lg_start_q <= lg_sel[10:5];
+        lg_slot_q  <= lg_slot;
+        lg_row_q   <= lg_sel[4:0];
+        lg_valid_q <= lg_sel[29];
+        lg_fail_q  <= lg_imu_fail;
+    end
+
+    wire        lg_in_text = lg_valid_q;
+    wire [5:0]  lg_off     = lg_slot_q - lg_start_q;
+    wire [11:0] lg_rom_rd  = lg_addr_q + lg_off;
 
     // 一级：字符索引（静态 ROM / 动态 RAM，各 1 拍）
     //   ★ 地址 0 不是空白：ui_text_rom[0] 存的是第一条文案的首字（"摄"）。段外若读地址 0
@@ -561,8 +576,8 @@ module ui_render #(
     reg lg_imu_fail_d1;
     always @(posedge i_pixel_clk) begin
         lg_in_text_d1  <= lg_in_text;
-        lg_row_d1      <= lg_sel[4:0];
-        lg_imu_fail_d1 <= lg_imu_fail;   // 与 lg_in_text_d1 同拍，供末尾"大字"染红
+        lg_row_d1      <= lg_row_q;
+        lg_imu_fail_d1 <= lg_fail_q;   // 与 lg_in_text_d1 同拍，供末尾"大字"染红
     end
     wire [7:0] lg_char_index = lg_in_text_d1 ? lg_rom_char : 8'd0;
 
@@ -971,13 +986,10 @@ module ui_render #(
         for (gi = 0; gi < 16; gi = gi + 1) begin : g_navpt
             wire signed [12:0] ndx = $signed({1'b0, i_pixel_x}) - $signed({1'b0, i_pt_px[gi*10 +: 10]});
             wire signed [12:0] ndy = $signed({1'b0, i_pixel_y}) - $signed({1'b0, i_pt_py[gi*10 +: 10]});
-            wire [12:0] adx = ndx[12] ? (13'd0 - ndx) : ndx;
-            wire [12:0] ady = ndy[12] ? (13'd0 - ndy) : ndy;
             assign nav_pt_hit[gi] = i_pt_v[gi] &&
-                   (((ady == 13'd0) && (adx <= 13'd3)) ||
-                    ((ady == 13'd1) && (adx <= 13'd2)) ||
-                    ((ady == 13'd2) && (adx <= 13'd2)) ||
-                    ((ady == 13'd3) && (adx == 13'd0)));
+                (((ndy == 0) && ndx >= -13'sd3 && ndx <= 13'sd3) ||
+                 ((ndy >= -13'sd2 && ndy <= 13'sd2) && ndx >= -13'sd2 && ndx <= 13'sd2) ||
+                 ((ndy == -13'sd3 || ndy == 13'sd3) && ndx == 0));
         end
     endgenerate
     wire nav_point = nav_pg && (|nav_pt_hit);
@@ -987,27 +999,21 @@ module ui_render #(
     //   ★ 仍用比较式而不是 dx²+dy²：pixel 域只有 1 拍，乘法会把这条路径拉长。
     wire signed [12:0] cdx = $signed({1'b0, i_pixel_x}) - $signed({1'b0, i_car_px});
     wire signed [12:0] cdy = $signed({1'b0, i_pixel_y}) - $signed({1'b0, i_car_py});
-    wire [12:0] cadx = cdx[12] ? (13'd0 - cdx) : cdx;
-    wire [12:0] cady = cdy[12] ? (13'd0 - cdy) : cdy;
     wire nav_car = nav_pg &&
-                   (((cady == 13'd0) && (cadx <= 13'd6)) ||
-                    ((cady == 13'd1) && (cadx <= 13'd5)) ||
-                    ((cady == 13'd2) && (cadx <= 13'd5)) ||
-                    ((cady == 13'd3) && (cadx <= 13'd5)) ||
-                    ((cady == 13'd4) && (cadx <= 13'd4)) ||
-                    ((cady == 13'd5) && (cadx <= 13'd3)) ||
-                    ((cady == 13'd6) && (cadx == 13'd0)));
+        (((cdy == 0) && cdx >= -13'sd6 && cdx <= 13'sd6) ||
+         ((cdy >= -13'sd3 && cdy <= 13'sd3) && cdx >= -13'sd5 && cdx <= 13'sd5) ||
+         ((cdy == -13'sd4 || cdy == 13'sd4) && cdx >= -13'sd4 && cdx <= 13'sd4) ||
+         ((cdy == -13'sd5 || cdy == 13'sd5) && cdx >= -13'sd3 && cdx <= 13'sd3) ||
+         ((cdy == -13'sd6 || cdy == 13'sd6) && cdx == 0));
 
     // ---- 十字准心：1 px 粗、臂长 **10 px**（总宽 21 px）----
     //   ★ 2026-10-19：绿点从 6 px 增到 12 px 后，原臂长 8（总 17）只比绿点宽 2.5 px，
     //     准心落在绿点上时几乎看不见 —— 加到 10 后每侧伸出 4 px，两者都清晰。
     wire signed [12:0] kdx = $signed({1'b0, i_pixel_x}) - $signed({1'b0, i_cur_px});
     wire signed [12:0] kdy = $signed({1'b0, i_pixel_y}) - $signed({1'b0, i_cur_py});
-    wire [12:0] kadx = kdx[12] ? (13'd0 - kdx) : kdx;
-    wire [12:0] kady = kdy[12] ? (13'd0 - kdy) : kdy;
     wire nav_cross = nav_pg &&
-                     (((kady == 13'd0) && (kadx <= 13'd10)) ||
-                      ((kadx == 13'd0) && (kady <= 13'd10)));
+        (((kdy == 0) && kdx >= -13'sd10 && kdx <= 13'sd10) ||
+         ((kdx == 0) && kdy >= -13'sd10 && kdy <= 13'sd10));
 
     // ---- 右下角辅助菜单窗口（背景 832..1023 × 414..599；项框 420 + sel*36，高 36）----
     wire [11:0] nav_aux_top = NAV_AUX_Y0 + i_aux_sel * NAV_AUX_STEP;
@@ -1045,67 +1051,55 @@ module ui_render #(
     wire in_status_bar = (i_pixel_x < MENU_W) &&
                          (i_pixel_y >= (STATUS_Y - 12)) && (i_pixel_y < (STATUS_Y + 36));
 
-    reg [23:0] rgb;
-    always @(*) begin
-        // 1) 底色（★ 状态栏优先：它的 x 范围落在菜单条内）
-        //   ★ 2026-10-18：状态栏底色随【模式】变化（需求方要求）：
-        //       手动接管档（i_ui_mode=0）→ 深红 24'h660000（提示"车会动"；初版 8B0000 偏亮，已加深）
-        //       屏幕光标档（i_ui_mode=1）→ 保持原有 24'h202020
-        //     判据用 i_ui_mode 而不是状态栏文案：急停/无信号/请回中位时状态栏显示的是
-        //     别的词，但"当前处于哪个模式"没变，底色应始终反映模式。
-        //   ★ 2026-10-19：非避障导航页进入寻点运行态时，状态栏底色**变绿**
-        //     （需求方指示；24'h006600 与手动档 24'h660000 同强度、只换通道）。
-        //   ★ 同一页里菜单栏**变暗**：摇杆此时控制准心、不再切菜单，用亮度提示。
-        //   三态底色（2026-10-19）：导航暂停 994D00（浅橙）> 导航中 006600（绿）
-        //                          > 手动 660000（深红）> 光标档 202020
-        if (in_status_bar)      rgb = (nav_ui && i_nav_paused) ? 24'h994D00
-                                    : (nav_ui && i_nav_run)    ? 24'h006600
-                                    : ((i_ui_mode == 2'd0) ? 24'h660000 : 24'h202020);
-        else if (in_menu_bar)   rgb = (nav_ui || tune_ui) ? 24'h0B1019 : 24'h101828;
-        else                    rgb = 24'h000000;
+    // 图层顺序由低到高，先并行消除被遮挡图层，再按位合并颜色。
+    wire [12:0] layer_hit = {
+        car_pix || nav_cross,
+        sm_glyph || sm_dot,
+        lg_glyph,
+        nav_car,
+        nav_point,
+        nav_axis_x || nav_axis_y,
+        nav_aux_hi,
+        nav_aux_bg,
+        (i_page == PG_RADAR || i_page == PG_NAV_OBS) && i_map_pixel,
+        (i_page == PG_RADAR || i_page == PG_NAV_OBS) && i_route_pixel,
+        menu_sel_band || tune_hi_band,
+        wheel_box || yaw_box,
+        1'b1
+    };
+    wire [23:0] layer_color [0:12];
+    assign layer_color[0] = in_status_bar ?
+        ((nav_ui && i_nav_paused) ? 24'h994D00 : (nav_ui && i_nav_run) ? 24'h006600 :
+         i_ui_mode == 0 ? 24'h660000 : 24'h202020) :
+        in_menu_bar ? ((nav_ui || tune_ui) ? 24'h0B1019 : 24'h101828) : 24'h000000;
+    assign layer_color[1]  = 24'h2E3440;
+    assign layer_color[2]  = 24'h1D4ED8;
+    assign layer_color[3]  = 24'h3B82F6;
+    assign layer_color[4]  = 24'hE87946;
+    assign layer_color[5]  = 24'h101828;
+    assign layer_color[6]  = 24'h1D4ED8;
+    assign layer_color[7]  = 24'h5A6470;
+    assign layer_color[8]  = 24'hFFFFFF;
+    assign layer_color[9]  = 24'h00C000;
+    assign layer_color[10] = lg_imu_fail_d1 ? 24'hFF4040 :
+        in_status_bar ? 24'hFFFFFF :
+        in_menu_bar ? (menu_sel_band ? ((nav_ui || tune_ui) ? 24'h8A7A2E : 24'hFFE066) :
+                                     ((nav_ui || tune_ui) ? 24'h5A6170 : 24'hE5E7EB)) : 24'hFFFFFF;
+    assign layer_color[11] = sm_src_d1 ? 24'hFFFFFF : 24'h7CFC98;
+    assign layer_color[12] = 24'hFFFFFF;
 
-        // 1b) 轮速文本框底色（盖在内容区黑底之上；文字与车图仍在其上）
-        //     24'h2E3440 = 深版 22262E 与浅版 3A4252 的逐通道中点（需求方选定）。
-        //       R: (34+58)/2=46   G: (38+66)/2=52   B: (46+82)/2=64
-        //     比纯黑明显可辨，又不至于亮到抢走数字的注意力；与菜单条 101828 也能区分。
-        if (wheel_box || yaw_box) rgb = 24'h2E3440;
-
-        // 2) 菜单选中高亮
-        if (menu_sel_band)      rgb = 24'h1D4ED8;
-        if (tune_hi_band)       rgb = 24'h1D4ED8;
-
-        // 2b) 非避障导航页：辅助菜单窗口底 / 选中项底 / 坐标轴 / 已记录点 / 车绿点
-        //     ★ 全部排在「大字 / 数字」之前 —— 文字压在它们上面才可读；
-        //       只有十字准心放到最后（见 6b），保证准心永远可见。
-        if ((i_page == PG_RADAR || i_page == PG_NAV_OBS) && i_route_pixel) rgb = 24'h3B82F6;
-        if ((i_page == PG_RADAR || i_page == PG_NAV_OBS) && i_map_pixel)   rgb = 24'hE87946;
-        if (nav_aux_bg)                rgb = 24'h101828;
-        if (nav_aux_hi)                rgb = 24'h1D4ED8;
-        if (nav_axis_x || nav_axis_y)  rgb = 24'h5A6470;   // 轴：中性灰蓝，不与白点混淆
-        if (nav_point)                 rgb = 24'hFFFFFF;   // 已记录点
-        if (nav_car)                   rgb = 24'h00C000;   // 车绿点（暗一档：纯绿 00FF00 上叠白十字对比不足）
-
-        // 3) 大字（菜单 / 状态栏 / 中文标签 / 占位提示）
-        if (lg_glyph) begin
-            if (lg_imu_fail_d1)                     rgb = 24'hFF4040;   // IMU 初始化失败：红
-            else if (in_status_bar)                 rgb = 24'hFFFFFF;   // 状态栏：白
-            else if (in_menu_bar && menu_sel_band)  rgb = (nav_ui || tune_ui) ? 24'h8A7A2E : 24'hFFE066;   // 选中项
-            else if (in_menu_bar)                   rgb = (nav_ui || tune_ui) ? 24'h5A6170 : 24'hE5E7EB;   // 未选中
-            else                                    rgb = 24'hFFFFFF;   // 标签/占位：白
+    wire [23:0] layer_pixel [0:12];
+    genvar ci;
+    generate
+        for (ci = 0; ci < 13; ci = ci + 1) begin : g_color
+            wire visible = layer_hit[ci] && !(|(layer_hit >> (ci + 1)));
+            assign layer_pixel[ci] = layer_color[ci] & {24{visible}};
         end
-
-        // 4) 紧凑数字（数据页实时数值，16x24）+ 悬挂小数点（同色，2026-10-18）
-        //   ★ 2026-10-18：sm 段有两种源 —— RAM 源是**实时数值**（亮绿），
-        //     ROM 源是**标签的符号后缀**（如「/°」「/rpm」，应与中文同为白色）。
-        //     若不加这个区分，后缀会被画成绿色，与同一行的中文标签不同色。
-        if (sm_glyph || sm_dot)                     rgb = sm_src_d1 ? 24'hFFFFFF : 24'h7CFC98;
-
-        // 6b) 非避障导航页：十字准心（最上层）
-        if (nav_cross)                              rgb = 24'hFFFFFF;
-
-        // 5) 数据页小车俯视简笔图（白色 = 与标签文字同色；放最后 = 最上层）
-        if (car_pix)                                rgb = 24'hFFFFFF;
-    end
+    endgenerate
+    wire [23:0] rgb = layer_pixel[0] | layer_pixel[1] | layer_pixel[2] |
+        layer_pixel[3] | layer_pixel[4] | layer_pixel[5] | layer_pixel[6] |
+        layer_pixel[7] | layer_pixel[8] | layer_pixel[9] | layer_pixel[10] |
+        layer_pixel[11] | layer_pixel[12];
 
     // pixel_req 为高的那一拍，hdmi_1024x600 会采样本信号 → 必须组合输出
     assign o_pixel_rgb888 = i_video_active ? rgb : 24'h000000;

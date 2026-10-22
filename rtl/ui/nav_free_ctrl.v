@@ -181,10 +181,19 @@ module nav_free_ctrl #(
     wire signed [11:0] th_eff = (i_throttle >  DEADZONE) ? i_throttle :
                                 (i_throttle < -DEADZONE) ? i_throttle : 12'sd0;
 
-    wire signed [31:0] dx_step = (STEER_SIGN    < 0) ? -((st_eff * K_SHIFT) >>> 10)
-                                                    :  ((st_eff * K_SHIFT) >>> 10);
-    wire signed [31:0] dy_step = (THROTTLE_SIGN < 0) ? -((th_eff * K_SHIFT) >>> 10)
-                                                    :  ((th_eff * K_SHIFT) >>> 10);
+    // 位移先寄存，再做准心累加与限幅，乘法不进入坐标反馈链。
+    reg signed [31:0] dx_step, dy_step;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            dx_step <= 0;
+            dy_step <= 0;
+        end else begin
+            dx_step <= (STEER_SIGN < 0) ? -((st_eff * K_SHIFT) >>> 10)
+                                       :  ((st_eff * K_SHIFT) >>> 10);
+            dy_step <= (THROTTLE_SIGN < 0) ? -((th_eff * K_SHIFT) >>> 10)
+                                          :  ((th_eff * K_SHIFT) >>> 10);
+        end
+    end
 
     // ------------------------------------------------------------------
     // 3. 进入本页的上升沿：准心落到车的位置（并钳位）

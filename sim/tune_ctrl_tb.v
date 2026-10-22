@@ -325,6 +325,17 @@ reg signed [11:0] i_throttle = 12'sd0;   // CH2：选行（向上 = 行号减 1�
         chk_int("g12_mdc_136", `P(4), 136);
         chk_int("g12_mdc_136_disp", `D(4), 32);          // 136×0.33617×2/0.1615 = 32.4 → 32
 
+        // 单拍推杆后立即回中，方向必须跟随已产生的事件。
+        @(negedge clk); i_steer = -12'sd600;
+        @(negedge clk); i_steer = 0;
+        tick(5);
+        chk_int("g13_short_add", `P(4), 146);
+        chk_int("g13_short_disp", `D(4), 35);
+        @(negedge clk); i_throttle = 12'sd600;
+        @(negedge clk); i_throttle = 0;
+        tick(5);
+        chk_int("g13_short_up", o_sel, 3);
+
         // ------------------------------------------------------------------
         $display("");
         // ★ 结论行用 `PASS: <名> <N>` 形式，并且**不打 CHECKS: 行**。

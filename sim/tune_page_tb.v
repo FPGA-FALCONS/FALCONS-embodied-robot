@@ -131,12 +131,17 @@ module tune_page_tb;
         begin
             wcnt = 0;
             for (y = y0; y <= y1; y = y + 1) begin
-                for (x = x0; x <= x1; x = x + 1) begin
+                // 局部跳读先走消隐，再从窗口前四个像素开始预读。
+                px = 12'd1100; py = y[11:0];
+                vact = 1'b0; preq = 1'b0;
+                repeat (5) @(posedge pixel_clk);
+                #1;
+                for (x = x0 - 4; x <= x1; x = x + 1) begin
                     px = x[11:0]; py = y[11:0];
                     vact = 1'b1; preq = 1'b1;
                     @(posedge pixel_clk);
                     #1;
-                    if (rgb == col) wcnt = wcnt + 1;
+                    if (x >= x0 && rgb == col) wcnt = wcnt + 1;
                 end
             end
             vact = 1'b0; preq = 1'b0;
