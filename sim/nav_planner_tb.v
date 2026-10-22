@@ -28,6 +28,22 @@ module nav_planner_check #(
     integer start_x, start_y, goal_x, goal_y, allow_escape, expected_steps, expected_turns;
     integer case_begin, wait_cycles, path_pos, i, index;
     reg [2047:0] fixture_dir, file_name;
+    reg probe_order_ok, gap_min_ok;
+    integer expected_plus, expected_minus, interior_plus, interior_minus;
+    integer first_plus, first_minus, gap_plus, gap_minus;
+    integer p, radius, bx, by, nx, ny, measured_points, probe_reads, expected_reads;
+    integer measured_segments = 0, short_segments = 0, partial_endpoints = 0;
+    integer four_cell_segments = 0;
+    integer later_plus = 0, later_minus = 0, endpoint_limits = 0;
+    integer depth20_plus = 0, depth20_minus = 0;
+
+    function blocked;
+        input integer x, y;
+        begin
+            if (x < 0 || x >= 256 || y < 0 || y >= 256) blocked = 1;
+            else blocked = map[y*256+x][0];
+        end
+    endfunction
 
     nav_planner #(.GRID_W(256), .GRID_H(256), .CENTER_EN(CENTER_EN)) dut (
         .clk(clk), .reset_n(reset_n),
@@ -59,18 +75,87 @@ module nav_planner_check #(
         if (pending) begin
             if (delay_left == 0) begin
                 rsp_valid <= 1;
-                rsp_cost <= map[pending_index][0];
-                rsp_raw <= map[pending_index][1];
+                // 与 nav_map 一致：探针可以访问图外，图外按阻挡回答。
+                rsp_cost <= pending_index < 0 ? 1'b1 : map[pending_index][0];
+                rsp_raw <= pending_index < 0 ? 1'b1 : map[pending_index][1];
                 pending <= 0;
             end else delay_left <= delay_left - 1;
         end
         if (mrd_valid && mrd_ready) begin
             pending <= 1;
-            pending_index <= mrd_y * 256 + mrd_x;
+            pending_index <= mrd_x > 255 || mrd_y > 255 ? -1 : mrd_y * 256 + mrd_x;
             delay_left <= cycles % 4;
-            if (mrd_x > 255 || mrd_y > 255) bounds_ok = 0;
+            if ((mrd_x > 255 || mrd_y > 255) &&
+                !(dut.state == 6'd26 && dut.rd_ret == 6'd14)) bounds_ok = 0;
         end
         if (collecting) begin
+            // 从地图独立扫描全部预期探针位置，不使用 DUT 累计的间隙结果。
+            if (CENTER_EN && dut.state == 6'd12 && dut.emit_pending &&
+                dut.wk_cell != dut.goal_idx && dut.run_len >= 4) begin
+                expected_plus = 21;
+                expected_minus = 21;
+                interior_plus = 21;
+                interior_minus = 21;
+                measured_points = 0;
+                probe_reads = 0;
+                expected_reads = ((dut.run_len + 3) / 4 + 1) * 40;
+                p = 0;
+                while (p <= dut.run_len) begin
+                    bx = dut.run_sx;
+                    by = dut.run_sy;
+                    case (dut.wk_prev_dir)
+                        0: bx = bx - p;
+                        1: bx = bx + p;
+                        2: by = by - p;
+                        3: by = by + p;
+                    endcase
+                    gap_plus = 21;
+                    gap_minus = 21;
+                    for (radius = 20; radius >= 1; radius = radius - 1) begin
+                        nx = dut.wk_prev_dir < 2 ? 0 : radius;
+                        ny = dut.wk_prev_dir < 2 ? radius : 0;
+                        if (blocked(bx+nx, by+ny)) gap_plus = radius;
+                        if (blocked(bx-nx, by-ny)) gap_minus = radius;
+                    end
+                    if (p == 0) begin
+                        first_plus = gap_plus;
+                        first_minus = gap_minus;
+                    end
+                    if (gap_plus < expected_plus) expected_plus = gap_plus;
+                    if (gap_minus < expected_minus) expected_minus = gap_minus;
+                    if (p > 0 && p < dut.run_len) begin
+                        if (gap_plus < interior_plus) interior_plus = gap_plus;
+                        if (gap_minus < interior_minus) interior_minus = gap_minus;
+                    end
+                    if (p == dut.run_len) p = p + 1;
+                    else p = p + 4 > dut.run_len ? dut.run_len : p + 4;
+                end
+            end
+            if (CENTER_EN && dut.state == 6'd29) begin
+                p = measured_points * 4;
+                if (p > dut.run_len) p = dut.run_len;
+                if (dut.probe_p != p) probe_order_ok = 0;
+                measured_points = measured_points + 1;
+            end
+            if (CENTER_EN && mrd_valid && mrd_ready && dut.state == 6'd26 && dut.rd_ret == 6'd14) begin
+                probe_reads = probe_reads + 1;
+                if (dut.probe_k == 20) depth20_plus = depth20_plus + 1;
+                if (dut.probe_k == 40) depth20_minus = depth20_minus + 1;
+            end
+            if (CENTER_EN && dut.state == 6'd15 && dut.meas_on) begin
+                measured_segments = measured_segments + 1;
+                if (dut.run_len < 12) short_segments = short_segments + 1;
+                if (dut.run_len == 4) four_cell_segments = four_cell_segments + 1;
+                if (dut.run_len % 4 != 0) partial_endpoints = partial_endpoints + 1;
+                if (first_plus < 21 && expected_plus < first_plus) later_plus = later_plus + 1;
+                if (first_minus < 21 && expected_minus < first_minus) later_minus = later_minus + 1;
+                if (expected_plus < interior_plus || expected_minus < interior_minus)
+                    endpoint_limits = endpoint_limits + 1;
+                if (dut.d_plus !== expected_plus[4:0] || dut.d_minus !== expected_minus[4:0])
+                    gap_min_ok = 0;
+                if (probe_reads != expected_reads || measured_points != expected_reads / 40)
+                    probe_order_ok = 0;
+            end
             occupancy = dut.q_tail - dut.q_head;
             if (dut.state >= 6'd3 && dut.state <= 6'd7 && occupancy > peak_queue)
                 peak_queue = occupancy;
@@ -135,6 +220,8 @@ module nav_planner_check #(
             repeat (4) @(negedge clk);
             reset_n = 1;
             repeat (2) @(negedge clk);
+            if (CENTER_EN) check(dut.L_MIN == 4 && dut.PROBE_D == 20 && dut.PROBE_STEP == 4,
+                                 "new centering defaults are 4 / 20 / 4");
             repeat (cases) begin
                 scan_result = $fscanf(manifest, "%d %d %d %d %d %d %d %d\n",
                                       case_index, start_x, start_y, goal_x, goal_y,
@@ -165,6 +252,8 @@ module nav_planner_check #(
                 reference_ok = 1;
                 stable_ok = 1;
                 bounds_ok = 1;
+                probe_order_ok = 1;
+                gap_min_ok = 1;
                 collecting = 1;
                 case_begin = cycles;
                 req_valid = 1;
@@ -191,6 +280,10 @@ module nav_planner_check #(
                                "centering respects added-length budget");
                 end else check(points == 0, "no route emitted on blocked map");
                 check(peak_queue < 8192, "queue capacity not exceeded");
+                if (CENTER_EN) begin
+                    check(gap_min_ok, "both gap minima agree with independent full probe model");
+                    check(probe_order_ok, "probe positions include both endpoints and all 40 normal reads");
+                end
                 if (case_index == 0) check(dut.q_tail > 8192, "queue ring wraps safely during room search");
                 $fdisplay(metrics, "%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d", case_index,
                           cycles-case_begin, expanded, peak_queue, steps, turns, points, success, no_path);
@@ -201,6 +294,16 @@ module nav_planner_check #(
             $fclose(manifest);
             $fclose(metrics);
             $fclose(waypoints);
+            if (CENTER_EN) begin
+                check(measured_segments > 0 && short_segments > 0 && four_cell_segments > 0,
+                      "short intermediate segments including exactly four cells are measured");
+                check(later_plus > 0 && later_minus > 0, "later smaller gaps covered on both sides");
+                check(partial_endpoints > 0 && endpoint_limits > 0, "tail endpoint included and limits clearance");
+                check(depth20_plus > 0 && depth20_plus == depth20_minus, "20-cell range reached on both sides");
+                $display("METRICS: centering segments=%0d short=%0d four_cells=%0d late_plus=%0d late_minus=%0d partial=%0d endpoints=%0d depth20_plus=%0d depth20_minus=%0d",
+                         measured_segments, short_segments, four_cell_segments, later_plus, later_minus,
+                         partial_endpoints, endpoint_limits, depth20_plus, depth20_minus);
+            end
             done = 1;
         end
     end

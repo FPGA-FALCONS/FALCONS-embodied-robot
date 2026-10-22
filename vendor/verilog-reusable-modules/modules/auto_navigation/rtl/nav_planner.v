@@ -32,15 +32,14 @@ module nav_planner #(
     // 0 = 不平移中间段；1 = 按 cost 余量居中，首段和末段不平移。
     parameter integer CENTER_EN     = 1,
     // 参与居中的最短段（格）。太短的段没有可平移的余量，硬平移只会破坏几何。
-    parameter integer L_MIN         = 12,
+    parameter integer L_MIN         = 4,
     // 法向探针深度（格，每侧）。能测到 PROBE_D 格；超过则记为 PROBE_D+1（"无界"）。
-    // 候选偏移为两侧最小间隙差的一半；PROBE_D=10 时探测候选最大为 5 格。
-    parameter integer PROBE_D       = 10,
-    // 沿段探针的等密度间距（格）：在段内每 PROBE_STEP 格取一个探测位置
-    // （p = PROBE_STEP, 2*PROBE_STEP, ... < 段长），每个位置两侧各探 PROBE_D 格。
-    // 长段增加探测位置，以覆盖段中和靠近端点的局部凸起。
+    // 候选偏移为两侧最小间隙差的一半；PROBE_D=20 时探测候选最大为 10 格。
+    parameter integer PROBE_D       = 20,
+    // 沿段探针间距（格）：p = 0, PROBE_STEP, 2*PROBE_STEP, ...，包含两端点；
+    // 末尾不足一个间距时单独补上终点，每个位置两侧各探 PROBE_D 格。
     // 每个位置的成本 = 2*PROBE_D 次读；太小会显著增加轮次时长，建议 2~8。
-    parameter integer PROBE_STEP    = 8,
+    parameter integer PROBE_STEP    = 4,
     // 只有当前整段最小间隙 < CLEAR_TRIGGER 时才尝试居中（"只修贴边"，空旷处不折腾）。
     parameter integer CLEAR_TRIGGER = 8,
     // 起点"逃逸窗口"半径（格）：车辆可能已经处在膨胀带里（墙是后来观测到的），
@@ -185,7 +184,7 @@ module nav_planner #(
     // last_x/last_y：已发出的上一个拐点 c_{j-2} 的**最终**坐标（已含平移）。
     // seg_dir：到达 c_{j-1} 的那一段 r_{j-2} 的方向（钳位与发射时判断轴）。
     // off_prev/off_cur：o_{j-2} 与 o_{j-1}。
-    //   探测候选默认最多 2 格；几何钳位允许抬高至 OFF_MAX，以防相邻段塌缩。
+    //   探测候选默认最多 10 格；几何钳位允许抬高至 OFF_MAX，以防相邻段塌缩。
     reg signed [15:0] run_sx, run_sy;
     reg signed [15:0] last_x, last_y;
     reg [1:0] seg_dir;
@@ -197,14 +196,16 @@ module nav_planner #(
     reg [15:0] corner_x, corner_y;  // 当前拐点的真实坐标
 
     // ---- 探针 / 复核 ----
-    // 等密度布点：p = PROBE_STEP, 2*PROBE_STEP, ... < run_len；每个位置两侧
+    // 包含两端点：p = 0, PROBE_STEP, ... , run_len；每个位置两侧
     // 各探 PROBE_D 格。mid_x/mid_y 是该位置的"基点"（沿段方向走 p 格后的格子）。
     reg [15:0] mid_x, mid_y;  // 当前探针位置（基点）
-    reg [15:0] probe_p;  // 沿段方向的偏移（格，0 < probe_p < run_len）
-    reg [ 4:0] probe_k;  // 1..2*PROBE_D
+    reg [15:0] probe_p;  // 沿段方向的偏移（格，0 <= probe_p <= run_len）
+    reg [ 5:0] probe_k;  // 1..2*PROBE_D；默认需要数到 40
     reg [4:0]
         d_plus,
         d_minus;  // 全段所有探针位置的 + / - 侧最小间隙（PROBE_D+1 = 无界）
+    wire probe_plus = (probe_k <= PROBE_D[5:0]);
+    wire [4:0] probe_distance = probe_plus ? probe_k[4:0] : (probe_k - PROBE_D[5:0]);
     // 本拐点是否真的做了测量。d_plus/d_minus 是跨拐点保留的寄存器，一旦某一段
     // 没测（首段/末段/太短/居中关闭），它们仍是上一段的值；不门控的话组合判决会拿
     // 陈旧探针结果去改本段偏移，导致末段目标格被平移、相邻航点变斜线。
@@ -753,8 +754,7 @@ module nav_planner #(
                         probe_k <= 6'd1;
                         d_plus <= D_UNBOUND[4:0];
                         d_minus <= D_UNBOUND[4:0];
-                        // 等密度布点的第一个位置：p = PROBE_STEP（段太短时退化为中点）。
-                        probe_p <= (PROBE_STEP[15:0] < run_len) ? PROBE_STEP[15:0] : (run_len >> 1);
+                        probe_p <= 16'd0;
                         state <= PR_SETUP;
                     end
                 end
@@ -791,11 +791,11 @@ module nav_planner #(
                 PR_ISSUE: begin
                     if (seg_horiz) begin
                         mrd_x <= mid_x;
-                        if (probe_k <= PROBE_D[4:0]) mrd_y <= mid_y + probe_k;
-                        else mrd_y <= mid_y - (probe_k - PROBE_D[4:0]);
+                        if (probe_plus) mrd_y <= mid_y + probe_distance;
+                        else mrd_y <= mid_y - probe_distance;
                     end else begin
-                        if (probe_k <= PROBE_D[4:0]) mrd_x <= mid_x + probe_k;
-                        else mrd_x <= mid_x - (probe_k - PROBE_D[4:0]);
+                        if (probe_plus) mrd_x <= mid_x + probe_distance;
+                        else mrd_x <= mid_x - probe_distance;
                         mrd_y <= mid_y;
                     end
                     mrd_valid <= 1'b1;
@@ -821,27 +821,27 @@ module nav_planner #(
                 end
 
                 PR_TAKE: begin
-                    // 记录两侧第一处阻挡的距离；没有阻挡则保持 PROBE_D+1（该侧"无界"，
+                    // 累计全段各探针的最小阻挡距离；没有阻挡则保持 PROBE_D+1（该侧"无界"，
                     // 按最大宽度参与候选计算：未知区本来就按可通行处理）。
                     if (rd_cost_q) begin
-                        if (probe_k <= PROBE_D[4:0]) begin
-                            if (d_plus == D_UNBOUND[4:0]) d_plus <= probe_k;
+                        if (probe_plus) begin
+                            if (probe_distance < d_plus) d_plus <= probe_distance;
                         end else begin
-                            if (d_minus == D_UNBOUND[4:0]) d_minus <= probe_k - PROBE_D[4:0];
+                            if (probe_distance < d_minus) d_minus <= probe_distance;
                         end
                     end
-                    if (probe_k == PROBE_END[4:0]) begin
-                        // 这个位置探完了：沿段方向等密度推进；越过后一半就结束。
-                        // 位置 p = STEP, 2*STEP, ... < run_len（短段退化为中点，见 CR_SETUP）。
-                        if ((probe_p + PROBE_STEP[15:0]) >= run_len) begin
+                    if (probe_k == PROBE_END[5:0]) begin
+                        // 已测终点才结束；下一步越过终点时钳到终点，确保只测一次。
+                        if (probe_p == run_len) begin
                             state <= CR_CAND;
                         end else begin
-                            probe_p <= probe_p + PROBE_STEP[15:0];
+                            probe_p <= (probe_p + PROBE_STEP[15:0] < run_len) ?
+                                       probe_p + PROBE_STEP[15:0] : run_len;
                             probe_k <= 6'd1;
                             state   <= PR_SETUP;
                         end
                     end else begin
-                        probe_k <= probe_k + 5'd1;
+                        probe_k <= probe_k + 6'd1;
                         state   <= PR_ISSUE;
                     end
                 end

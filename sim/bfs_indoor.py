@@ -136,6 +136,10 @@ def scenes():
     add('escape_disabled', raw, (145, 128))
     add('escape_enabled', raw, (145, 128), escape=1)
     add('map_edge', bytearray(N*N), (0, 0), start=(10, 10))
+    # 窄通道单独覆盖 4 格的临界段，以及不足一个探针间距的尾段。
+    for angle in (30, 45):
+        raw, goal = corridor(angle, .75, 3.5)
+        add(f'short_bends_{angle}', raw, goal)
     return result
 
 
