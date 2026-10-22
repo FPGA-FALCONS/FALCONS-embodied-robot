@@ -147,13 +147,15 @@ module nav_planner #(
 
     reg        seen [   0:N-1];
     reg [ 1:0] pdir [   0:N-1];
-    reg [15:0] queue[0:QMAX-1];
+    // 搜索方向随格号入队；每格先扩展直行，再左、右、反向，FIFO 层次保持不变。
+    reg [17:0] queue[0:QMAX-1];
 
     localparam [15:0] QMASK = QMAX - 1;
 
     reg [15:0] q_head, q_tail;
     reg [15:0] clr_i;
     reg [15:0] cur;
+    reg [ 1:0] search_dir;
     reg [ 2:0] k;
     reg [16:0] nb;
     reg [15:0] nb_q;
@@ -395,17 +397,20 @@ module nav_planner #(
         end
     endfunction
 
-    function [1:0] dir_code;
-        input [2:0] dir;
+    function [1:0] expansion_dir;
+        input [1:0] heading;
+        input [2:0] slot;
         begin
-            case (dir)
-                3'd0:    dir_code = 2'd0;  // 向 +x 移动，所以父单元在 -x 方向
-                3'd1:    dir_code = 2'd1;
-                3'd2:    dir_code = 2'd2;
-                default: dir_code = 2'd3;
+            // 编码为 +x、-x、+y、-y；这是反向搜索的方向，不是车辆朝向。
+            case (slot)
+                3'd0:    expansion_dir = heading;
+                3'd1:    expansion_dir = {~heading[1], heading[1] ^ heading[0]};
+                3'd2:    expansion_dir = {~heading[1], ~(heading[1] ^ heading[0])};
+                default: expansion_dir = {heading[1], ~heading[0]};
             endcase
         end
     endfunction
+    wire [1:0] expand_dir = expansion_dir(search_dir, k);
 
     // 有符号差：钳位需要知道“已发点 - 待发拐点”的正负。16 位无符号相减会回绕，
     // 所以先把两边零扩展成 17 位有符号再相减。
@@ -449,7 +454,8 @@ module nav_planner #(
     // q_head/q_tail 是本轮累计出入队计数，不是 RAM 索引；访问数组必须取环掩码。
     // 队列占用由尾减头判断，避免长搜索时索引越界或覆盖尚未消费的边界项。
     wire [15:0] queue_wa = seed_en ? 16'd0 : (q_tail & QMASK);
-    wire [15:0] queue_wd = seed_en ? goal_idx : nb_q;
+    // 目标根节点没有入方向，固定以 +x 为首选；父方向与实际扩展方向使用同一编码。
+    wire [17:0] queue_wd = seed_en ? {2'd0, goal_idx} : {dir_q, nb_q};
 
     always @(posedge clk) begin
         if (seen_we) seen[seen_wa] <= seen_wd;
@@ -472,6 +478,7 @@ module nav_planner #(
             q_head             <= 16'd0;
             q_tail             <= 16'd0;
             k                  <= 3'd0;
+            search_dir         <= 2'd0;
             nb_q               <= 16'd0;
             dir_q              <= 2'd0;
             seen_q             <= 1'b0;
@@ -613,7 +620,7 @@ module nav_planner #(
                         no_path <= 1'b1;
                         state   <= S_IDLE;
                     end else begin
-                        cur    <= queue[q_head&QMASK];
+                        {search_dir, cur} <= queue[q_head&QMASK];
                         q_head <= q_head + 16'd1;
                         k      <= 3'd0;
                         state  <= BFS_EXP;
@@ -621,13 +628,13 @@ module nav_planner #(
                 end
 
                 BFS_EXP: begin
-                    nb = neighbour(cur, k);
+                    nb = neighbour(cur, {1'b0, expand_dir});
                     if (nb[16]) begin
                         state <= BFS_NEXT;
                     end else begin
                         nb_q   <= nb[15:0];
                         seen_q <= seen[nb[15:0]];
-                        dir_q  <= dir_code(k);
+                        dir_q  <= expand_dir;
                         mrd_x  <= nb % GRID_W;
                         mrd_y  <= nb / GRID_W;
                         state  <= BFS_REQ;

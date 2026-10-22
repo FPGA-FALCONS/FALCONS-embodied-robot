@@ -198,9 +198,10 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$ProjectRoot\rtl\ui\nav_map_view.v", "$PSScriptRoot\nav_map_view_tb.v",
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
               "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
-              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v")
+              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v")
 
 $tests = @(
+    @{ Name = 'nav_planner'; Top = 'nav_planner_tb'; Desc = 'Indoor rooms / diagonal walls / straight-first BFS / centered segments / queue wrap' },
     @{ Name = 'ui_pipeline'; Top = 'ui_pipeline_tb'; Desc = 'Real HDMI scan / six complete pages / baseline pixel fingerprints' },
     @{ Name = 'imu_calib'; Top = 'imu_calib_tb'; Desc = 'IMU calibration pipeline / coherent samples / seed / reject / completion / timeout' },
     @{ Name = 'radar_coordinates'; Top = 'radar_coordinates_tb'; Desc = 'UART quadrants / world map / display / 72 captured packets' },
@@ -238,6 +239,12 @@ if ($Only.Count) {
     $Only = @($Only -split ',')
     $tests = @($tests | Where-Object { $Only -contains $_.Name })
     if (-not $tests.Count) { throw 'No tests selected' }
+}
+
+# 生成确定性的室内地图与独立 BFS 参考，产物留在 logs/。
+if (@($tests | Where-Object { $_.Name -eq 'nav_planner' }).Count) {
+    & python (Join-Path $PSScriptRoot 'bfs_indoor.py') --output (Join-Path $LogDir 'bfs_straight/fixtures')
+    if ($LASTEXITCODE -ne 0) { throw 'Indoor BFS fixture generation failed' }
 }
 
 # ---------- 建库并编译 ----------

@@ -153,3 +153,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_radar_gate.ps1 -Netl
 ```
 
 这会将独立综合的 `nav_polar` 替换回相同 UART、建图与显示测试链；其余模块保持 RTL。产物位于 `logs/radar_polar_gate/`，不烧录、不替换整车位流。它不是整车全部模块的门级时序仿真；完整构建、实际整车网表复核和资源/Fmax 见[本轮验证](../doc/雷达坐标翻转修复验证_20261021.md)。
+
+## 直行优先 BFS 室内回归（2026-10-22）
+
+`-Only nav_planner` 会先用 `bfs_indoor.py` 生成 256×256、50 mm/格、中心原点的室内地图及独立 FIFO BFS 参考，再运行 `nav_planner_tb`。生成仅依赖 Python 标准库，不增加硬件接口或兼容模式。
+
+共 28 个地图 / 请求：房间错位门、斜走廊、斜隔墙与家具，18 组不同角度和宽度的斜通道，以及同格目标、障碍起终点、封路、局部接出开关和地图边界。分别运行关闭 / 开启居中的规划器，合计 434 项检查；地图读口带变化延迟、航点输出带背压。原始路径逐格与独立参考一致；实际居中路线逐段展开检查障碍和边界，并限制额外路长。房间搜索超过 8192 次入队，覆盖环索引回绕。
+
+专项台 `wp_limit=512`，用于比较到同一终点的完整路线；不修改整车原有容量或前缀发布策略，路线转弯数也不等同于实车累计停车次数。整车层行为由完整应用回归另行覆盖。
+
+输出位于 `logs/bfs_straight/fixtures/`：地图、参考路径、两组 RTL 周期 / 队列统计及航点 CSV。对比历史 RTL 时，先用 `bfs_indoor.py --output logs/bfs_straight/baseline --order fixed` 生成参考，再在独立仿真库编译修改前 `nav_planner.v` 和同一测试台，传入 `+FIXTURE_DIR=../logs/bfs_straight/baseline`（工作目录 `sim/`）。这只是测试参考选择，正式 RTL 没有旧算法分支。
+
+已有两组输出时，从仓库根目录运行 `python sim/plot_bfs_indoor.py`，绘制保留居中处理的实际 RTL 航点对照图；绘图额外依赖 matplotlib、numpy，不影响自检。完整结论和构建数据见[本轮验证](../doc/BFS直行优先验证_20261022.md)。
