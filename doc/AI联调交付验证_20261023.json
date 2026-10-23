@@ -1,0 +1,59 @@
+{
+  "status": "PASS",
+  "hardware_tested": false,
+  "serial_bytes_sent": 0,
+  "python_version": "3.14.0",
+  "rtl": [
+    {
+      "name": "ai_vision_link_tb",
+      "status": "PASS"
+    },
+    {
+      "name": "vision_serial_bridge_tb",
+      "status": "PASS",
+      "checks": 54,
+      "failures": 0
+    }
+  ],
+  "python_tests": "PASS",
+  "python_test_count": 53,
+  "demo": {
+    "status": "PASS",
+    "synthetic_fixture": true,
+    "hardware_tested": false,
+    "camera_opened": false,
+    "serial_bytes_sent": 0,
+    "motion_authorized": false,
+    "observations": 8,
+    "valid_targets": 4,
+    "wire_frames": 8,
+    "fixture_sha256": "658851947b1aadf92fed485c1d049ba2380bc52bbf704384efb5a9627265329e",
+    "files_sha256": {
+      "observations.jsonl": "f340908b3da0bd75e262f041fefe6a74f23184bc9d3bd83a7a8824136278ea77",
+      "display.jsonl": "1ae3eafa2f700ca36414c27bc82a49f79f30111ed73f570f3ac52d8ac521dd9c",
+      "frames.hex": "90aef061bbd7378b391fa5106f5a07aa3e3df8620e5433d8b6736385e231f2ec",
+      "expectations.txt": "7021db3efd00f405976bdab1836d8d431a00ef1081408ccdf8ed061caa54547d",
+      "preview.html": "0fb6cc828ec8cb4878a5bb952c96c1504d99df7a4e6da96429c19d5b0b010d00"
+    }
+  },
+  "source_sha256": {
+    "host/vision_bridge/bridge.py": "df66c19bba0d22680779899ded4d64195fb89a9b3ac127cbd2812dc7e6b46d31",
+    "host/vision_bridge/display_adapter.py": "8d02a5b8d1d5f0992a1b053ade976f0d966d127904bdf7a848fd11b15d9c7443",
+    "host/vision_bridge/examples/schema2_sample.jsonl": "658851947b1aadf92fed485c1d049ba2380bc52bbf704384efb5a9627265329e",
+    "host/vision_bridge/motion.py": "62eb32e7f4de726803b72ad09c85f6b8c2722388e96ced4157f08cadda9b19bb",
+    "host/vision_bridge/replay.py": "58aa2743fbd452672d104d202f1fe9a16af16d7580c353d9c14d92a0b2eae5c1",
+    "host/vision_bridge/serial_export.py": "0491448485c7b4dc84669c9c4362c25556770c76f69dd638e594a7635efdc81b",
+    "host/vision_bridge/sim/vision_serial_bridge_tb.v": "87701f6591292c23414eeca436d3e5de704a2af201baeadaca6e4c823f03bf76",
+    "host/vision_bridge/team_demo.py": "34404f482bf838b34617ba7c6a0c5826b4e560fec2ae18509eaa7fe1e17ded87",
+    "host/vision_bridge/tests/test_bridge.py": "e9933e176d39e48b62952fe44427b19751d684d4ed55443e1d9950e488e1c949",
+    "host/vision_bridge/tests/test_display_adapter.py": "177d8bc8e72af2176cb6c62cd4b3ae1aaa3c866a54257355c6d1ae37da9549c4",
+    "host/vision_bridge/tests/test_motion.py": "9ba7225e32074c3e1e5789315b8b4493112cf6de90474708c8364e680aa13e16",
+    "host/vision_bridge/tests/test_serial_export.py": "70d85bc759cec7eedce2f4453f87429e0e643087588df4a1a8f834ad66e117fd",
+    "host/vision_bridge/verify_handoff.py": "a7aa21cab7b0e6f838431418e04e154f41400159b23e5411fdae571f52495557",
+    "rtl/ai/ai_vision_link.v": "e9aa144d3c05f25a2142505b81474ed3d269e6deabb542f1c2e21ca0b032b0c3",
+    "sim/ai_vision_link_tb.v": "c48174a3fc4a0f8eeda3cab10aa0a32f48a620a61a76a22dad1815e13c79b848",
+    "vendor/verilog-reusable-modules/modules/uart/rtl/uart_byte_rx.v": "5d50c50daecea3c2f9ddad79acb9fd6135f83677db3e712c8b82008dc2f4b169"
+  },
+  "clean_index_export_without_git": "PASS",
+  "clean_export_file_count": 23
+}
