@@ -395,6 +395,7 @@ module falcons_top (
     wire signed [31:0] nav_auto_center, nav_auto_diff;
     wire [3:0] planner_nav_state;
     wire planner_cmd_valid, planner_emergency_stop;
+    wire planner_target_axis_y;
     wire signed [31:0] planner_target_x, planner_target_y;
     wire obs_ctrl_done, obs_linear_active, obs_ctrl_fault;
     wire obs_auto_valid;
@@ -1443,6 +1444,7 @@ module falcons_top (
         .ctrl_done(obs_ctrl_done), .ctrl_linear_active(obs_linear_active),
         .cmd_valid(planner_cmd_valid), .emergency_stop(planner_emergency_stop),
         .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
+        .target_axis_y(planner_target_axis_y),
         .nav_state(planner_nav_state),
         .display_enable((page == PAGE_RADAR) || (page == PAGE_NAV_OBS)),
         .map_disp_valid(map_disp_valid), .map_disp_occupied(map_disp_occupied),
@@ -1769,6 +1771,9 @@ module falcons_top (
         .map_start(map_disp_start), .map_done(map_disp_done),
         .route_valid(route_disp_valid), .route_x(route_disp_x), .route_y(route_disp_y),
         .route_start(route_disp_start), .route_done(route_disp_done),
+        .cmd_valid(planner_cmd_valid), .target_axis_y(planner_target_axis_y),
+        .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
+        .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
         .pixel_clk(pixel_clk), .pixel_rst_n(pixel_rst_n), .frame_start(frame_start),
         .pixel_x(pixel_x), .pixel_y(pixel_y), .map_pixel(map_pixel), .route_pixel(route_pixel)
     );

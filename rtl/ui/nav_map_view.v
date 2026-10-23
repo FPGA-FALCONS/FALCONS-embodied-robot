@@ -1,6 +1,6 @@
 // 地图和路线独立双缓冲。系统域写后台，像素域在帧边界换图。
 // 显示不反压导航；忙时跳过一整帧，下一 start 重新接收。
-// 地图完整扫描覆盖后台；路线只用一份航点表，接完后清后台并顺序画线。
+// 地图完整扫描覆盖后台；路线接完后清后台，补画当前任务轴线并连接航点。
 module nav_map_view (
     input  wire        clk,
     input  wire        rst_n,
@@ -13,6 +13,14 @@ module nav_map_view (
     input  wire [7:0]  route_y,
     input  wire        route_start,
     input  wire        route_done,
+
+    input  wire               cmd_valid,
+    input  wire               target_axis_y, // 0 水平、1 竖直；忽略横向偏差。
+    input  wire signed [31:0] pose_x_mm,
+    input  wire signed [31:0] pose_y_mm,
+    input  wire signed [31:0] target_x_mm,
+    input  wire signed [31:0] target_y_mm,
+
     input  wire        pixel_clk,
     input  wire        pixel_rst_n,
     input  wire        frame_start,
@@ -78,6 +86,8 @@ module nav_map_view (
     reg [10:0] point_count, point_length, point_index;
     reg [15:0] clear_address, point_q;
     reg [7:0] draw_x, draw_y, end_x, end_y;
+    reg current_segment, current_axis_y;
+    reg [13:0] pose_offset_x, pose_offset_y, target_offset_x, target_offset_y;
     wire route_accept = route_state == RECEIVE && route_available &&
                         (route_start || route_receiving);
     wire [9:0] point_write_address = route_start ? 10'd0 : point_count[9:0];
@@ -105,12 +115,25 @@ module nav_map_view (
             draw_y <= 0;
             end_x <= 0;
             end_y <= 0;
+            current_segment <= 0;
+            current_axis_y <= 0;
+            pose_offset_x <= 0;
+            pose_offset_y <= 0;
+            target_offset_x <= 0;
+            target_offset_y <= 0;
         end else begin
             if (route_start) route_receiving <= route_state == RECEIVE && route_available;
             case (route_state)
                 RECEIVE: if (route_accept) begin
                     point_count <= received_length;
                     if (route_done) begin
+                        // 与目标和方向同拍取样；先平移到地图坐标，清图时再换格号。
+                        current_segment <= cmd_valid;
+                        current_axis_y <= target_axis_y;
+                        pose_offset_x <= pose_x_mm + 32'sd6400;
+                        pose_offset_y <= pose_y_mm + 32'sd6400;
+                        target_offset_x <= target_x_mm + 32'sd6400;
+                        target_offset_y <= target_y_mm + 32'sd6400;
                         point_length <= received_length;
                         point_index <= 0;
                         clear_address <= 0;
@@ -119,9 +142,16 @@ module nav_map_view (
                     end
                 end
                 CLEAR: begin
+                    if (clear_address == 0) begin
+                        draw_x <= (current_axis_y ? target_offset_x : pose_offset_x) / 14'd50;
+                        draw_y <= (current_axis_y ? pose_offset_y : target_offset_y) / 14'd50;
+                        end_x <= target_offset_x / 14'd50;
+                        end_y <= target_offset_y / 14'd50;
+                    end
                     clear_address <= clear_address + 1'b1;
                     if (&clear_address) begin
-                        if (point_length == 0) begin
+                        if (current_segment) route_state <= PLOT;
+                        else if (point_length == 0) begin
                             route_request <= !route_request;
                             route_state <= RECEIVE;
                         end else route_state <= FETCH;
@@ -139,11 +169,12 @@ module nav_map_view (
                 end
                 PLOT: begin
                     if (draw_x == end_x && draw_y == end_y) begin
-                        if (point_index + 1'b1 >= point_length) begin
+                        current_segment <= 0;
+                        if (current_segment ? point_length == 0 : point_index + 1'b1 >= point_length) begin
                             route_request <= !route_request;
                             route_state <= RECEIVE;
                         end else begin
-                            point_index <= point_index + 1'b1;
+                            if (!current_segment) point_index <= point_index + 1'b1;
                             route_state <= FETCH;
                         end
                     end else if (draw_x != end_x)

@@ -70,6 +70,8 @@ module nav_top #(
                               emergency_stop,
     output wire signed [31:0] target_x_mm,
                               target_y_mm,
+    // 显示当前任务轴向：0 水平、1 竖直，仅 cmd_valid=1 时使用。
+    output wire               target_axis_y,
 
     // 正式任务接口：供整车界面读取。
     // 正式任务状态：0关闭/1运行中/2暂停/3已到达/4无路。
@@ -638,6 +640,7 @@ module nav_top #(
         .cmd_valid      (cmd_valid),
         .target_x_mm    (target_x_mm),
         .target_y_mm    (target_y_mm),
+        .target_axis_y  (target_axis_y),
         .emergency_stop (emergency_stop),
         .advance        (advance),
         .advance_index  (advance_index),

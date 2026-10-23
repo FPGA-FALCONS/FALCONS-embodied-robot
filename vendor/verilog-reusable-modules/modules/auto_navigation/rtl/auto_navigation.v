@@ -91,6 +91,8 @@ module auto_navigation #(
     output wire signed [31:0] target_x_mm,
     // 任务连续世界目标 y，signed mm；与 x 一起交给控制器。
     output wire signed [31:0] target_y_mm,
+    // 显示当前任务轴向：0 水平、1 竖直，仅 cmd_valid=1 时使用。
+    output wire               target_axis_y,
 
     // 正式任务接口：供整车界面读取。
     // 正式任务状态：0关闭/1运行中/2暂停/3已到达/4无路；不用于底盘控制。
@@ -254,6 +256,7 @@ module auto_navigation #(
         .emergency_stop    (emergency_stop),
         .target_x_mm       (target_x_mm),
         .target_y_mm       (target_y_mm),
+        .target_axis_y     (target_axis_y),
         .nav_state         (nav_state),
         .st_commit_valid   (),
         .st_sensors_valid  (st_sensors_valid),

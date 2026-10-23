@@ -40,6 +40,8 @@ module nav_command (
     output wire               cmd_valid,
     output reg  signed [31:0] target_x_mm,
                               target_y_mm,
+    // 显示当前任务轴向：0 水平、1 竖直，仅 cmd_valid=1 时使用。
+    output wire               target_axis_y,
     output wire               emergency_stop,
     output reg                advance,
     output reg         [15:0] advance_index,
@@ -91,6 +93,7 @@ module nav_command (
     wire data_fault = !enable || !sensors_valid || !route_valid;
     wire incompatible = usable && dir_q != command_dir;
     assign cmd_valid = reset_n && active;
+    assign target_axis_y = command_dir[0];
     assign emergency_stop = reset_n && (state == STOP_LOW || state == STOP_DONE || state == HOLD);
     assign stopped = state == HOLD || state == RELEASE || state == SELECT ||
         state == WAIT_SEGMENT || state == FINISHED || state == MOVE_RELEASE;

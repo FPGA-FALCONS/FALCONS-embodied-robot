@@ -43,6 +43,8 @@ module radar_navigation #(
     output wire               emergency_stop,    // 抢占正常动作的停车请求。
     output wire signed [31:0] target_x_mm,
     output wire signed [31:0] target_y_mm,
+    // 显示当前任务轴向：0 水平、1 竖直，仅 cmd_valid=1 时使用。
+    output wire               target_axis_y,
 
     // 界面任务状态：0 关闭，1 运行中，2 暂停，3 已到达，4 无路。
     output wire         [3:0] nav_state,
@@ -92,6 +94,7 @@ module radar_navigation #(
         .emergency_stop         (emergency_stop),
         .target_x_mm            (target_x_mm),
         .target_y_mm            (target_y_mm),
+        .target_axis_y          (target_axis_y),
         .nav_state              (nav_state),
         .display_enable         (display_enable),
         .map_disp_valid         (map_disp_valid),
