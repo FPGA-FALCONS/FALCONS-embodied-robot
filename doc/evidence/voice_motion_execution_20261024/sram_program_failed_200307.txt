@@ -1,0 +1,7 @@
+ Target Cable: Gowin USB Cable(GWU2X)/0/None/null@1.33 MHz
+ Target Device: GW5AT-138B(0x0011081B)
+ Operation "SRAM Program" for device#1...
+
+Error: Cable failed to open via the channel.
+ Cost 0.03 second(s)
+  

@@ -21,6 +21,7 @@ flowchart TB
 ```
 
 - 录音使用明确的ALSA设备，默认不录板载声卡。麦克风未到货，`microphone.device=null`时返回待接入。
+- 录音窗口由 `microphone.seconds` 控制（现场验收用 3 秒）。可选的录音开始/结束提示音由 `microphone.cue` 配置，例如 `{"enabled": true, "device": "plughw:CARD=Device,DEV=0"}`：开始音在调 ASR 之前**播完**（不会录进窗口），结束音在窗口释放后播；播放失败只记 `recording_cue_failed` 审计、不让采集失败；不配置或 `enabled` 非 true 即完全禁用，与 `announcements` 互不影响。状态见 `/status` 的 `recording_cue`。
 - ASR为SenseVoiceSmall INT8，CPU两线程。`text`保留原始转写，`task_text`单独纠正“找交代”等，含糊表达拒识。
 - 语言模型为单独部署的专项 `domain-Q8_0.gguf`，板端llama.cpp **CPU**运行，关闭思考，最大80输出token；这不是新权重的RKLLM W8A8部署。官方原版RKLLM及Claude Code的C1/C1b保留。
 - 视觉使用板上已有v17 640 FP16 RKNN，NPU核心0，OpenCV RGB letterbox＋最佳类别及逐类NMS，原图固定输出`[1,8,8400]`。双输出版本须显式配置`decoded_probs`合同。没有替换模型、驱动或runtime。

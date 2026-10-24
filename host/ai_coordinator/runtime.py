@@ -11,6 +11,7 @@ from .gateway import Gateway
 from .processes import Worker,ModelServer
 from .schema import dumps,loads,task as validate_task
 from .announcements import Announcements
+from .recording_cue import RecordingCue
 from voice_bridge.preview import parse_task
 from .command_policy import inspect as inspect_command,immediate_stop,VERSION as POLICY_VERSION
 from .motion_intents import inspect_motion,VERSION as MOTION_POLICY_VERSION
@@ -38,6 +39,7 @@ class Runtime:
         self.root=Path(self.cfg['root']).resolve();self.run_dir=self.root/'runs'/uuid.uuid4().hex
         self.audit=Audit(self.run_dir);self.core=PatrolMission(Policy(**self.cfg.get('policy',{})),self.cfg.get('mode','shadow'))
         self.announcements=Announcements(self.cfg.get('announcements',{}),self.audit)
+        self.cue=RecordingCue(self.cfg.get('microphone',{}).get('cue',{}),self.audit,self.root)
         if self.core.mode=='live' and self.cfg.get('gateway',{}).get('mode')!='serial':raise ValueError('live mode requires serial gateway')
         self.gateway=Gateway(self.cfg.get('gateway',{}),self.core.session_id,self.audit)
         # The lambda is deliberate: tests and deployment can replace the
@@ -245,9 +247,13 @@ class Runtime:
         async def work():
             capturing=bool(request.get('capture'))
             if capturing:self.announcements.begin_capture()
-            try:response=await self.workers['asr'].call(payload,timeout=self.cfg.get('asr_timeout_s',15));asr=response['result']
+            try:
+                if capturing:await self.cue.play('start')
+                response=await self.workers['asr'].call(payload,timeout=self.cfg.get('asr_timeout_s',15));asr=response['result']
             finally:
-                if capturing:self.announcements.end_capture()
+                if capturing:
+                    self.announcements.end_capture()
+                    await self.cue.play('stop')
             if generation!=self.generation:return {'asr':asr,'stale':True}
             if asr.get('status')!='recognized':return {'asr':asr,'accepted':False}
             return {'asr':asr,'asr_elapsed_s':response['elapsed_s'],'parsed':await self.parse(asr['text'],generation,plan_only)}
@@ -354,6 +360,7 @@ class Runtime:
             'camera_state':self.camera_state,
             'fpga_camera_configured':self.camera_backend=='fx2' and bool(self.cfg.get('camera',{}).get('enabled',False)),
             'camera_source_time_verified':self.camera_time_verified,'announcements':self.announcements.snapshot(),
+            'recording_cue':self.cue.snapshot(),
             'voice_motion':{**self.motion.snapshot(),'policy_version':MOTION_POLICY_VERSION,
                             'last_instruction':self.last_motion},
             'policy_version':POLICY_VERSION,'language_profile':self.cfg.get('language_profile','unspecified'),

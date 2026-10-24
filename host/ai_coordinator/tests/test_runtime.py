@@ -186,6 +186,19 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 writer.close();await writer.wait_closed()
         finally:server.close();await server.wait_closed()
 
+    async def test_capture_window_is_bracketed_by_start_and_stop_cues(self):
+        self.runtime.cfg['microphone']={'device':'plughw:CARD=MIC,DEV=0','seconds':3}
+        order=[]
+        async def play(name):
+            order.append((name,self.runtime.announcements.capture_active));return True
+        self.runtime.cue.play=play
+        job=await self.done(self.runtime.submit_audio({'capture':True,'plan_only':True}))
+        self.assertEqual(job['status'],'done')
+        self.assertEqual([name for name,_ in order],['start','stop'])
+        self.assertTrue(order[0][1])   # start tone plays inside the reserved capture window
+        self.assertFalse(order[1][1])  # stop tone plays after the window is released
+        self.assertIn('recording_cue',self.runtime.snapshot())
+
 
 class WorkerTests(unittest.IsolatedAsyncioTestCase):
     async def test_real_private_worker_timeout_reaps_process(self):
