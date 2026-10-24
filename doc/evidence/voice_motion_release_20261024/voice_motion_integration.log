@@ -1,0 +1,21 @@
+# 测试：voice_motion_integration  top=voice_motion_integration_tb  模拟器=Icarus  退出码=0
+# 下面是完整输出（屏幕只回显了检查行与结论）
+pass original navigation selected before voice owns
+pass forward crosses real router into production arbiter
+pass completion holds zero despite continuously nonzero navigation
+pass STOP owns and brakes navigation
+pass patrol start without readiness cannot resume old UI route
+pass watchdog leaves persistent zero authority
+pass manual takeover suppresses voice and navigation leak
+pass return from manual never resumes prior motion
+pass emergency stop suppresses voice and navigation leak
+pass emergency release never resumes prior motion
+pass left turn accepted with healthy sampled yaw
+pass IMU fault during turn holds zero against navigation
+pass constant yaw_valid cannot mask missing real IMU samples
+pass all binary commands isolated from ASCII PID and clear events
+pass first complete frame after both parser timeouts recovers
+pass STOP after truncated-frame recovery holds authority
+CHECKS: 16
+PASS: voice motion integration complete
+D:\HITSZ_FALCONS\release_fullstack_motion_20261024\sim\voice_motion_integration_tb.sv:87: $finish called at 766100000000 (1ps)

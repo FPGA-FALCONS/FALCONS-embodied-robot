@@ -1,0 +1,36 @@
+{
+  "source": "Existing RK3588 artifacts; no model substitution or package changes",
+  "board_release": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_163101_ddf286",
+  "artifacts": {
+    "llm": {
+      "path": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/models/c1b-Q8_0.gguf",
+      "bytes": 811842976,
+      "sha256": "b13e07d5a96cb05f2d949cf91192246c8a8d01436e340992bc83be2476fa278b"
+    },
+    "system": {
+      "path": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_163101_ddf286/system.txt",
+      "bytes": 703,
+      "sha256": "ad088a5ca83d9d08ff43ab70fc3b819d734680e68a19b4c46b9f26c6c54244d8"
+    },
+    "chat_template": {
+      "path": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_163101_ddf286/models/shared_chat_template.jinja",
+      "bytes": 7755,
+      "sha256": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80"
+    },
+    "asr_model": {
+      "path": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/models/asr/model.int8.onnx",
+      "bytes": 239233841,
+      "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51"
+    },
+    "asr_tokens": {
+      "path": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/models/asr/tokens.txt",
+      "bytes": 315894,
+      "sha256": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
+    },
+    "vision": {
+      "path": "/home/orangepi/workspace/falcons_rknn_20261023/v17_640_fp16.rknn",
+      "bytes": 21812469,
+      "sha256": "227cbb3a6a6e07bfbb7d8bb983464f604ba83667214137880eb4af92ce12341d"
+    }
+  }
+}

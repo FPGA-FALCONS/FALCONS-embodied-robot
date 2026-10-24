@@ -1,0 +1,4 @@
+# 测试：uart_command_router  top=tb_uart_command_router  模拟器=Icarus  退出码=0
+# 下面是完整输出（屏幕只回显了检查行与结论）
+PASS: uart_command_router 2304 legal MOT1 frames plus fault/ASCII checks
+D:\HITSZ_FALCONS\release_fullstack_motion_20261024\sim\tb_uart_command_router.sv:141: $finish called at 280180000 (1ps)

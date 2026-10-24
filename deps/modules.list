@@ -34,3 +34,5 @@ radar_navigation 整车雷达导航正式入口
 # （ov5640_capture 已于 2026-10-17 接入，见上方"当前已接入"段）
 
 # tof_vl53l0x   2026-10-18新增就位；尚未接入falcons_top，暂不加入整车编译/电机仲裁。
+
+voice_motion_bridge  MOT1 bounded motion primitives; persistent stop ownership, no voice patrol release yet

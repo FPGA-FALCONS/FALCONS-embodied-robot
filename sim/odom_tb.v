@@ -192,10 +192,10 @@ module odom_tb;
         repeat (2) @(posedge clk);
         chk("unwrap_start", oyaw, 0, 0);
         begin : wrap_test
-            integer before;
-            before = oyaw;
+            integer yaw_before;
+            yaw_before = oyaw;
             repeat (4) one_window(32'sd50, 32'sd0);   // 4×10ms×50 = +2000
-            chk("unwrap_delta", oyaw - before, 2000, 20);
+            chk("unwrap_delta", oyaw - yaw_before, 2000, 20);
         end
 
         // ---- 9. ★ 移动中同时转向：验证「中点积分」（2026-10-18 新增）----

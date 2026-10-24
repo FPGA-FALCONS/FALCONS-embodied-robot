@@ -1,0 +1,3 @@
+REPLAY_RECORDS=37 CHECKS=134 FAILURES=0
+PASS vision observation replay and existing chassis isolation
+D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\sim\vision_module_tb.v:193: $finish called at 93840000 (1ps)

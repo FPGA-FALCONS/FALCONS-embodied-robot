@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "hardware_tested": false,
+  "serial_bytes_sent": 0,
+  "candidate_feature_branch_only": true,
+  "production_top_modified": false,
+  "consumer_requires_target_valid_and_link_alive": true,
+  "candidate_parser_sequence_replay_protection": false,
+  "candidate_parser_commit": "6972cebb813f4b598e24b3fd2d353f76937bc8a4",
+  "candidate_source_sha256": {
+    "rtl/ai/ai_vision_link.v": "7376d5fb5a6569ffb58d0cb0455fc0672d04ab120253534428f8fe11aa655dac",
+    "vendor/verilog-reusable-modules/modules/uart/rtl/uart_byte_rx.v": "5d50c50daecea3c2f9ddad79acb9fd6135f83677db3e712c8b82008dc2f4b169"
+  },
+  "input_sha256": "376de598599b025436d2539eb55a43dfe5dc6e09ad9d9cb1f2bdf2c8a94c4cc2",
+  "model_observation_records": 12,
+  "encoded_frames_with_eof_revoke": 13,
+  "encoded_valid_targets": 3,
+  "wire_bytes_simulated": 247,
+  "safe_frames_sha256": "b1b5c540513f9e3768ac3236f780456bd78f88c1ffd4699837620998d7d267f8",
+  "compile_exit": 0,
+  "simulation_exit": 0,
+  "rtl_frames": 13,
+  "rtl_targets": 3,
+  "rtl_checks": 82,
+  "rtl_failures": 0,
+  "candidate_raw_target_after_timeout": 1,
+  "effective_target_after_timeout": 0,
+  "bridge_source_sha256": {
+    "bridge.py": "01bd744fc8db8adbf397eb3ebec2c1a0cc82f4b821d4d3e3add18d489b707fa0",
+    "replay.py": "58aa2743fbd452672d104d202f1fe9a16af16d7580c353d9c14d92a0b2eae5c1",
+    "run_integration.py": "bde70e51d26a85110b8806e6bf3a755d9a1bca35695d0d0cdedfccd3d1969c09",
+    "run_serial_integration.py": "265ac9d5716db4d402dfce26383b01b52b4ebf490e7d2dd1de64a7ea267cef55",
+    "serial_export.py": "a9530252777e26d4c38258a6ea42868a22f018abc3f14235e8b7161fa4de307a",
+    "sim\\vision_module_tb.v": "717bc06a24906b84a6b7731872c72feb5b2fb107ce6b90701f2dfd6cc5e08513",
+    "sim\\vision_serial_bridge_tb.v": "801399be30b1bebee469159c3eba9ec65d33330bac5ac9e8d24f56af9848d714",
+    "sim\\vision_status_sink.v": "dd4841841836b747e0bcf9d7a97283d5762c2e1171d0fd3b8f3611152c1f4e51",
+    "tests\\test_bridge.py": "e9933e176d39e48b62952fe44427b19751d684d4ed55443e1d9950e488e1c949",
+    "tests\\test_serial_export.py": "70d85bc759cec7eedce2f4453f87429e0e643087588df4a1a8f834ad66e117fd"
+  }
+}

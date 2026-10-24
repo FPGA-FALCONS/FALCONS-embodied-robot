@@ -202,7 +202,17 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
 
 $sources += @("$ProjectRoot\rtl\common\display_mm_to_cm.v", "$PSScriptRoot\display_mm_to_cm_tb.v", "$PSScriptRoot\ui_layers_tb.v")
 
+# Voice motion uses production stream isolation and ownership arbitration.
+$sources += @("$VendorRoot\voice_motion_bridge\rtl\voice_motion_bridge.v",
+              "$ProjectRoot\rtl\debug\uart_command_router.v", "$ProjectRoot\rtl\debug\uart_cmd_rx.v",
+              "$ProjectRoot\rtl\motor\voice_nav_arbiter.v",
+              "$VendorRoot\voice_motion_bridge\sim\tb_voice_motion_bridge.sv",
+              "$PSScriptRoot\tb_uart_command_router.sv", "$PSScriptRoot\voice_motion_integration_tb.sv")
+
 $tests = @(
+    @{ Name = 'voice_motion_bridge'; Top = 'tb_voice_motion_bridge'; Desc = 'MOT1 ownership, IMU freshness, signed turns, watchdog and command priority' },
+    @{ Name = 'uart_command_router'; Top = 'tb_uart_command_router'; Desc = 'Binary isolation, ASCII compatibility and truncated frame recovery' },
+    @{ Name = 'voice_motion_integration'; Top = 'voice_motion_integration_tb'; Desc = 'Production router, bridge and authority mux against nonzero navigation' },
     @{ Name = 'ui_layers'; Top = 'ui_layers_tb'; Desc = 'Parallel layer priority / 131072 overlap and palette combinations' },
     @{ Name = 'display_mm_to_cm'; Top = 'display_mm_to_cm_tb'; Desc = 'Signed display conversion / int32 limits / continuous pipeline / reset' },
     @{ Name = 'nav_planner'; Top = 'nav_planner_tb'; Desc = 'Indoor rooms / diagonal walls / straight-first BFS / centered segments / queue wrap' },

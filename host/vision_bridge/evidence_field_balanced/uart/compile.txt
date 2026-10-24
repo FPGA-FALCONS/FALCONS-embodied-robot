@@ -1,0 +1,2 @@
+D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\uart\build\uart_byte_rx.v:36: warning: timescale for uart_byte_rx inherited from another file.
+D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\uart\build\ai_vision_link.v:16: ...: The inherited timescale is here.

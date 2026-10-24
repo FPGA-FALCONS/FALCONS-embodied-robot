@@ -404,11 +404,11 @@ localparam signed [31:0] P_I_LIMIT   = 32'sd90;
         chk_int("i_ui_active", {31'd0, ui_active}, 32'sd1);
         // 手动档：摇杆归底盘，准心不许动
         begin : manual_lock
-            reg signed [31:0] before;
-            before = cur_x;
+            reg signed [31:0] cursor_before;
+            cursor_before = cur_x;
             i_manual = 1'b1;
             push_right(100);
-            chk_int("i_manual_cursor_lock", cur_x, before);
+            chk_int("i_manual_cursor_lock", cur_x, cursor_before);
             i_manual = 1'b0;
         end
         // ★ aux_sel 不会因"返回退出再重进"而复位（reenter 只解锁菜单，不重开页面），

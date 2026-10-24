@@ -1,0 +1,24 @@
+{
+  "active_release": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_153642_f40ecc",
+  "activated": true,
+  "microphone_preserved": true,
+  "asr_timeout_preserved": true,
+  "model_loads_enabled": false,
+  "mode": "shadow",
+  "workers_all_empty": true,
+  "boot_unchanged": true,
+  "tests": {
+    "tests.log": [
+      "Ran 86 tests in 1.163s",
+      "OK"
+    ],
+    "camera_tests.log": [
+      "Ran 36 tests in 0.045s",
+      "OK"
+    ]
+  },
+  "rtl_wire_replay_frames": 1,
+  "rtl_wire_crc_errors": 0,
+  "real_usb_image_tested": false,
+  "physical_task_completed": false
+}

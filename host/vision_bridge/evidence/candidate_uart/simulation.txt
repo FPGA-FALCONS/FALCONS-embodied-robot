@@ -1,0 +1,5 @@
+CANDIDATE_REPLAY_PROTECTION=ABSENT
+RAW_TARGET_AFTER_TIMEOUT=1 EFFECTIVE_TARGET_AFTER_TIMEOUT=0
+SERIAL_MODEL_RECORDS=25 SERIAL_TARGETS=22 CHECKS=154 FAILURES=0
+PASS safe bridge to candidate UART parser, observation only
+D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\sim\vision_serial_bridge_tb.v:103: $finish called at 55656600000 (1ps)

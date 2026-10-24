@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "backend": "v4l2",
+  "device": null,
+  "expected_size": null,
+  "fps": null,
+  "fourcc": null,
+  "warmup_frames": 5,
+  "storage": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/camera_frames",
+  "note": "Merge into config.camera only after a real probe. Set the exact USB by-id/by-path device and negotiated mode. Keep disabled and HOLD/shadow until commissioning."
+}

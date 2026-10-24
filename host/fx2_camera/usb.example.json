@@ -1,0 +1,8 @@
+{
+  "vid": null,
+  "pid": null,
+  "interface": null,
+  "endpoint": null,
+  "usb_path": null,
+  "note": "Fill integer VID/PID/interface/endpoint from the real probe report and matching FX2 firmware; never copy guessed IDs. usb_path is the Linux topology name such as the value returned by probe.py."
+}

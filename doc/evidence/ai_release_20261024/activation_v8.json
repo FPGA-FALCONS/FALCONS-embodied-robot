@@ -1,0 +1,31 @@
+{
+  "active_release": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_163101_ddf286",
+  "previous_release": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_153642_f40ecc",
+  "activated": true,
+  "model_loads_enabled": false,
+  "mode": "shadow",
+  "voice_motion_enabled": false,
+  "workers_all_empty": true,
+  "microphone_preserved": true,
+  "asr_timeout_preserved": true,
+  "boot_unchanged": true,
+  "tests": {
+    "tests.log": [
+      "Ran 113 tests in 2.062s",
+      "OK"
+    ],
+    "camera_tests.log": [
+      "Ran 36 tests in 0.044s",
+      "OK"
+    ],
+    "motion_tests.log": [
+      "Ran 11 tests in 0.005s",
+      "OK"
+    ]
+  },
+  "text_plan_only_smoke": 4,
+  "motor_commands_transmitted": false,
+  "fpga_programmed": false,
+  "bundle": "fullstack_release_v8_all_modules.zip",
+  "bundle_sha256": "0b60997e380823c615556c1595cce6ed31589c8f0dae795d0b44e8fe90b6224d"
+}

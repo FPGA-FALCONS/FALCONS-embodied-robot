@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "hardware_tested": false,
+  "serial_bytes_sent": 0,
+  "bitstream_downloaded": false,
+  "production_top_modified": false,
+  "allow_motion_simulated": true,
+  "predictions": 10,
+  "bridge_accepted": 10,
+  "motion_valid_frames": 10,
+  "stop_reasons": {
+    "ok": 10
+  },
+  "input_sha256": "4971bc88398f888336fa545a39fe44906250763b3f67a911b852cbfc018c7c26",
+  "vectors_sha256": "d898bfffe96fb41c6d4efb0772ae7df66284c656137e524785866e7347a95a6f",
+  "compile_exit": 0,
+  "simulation_exit": 0,
+  "rtl_pass": true
+}

@@ -55,6 +55,7 @@ module uart_cmd_rx #(
 
     input  wire [7:0]  i_rx_data,
     input  wire        i_rx_valid,
+    input  wire        i_abort, // Clear an incomplete ASCII command at a binary boundary.
 
     // ---- 目标转速（单位：计数/窗口）----
     output reg         o_tgt_valid,
@@ -153,7 +154,13 @@ module uart_cmd_rx #(
             o_report_req  <= 1'b0;
             o_cmd_error   <= 1'b0;
 
-            if (i_rx_valid) begin
+            if (i_abort) begin
+                state <= S_WAIT;
+                cmd <= 8'h00;
+                acc <= 32'd0;
+                neg <= 1'b0;
+                has_digit <= 1'b0;
+            end else if (i_rx_valid) begin
                 case (state)
                     //------------------------------
                     // 等首字符
@@ -229,6 +236,11 @@ module uart_cmd_rx #(
                             o_cmd_error <= 1'b1;                  // 非法字符：丢弃该命令
                             state       <= S_WAIT;
                         end
+                    end
+                    default: begin
+                        state <= S_WAIT;
+                        has_digit <= 1'b0;
+                        o_cmd_error <= 1'b1;
                     end
                 endcase
             end

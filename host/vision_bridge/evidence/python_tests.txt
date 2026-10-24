@@ -1,0 +1,41 @@
+test_clock_regression_revokes (test_bridge.BridgeTests.test_clock_regression_revokes) ... ok
+test_configuration_validation (test_bridge.BridgeTests.test_configuration_validation) ... ok
+test_duplicate_json_keys_rejected (test_bridge.BridgeTests.test_duplicate_json_keys_rejected) ... ok
+test_duplicate_record_revokes_and_does_not_extend (test_bridge.BridgeTests.test_duplicate_record_revokes_and_does_not_extend) ... ok
+test_false_target_flag_revokes_in_every_state (test_bridge.BridgeTests.test_false_target_flag_revokes_in_every_state) ... ok
+test_future_or_invalid_source_clock_rejected (test_bridge.BridgeTests.test_future_or_invalid_source_clock_rejected) ... ok
+test_invalid_clock_rejected_by_api (test_bridge.BridgeTests.test_invalid_clock_rejected_by_api) ... ok
+test_invalid_labels_and_boxes_rejected (test_bridge.BridgeTests.test_invalid_labels_and_boxes_rejected) ... ok
+test_invalid_or_low_confidence_rejected (test_bridge.BridgeTests.test_invalid_or_low_confidence_rejected) ... ok
+test_invalid_status_action_cannot_accept (test_bridge.BridgeTests.test_invalid_status_action_cannot_accept) ... ok
+test_malformed_json_revokes_and_eof_expires (test_bridge.BridgeTests.test_malformed_json_revokes_and_eof_expires) ... ok
+test_non_boolean_flag_rejected (test_bridge.BridgeTests.test_non_boolean_flag_rejected) ... ok
+test_non_mapping_nested_fields_fail_closed (test_bridge.BridgeTests.test_non_mapping_nested_fields_fail_closed) ... ok
+test_poll_does_not_refresh_ttl (test_bridge.BridgeTests.test_poll_does_not_refresh_ttl) ... ok
+test_qwen_conflict_revokes (test_bridge.BridgeTests.test_qwen_conflict_revokes) ... ok
+test_replay_does_not_claim_capture_freshness (test_bridge.BridgeTests.test_replay_does_not_claim_capture_freshness) ... ok
+test_require_source_metadata_mode (test_bridge.BridgeTests.test_require_source_metadata_mode) ... ok
+test_reset_has_no_target (test_bridge.BridgeTests.test_reset_has_no_target) ... ok
+test_reviewed_tracking_accept (test_bridge.BridgeTests.test_reviewed_tracking_accept) ... ok
+test_source_age_bounds_target_deadline (test_bridge.BridgeTests.test_source_age_bounds_target_deadline) ... ok
+test_source_sequence_and_old_replies (test_bridge.BridgeTests.test_source_sequence_and_old_replies) ... ok
+test_stale_source_rejected (test_bridge.BridgeTests.test_stale_source_rejected) ... ok
+test_timeout_exact_boundary (test_bridge.BridgeTests.test_timeout_exact_boundary) ... ok
+test_unknown_schema_revokes (test_bridge.BridgeTests.test_unknown_schema_revokes) ... ok
+test_verified_all_four_class_ids (test_bridge.BridgeTests.test_verified_all_four_class_ids) ... ok
+test_verified_requires_verifier (test_bridge.BridgeTests.test_verified_requires_verifier) ... ok
+test_video_can_reuse_frame_name_if_sequence_increases (test_bridge.BridgeTests.test_video_can_reuse_frame_name_if_sequence_increases) ... ok
+test_yolo_target_must_match (test_bridge.BridgeTests.test_yolo_target_must_match) ... ok
+test_bridge_rejects_tracking_qwen_conflict_before_export (test_serial_export.SerialExportTests.test_bridge_rejects_tracking_qwen_conflict_before_export) ... ok
+test_confidence_quantization_can_only_revoke (test_serial_export.SerialExportTests.test_confidence_quantization_can_only_revoke) ... ok
+test_expired_event_is_not_serialized_as_valid (test_serial_export.SerialExportTests.test_expired_event_is_not_serialized_as_valid) ... ok
+test_export_eof_contains_explicit_revoke (test_serial_export.SerialExportTests.test_export_eof_contains_explicit_revoke) ... ok
+test_nonfinite_or_degenerate_quantized_boxes_revoke (test_serial_export.SerialExportTests.test_nonfinite_or_degenerate_quantized_boxes_revoke) ... ok
+test_packet_layout_and_crc (test_serial_export.SerialExportTests.test_packet_layout_and_crc) ... ok
+test_sequence_wrap_is_explicit (test_serial_export.SerialExportTests.test_sequence_wrap_is_explicit) ... ok
+test_standard_crc_check_vector (test_serial_export.SerialExportTests.test_standard_crc_check_vector) ... ok
+
+----------------------------------------------------------------------
+Ran 36 tests in 0.002s
+
+OK

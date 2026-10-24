@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-24",
+  "scope": "RTL module and production-component integration simulation, no physical motor validation",
+  "bridge_checks": 71,
+  "integration_checks": 16,
+  "router_legal_frames": 2304,
+  "router_additional_checks": "CRC/unknown/partial/truncation/ASCII abort and queued ordering",
+  "production_nav_release_ready": false,
+  "new_fx2_top_instances": false,
+  "files_sha256": {
+    "rtl/top/falcons_top.v": "b4fccbb6e9b0cfea529d1fca36330ce44b6b3b80ba8378b18a117cc406f663a1",
+    "rtl/debug/uart_command_router.v": "2db4ad87dac5c313272ce96ddcce2eb1fb2e84a851f01cddbca65cf8980918e9",
+    "rtl/debug/uart_cmd_rx.v": "16be39ab85358a990a2b831acb11ec2b1da0dea4273417ddf2f51ea5c126d48c",
+    "rtl/motor/voice_nav_arbiter.v": "1bb2cae5e5ccfce7a3ab2796af0a62d6278384be19a091ef83a9a1b11c96eb19",
+    "vendor/verilog-reusable-modules/modules/voice_motion_bridge/rtl/voice_motion_bridge.v": "394fc6734855a5a4e0267f634f3473b4a7e713a2736791f7e508bedc89b6b547",
+    "deps/modules.list": "d1accc45fbb2cbafd93dc95619eb8f13260d95986414c1aa452aa39fd853884d"
+  }
+}

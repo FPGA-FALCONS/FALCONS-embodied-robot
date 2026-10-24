@@ -1,0 +1,76 @@
+# 测试：voice_motion_bridge  top=tb_voice_motion_bridge  模拟器=Icarus  退出码=0
+# 下面是完整输出（屏幕只回显了检查行与结论）
+pass reset must not seize navigation
+pass manual STOP must acquire persistent zero ownership
+pass voice must retain zero ownership
+pass RC-disabled STOP must acquire persistent zero ownership
+pass voice must retain zero ownership
+pass unsafe PATROL_STOP acquires stop only
+pass voice must retain zero ownership
+pass unsafe motion must not acquire or execute
+pass unsafe motion must not resume
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass bounded forward speed
+pass voice must retain zero ownership
+pass bounded reverse speed
+pass voice must retain zero ownership
+pass new command lost to old tick
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass bad CRC must flag error
+pass voice must retain zero ownership
+pass unknown opcode error
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass left turn start
+pass reverse 1 degree falsely completed left
+pass left must wait for target
+pass voice must retain zero ownership
+pass reverse 1 degree falsely completed right
+pass voice must retain zero ownership
+pass positive wrap delta
+pass voice must retain zero ownership
+pass negative wrap delta
+pass voice must retain zero ownership
+pass 360 stopped early
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass valid heartbeat must keep live action
+pass voice must retain zero ownership
+pass safety must mask immediately
+pass voice must retain zero ownership
+pass safety must mask immediately
+pass voice must retain zero ownership
+pass safety must mask immediately
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass unready patrol must not pulse/release
+pass voice must retain zero ownership
+pass explicit ready patrol releases
+pass voice must retain zero ownership
+pass voice must retain zero ownership
+pass patrol stop must pulse and own stop
+pass voice must retain zero ownership
+pass truncated frame timeout resets parser
+pass first frame after timeout accepted
+pass voice must retain zero ownership
+CHECKS: 71
+PASS: tb_voice_motion_bridge 71 checks: ownership/safety/IMU freshness/yaw wraps/reverse jitter/semantic limits/watchdog/priority/patrol
+D:\HITSZ_FALCONS\release_fullstack_motion_20261024\vendor\verilog-reusable-modules\modules\voice_motion_bridge\sim\tb_voice_motion_bridge.sv:178: $finish called at 3665110000 (1ps)

@@ -401,9 +401,23 @@ module falcons_top (
     wire obs_auto_valid;
     wire signed [31:0] obs_auto_center, obs_auto_diff;
     wire obs_owns_control = planner_cmd_valid || planner_emergency_stop;
-    wire auto_selected_valid = obs_owns_control ? obs_auto_valid : nav_auto_valid;
-    wire signed [31:0] auto_selected_center = obs_owns_control ? obs_auto_center : nav_auto_center;
-    wire signed [31:0] auto_selected_diff = obs_owns_control ? obs_auto_diff : nav_auto_diff;
+    wire nav_selected_valid = obs_owns_control ? obs_auto_valid : nav_auto_valid;
+    wire signed [31:0] nav_selected_center = obs_owns_control ? obs_auto_center : nav_auto_center;
+    wire signed [31:0] nav_selected_diff = obs_owns_control ? obs_auto_diff : nav_auto_diff;
+    wire voice_owned, voice_auto_valid;
+    wire signed [31:0] voice_auto_center, voice_auto_diff;
+    wire auto_selected_valid;
+    wire signed [31:0] auto_selected_center, auto_selected_diff;
+
+    // Ownership persists after STOP/completion/fault. Never fall back to a
+    // still-running navigation command when a voice action finishes.
+    voice_nav_arbiter u_voice_nav_arbiter (
+        .i_voice_owned(voice_owned), .i_voice_valid(voice_auto_valid),
+        .i_voice_center(voice_auto_center), .i_voice_diff(voice_auto_diff),
+        .i_nav_valid(nav_selected_valid), .i_nav_center(nav_selected_center),
+        .i_nav_diff(nav_selected_diff), .o_valid(auto_selected_valid),
+        .o_center(auto_selected_center), .o_diff(auto_selected_diff)
+    );
 
     wire               nav_ctrl_active;      // 导航页 + 交互态
     wire signed [31:0] nav_dbg_ahead, nav_dbg_left;
@@ -728,6 +742,18 @@ module falcons_top (
     wire [7:0] rx_data;
     wire       cmd_error;      // 串口命令解析错误标志（bit2 上报用）
     wire       rx_valid;
+    wire [7:0] ascii_rx_data, motion_rx_data;
+    wire ascii_rx_valid, ascii_rx_abort, motion_rx_valid;
+
+    // The existing UART is shared with PID tuning; binary payload/CRC must
+    // never reach the ASCII parser (e.g. a CRC byte 0x78 is ASCII clear-stall).
+    uart_command_router #(.CLK_FREQ_HZ(CLK_HZ)) u_uart_command_router (
+        .i_clock(i_clk_50m), .i_reset_n(sys_rst_n),
+        .i_rx_data(rx_data), .i_rx_valid(rx_valid),
+        .o_ascii_data(ascii_rx_data), .o_ascii_valid(ascii_rx_valid),
+        .o_ascii_abort(ascii_rx_abort),
+        .o_motion_data(motion_rx_data), .o_motion_valid(motion_rx_valid)
+    );
 
     uart_byte_rx #(
         .CLK_FREQ_HZ (CLK_HZ),
@@ -752,8 +778,9 @@ module falcons_top (
     ) u_cmd (
         .i_clock      (i_clk_50m),
         .i_reset_n    (sys_rst_n),
-        .i_rx_data    (rx_data),
-        .i_rx_valid   (rx_valid),
+        .i_abort      (ascii_rx_abort),
+        .i_rx_data    (ascii_rx_data),
+        .i_rx_valid   (ascii_rx_valid),
         .o_tgt_valid  (),
         .o_tgt_sel    (),
         .o_tgt_value  (),
@@ -1031,6 +1058,34 @@ module falcons_top (
     // 航向角显示用整数度：yaw 单位 0.01°，÷100 ≈ (×10486) >>> 20
     //   （1/100 = 0.01；0.01 × 2²⁰ = 10485.76 → 取 10486，误差 < 0.003%）
     wire signed [31:0] yaw_deg = (yaw_raw_s * 10486) >>> 20;
+
+    // Voice motion only uses the existing sys-domain yaw and fresh IMU
+    // samples. yaw_valid alone is an enable flag, not a sample heartbeat.
+    reg voice_imu_calibrated;
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) voice_imu_calibrated <= 1'b0;
+        else if (!imu_local_rst_n || !imu_init_done || imu_calib_busy || imu_fail_any)
+            voice_imu_calibrated <= 1'b0;
+        else if (imu_calib_done) voice_imu_calibrated <= 1'b1;
+    end
+    wire voice_imu_healthy = imu_local_rst_n && imu_init_done &&
+                             voice_imu_calibrated && !imu_calib_busy && !imu_fail_any;
+    // No automatic release to an old UI route: voice patrol start is not yet
+    // wired to a fresh, explicitly confirmed waypoint task in this release.
+    wire voice_nav_release_ready = 1'b0;
+    voice_motion_bridge #(.CLK_HZ(CLK_HZ), .YAW_SIGN(1)) u_voice_motion (
+        .clk(i_clk_50m), .rst_n(sys_rst_n),
+        .i_rx_data(motion_rx_data), .i_rx_valid(motion_rx_valid),
+        .i_enable(cursor_mode && rc_signal_ok),
+        .i_estop(estop_latch | key4_press | tof_estop | planner_emergency_stop | (|stall_vec)),
+        .i_manual(manual_drive), .i_yaw_deg(yaw_deg), .i_yaw_valid(yaw_valid),
+        .i_imu_sample_valid(imu_data_valid_d1), .i_imu_healthy(voice_imu_healthy),
+        .i_nav_release_ready(voice_nav_release_ready),
+        .o_owned(voice_owned), .o_auto_valid(voice_auto_valid),
+        .o_auto_center(voice_auto_center), .o_auto_diff(voice_auto_diff),
+        .o_active(), .o_last_seq(), .o_last_cmd(), .o_last_flags(),
+        .o_cmd_error(), .o_patrol_start(), .o_patrol_stop()
+    );
 
     // ==================================================================
     // 6c. 串口 CSV 上报：速度环关键量 @50 Hz

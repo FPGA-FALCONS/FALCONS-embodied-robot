@@ -1,0 +1,140 @@
+{
+  "build_complete": true,
+  "tool": "Gowin V1.9.12.03 x64",
+  "device": "GW5AT-LV138PG484AC1/I0",
+  "base_commit": "ec759b161f378fcf545a836fe8bed63295efe1a2",
+  "build_inputs_verified": 107,
+  "experimental_fx2_in_production": false,
+  "resources": {
+    "lut": 30989,
+    "registers": 17929,
+    "bsram": 144,
+    "bsram_available": 340
+  },
+  "frequency": [
+    {
+      "clock": "i_clk_50m",
+      "constraint_mhz": 50.0,
+      "fmax_mhz": 50.095
+    },
+    {
+      "clock": "camera_pclk",
+      "constraint_mhz": 52.499,
+      "fmax_mhz": 186.741
+    },
+    {
+      "clock": "clk_pixel",
+      "constraint_mhz": 49.0,
+      "fmax_mhz": 49.778
+    },
+    {
+      "clock": "clk_cam200",
+      "constraint_mhz": 200.0,
+      "fmax_mhz": 2240.145
+    },
+    {
+      "clock": "clk_cam50",
+      "constraint_mhz": 50.0,
+      "fmax_mhz": 136.968
+    },
+    {
+      "clock": "clk_ddrf",
+      "constraint_mhz": 50.0,
+      "fmax_mhz": 88.457
+    }
+  ],
+  "negative_slack_summary": [
+    {
+      "clock": "i_clk_50m",
+      "analysis": "Setup",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "i_clk_50m",
+      "analysis": "Hold",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "camera_pclk",
+      "analysis": "Setup",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "camera_pclk",
+      "analysis": "Hold",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_pixel",
+      "analysis": "Setup",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_pixel",
+      "analysis": "Hold",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_serial",
+      "analysis": "Setup",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_serial",
+      "analysis": "Hold",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_cam200",
+      "analysis": "Setup",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_cam200",
+      "analysis": "Hold",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_cam50",
+      "analysis": "Setup",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_cam50",
+      "analysis": "Hold",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_ddrf",
+      "analysis": "Setup",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    },
+    {
+      "clock": "clk_ddrf",
+      "analysis": "Hold",
+      "tns_ns": 0.0,
+      "endpoints": 0
+    }
+  ],
+  "timing_passed": true,
+  "timing_scope": "Existing SDC internal-clock analysis; physical I/O and vehicle behavior are not signed off",
+  "clk_serial_fmax": "No timing paths reported; setup/hold summary has zero violating endpoints",
+  "bitstream_bytes": 39707133,
+  "bitstream_sha256": "d9dc12bd79a789c99f66e550b9d04f42c431373cfcafb5dd94ee46fe295f2bcc",
+  "programming_operation": "SRAM Program only",
+  "production_qualified": false,
+  "physical_vehicle_tested": false
+}

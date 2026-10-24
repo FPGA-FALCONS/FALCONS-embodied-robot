@@ -1,0 +1,10 @@
+{
+  "vid": null,
+  "pid": null,
+  "interface": null,
+  "endpoint": null,
+  "usb_path": null,
+  "protocol": "fimg2",
+  "expected_size": [640, 375],
+  "note": "For the current 5/8 camera_fx2_direct candidate only. Fill actual USB integer IDs/interface/endpoint from probe and verified firmware. FIMG version 2 is required. This does not configure 1024x600 camera mode or verify source capture time."
+}

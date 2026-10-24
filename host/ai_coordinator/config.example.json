@@ -1,0 +1,98 @@
+{
+  "root": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1",
+  "port": 18765,
+  "mode": "shadow",
+  "gateway": {
+    "mode": "shadow",
+    "allow_motion": false
+  },
+  "microphone": {
+    "device": null
+  },
+  "camera": {
+    "enabled": false,
+    "storage": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/camera_frames"
+  },
+  "voice_motion": {
+    "enabled": false,
+    "patrol_target": "fpga_preset"
+  },
+  "policy": {
+    "ack_timeout_s": 5,
+    "search_timeout_s": 60,
+    "return_timeout_s": 60,
+    "frame_max_age_s": 1,
+    "confirm_frames": 2
+  },
+  "asr_timeout_s": 15,
+  "llm_timeout_s": 15,
+  "vision_timeout_s": 10,
+  "models": {
+    "asr": {
+      "model": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/models/asr/model.int8.onnx",
+      "tokens": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/models/asr/tokens.txt",
+      "threads": 2
+    },
+    "vision": {
+      "model": "/home/orangepi/workspace/falcons_rknn_20261023/v17_640_fp16.rknn",
+      "size": 640,
+      "contract": "original"
+    },
+    "llm": {
+      "url": "http://127.0.0.1:18081",
+      "system": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/models/system.txt",
+      "timeout_s": 15,
+      "server_cwd": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1",
+      "server_command": [
+        "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/bin/llama-server",
+        "-m",
+        "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/models/c1b-Q8_0.gguf",
+        "-c",
+        "2048",
+        "-np",
+        "1",
+        "-t",
+        "4",
+        "-tb",
+        "4",
+        "-ngl",
+        "0",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "18081",
+        "--jinja",
+        "--reasoning",
+        "off",
+        "--reasoning-budget",
+        "0",
+        "--chat-template-file",
+        "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/models/shared_chat_template.jinja",
+        "--cache-ram",
+        "0",
+        "--ctx-checkpoints",
+        "0",
+        "--no-webui",
+        "--threads-http",
+        "2"
+      ],
+      "label": "C1b Q8 / llama.cpp CPU"
+    }
+  },
+  "announcements": {
+    "mode": "log",
+    "assets": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/speech_kokoro_zf001_20261024",
+    "device": null
+  },
+  "language_profile": "zh-C1b-Q8-v1",
+  "model_loads_enabled": false,
+  "patrol": {
+    "enabled": false,
+    "waypoints": [],
+    "targets": [
+      "screwdriver"
+    ],
+    "cycles": 1,
+    "stop_band_m": null
+  }
+}

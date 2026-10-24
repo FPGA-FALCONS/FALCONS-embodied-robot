@@ -1,0 +1,5 @@
+{
+  "enabled": false,
+  "patrol_target": "fpga_preset",
+  "note": "Merge as config.voice_motion. This candidate only previews MOT1; it never opens a second UART or transmits motor commands. ai_search preserves the existing camera-assisted find-object patrol; fpga_preset is a camera-independent onboard route request awaiting firmware integration."
+}
