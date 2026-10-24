@@ -50,16 +50,26 @@ watchdog, IMU fault, timeout, and patrol stop keep ownership with zero center
 and diff. The arbiter must select voice based on **owned**, not active, so a
 stale navigation command cannot resume after a voice action stops.
 
-Only an explicit admitted PATROL_START with `i_nav_release_ready=1` releases
+By default, only an explicit admitted PATROL_START with `i_nav_release_ready=1` releases
 ownership and pulses `o_patrol_start`. Raising ready alone or sending a
 heartbeat never releases it. Reset clears ownership. The ready input must
 mean navigation can safely accept a fresh start, not merely that a stale
 navigation command happens to be valid.
 
+The whole-vehicle application can set `LOCAL_RELEASE_EN=1` and pulse
+`i_local_release` for a freshly confirmed local FPGA navigation start. This
+handoff requires voice disabled, idle motion, no manual takeover and no estop.
+Disconnect or recovery alone must never generate this pulse. With this option,
+an offline STOP cannot acquire voice ownership when the bridge does not already
+own control; this preserves original navigation after an explicit local handoff.
+Default `LOCAL_RELEASE_EN=0` retains the original module contract. The local
+handoff is covered by the application integration regression, separate from the
+71-check default-module regression and whole-vehicle hardware validation.
+
 `i_enable && !i_estop && !i_manual` masks outputs immediately. At the next
 clock the old action is canceled; restoring safety cannot restart it. Keep
 RC/manual, physical/key estop, ToF, planner and stall safety outside/above the
-voice path. STOP/PATROL_STOP received during a safety override still acquire persistent zero
+voice path. With the default ownership contract, STOP/PATROL_STOP received during a safety override still acquire persistent zero
 ownership (no motion, startup pulse or watchdog refresh); unsafe motion requests
 are ignored. During a safety override `o_auto_valid=0`; the top-level arbiter
 and chassis safety chain retain their independent authority.

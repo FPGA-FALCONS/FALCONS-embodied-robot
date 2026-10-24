@@ -2,7 +2,7 @@
 // Production router -> bridge -> ownership mux, against continuously nonzero nav.
 module voice_motion_integration_tb;
     reg clk=0; always #5000 clk=~clk;
-    reg rst_n=0, enable=1, manual=0, estop=0, healthy=1, samples=1;
+    reg rst_n=0, enable=1, manual=0, estop=0, healthy=1, samples=1,local_release=0;
     reg [7:0] rx=0; reg rx_valid=0;
     reg signed [31:0] yaw=0;
     wire [7:0] ascii_data,motion_data;
@@ -22,11 +22,11 @@ module voice_motion_integration_tb;
         .o_ki_valid(),.o_ki_value(),.o_kd_valid(),.o_kd_value(),
         .o_mode_valid(),.o_closed_loop(),.o_duty_valid(),.o_duty_value(),
         .o_count_clear(count_clear),.o_stall_clear(stall_clear),.o_report_req(),.o_cmd_error());
-    voice_motion_bridge #(.CLK_HZ(100000),.WATCHDOG_MS(500)) bridge (
+    voice_motion_bridge #(.CLK_HZ(100000),.WATCHDOG_MS(500),.LOCAL_RELEASE_EN(1)) bridge (
         .clk(clk),.rst_n(rst_n),.i_rx_data(motion_data),.i_rx_valid(motion_valid),
         .i_enable(enable),.i_estop(estop),.i_manual(manual),
         .i_yaw_deg(yaw),.i_yaw_valid(1'b1),.i_imu_sample_valid(samples),
-        .i_imu_healthy(healthy),.i_nav_release_ready(1'b0),
+        .i_imu_healthy(healthy),.i_nav_release_ready(1'b0),.i_local_release(local_release),
         .o_owned(owned),.o_auto_valid(valid),.o_auto_center(center),.o_auto_diff(diff),
         .o_active(active),.o_last_seq(),.o_last_cmd(),.o_last_flags(),
         .o_cmd_error(),.o_patrol_start(),.o_patrol_stop());
@@ -82,6 +82,17 @@ module voice_motion_integration_tb;
         repeat(2100)@(negedge clk);command(1,10);
         check(active && selected_center>0,"first complete frame after both parser timeouts recovers");
         command(0,0);hold_check("STOP after truncated-frame recovery holds authority");
+        enable=0;repeat(10)@(negedge clk);check(owned && !selected_valid && selected_center==0 && selected_diff==0 && !active,"RK disconnect never exposes stale local navigation");
+        local_release=1;manual=1;repeat(3)@(negedge clk);check(owned,"manual cannot release autonomous ownership");
+        manual=0;estop=1;repeat(3)@(negedge clk);check(owned,"estop blocks local navigation handoff");
+        local_release=0;estop=0;repeat(3)@(negedge clk);check(owned && !selected_valid && selected_center==0 && !active,"recovery alone never resumes a task");
+        local_release=1;repeat(3)@(negedge clk);local_release=0;
+        check(!owned && selected_center==900,"fresh local start restores original FPGA navigation without RK");
+        command(0,0);check(!owned && selected_center==900,"late RK STOP cannot lock out explicitly restored local navigation");
+        enable=1;repeat(3)@(negedge clk);command(1,10);
+        check(owned && active,"new AI session can own motion after explicit local handoff");
+        local_release=1;repeat(3)@(negedge clk);local_release=0;check(owned,"active AI rejects local ownership release");
+        command(0,0);
         $display("CHECKS: %0d",checks);
         if(failures!=0)$fatal(1,"integration failures=%0d",failures);
         $display("PASS: voice motion integration complete");$finish;

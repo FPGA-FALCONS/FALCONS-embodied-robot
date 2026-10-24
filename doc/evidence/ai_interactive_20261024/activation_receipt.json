@@ -1,0 +1,44 @@
+{
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/host_e464ccb6",
+  "source_sha256": "e464ccb60becb033db2f431d5cb88b58300c271bb4c938dd33b3116ec8376777",
+  "fpga_sram_sha256": "ade7f818e60bc5ebe20871ab9c9b5d3c342db4a8d867239317f0e2b33660a883",
+  "backup": "/home/orangepi/workspace/falcons_ai_interactive_20261024/activation_backups/20261025_021049",
+  "motion_commands_sent": false,
+  "microphone_opened": false,
+  "camera_required_for_navigation_or_chat": false,
+  "activated": true,
+  "ai_module": {
+    "configured": true,
+    "active": false,
+    "mode": "semantic_navigation",
+    "selected": 0,
+    "vision_enabled": false,
+    "state": "off",
+    "instruction": "",
+    "reply": "",
+    "detections": [],
+    "last_error": null,
+    "control_link_fresh": true,
+    "record_armed": false
+  },
+  "gateway": {
+    "state": "awaiting_firmware_hello",
+    "capabilities": [],
+    "peer_boot": null,
+    "motion_authorized": false,
+    "wire_protocol": "FAM1 mission-v1 (requires matching firmware)",
+    "serial_owner": "coordinator",
+    "serial": {
+      "device": "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0",
+      "open": true,
+      "tx_frames": 85,
+      "tx_bytes": 1020,
+      "rx_bytes": 284,
+      "queued_frames": 0,
+      "last_error": null
+    },
+    "device_receipts_supported": false,
+    "rx_errors": 0,
+    "tx_sequence": 0
+  }
+}

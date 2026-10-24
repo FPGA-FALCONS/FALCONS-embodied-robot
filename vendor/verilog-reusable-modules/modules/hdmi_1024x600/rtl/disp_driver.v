@@ -40,8 +40,8 @@ module disp_driver(
 	input [`HDMI_1024X600_RED_BITS + `HDMI_1024X600_GREEN_BITS + `HDMI_1024X600_BLUE_BITS - 1:0] Data;
 	output DataReq;
 	
-	output [11:0] H_Addr;
-	output [11:0] V_Addr;
+	output reg [11:0] H_Addr;
+	output reg [11:0] V_Addr;
 	
 	output reg Disp_HS;
 	output reg Disp_VS;
@@ -74,8 +74,18 @@ module disp_driver(
 	// Disp_DE is registered from the previous hcount_r value, while hcount_r
 	// has already advanced when the consumer observes DataReq. Compensate that
 	// pipeline stage so the active-line address is 0 through 1023.
-	assign H_Addr = Disp_DE?(hcount_r - hdat_begin - 1'b1):12'd0;
-	assign V_Addr = Disp_DE?(vcount_r - vdat_begin):12'd0;
+    // Register coordinates with DE. Old hcount-hdat_begin equals the old
+    // combinational hcount_new-hdat_begin-1 exactly. Keep valid/blanking
+    // coordinates cycle-identical while removing DE from the UI decode cone.
+    wire active_now=((hcount_r>=hdat_begin)&&(hcount_r<hdat_end)) &&
+                    ((vcount_r>=vdat_begin)&&(vcount_r<vdat_end));
+    always @(posedge ClkDisp or negedge Rst_n)begin
+        if(!Rst_n)begin H_Addr<=0;V_Addr<=0;end
+        else begin
+            H_Addr<=active_now?(hcount_r-hdat_begin):12'd0;
+            V_Addr<=active_now?(vcount_r-vdat_begin):12'd0;
+        end
+    end
 
 	//行扫描
 	assign hcount_ov = (hcount_r >= `HDMI_1024X600_H_TOTAL - 1);
@@ -104,8 +114,7 @@ module disp_driver(
 		vcount_r <= vcount_r;
 	
 	always@(posedge ClkDisp)
-		Disp_DE <= ((hcount_r >= hdat_begin)&&(hcount_r < hdat_end))
-					&&((vcount_r >= vdat_begin)&&(vcount_r < vdat_end));
+		Disp_DE <= active_now;
 	
 	always@(posedge ClkDisp)	begin			
 		Disp_HS <= (hcount_r > `HDMI_1024X600_H_SYNC - 1);

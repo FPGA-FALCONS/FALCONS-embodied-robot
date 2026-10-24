@@ -1,0 +1,22 @@
+{
+  "recorded_at": "2026-10-25T02:20:11+08:00",
+  "evidence_type": "operator_feedback_in_chat",
+  "operator_feedback": "都成功",
+  "bitstream_sha256": "ade7f818e60bc5ebe20871ab9c9b5d3c342db4a8d867239317f0e2b33660a883",
+  "host_source_sha256": "e464ccb60becb033db2f431d5cb88b58300c271bb4c938dd33b3116ec8376777",
+  "confirmed": {
+    "left_menu_spacing_and_centered_large_blue_yellow_tabs": true,
+    "ch8_selection_and_swa_chat_confirmation": true,
+    "swb_down_records_and_up_ends_recording": true,
+    "transcription_display_and_spoken_chat_reply": true,
+    "swc_manual_closes_ai_and_stops_speech": true,
+    "return_to_cursor_keeps_ai_off_without_automatic_resume": true
+  },
+  "test_prompt": "你好，请介绍自己",
+  "new_vehicle_motion_tested": false,
+  "moving_chassis_braking_and_stick_handover_separately_tested": false,
+  "physical_rk_disconnect_regression_tested": false,
+  "object_recognition_tested": false,
+  "camera_input_available": false,
+  "scope_note": "Confirmation covers the three requested on-site UI, recording/chat and manual-exit checks; it does not assert new semantic-motion, full original-function disconnect regression, moving-chassis braking or visual recognition acceptance."
+}

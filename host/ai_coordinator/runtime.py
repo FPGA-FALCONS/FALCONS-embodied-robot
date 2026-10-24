@@ -16,6 +16,7 @@ from voice_bridge.preview import parse_task
 from .command_policy import inspect as inspect_command,immediate_stop,VERSION as POLICY_VERSION
 from .motion_intents import inspect_motion,VERSION as MOTION_POLICY_VERSION
 from .motion_backend import MotionBackend
+from .ai_module import AiModule
 
 
 class Audit:
@@ -58,6 +59,8 @@ class Runtime:
             self.camera_state='hold'
             if self.cfg.get('model_loads_enabled',True) is True:
                 self.workers['camera']=Worker('camera',self.config,self.run_dir);self.camera_state='configured'
+        self.ai=AiModule(self)
+        self.next_link_retry=0.
 
     async def start(self):
         if self.root.exists() and __import__('os').name=='posix':
@@ -65,23 +68,46 @@ class Runtime:
             self.lock_file=(self.root/'coordinator.lock').open('a+')
             try:fcntl.flock(self.lock_file,fcntl.LOCK_EX|fcntl.LOCK_NB)
             except BaseException:self.lock_file.close();self.lock_file=None;raise RuntimeError('Another coordinator owns this deployment')
-        self.gateway.start();self.ticker=asyncio.create_task(self._tick())
-        if 'camera' in self.workers:self.camera_task=asyncio.create_task(self._camera())
+        try:self.gateway.start()
+        except (OSError,RuntimeError) as exc:
+            if not self.ai.enabled:raise
+            self.audit({'type':'ai_uart_waiting','error':str(exc)[:200]})
+        self.ticker=asyncio.create_task(self._tick())
+        if 'camera' in self.workers and not self.ai.enabled:self.camera_task=asyncio.create_task(self._camera())
         self.audit({'type':'coordinator_started','run_dir':str(self.run_dir),'mode':self.core.mode})
+
+    def reconnect_ai_link(self,now):
+        if not self.ai.enabled or self.cfg.get('gateway',{}).get('mode')!='serial' or self.gateway.fd is not None or now<self.next_link_retry:
+            return False
+        self.next_link_retry=now+1.
+        try:
+            self.gateway.start()
+            self.ai.sequence=None
+            self.ai._invalidate_display()
+            self.audit({'type':'ai_uart_reconnected','tasks_resumed':False})
+            return True
+        except (OSError,RuntimeError) as exc:
+            self.audit({'type':'ai_uart_waiting','error':str(exc)[:200]})
+            return False
 
     async def _tick(self):
         while True:
             now=time.monotonic()
             if self.last_tick is not None:self.max_tick_gap=max(self.max_tick_gap,now-self.last_tick)
             self.last_tick=now
+            self.reconnect_ai_link(now)
             for event in self.gateway.poll(now):
-                if event.get('kind') in ('link_lost','link_reset'):
+                if event.get('kind')=='ai_controls':
+                    self.ai.on_controls(event,now)
+                elif event.get('kind') in ('link_lost','link_reset'):
                     # Cancel host heartbeats and record the failed action.  The
                     # FPGA watchdog remains the independent physical stop.
                     self.motion.link_lost(event['kind'])
+                    self.ai.link_lost(event['kind'])
                     if self.core.state in self.core.ACTIVE:self.core.fail(now,event['kind'])
                 else:self.core.on_status(event,now)
                 self.audit({'type':'fpga_event','event':event})
+            self.ai.tick(now)
             self.core.tick(now);self.dispatch()
             await asyncio.sleep(.02)
 
@@ -136,6 +162,9 @@ class Runtime:
 
     async def parse(self,text,generation,plan_only=False):
         if not isinstance(text,str) or not 1<=len(text)<=1000:raise ValueError('Text must be 1..1000 characters')
+        if not plan_only and not immediate_stop(text):
+            rejection=self.ai.rejection()
+            if rejection:return {'raw_text':text,'accepted':False,'reason':rejection}
         if generation==self.generation:
             control=self.preset_control(text,plan_only)
             if control is not None:return {'raw_text':text,'preset_control':control,'stale':False,'plan_only':plan_only}
@@ -205,6 +234,7 @@ class Runtime:
         elif self.core.state in self.core.ACTIVE:reason='existing_mission_owns_control'
         elif self.cfg.get('model_loads_enabled',True) is not True:reason='model_and_motion_hold'
         elif self.core.mode!='live':reason='shadow_only'
+        elif self.ai.rejection():reason=self.ai.rejection()
         else:
             result=self.motion.execute(decision,text,plan_only=False)
             result.update(operation='motion',raw_text=text,motion=decision,
@@ -220,6 +250,8 @@ class Runtime:
         self.audit({'type':'motion_instruction',**result});return result
 
     def start_patrol(self,request):
+        rejection=self.ai.rejection(need_vision=True)
+        if rejection:raise RuntimeError(rejection)
         preset=self.cfg.get('patrol',{})
         if preset.get('enabled') is not True:raise RuntimeError('Patrol preset not configured')
         if request:raise ValueError('Patrol uses configured waypoint IDs and targets; request body must be empty')
@@ -234,6 +266,7 @@ class Runtime:
 
     def submit_audio(self,request):
         if self.cfg.get('model_loads_enabled',True) is not True:raise RuntimeError('Model loads HOLD; audio inference disabled')
+        if self.ai.enabled and not self.ai.active:raise RuntimeError('AI master is off')
         payload={}
         if request.get('capture'):
             cfg=self.cfg.get('microphone',{})
@@ -287,6 +320,7 @@ class Runtime:
             try:
                 response=await self.workers['vision'].call(payload,timeout=self.cfg.get('vision_timeout_s',10))
                 event={**tag,**response['result'],'sequence':time.monotonic_ns()}
+                self.ai.observe_vision(event.get('detections',[]))
                 if tag.get('source_timestamp_verified') is True and tag.get('replay') is False:self.camera_time_verified=True
                 accepted=self.core.on_frame(event,time.monotonic());self.dispatch()
                 if not future.done():future.set_result({'frame':event,'admitted_to_mission':accepted,'elapsed_s':response['elapsed_s']})
@@ -323,6 +357,7 @@ class Runtime:
             self.camera_state='unavailable';self.audit({'type':'camera_unavailable','error':str(exc)[:500]})
 
     def stop(self,reason='operator_stop'):
+        if hasattr(self,'ai'):self.ai.external_stop()
         self.generation+=1
         # STOP is enqueued first and never waits for ASR/LLM/vision shutdown.
         motion_stop=self.motion.stop_now(reason)
@@ -364,11 +399,12 @@ class Runtime:
             'voice_motion':{**self.motion.snapshot(),'policy_version':MOTION_POLICY_VERSION,
                             'last_instruction':self.last_motion},
             'policy_version':POLICY_VERSION,'language_profile':self.cfg.get('language_profile','unspecified'),
-            'model_loads_enabled':self.cfg.get('model_loads_enabled',True)}
+            'model_loads_enabled':self.cfg.get('model_loads_enabled',True),'ai_module':self.ai.snapshot()}
 
     async def close(self):
         # Best-effort STOP while the shared serial owner is still open.
         self.motion.close()
+        await self.ai.close()
         if self.camera_task:self.camera_task.cancel()
         for task in list(self.tasks):task.cancel()
         if self.ticker:self.ticker.cancel()

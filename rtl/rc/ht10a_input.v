@@ -3,8 +3,8 @@
 //   J6.2 / bit1 <- CH2 右摇杆上下 = throttle
 //   J6.3 / bit2 <- CH5 / SWA    = **三档**：下=确认、上=返回（2026-10-19 需求变更）
 //   J6.4 / bit3 <- CH7 / SWC    = **两档模式**：上=手动挡、下=光标档（2026-10-19 起接管模式）
-//   J6.5 / bit4 <- CH6 / SWB    = **闲置**（仍是两档开关，只译码、不接行为，2026-10-19）
-//   J6.6 / bit5 <- CH8 / SWD    = **三档**：上=辅助菜单向上、下=向下（无辅助菜单时无效果）
+//   J6.5 / bit4 <- CH6 / SWB    = AI录音：下拨开始、上拨停止（2026-10-24）
+//   J6.6 / bit5 <- CH8 / SWD    = **三档 select**：上/下选择页面内子菜单
 // CH1/CH3 joystick axes are deliberately NOT wired to button inputs.
 //
 // ★ 参数口径：下面传给 rc_input 的 CH_* 是**零起始的 J6 槽位索引**，不是接收机通道号。
@@ -46,7 +46,8 @@ module ht10a_input #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ), .NUM_CH(6),
         // 槽位索引：bit3 = select（原"返回"键位），bit5 闲置不进映射
         // ★ 2026-10-19 槽位重排：模式由槽位 4(CH6) 移到槽位 3(CH7)；
-        //   槽位 4(CH6) 退为闲置（仍译码出 o_btn_select，无消费者）；槽位 5(CH8) 新增辅助菜单。
+        //   o_btn_select保留旧接口，仍由槽位4生成但整车不消费；AI录音直接采CH6。
+        //   用户所称select是CH8，应用使用o_aux_up/o_aux_down选择子菜单，不能把两者混接。
         .CH_STEER(0),.CH_THROTTLE(1),.CH_CONFIRM(2),.CH_SELECT(4),.CH_MODE(3),.CH_AUX(5),
         .AUX_SWAP(AUX_SWAP),
         .SIG_VALID_MASK(SIG_VALID_MASK),

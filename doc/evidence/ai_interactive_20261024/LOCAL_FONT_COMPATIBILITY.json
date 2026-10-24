@@ -1,0 +1,14 @@
+{
+  "font_rom.v": {
+    "original_rows_unchanged": 3856,
+    "new_rows": 32
+  },
+  "font_rom_lg.v": {
+    "original_rows_unchanged": 5784,
+    "new_rows": 48
+  },
+  "font_num.v": {
+    "original_rows_unchanged": 5784,
+    "new_rows": 48
+  }
+}

@@ -54,7 +54,8 @@ module speed_report #(
     parameter integer CLK_FREQ_HZ     = 50_000_000,
     parameter integer BAUD_RATE       = 115_200,
     parameter integer REPORT_DIV      = 1_000_000,
-    parameter integer FIFO_DEPTH_LOG2 = 5
+    parameter integer FIFO_DEPTH_LOG2 = 5,
+    parameter integer EXTERNAL_UART = 0
 )(
     input  wire        i_clock,
     input  wire        i_reset_n,
@@ -82,7 +83,10 @@ module speed_report #(
     input  wire        i_force,        // 插播一行：拉高即触发；★ 保持高会连续上报
                                        //   （S_IDLE 里是 report_tick || i_force，发完一行
                                        //    回到 S_IDLE 若仍为高就再发一行）→ 单次触发请给脉冲
-    output wire        o_uart_tx
+    output wire        o_uart_tx,
+    output wire [7:0]  o_stream_data,
+    output wire        o_stream_valid,
+    input wire         i_stream_ready
 );
 
     localparam [2:0] S_IDLE  = 3'd0,
@@ -133,6 +137,12 @@ module speed_report #(
         end
     end
 
+    assign o_stream_data=ch_byte;
+    assign o_stream_valid=ch_req;
+    generate if(EXTERNAL_UART) begin: g_external
+        assign ch_ready=i_stream_ready;
+        assign o_uart_tx=1'b1;
+    end else begin: g_internal
     uart_tx_queue #(
         .CLK_FREQ_HZ     (CLK_FREQ_HZ),
         .BAUD_RATE       (BAUD_RATE),
@@ -148,6 +158,7 @@ module speed_report #(
         .o_tx_ready (ch_ready),
         .o_uart_tx  (o_uart_tx)
     );
+    end endgenerate
 
     //---------------------------------------------------------------
     // 权重查表 10^6 .. 10^0

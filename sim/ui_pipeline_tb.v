@@ -26,7 +26,9 @@ module ui_pipeline_tb;
     );
 
     always @(posedge clk) text_q <= text_mem[raddr];
-    ui_render dut (
+    // Preserve the original six-menu pixel baseline. The production seven-item
+    // layout and AI content are rendered/checked by preview_ai_ui.py.
+    ui_render #(.MENU_ITEMS(6),.MENU_Y0(72)) dut (
         .i_pixel_clk(clk), .i_reset_n(rst_n), .i_pixel_x(px), .i_pixel_y(py),
         .i_pixel_req(req), .i_video_active(de), .o_pixel_rgb888(rgb),
         .i_page(page), .i_ui_mode(2'd1), .i_estop(page == 4),

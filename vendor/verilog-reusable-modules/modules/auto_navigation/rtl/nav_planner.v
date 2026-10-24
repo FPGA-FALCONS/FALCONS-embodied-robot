@@ -214,7 +214,8 @@ module nav_planner #(
     // ---- 居中判决的寄存链（见“禁止事项”最后一条）----
     reg signed [ 5:0] cand_v;  // 通过 CLEAR_TRIGGER 的候选偏移
     reg signed [ 5:0] off_c1;  // 长度钳位后
-    reg signed [ 5:0] off_grid;  // 网格钳位后（组合）
+    reg signed [ 5:0] off_grid;  // 网格钳位后，利用既有CR_CLAMP3寄存
+    reg signed [ 5:0] off_grid_next;
     reg signed [15:0] cl_d;  // last_ax - pend_ax（长度参考）
     // cl_hi/cl_lo 必须是有符号：它们要和 6 bit 有符号的偏移比较，如果这里是无符号，
     // 负偏移会被当成大正数，"-1 越界"就变成一个假的正向钳位（实测把 -1 变成 +7）。
@@ -262,9 +263,9 @@ module nav_planner #(
 
     // 组合：网格钳位（只依赖 off_c1 与两个 16 bit 边界）
     always @(*) begin
-        off_grid = off_c1;
-        if (off_grid > cl_hi) off_grid = cl_hi[5:0];
-        if (off_grid < cl_lo) off_grid = cl_lo[5:0];
+        off_grid_next = off_c1;
+        if (off_grid_next > cl_hi) off_grid_next = cl_hi[5:0];
+        if (off_grid_next < cl_lo) off_grid_next = cl_lo[5:0];
     end
 
     // 组合：C 形段的长度预算。Z 形段（is_c=0）完全不受预算约束；
@@ -512,6 +513,7 @@ module nav_planner #(
             meas_on            <= 1'b0;
             cand_v             <= 6'sd0;
             off_c1             <= 6'sd0;
+            off_grid           <= 6'sd0;
             cls_s1             <= 1'b0;
             cls_s2             <= 1'b0;
             is_c               <= 1'b0;
@@ -896,6 +898,7 @@ module nav_planner #(
 
                 // 网格钳位：平移后的终点必须仍在网格内。
                 CR_CLAMP3: begin
+                    off_grid <= off_grid_next;
                     state <= CR_BUDGET;
                 end
 

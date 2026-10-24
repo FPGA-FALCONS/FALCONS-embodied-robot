@@ -156,11 +156,12 @@ class LlamaHTTP:
 def main():
     if hasattr(sys.stdout,'reconfigure'):sys.stdout.reconfigure(encoding='utf-8')
     ap=argparse.ArgumentParser();ap.add_argument('--config',type=Path,required=True)
-    ap.add_argument('--kind',choices=['asr','vision','llm','camera'],required=True);args=ap.parse_args()
+    ap.add_argument('--kind',choices=['asr','vision','llm','camera','chat','tts'],required=True);args=ap.parse_args()
     config=json.loads(args.config.read_text(encoding='utf-8'))
     cfg=config['camera'] if args.kind=='camera' else config['models'][args.kind]
     from ai_coordinator.camera_sources import create_camera
-    factory={'asr':ASR,'vision':Vision,'llm':LlamaHTTP,'camera':create_camera}[args.kind];model=None
+    from ai_coordinator.interactive_workers import Chat,DynamicTTS
+    factory={'asr':ASR,'vision':Vision,'llm':LlamaHTTP,'camera':create_camera,'chat':Chat,'tts':DynamicTTS}[args.kind];model=None
     try:
         started=time.monotonic();model=factory(cfg)
         print('\n'+PREFIX+json.dumps({'ready':True,'load_s':time.monotonic()-started}),flush=True)

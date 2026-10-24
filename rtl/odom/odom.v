@@ -174,21 +174,25 @@ module odom #(
     //      否则 10 ms 内转过的角度在解缠时会丢失分辨率（快速旋转时 >180°/10ms 不可能，
     //      但用 1 kHz 更稳且不额外花钱）。
     // ------------------------------------------------------------------
-    reg signed [31:0] yaw_prev;
+    reg signed [15:0] yaw_prev; // wrapped input contract: +/-18000
     reg               yaw_prev_vld;
     // ★ 必须是 **signed**：`yaw_wrap + dyaw` 里 dyaw 是 signed，若 yaw_wrap 是 unsigned，
     //   Verilog 会把整个表达式按 unsigned 算 —— `0 + (-9000)` 变成 4 294 958 552，
     //   折返逻辑（`< 0` 判据）直接失效，实测"左转 90° 后前进"会偏约 12°。
-    reg signed [31:0] yaw_wrap;          // 圈内角度 0..35999（相对清零时刻，用于查表）
+    reg signed [16:0] yaw_wrap;          // 圈内角度0..35999；17位带符号，避免宽加法串联
     // ★ 2026-10-18：本 10 ms 窗口内累计转角（0.01°），供**中点积分**用。
     //   1 kHz 累加、`delta_valid` 拍清零。范围安全：最坏 2000°/s × 10 ms = 20° = 2000。
     reg signed [31:0] dyaw_acc;
 
-    wire signed [31:0] dyaw_raw = i_yaw - yaw_prev;
-    wire signed [31:0] dyaw     = (yaw_prev_vld == 1'b0) ? 32'sd0 :
-                                  (dyaw_raw >  32'sd18000) ? (dyaw_raw - 32'sd36000) :
-                                  (dyaw_raw < -32'sd18000) ? (dyaw_raw + 32'sd36000) :
-                                                             dyaw_raw;
+    wire signed [15:0] yaw_now=i_yaw[15:0];
+    wire signed [16:0] dyaw_raw={yaw_now[15],yaw_now}-{yaw_prev[15],yaw_prev};
+    wire signed [16:0] dyaw_short=!yaw_prev_vld ? 17'sd0 :
+        dyaw_raw>17'sd18000 ? dyaw_raw-17'sd36000 :
+        dyaw_raw< -17'sd18000 ? dyaw_raw+17'sd36000 : dyaw_raw;
+    wire signed [31:0] dyaw={{15{dyaw_short[16]}},dyaw_short};
+    wire signed [17:0] yaw_sum={yaw_wrap[16],yaw_wrap}+{dyaw_short[16],dyaw_short};
+    wire signed [17:0] yaw_fold=yaw_sum>=18'sd36000 ? yaw_sum-18'sd36000 :
+        yaw_sum<0 ? yaw_sum+18'sd36000 : yaw_sum;
 
     // ------------------------------------------------------------------
     // 6. 位置积分：x/y += Δs × cos/sin(yaw)
@@ -347,12 +351,7 @@ module odom #(
                 yaw_prev_vld <= 1'b1;
                 o_yaw_cont   <= o_yaw_cont + dyaw;
                 // 圈内角度折返：dyaw 每拍最多几度，一次比较足够
-                if (yaw_wrap + dyaw >= 32'sd36000)
-                    yaw_wrap <= yaw_wrap + dyaw - 32'sd36000;
-                else if (yaw_wrap + dyaw < 32'sd0)
-                    yaw_wrap <= yaw_wrap + dyaw + 32'sd36000;
-                else
-                    yaw_wrap <= yaw_wrap + dyaw;
+                yaw_wrap <= yaw_fold[16:0];
             end
 
             // ---- ★ 窗口转角累加器（中点积分用）----

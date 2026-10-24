@@ -238,7 +238,7 @@ module nav_obstacle_ui #(
             o_nav_state <= ST_PAUSED;
         end else if (i_ctrl_fault) begin
             o_nav_state <= ST_SETUP;
-        end else if (key_confirm && o_nav_ui_active) begin
+        end else if (key_confirm && o_nav_ui_active && !i_pause) begin
             case (o_nav_state)
                 ST_SETUP: begin
                     if (o_aux_sel == AUX_START && cnt_sum != 0)

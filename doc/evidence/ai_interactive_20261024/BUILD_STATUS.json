@@ -1,0 +1,67 @@
+{
+  "build_complete": true,
+  "exact_build_inputs_match": true,
+  "changed_inputs": [],
+  "verified_at": "2026-10-25T02:10:14.096397+08:00",
+  "build_inputs_sha256": "eb712457f01ba2203db20e2b720e7e0181a46273bca0c3cdb0d298b787aabbfd",
+  "timing_report_sha256": "0eafdbb56d90b4baf72b85868dd506c345d256722daed2d4dd1dea6d2ceab5ae",
+  "bitstream_sha256": "ade7f818e60bc5ebe20871ab9c9b5d3c342db4a8d867239317f0e2b33660a883",
+  "bitstream_bytes": 40621651,
+  "same_clock_timing_passed": true,
+  "clocks": {
+    "i_clk_50m": {
+      "required_mhz": 50.0,
+      "actual_mhz": 50.093,
+      "setup_tns_ns": 0.0,
+      "setup_violating_endpoints": 0,
+      "hold_tns_ns": 0.0,
+      "hold_violating_endpoints": 0
+    },
+    "camera_pclk": {
+      "required_mhz": 52.499,
+      "actual_mhz": 178.276,
+      "setup_tns_ns": 0.0,
+      "setup_violating_endpoints": 0,
+      "hold_tns_ns": 0.0,
+      "hold_violating_endpoints": 0
+    },
+    "clk_pixel": {
+      "required_mhz": 49.0,
+      "actual_mhz": 51.395,
+      "setup_tns_ns": 0.0,
+      "setup_violating_endpoints": 0,
+      "hold_tns_ns": 0.0,
+      "hold_violating_endpoints": 0
+    },
+    "clk_cam200": {
+      "required_mhz": 200.0,
+      "actual_mhz": 2240.145,
+      "setup_tns_ns": 0.0,
+      "setup_violating_endpoints": 0,
+      "hold_tns_ns": 0.0,
+      "hold_violating_endpoints": 0
+    },
+    "clk_cam50": {
+      "required_mhz": 50.0,
+      "actual_mhz": 107.49,
+      "setup_tns_ns": 0.0,
+      "setup_violating_endpoints": 0,
+      "hold_tns_ns": 0.0,
+      "hold_violating_endpoints": 0
+    },
+    "clk_ddrf": {
+      "required_mhz": 50.0,
+      "actual_mhz": 91.725,
+      "setup_tns_ns": 0.0,
+      "setup_violating_endpoints": 0,
+      "hold_tns_ns": 0.0,
+      "hold_violating_endpoints": 0
+    }
+  },
+  "ip_cross_clock_paths": "Generated DDR/serializer cross-clock paths retain separate baseline review; this is not an all-path STA signoff.",
+  "fpga_programmed": true,
+  "physical_vehicle_tested": false,
+  "programming_operation": "SRAM Program only; no Flash",
+  "candidate_ready_for_review": true,
+  "programming_receipt": "SRAM_PROGRAMMING.json"
+}

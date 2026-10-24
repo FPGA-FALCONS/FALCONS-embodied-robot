@@ -76,7 +76,7 @@ module ui_render_tb;
     // ------------------------------------------------------------------
     // 大字（左侧）
     localparam integer LG_CELL      = 24;
-    localparam integer LG_MENU_Y0   = 72;      // 第一项文字 y（MENU_Y0）
+    localparam integer LG_MENU_Y0   = 48;      // 第一项文字 y（MENU_Y0）
     localparam integer LG_MENU_STEP = 72;      // 项间距（MENU_STEP）
     localparam integer LG_STATUS_Y  = 552;     // 状态栏文字 y（STATUS_Y）
     localparam integer LG_XW_SLOT   = 1;       // 菜单/状态栏文字起始大字组（x=24）

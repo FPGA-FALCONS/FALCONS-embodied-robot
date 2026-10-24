@@ -64,7 +64,7 @@ module nav_sys_tb;
         .i_y_mm     (car_y),
         .i_steer    (i_steer),
         .i_throttle (i_throttle),
-        .i_manual   (i_manual),
+        .i_manual   (i_manual),.i_pause(1'b0),
         .i_confirm  (i_confirm),
         .i_back     (i_back),
         .i_aux_up   (i_aux_up),

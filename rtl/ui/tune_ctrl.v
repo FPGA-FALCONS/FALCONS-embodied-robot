@@ -191,7 +191,9 @@ module tune_ctrl (
     // ------------------------------------------------------------------
     // 参数寄存器
     // ------------------------------------------------------------------
-    reg [31:0] p [0:11];
+    // Every p_max is <=9000. Keep the public 32-bit ports but store only the
+    // 14 bits the original ranges can reach; avoid wide carry/multiply paths.
+    reg [13:0] p [0:11];
     reg [31:0] d [0:11];
     integer    i;
     integer    j;
@@ -368,7 +370,7 @@ module tune_ctrl (
     // ------------------------------------------------------------------
     reg        edit_ev;         // 本拍有参数被改（触发显示值重算与 K_SLOW 重算）
     reg [3:0]  edit_index;
-    reg [31:0] edit_val;        // 改后的值（供显示换算）
+    reg [13:0] edit_val;        // 改后的值，最大9000（供显示换算）
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -491,15 +493,15 @@ module tune_ctrl (
 
             if (!started) begin
                 // 复位后的首次启动：p[] 已是默认值
-                div_a     <= p[0][23:0] << 10;   // V_CRUISE × 1024（≤ 614400，24 位够）
-                div_b     <= p[1][23:0];         // D_SLOW
+                div_a     <= {10'd0,p[0]} << 10;   // V_CRUISE × 1024（≤ 614400，24 位够）
+                div_b     <= {10'd0,p[1]};         // D_SLOW
                 div_start <= 1'b1;
                 started   <= 1'b1;
             end else if (rediv) begin
                 // 参数 0/1 变更后重算（其余参数变更不会走到这里也没坏处，
                 // 多算一次而已，除法器 24 拍即完成）
-                div_a     <= p[0][23:0] << 10;
-                div_b     <= p[1][23:0];
+                div_a     <= {10'd0,p[0]} << 10;
+                div_b     <= {10'd0,p[1]};
                 div_start <= 1'b1;
             end
 

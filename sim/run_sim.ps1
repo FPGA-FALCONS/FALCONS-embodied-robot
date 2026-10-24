@@ -140,6 +140,7 @@ $sources = @(
     "$ProjectRoot\rtl\rc\rc_input.v",
     "$ProjectRoot\rtl\rc\ht10a_input.v",
     "$ProjectRoot\rtl\rc\rc_drive_guard.v",
+    "$ProjectRoot\rtl\rc\manual_takeover.v",
     "$ProjectRoot\rtl\rc\rc_led_observer.v",
     "$ProjectRoot\rtl\debug\rc_probe_report.v",
     "$ProjectRoot\rtl\top\rc_led_test_top.v",
@@ -209,7 +210,16 @@ $sources += @("$VendorRoot\voice_motion_bridge\rtl\voice_motion_bridge.v",
               "$VendorRoot\voice_motion_bridge\sim\tb_voice_motion_bridge.sv",
               "$PSScriptRoot\tb_uart_command_router.sv", "$PSScriptRoot\voice_motion_integration_tb.sv")
 
+$sources += @("$ProjectRoot\rtl\ai\ai_rc_control.v", "$ProjectRoot\rtl\ai\ai_uart_tx.v",
+              "$ProjectRoot\rtl\ai\ai_display_link.v", "$ProjectRoot\rtl\common\ai_menu_font.v",
+              "$PSScriptRoot\manual_takeover_tb.v", "$PSScriptRoot\ai_rc_control_tb.v", "$PSScriptRoot\ai_uart_tx_tb.v", "$PSScriptRoot\ai_display_link_tb.v")
+$sources += @("$VendorRoot\yaw_integrate\rtl\yaw_integrate.v", "$PSScriptRoot\yaw_pipeline_tb.v")
 $tests = @(
+    @{ Name = 'yaw_pipeline'; Top = 'yaw_pipeline_tb'; Desc = '20000 cycle equivalence for optional yaw sum/wrap pipeline' },
+    @{ Name = 'manual_takeover'; Top = 'manual_takeover_tb'; Desc = 'SWC stop before local stick takeover, fresh encoder feedback' },
+    @{ Name = 'ai_rc_control'; Top = 'ai_rc_control_tb'; Desc = 'AI master/submenu/SWB recording/failsafe' },
+    @{ Name = 'ai_uart_tx'; Top = 'ai_uart_tx_tb'; Desc = 'AI control CRC and whole-line CSV UART arbitration' },
+    @{ Name = 'ai_display_link'; Top = 'ai_display_link_tb'; Desc = 'Atomic display commit, CRC, stale host and transaction isolation' },
     @{ Name = 'voice_motion_bridge'; Top = 'tb_voice_motion_bridge'; Desc = 'MOT1 ownership, IMU freshness, signed turns, watchdog and command priority' },
     @{ Name = 'uart_command_router'; Top = 'tb_uart_command_router'; Desc = 'Binary isolation, ASCII compatibility and truncated frame recovery' },
     @{ Name = 'voice_motion_integration'; Top = 'voice_motion_integration_tb'; Desc = 'Production router, bridge and authority mux against nonzero navigation' },

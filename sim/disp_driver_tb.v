@@ -171,6 +171,13 @@ module disp_driver_tb;
             de_d1   <= Disp_DE;
             data_d1 <= Data;
             step;
+            checks=checks+2;
+            if(H_Addr !== (Disp_DE ? (dut.hcount_r-HDAT_BEGIN-1) : 12'd0))begin
+                errors=errors+1;$display("FAIL: registered H address changed active or blanking alignment");
+            end
+            if(V_Addr !== (Disp_DE ? (dut.vcount_r-VDAT_BEGIN) : 12'd0))begin
+                errors=errors+1;$display("FAIL: registered V address changed active or blanking alignment");
+            end
             if (de_d1 === 1'b1) begin
                 saw_de_high = saw_de_high + 1;
                 checks = checks + 1;

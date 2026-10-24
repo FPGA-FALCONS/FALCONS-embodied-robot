@@ -1,0 +1,138 @@
+{
+  "status": "running",
+  "mode": "live",
+  "mission": {
+    "session_id": "724c2824550441bb8bc972edcbd84cf7",
+    "task_id": null,
+    "goal_id": null,
+    "state": "idle",
+    "task": null,
+    "target": null,
+    "branch": null,
+    "reason": null,
+    "trace": [],
+    "frames_seen": 0,
+    "simulation_only": false,
+    "motion_authorized": false,
+    "physical_task_completed": false
+  },
+  "gateway": {
+    "state": "awaiting_firmware_hello",
+    "capabilities": [],
+    "peer_boot": null,
+    "motion_authorized": false,
+    "wire_protocol": "FAM1 mission-v1 (requires matching firmware)",
+    "serial_owner": "coordinator",
+    "serial": {
+      "device": "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0",
+      "open": true,
+      "tx_frames": 85,
+      "tx_bytes": 1020,
+      "rx_bytes": 284,
+      "queued_frames": 0,
+      "last_error": null
+    },
+    "device_receipts_supported": false,
+    "rx_errors": 0,
+    "tx_sequence": 0
+  },
+  "workers": {
+    "asr": {
+      "pid": null,
+      "load_s": null
+    },
+    "vision": {
+      "pid": null,
+      "load_s": null
+    },
+    "llm": {
+      "pid": null,
+      "load_s": null
+    }
+  },
+  "pending_jobs": 0,
+  "max_tick_gap_s": 0.04548378699837485,
+  "run_dir": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/runs/cffc4366ec354deb81c498a8d82c8136",
+  "microphone_configured": true,
+  "camera_configured": false,
+  "camera_backend": "fx2",
+  "camera_state": "disabled",
+  "fpga_camera_configured": false,
+  "camera_source_time_verified": false,
+  "announcements": {
+    "mode": "log",
+    "queued": 0,
+    "speaking": false,
+    "microphone_blocked": false,
+    "capture_active": false,
+    "device": null,
+    "last_error": null
+  },
+  "recording_cue": {
+    "enabled": true,
+    "device": "plughw:CARD=Device,DEV=0",
+    "directory": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/cues",
+    "plays": 0,
+    "last_error": null
+  },
+  "voice_motion": {
+    "enabled": true,
+    "live_commissioned": true,
+    "backend": "mot1_shared_serial",
+    "policy_version": "zh-motion-timed-estimate-2",
+    "transport": "shared_fam1_mot1_serial",
+    "serial_owner": "coordinator",
+    "device_configured": true,
+    "serial_open": true,
+    "heartbeat_s": 0.2,
+    "rtl_watchdog_ms": 500,
+    "device_receipts_supported": false,
+    "action_complete_verified": false,
+    "physical_stop_verified": false,
+    "patrol_start_connected": false,
+    "tof_collision_protection": false,
+    "settings": {
+      "enabled": true,
+      "live_commissioned": true,
+      "backend": "mot1_shared_serial",
+      "speed": 30,
+      "heartbeat_s": 0.2,
+      "turn_window_s": 8.5,
+      "drive_margin_s": 0.3
+    },
+    "readiness_reason": null,
+    "busy": false,
+    "owns_control": false,
+    "distance": {
+      "mode": "timed_estimate",
+      "policy": {
+        "calibrated": false,
+        "calibrated_speed_mps": null,
+        "min_speed_mps": 0.05,
+        "max_speed_mps": 0.5,
+        "max_distance_m": 2.0,
+        "max_duration_s": 5.0
+      },
+      "arrival_verified": false
+    },
+    "last_instruction": null,
+    "action": null
+  },
+  "policy_version": "zh-c1b-coordinator-1",
+  "language_profile": "zh-C1b-Q8-v1",
+  "model_loads_enabled": true,
+  "ai_module": {
+    "configured": true,
+    "active": false,
+    "mode": "semantic_navigation",
+    "selected": 0,
+    "vision_enabled": false,
+    "state": "off",
+    "instruction": "",
+    "reply": "",
+    "detections": [],
+    "last_error": null,
+    "control_link_fresh": true,
+    "record_armed": false
+  }
+}

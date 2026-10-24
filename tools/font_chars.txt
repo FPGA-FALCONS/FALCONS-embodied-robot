@@ -184,3 +184,5 @@ TUNE_UDEGS:°/s
 TUNE_L11:积分限幅
 
 ST_NO_PATH:无路
+MENU_AI:AI模块
+AI_WAIT:等待AI连接

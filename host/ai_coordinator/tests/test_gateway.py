@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import select
 import sys
+import time
 import unittest
 from unittest.mock import patch
 
@@ -35,8 +36,11 @@ class GatewayTests(unittest.TestCase):
     def test_actual_wire_roundtrip_and_sequence_rejection(self):
         self.receive(self.hello(),10);self.assertTrue(self.gateway.ready)
         self.gateway.dispatch({'kind':'start_search','task_id':'t','goal_id':'g','action_id':'a'})
-        self.gateway.poll(10.01);select.select([self.master],[],[],.2)
-        messages=PacketReader().feed(os.read(self.master,8192))
+        self.gateway.poll(10.01)
+        reader=PacketReader();messages=[];deadline=time.monotonic()+.5
+        while len(messages)<2 and time.monotonic()<deadline:
+            if select.select([self.master],[],[],max(0,deadline-time.monotonic()))[0]:
+                messages.extend(reader.feed(os.read(self.master,8192)))
         self.assertEqual([m['kind'] for m in messages],['heartbeat','start_search'])
         ack={'v':1,'kind':'search_started','boot_id':'boot','session_id':'session','sequence':2,'task_id':'t','goal_id':'g','action_id':'a'}
         self.assertEqual(self.receive(ack,10.1),[ack]);self.assertEqual(self.receive(ack,10.2),[])
@@ -56,6 +60,18 @@ class GatewayTests(unittest.TestCase):
         self.receive(self.hello(),10)
         events=self.receive({**self.hello(),'boot_id':'new','sequence':0},10.1)
         self.assertIn({'kind':'link_reset'},events)
+
+    def test_reopen_clears_partial_frames_and_requires_new_hello(self):
+        self.receive(self.hello(),10)
+        self.gateway.ai_reader.feed(b'MOT1\x01')
+        self.gateway.close()
+        descriptor=os.dup(self.slave)
+        with patch('ai_coordinator.gateway.os.open',return_value=descriptor):self.gateway.start()
+        self.assertFalse(self.gateway.ready)
+        self.assertEqual(self.gateway.capabilities,set())
+        self.assertFalse(self.gateway.ai_reader.buffer)
+        self.receive(self.hello(),11)
+        self.assertTrue(self.gateway.ready)
 
 
 if __name__=='__main__':unittest.main()

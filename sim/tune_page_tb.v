@@ -200,20 +200,20 @@ module tune_page_tb;
 
         // ------------------------------------------------------------------
         // G1 菜单第 6 项「参数整定」
-        //   项间距 72，第 i 项文字 y = 72 + 72i → 第 6 项（i=5）y = 432
+        //   项间距 72，第 i 项文字 y = 48 + 72i → 第 6 项（i=5）y = 408
         // ------------------------------------------------------------------
         page = 3'd0; menusel = 3'd5;
         repeat (5) @(posedge pixel_clk);
-        scan_color(24, 207, 432, 455, C_YELLOW);
+        scan_color(24, 207, 408, 431, C_YELLOW);
         chk_pos("g1_menu_item6_selected_yellow", wcnt);
-        scan_color(24, 207, 432, 455, C_GRAY);
+        scan_color(24, 207, 408, 431, C_GRAY);
         chk_zero("g1_menu_item6_not_gray_when_sel", wcnt);
 
         menusel = 3'd0;
         repeat (5) @(posedge pixel_clk);
-        scan_color(24, 207, 432, 455, C_GRAY);
+        scan_color(24, 207, 408, 431, C_GRAY);
         chk_pos("g1_menu_item6_gray_when_unsel", wcnt);
-        scan_color(24, 207, 432, 455, C_YELLOW);
+        scan_color(24, 207, 408, 431, C_YELLOW);
         chk_zero("g1_menu_item6_not_yellow_when_unsel", wcnt);
 
         // ------------------------------------------------------------------
@@ -222,13 +222,13 @@ module tune_page_tb;
         // ------------------------------------------------------------------
         page = 3'd5; menusel = 3'd5;
         repeat (5) @(posedge pixel_clk);
-        scan_color(24, 207, 432, 455, C_YELLOW_DIM);
+        scan_color(24, 207, 408, 431, C_YELLOW_DIM);
         chk_pos("g1b_tune_menu_dim_sel", wcnt);
-        scan_color(24, 207, 432, 455, C_YELLOW);
+        scan_color(24, 207, 408, 431, C_YELLOW);
         chk_zero("g1b_tune_menu_not_bright_sel", wcnt);
-        scan_color(24, 207, 72, 95, C_GRAY_DIM);
+        scan_color(24, 207, 48, 71, C_GRAY_DIM);
         chk_pos("g1b_tune_menu_dim_unsel", wcnt);
-        scan_color(24, 207, 72, 95, C_GRAY);
+        scan_color(24, 207, 48, 71, C_GRAY);
         chk_zero("g1b_tune_menu_not_bright_unsel", wcnt);
         scan_color(24, 200, 496, 532, C_MENUBG_DIM);
         chk_pos("g1b_tune_menu_dim_bg", wcnt);
@@ -384,9 +384,9 @@ module tune_page_tb;
         // ------------------------------------------------------------------
         page = 3'd5; menusel = 3'd5; tsel_i = 4'd0; tact_i = 1'b0;
         repeat (5) @(posedge pixel_clk);
-        scan_color(24, 207, 432, 455, C_YELLOW);
+        scan_color(24, 207, 408, 431, C_YELLOW);
         chk_pos("g9_idle_menu_bright_sel", wcnt);
-        scan_color(24, 207, 432, 455, C_YELLOW_DIM);
+        scan_color(24, 207, 408, 431, C_YELLOW_DIM);
         chk_zero("g9_idle_menu_not_dim_sel", wcnt);
         scan_color(24, 200, 496, 532, C_MENUBG);
         chk_pos("g9_idle_menu_bg_bright", wcnt);

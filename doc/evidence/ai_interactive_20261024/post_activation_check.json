@@ -1,0 +1,53 @@
+{
+  "at": "2026-10-25T02:11:53.808383+08:00",
+  "ai_module": {
+    "configured": true,
+    "active": false,
+    "mode": "semantic_navigation",
+    "selected": 0,
+    "vision_enabled": false,
+    "state": "off",
+    "instruction": "",
+    "reply": "",
+    "detections": [],
+    "last_error": null,
+    "control_link_fresh": true,
+    "record_armed": false
+  },
+  "control_snapshots_received": 638,
+  "latest_controls": {
+    "kind": "ai_controls",
+    "sequence": 125,
+    "enabled": false,
+    "rc_valid": true,
+    "manual": false,
+    "estop": false,
+    "swb_valid": true,
+    "selected": 0,
+    "display_ack": 11,
+    "display_bank": 1,
+    "mode": "semantic_navigation",
+    "chat": false,
+    "record": false,
+    "vision": false
+  },
+  "distinct_display_acks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "display_retry_count": 0,
+  "errors": [],
+  "service": "NRestarts=0\nActiveState=active\nSubState=running\n",
+  "voice_motion_busy": false,
+  "source_release": "host_e464ccb6"
+}

@@ -40,6 +40,7 @@ module nav_free_tb;
     reg        aux_up = 1'b0, aux_down = 1'b0;   // CH8 三档：上/下拨
     reg        is_obs = 1'b0;                     // 0 = 非避障页
     reg        manual  = 1'b0;          // 1 = 手动接管档
+    reg pause=0;
 
     wire signed [31:0] cur_x, cur_y;
     wire [2:0]  aux_sel;
@@ -66,7 +67,7 @@ module nav_free_tb;
         .i_y_mm     (y_mm),
         .i_steer    (steer),
         .i_throttle (thr),
-        .i_manual   (manual),
+        .i_manual   (manual),.i_pause(pause),
         .i_confirm  (confirm),
         .i_back     (back),
         .i_aux_up   (aux_up),
@@ -413,6 +414,12 @@ module nav_free_tb;
         pulse_confirm;                              // 此时确认才恢复
         chk_int("manual_resume_run",  nav_run,  1, 0);
         chk_int("manual_resume_mode", nav_mode, 1, 0);    // 从刚才的任务继续
+
+        pause=1;repeat(3)@(posedge clk);
+        chk_int("safety_loss_pauses",nav_state,2,0);
+        pulse_confirm;chk_int("safety_active_blocks_resume",nav_run,0,0);
+        pause=0;repeat(3)@(posedge clk);chk_int("safety_recovery_stays_paused",nav_state,2,0);
+        pulse_confirm;chk_int("safety_explicit_confirm_resumes",nav_run,1,0);
 
         // 13. S2 清零
         $display("-- 13. S2 清零 → 点表清空、准心回 0 --");

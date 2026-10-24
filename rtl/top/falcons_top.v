@@ -134,7 +134,8 @@ module falcons_top (
     localparam [2:0] PAGE_NAV_OBS  = 3'd3;   // 避障导航
     localparam [2:0] PAGE_NAV_FREE = 3'd4;   // 非避障导航
     localparam [2:0] PAGE_TUNE     = 3'd5;   // 参数整定（2026-10-20 新增，一期：存 RAM）
-    localparam [2:0] PAGE_LAST     = PAGE_TUNE;       // 菜单上下回绕的上界
+    localparam [2:0] PAGE_AI       = 3'd6;
+    localparam [2:0] PAGE_LAST     = PAGE_AI;
 
     // ★ 2026-10-18 需求变更：上电/复位后**默认进入的页面**
     //   默认值 = **PAGE_DATA（运行数据显示）** —— 上电即可直接看到航位/转速/航向角，
@@ -433,6 +434,12 @@ module falcons_top (
     //   要用它把 rc_menu_up / rc_menu_down / rc_confirm 全部屏蔽掉。
     //   ★ 必须在这里声明（组合读 page）：放到文件后面的例化区再声明，就是"先用后声明"，
     //     Verilog 会先隐式建一个 1 位 net、再与显式声明冲突而报错。
+    wire ai_master,ai_chat,ai_record,ai_vision;
+    wire [15:0] ai_flags;
+    wire [7:0] ai_controls;
+    wire [1:0] ai_mode,ai_selected;
+    wire [7:0] ai_display_ack;
+    wire ai_display_bank,ai_host_alive;
     wire nav_page_now = (page == PAGE_NAV_FREE);
     wire nav_page_any = (page == PAGE_NAV_FREE) || (page == PAGE_NAV_OBS);
 
@@ -487,12 +494,17 @@ module falcons_top (
     //     切出接管档 / 丢信号 / 急停 / 按 S1 停机 → 撤销解锁，恢复后须**重新回中**。
     //   ARM_DEADZONE=100 = 归一化 ±1000 的 10%（需求方要求的"油门中位死区"）；
     //   "请回中位"提示只在**未解锁**时给（已解锁就不再提示）。
-    wire arm_hint;
+    wire manual_ready,manual_takeover_brake;
+    wire guard_arm_hint;
+    wire takeover_off_center=(rc_throttle>12'sd100 || rc_throttle< -12'sd100 ||
+                              rc_steer>12'sd100 || rc_steer< -12'sd100);
+    wire arm_hint=guard_arm_hint || (manual_drive && rc_signal_ok && !manual_ready &&
+        takeover_off_center && !(estop_latch | tof_estop | key4_press));
     rc_drive_guard #(.ARM_DEADZONE(100)) u_rc_guard (
         .clk(i_clk_50m), .rst_n(sys_rst_n), .i_manual(manual_drive),
-        .i_signal_valid(rc_signal_ok), .i_estop(estop_latch | tof_estop | key4_press),
+        .i_signal_valid(rc_signal_ok && manual_ready), .i_estop(estop_latch | tof_estop | key4_press),
         .i_stop_pulse(key1_press), .i_throttle(rc_throttle),
-        .o_enable(run_en), .o_arm_hint(arm_hint)
+        .o_enable(run_en), .o_arm_hint(guard_arm_hint)
     );
 
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
@@ -537,11 +549,11 @@ module falcons_top (
             //   ★ 退出编辑态**不换页**：page 与 menu_sel 此刻都已是 PAGE_TUNE，不赋值即保持。
             end else if (tune_exit) begin
                 tune_active <= 1'b0;
-            end else if (rc_menu_up && !nav_lock && !tune_lock) begin
+            end else if (rc_menu_up && !nav_lock && !tune_lock && !ai_master) begin
                 menu_sel <= (menu_sel == 3'd0) ? PAGE_LAST : (menu_sel - 3'd1);
-            end else if (rc_menu_down && !nav_lock && !tune_lock) begin
+            end else if (rc_menu_down && !nav_lock && !tune_lock && !ai_master) begin
                 menu_sel <= (menu_sel == PAGE_LAST) ? 3'd0 : (menu_sel + 3'd1);
-            end else if (rc_confirm && !nav_lock && !tune_lock) begin
+            end else if (rc_confirm && !nav_lock && !tune_lock && !ai_master) begin
                 page <= menu_sel;                      // ★ 确认才进入该项页面（门控在下层）
                 // 进参数页即进编辑态；切到别的页则退出编辑态
                 tune_active <= (menu_sel == PAGE_TUNE);
@@ -562,6 +574,13 @@ module falcons_top (
     wire signed [31:0] dlt1 = delta_flat[ 1*32 +: 32];
     wire signed [31:0] dlt2 = delta_flat[ 2*32 +: 32];
     wire signed [31:0] dlt3 = delta_flat[ 3*32 +: 32];
+
+    manual_takeover #(.CLK_HZ(CLK_HZ)) u_manual_takeover(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.i_manual(manual_drive),
+        .i_signal_valid(rc_signal_ok),.i_estop(estop_latch | tof_estop | key4_press | (|stall_vec)),
+        .i_throttle(rc_throttle),.i_steer(rc_steer),.i_sample_valid(delta_valid),
+        .i_delta0(dlt0),.i_delta1(dlt1),.i_delta2(dlt2),.i_delta3(dlt3),
+        .o_ready(manual_ready),.o_brake(manual_takeover_brake));
 
     // 编码器计数清零（S2 按键，或串口命令）
     reg count_clear_r;
@@ -654,8 +673,8 @@ module falcons_top (
     ) u_chassis (
         .clk          (i_clk_50m),
         .rst_n        (sys_rst_n),
-        .i_enable     (manual_drive ? run_en : auto_selected_valid),
-        .i_estop      (estop_latch | tof_estop | (!manual_drive && planner_emergency_stop)),
+        .i_enable     (manual_drive ? run_en : (auto_selected_valid && rc_signal_ok && cursor_mode)),
+        .i_estop      (estop_latch | key4_press | tof_estop | !rc_signal_ok | manual_takeover_brake | (!manual_drive && planner_emergency_stop)),
         .i_manual     (chassis_manual),
         .i_steer      (steer_in),
         .i_throttle   (throttle_in),
@@ -1015,7 +1034,8 @@ module falcons_top (
         .CLK_FREQ_HZ (CLK_HZ),
         .INT_RATE_HZ (1024),            // 2 的幂 → dt = 2⁻¹⁰ s，每拍零乘法
         .DEADZONE_EN (1),
-        .DEADZONE_TH (30)               // 静止死区 0.3°/s；上板后按漂移现象调
+        .DEADZONE_TH (30),              // 静止死区 0.3°/s；上板后按漂移现象调
+        .SUM_PIPELINE(1)               // 分开积分加法与回绕，结果仅延迟20ns
     ) u_yaw (
         .i_clock        (i_clk_50m),
         .i_reset_n      (sys_rst_n),
@@ -1057,7 +1077,15 @@ module falcons_top (
 
     // 航向角显示用整数度：yaw 单位 0.01°，÷100 ≈ (×10486) >>> 20
     //   （1/100 = 0.01；0.01 × 2²⁰ = 10485.76 → 取 10486，误差 < 0.003%）
-    wire signed [31:0] yaw_deg = (yaw_raw_s * 10486) >>> 20;
+    reg signed [31:0] yaw_deg;
+    reg imu_degree_sample;
+    always @(posedge i_clk_50m or negedge sys_rst_n)begin
+        if(!sys_rst_n)begin yaw_deg<=0;imu_degree_sample<=0;end
+        else begin
+            yaw_deg<=(yaw_raw_s * 10486) >>> 20;
+            imu_degree_sample<=imu_data_valid_d1;
+        end
+    end
 
     // Voice motion only uses the existing sys-domain yaw and fresh IMU
     // samples. yaw_valid alone is an enable flag, not a sample heartbeat.
@@ -1073,14 +1101,36 @@ module falcons_top (
     // No automatic release to an old UI route: voice patrol start is not yet
     // wired to a fresh, explicitly confirmed waypoint task in this release.
     wire voice_nav_release_ready = 1'b0;
-    voice_motion_bridge #(.CLK_HZ(CLK_HZ), .YAW_SIGN(1)) u_voice_motion (
+    // SWB on the existing CH6/J6.5 starts/stops recording. No extra PWM pins.
+    ai_rc_control #(.CLK_HZ(CLK_HZ)) u_ai_control(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),
+        .i_enter_confirm(rc_confirm && menu_sel==PAGE_AI && !nav_lock && !tune_lock && !ai_master),
+        .i_ai_page(page==PAGE_AI),.i_back(rc_back | key1_press | count_clear_r | yaw_clear_r),
+        .i_select_prev(rc_aux_up && page==PAGE_AI),.i_select_next(rc_aux_down && page==PAGE_AI),
+        .i_feature_confirm(rc_confirm && page==PAGE_AI && ai_master),
+        .i_rc_valid(rc_signal_ok),.i_manual(manual_drive),
+        .i_host_alive(ai_host_alive),
+        .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | planner_emergency_stop | (|stall_vec)),
+        .i_swb_pwm(i_rc_pwm[4]),
+        .o_master(ai_master),.o_chat(ai_chat),.o_record(ai_record),.o_vision(ai_vision),
+        .o_mode(ai_mode),.o_selected(ai_selected),
+        .o_flags(ai_flags),.o_controls(ai_controls));
+
+    reg legacy_nav_run_d;
+    always @(posedge i_clk_50m or negedge sys_rst_n)
+        if(!sys_rst_n)legacy_nav_run_d<=0;else legacy_nav_run_d<=nav_run;
+    wire ai_local_release=!ai_master && nav_run && !legacy_nav_run_d &&
+        (page==PAGE_NAV_FREE || page==PAGE_NAV_OBS) && rc_signal_ok && !manual_drive &&
+        !(estop_latch | key4_press | tof_estop | planner_emergency_stop | (|stall_vec));
+    voice_motion_bridge #(.CLK_HZ(CLK_HZ), .YAW_SIGN(1),.LOCAL_RELEASE_EN(1)) u_voice_motion (
         .clk(i_clk_50m), .rst_n(sys_rst_n),
         .i_rx_data(motion_rx_data), .i_rx_valid(motion_rx_valid),
-        .i_enable(cursor_mode && rc_signal_ok),
-        .i_estop(estop_latch | key4_press | tof_estop | planner_emergency_stop | (|stall_vec)),
+        .i_enable(cursor_mode && rc_signal_ok && ai_master && ai_mode==0 && !ai_record),
+        .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | planner_emergency_stop | (|stall_vec)),
         .i_manual(manual_drive), .i_yaw_deg(yaw_deg), .i_yaw_valid(yaw_valid),
-        .i_imu_sample_valid(imu_data_valid_d1), .i_imu_healthy(voice_imu_healthy),
+        .i_imu_sample_valid(imu_degree_sample), .i_imu_healthy(voice_imu_healthy),
         .i_nav_release_ready(voice_nav_release_ready),
+        .i_local_release(ai_local_release),
         .o_owned(voice_owned), .o_auto_valid(voice_auto_valid),
         .o_auto_center(voice_auto_center), .o_auto_diff(voice_auto_diff),
         .o_active(), .o_last_seq(), .o_last_cmd(), .o_last_flags(),
@@ -1104,19 +1154,31 @@ module falcons_top (
     //     uart_byte_tx；直接用它的 o_uart_tx 驱动串口输出脚（M15）。
     // ==================================================================
     wire [PWM_BITS-1:0] duty0_raw   = duty_flat[0*PWM_BITS +: PWM_BITS];
+    reg [PWM_BITS-1:0] duty0_report;
+    reg dir0_report;
+    always @(posedge i_clk_50m or negedge sys_rst_n)
+        if(!sys_rst_n)begin duty0_report<=0;dir0_report<=0;end
+        else begin duty0_report<=duty0_raw;dir0_report<=dir_vec[0];end
     wire signed [31:0]  report_tgt   = (tgt_left * 100) >>> 10;   // delta → rpm（÷10.24）
-    wire signed [31:0]  report_duty  = dir_vec[0] ? -$signed({1'b0, duty0_raw})
-                                                  :  $signed({1'b0, duty0_raw});
+    wire signed [31:0]  report_duty  = dir0_report ? -$signed({1'b0, duty0_report})
+                                                  :  $signed({1'b0, duty0_report});
     wire signed [31:0]  report_err   = report_tgt - rpm0_disp;
     wire signed [31:0]  report_flags = {28'd0, (|pid_sat), cmd_error, (|stall_vec), run_en};
 
+    wire [7:0] csv_stream_data;
+    wire csv_stream_valid,csv_stream_ready;
+    ai_uart_tx #(.CLK_HZ(CLK_HZ),.BAUD_RATE(BAUD_DEBUG)) u_ai_uart_tx(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.i_csv_data(csv_stream_data),
+        .i_csv_valid(csv_stream_valid),.o_csv_ready(csv_stream_ready),
+        .i_flags({ai_display_ack,2'd0,ai_display_bank,ai_flags[4:0]}),.i_controls(ai_controls),
+        .i_ai_link_active(ai_host_alive),.o_uart_tx(o_uart_tx));
     speed_report #(
         .CLK_FREQ_HZ    (CLK_HZ),
         .BAUD_RATE      (BAUD_DEBUG),
         .REPORT_DIV     (1_000_000),    // 50 MHz / 1_000_000 = 50 Hz
         // A2：12 列最长一行约 96 字符，32 字节 FIFO 会让状态机频繁等空位，
         //     加大到 128 字节（一行可整行缓冲，BSRAM 开销可忽略）
-        .FIFO_DEPTH_LOG2(7)
+        .FIFO_DEPTH_LOG2(7),.EXTERNAL_UART(1)
     ) u_report (
         .i_clock   (i_clk_50m),
         .i_reset_n (sys_rst_n),
@@ -1134,7 +1196,8 @@ module falcons_top (
         .i_mode     ({30'd0, rc_mode}),
         .i_sig_ok   ({31'd0, rc_signal_ok}),
         .i_force   (1'b0),
-        .o_uart_tx (o_uart_tx)
+        .o_uart_tx (),.o_stream_data(csv_stream_data),.o_stream_valid(csv_stream_valid),
+        .i_stream_ready(csv_stream_ready)
     );
 
     // 7. 显示：HDMI 时序 + 中文界面
@@ -1534,6 +1597,7 @@ module falcons_top (
         .i_x_mm     (odom_x_mm),
         .i_y_mm     (odom_y_mm),
         .i_manual   (manual_drive),         // 手动接管档：摇杆归底盘，准心不动
+        .i_pause    (key1_press || estop_latch || key4_press || tof_estop || !rc_signal_ok),
         .i_steer    (rc_steer),
         .i_throttle (rc_throttle),
         .i_confirm  (rc_confirm),           // CH5 下拨
@@ -1585,7 +1649,7 @@ module falcons_top (
         .i_confirm(rc_confirm), .i_back(rc_back), .i_aux_up(rc_aux_up), .i_aux_down(rc_aux_down),
         .i_nav_state(planner_nav_state),
         .i_command_idle(!planner_cmd_valid && !planner_emergency_stop && !obs_ctrl_done),
-        .i_pause(key1_press || estop_latch || !rc_signal_ok), .i_ctrl_fault(obs_ctrl_fault),
+        .i_pause(key1_press || estop_latch || key4_press || tof_estop || !rc_signal_ok), .i_ctrl_fault(obs_ctrl_fault),
         .o_cur_x_mm(obs_cur_x_mm), .o_cur_y_mm(obs_cur_y_mm), .o_aux_sel(obs_aux_sel),
         .o_pt_count(obs_pt_count), .o_nav_state(obs_ui_state),
         .o_nav_ui_active(obs_ui_active), .o_nav_run(obs_run), .o_nav_paused(obs_paused),
@@ -1833,6 +1897,16 @@ module falcons_top (
         .pixel_x(pixel_x), .pixel_y(pixel_y), .map_pixel(map_pixel), .route_pixel(route_pixel)
     );
 
+    wire [23:0] ui_rgb_base;
+    wire ai_glyph,ai_connected,ai_local_region,ai_highlight;
+    ai_display_link #(.CLK_HZ(CLK_HZ)) u_ai_display(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.rx_data(motion_rx_data),.rx_valid(motion_rx_valid),
+        .pixel_clk(pixel_clk),.pixel_rst_n(pixel_rst_n),.pixel_x(pixel_x),.pixel_y(pixel_y),
+        .selected(ai_selected),.o_glyph(ai_glyph),.o_connected(ai_connected),.o_local_region(ai_local_region),.o_highlight(ai_highlight),
+        .o_display_ack(ai_display_ack),.o_display_bank(ai_display_bank),.o_host_alive(ai_host_alive));
+    assign ui_rgb_raw=(page_ps2==PAGE_AI && pixel_x>=208 &&
+        (ai_local_region || (ai_connected && pixel_y>=120 && pixel_y<540)))
+        ? (ai_glyph ? (ai_highlight?24'hffe066:24'he8f0f8) : (ai_highlight?24'h1d4ed8:24'h101820)) : ui_rgb_base;
     ui_render u_ui (
         .i_map_pixel(map_pixel), .i_route_pixel(route_pixel), .i_planner_state(planner_state_ps2),
         .i_pixel_clk    (pixel_clk),
@@ -1841,7 +1915,7 @@ module falcons_top (
         .i_pixel_y      (pixel_y),
         .i_pixel_req    (pixel_req),
         .i_video_active (video_active),
-        .o_pixel_rgb888 (ui_rgb_raw),
+        .o_pixel_rgb888 (ui_rgb_base),
         .i_page         (page_ps2),
         .i_menu_sel     (menu_ps2),
         .i_nav_run      (navrun_ps2),

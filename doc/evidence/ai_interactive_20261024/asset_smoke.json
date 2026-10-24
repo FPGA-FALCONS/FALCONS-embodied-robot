@@ -1,0 +1,44 @@
+{
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/host_0f0a6062",
+  "motion_commands_sent": false,
+  "microphone_opened": false,
+  "chat": {
+    "id": 1,
+    "ok": true,
+    "elapsed_s": 0.9158935779996682,
+    "result": {
+      "text": "您好！很高兴见到您。请问有什么我可以帮您的吗？",
+      "engine": "Qwen3.5-0.8B / RKLLM 1.3.1",
+      "motion_executed": false
+    },
+    "total_s": 3.5184956089997286
+  },
+  "tts": {
+    "id": 1,
+    "ok": true,
+    "elapsed_s": 8.8397924410001,
+    "result": {
+      "path": "/home/orangepi/workspace/falcons_ai_interactive_20261024/smoke/chat_reply.wav",
+      "duration_s": 4.866708333333333,
+      "engine": "Kokoro v1.1 zh",
+      "sid": 3
+    },
+    "format": {
+      "channels": 1,
+      "sample_width": 2,
+      "sample_rate": 24000,
+      "frames": 116801
+    },
+    "bytes": 233646,
+    "sha256": "851bd3474c152b1c4d7e9a7629cd7abfe4f2d913741be5a90ae9fc75b17ed6fa",
+    "total_s": 12.114278251001451
+  },
+  "speaker": {
+    "device": "plughw:CARD=Device,DEV=0",
+    "aplay_exit": 0,
+    "elapsed_s": 4.917266496999218,
+    "human_audibility_verified": true,
+    "operator_feedback": "heard clearly and normally"
+  },
+  "passed": true
+}

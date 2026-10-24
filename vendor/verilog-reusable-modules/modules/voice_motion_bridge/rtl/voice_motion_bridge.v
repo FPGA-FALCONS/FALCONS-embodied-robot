@@ -23,7 +23,8 @@ module voice_motion_bridge #(
     parameter integer WATCHDOG_MS  = 500,
     parameter integer TIMEOUT_MS   = 8000,
     parameter integer YAW_SIGN     = 1,
-    parameter integer BYTE_TIMEOUT_MS = 20
+    parameter integer BYTE_TIMEOUT_MS = 20,
+    parameter integer LOCAL_RELEASE_EN = 0
 )(
     input  wire               clk,
     input  wire               rst_n,
@@ -39,6 +40,7 @@ module voice_motion_bridge #(
     input  wire               i_imu_sample_valid,
     input  wire               i_imu_healthy,
     input  wire               i_nav_release_ready,
+    input  wire               i_local_release,
 
     output wire               o_auto_valid,
     output wire signed [31:0] o_auto_center,
@@ -239,7 +241,8 @@ module voice_motion_bridge #(
                 // STOP remains a persistent request even while manual/RC/
                 // physical safety owns the chassis. It must prevent a stale
                 // navigation command from reappearing after recovery.
-                if (cmd_valid && (cmd_code == CMD_STOP || cmd_code == CMD_PATROL_STOP))
+                if (cmd_valid && (cmd_code == CMD_STOP || cmd_code == CMD_PATROL_STOP) &&
+                    (!LOCAL_RELEASE_EN || o_owned || i_enable))
                     o_owned <= 1;
             end else if (new_action) begin
                 // Explicit command replacement wins over old duration, yaw and
@@ -293,6 +296,12 @@ module voice_motion_bridge #(
                         end
                     end
                 end
+            end
+            // A fresh local FPGA navigation start is the only offline handoff.
+            // Never release directly on disconnect or expose an old route.
+            if(LOCAL_RELEASE_EN && i_local_release && mode==MODE_IDLE && !i_enable &&
+               !i_estop && !i_manual) begin
+                o_owned<=0;
             end
         end
     end

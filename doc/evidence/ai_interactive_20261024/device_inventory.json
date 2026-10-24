@@ -1,0 +1,27 @@
+{
+  "alsa_playback": "**** List of PLAYBACK Hardware Devices ****\ncard 0: rockchipdp0 [rockchip-dp0], device 0: rockchip-dp0 spdif-hifi-0 [rockchip-dp0 spdif-hifi-0]\n  Subdevices: 1/1\n  Subdevice #0: subdevice #0\ncard 1: rockchiphdmi0 [rockchip-hdmi0], device 0: rockchip-hdmi0 i2s-hifi-0 [rockchip-hdmi0 i2s-hifi-0]\n  Subdevices: 1/1\n  Subdevice #0: subdevice #0\ncard 2: rockchipes8388 [rockchip-es8388], device 0: dailink-multicodecs ES8323 HiFi-0 [dailink-multicodecs ES8323 HiFi-0]\n  Subdevices: 1/1\n  Subdevice #0: subdevice #0\ncard 3: Device [USB Audio Device], device 0: USB Audio [USB Audio]\n  Subdevices: 1/1\n  Subdevice #0: subdevice #0\n",
+  "alsa_capture": "**** List of CAPTURE Hardware Devices ****\ncard 2: rockchipes8388 [rockchip-es8388], device 0: dailink-multicodecs ES8323 HiFi-0 [dailink-multicodecs ES8323 HiFi-0]\n  Subdevices: 1/1\n  Subdevice #0: subdevice #0\ncard 4: MIC [USB MIC], device 0: USB Audio [USB Audio]\n  Subdevices: 1/1\n  Subdevice #0: subdevice #0\n",
+  "usb": "Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub\nBus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub\nBus 008 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub\nBus 007 Device 009: ID 4c4a:4c55 Jieli Technology USB MIC\nBus 007 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub\nBus 006 Device 005: ID 1a86:7523 QinHeng Electronics CH340 serial converter\nBus 006 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub\nBus 005 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub\nBus 004 Device 016: ID 0d8c:0012 C-Media Electronics, Inc. USB Audio Device\nBus 004 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub\nBus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub\n",
+  "video_nodes": {
+    "video7": "rkcif_scale_ch3",
+    "video17": "rkisp_rawrd1_l",
+    "video5": "rkcif_scale_ch1",
+    "video15": "rkisp_rawrd0_m",
+    "video3": "stream_cif_mipi_id3",
+    "video13": "rkisp_fbcpath",
+    "video1": "stream_cif_mipi_id1",
+    "video11": "rkisp_mainpath",
+    "video8": "rkcif_tools_id0",
+    "video18": "rkisp-statistics",
+    "video6": "rkcif_scale_ch2",
+    "video16": "rkisp_rawrd2_s",
+    "video4": "rkcif_scale_ch0",
+    "video14": "rkisp_iqtool",
+    "video2": "stream_cif_mipi_id2",
+    "video12": "rkisp_selfpath",
+    "video0": "stream_cif_mipi_id0",
+    "video10": "rkcif_tools_id2",
+    "video9": "rkcif_tools_id1",
+    "video19": "rkisp-input-params"
+  }
+}

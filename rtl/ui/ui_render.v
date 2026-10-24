@@ -37,8 +37,9 @@ module ui_render #(
     parameter integer MENU_W    = 208,      // 左侧菜单条宽度（★ 需求方要求不变）
     parameter integer LG_CELL   = 24,       // 字模边长（全界面统一 24）
     parameter integer LG_XW     = 1,        // 菜单文字起始字组（x = 24）
-    parameter integer MENU_Y0   = 72,       // 第一项文字 y 起点（须为 LG_CELL 的倍数）
+    parameter integer MENU_Y0   = 48,       // 七项整体上移24px；高亮底516，距状态栏顶540留24px
     parameter integer MENU_STEP = 72,       // 项间距（保持文字:行距 = 1:3）
+    parameter integer MENU_ITEMS= 7,
     parameter integer STATUS_Y  = 552,      // 状态栏文字 y 起点（须为 LG_CELL 的倍数）
     // ---- 右侧内容区 ----
     parameter integer PAGE_Y    = 264,      // 占位提示 y 起点（LG_CELL 的倍数）
@@ -117,6 +118,7 @@ module ui_render #(
     localparam [2:0] PG_NAV_OBS  = 3'd3;    // 避障导航
     localparam [2:0] PG_NAV_FREE = 3'd4;    // 非避障导航
     localparam [2:0] PG_TUNE     = 3'd5;    // 参数整定（2026-10-20 新增，一期：存 RAM）
+    localparam [2:0] PG_AI       = 3'd6;
 
     // ---- 非避障导航页：右下角辅助菜单几何（真源；改这里即可整体平移）----
     localparam integer NAV_AUX_X    = 840;  // 文字左界（24 的倍数 ⇒ 字组号 35）
@@ -159,6 +161,7 @@ module ui_render #(
                 3'd3:    menu_text = {UI_TXT_MENU_NAV_OBS_ADDR,  UI_TXT_MENU_NAV_OBS_LEN};
                 3'd4:    menu_text = {UI_TXT_MENU_NAV_FREE_ADDR, UI_TXT_MENU_NAV_FREE_LEN};
                 3'd5:    menu_text = {UI_TXT_MENU_TUNE_ADDR,     UI_TXT_MENU_TUNE_LEN};
+                3'd6:    menu_text = {UI_TXT_MENU_AI_ADDR,       UI_TXT_MENU_AI_LEN};
                 default: menu_text = {UI_TXT_MENU_NAV_FREE_ADDR, UI_TXT_MENU_NAV_FREE_LEN};
             endcase
         end
@@ -273,6 +276,7 @@ module ui_render #(
         case (i_page)
             PG_CAMERA:   placeholder_text = {UI_TXT_PLACEHOLDER_CAM_ADDR,   UI_TXT_PLACEHOLDER_CAM_LEN};
             PG_RADAR:    placeholder_text = 18'd0;
+            PG_AI:       placeholder_text = {UI_TXT_AI_WAIT_ADDR, UI_TXT_AI_WAIT_LEN};
 
             default:     placeholder_text = 18'd0;
         endcase
@@ -379,12 +383,12 @@ module ui_render #(
         for (li = 0; li < 6; li = li + 1) lg_seg[li] = 30'd0;
 
         // ---- 左侧菜单 6 项（2026-10-19 由 4 项扩为 5 项；2026-10-20 增第 6 项「参数整定」）----
-        //   各项起始 y：72 / 144 / 216 / 288 / 360 / 432，每项 24 高、项间距 72。
+        //   七项起始 y：48 / 120 / 192 / 264 / 336 / 408 / 480。
         //   第 4 项 y=288..311 与数据页「中心速度」标签**同行** —— 用独立槽位区分（见下）。
         //   第 5 项 y=360..383 与数据页「航位x」(336..359)、「航位y」(384..407) 均不相交。
         //   第 6 项 y=432..455 —— 只与参数整定页的标签行（最底 461）相邻，两者互斥（页不同）。
-        //   6 项最底 455 < 状态栏框顶 540，布局不用改（MENU_STEP 保持 72）。
-        for (mi = 0; mi < 6; mi = mi + 1) begin
+        //   字高24、项间距72；最后一项高亮止于516，状态栏从540开始。
+        for (mi = 0; mi < MENU_ITEMS; mi = mi + 1) begin
             if ((i_pixel_y >= (MENU_Y0 + mi * MENU_STEP)) &&
                 (i_pixel_y <  (MENU_Y0 + mi * MENU_STEP + LG_CELL))) begin
                 lg_seg[0] = seg_lg_rom(menu_text(mi[2:0]), LG_XW[5:0],
@@ -473,6 +477,8 @@ module ui_render #(
         // ---- 参数整定页：11 行中文标签 + 标题（2026-10-20 新增）----
         //   ★ 用 lg_seg[1]（菜单占 lg_seg[0]），与数据页标签、导航辅助菜单同一槽位，
         //     靠 i_page 互斥 —— 同一时刻只有一个页面在写。
+        if(i_page==PG_AI && i_pixel_y>=24 && i_pixel_y<48)
+            lg_seg[1]=seg_lg_rom({UI_TXT_MENU_AI_ADDR,UI_TXT_MENU_AI_LEN},6'd10,i_pixel_y-12'd24);
         if (i_page == PG_TUNE) begin
             if ((i_pixel_y >= 12'd24) && (i_pixel_y < (12'd24 + LG_CELL))) begin
                 lg_seg[2] = seg_lg_rom({UI_TXT_MENU_TUNE_ADDR, UI_TXT_MENU_TUNE_LEN},
@@ -491,7 +497,7 @@ module ui_render #(
         if ((i_page != PG_DATA) && (i_page != PG_TUNE) &&
             (i_pixel_y >= PAGE_Y) && (i_pixel_y < PAGE_Y + LG_CELL) &&
             (placeholder_text[5:0] != 6'd0)) begin
-            lg_seg[0] = seg_lg_rom(placeholder_text, PAGEXW[5:0], (i_pixel_y - PAGE_Y));
+            lg_seg[1] = seg_lg_rom(placeholder_text, PAGEXW[5:0], (i_pixel_y - PAGE_Y));
         end
     end
 

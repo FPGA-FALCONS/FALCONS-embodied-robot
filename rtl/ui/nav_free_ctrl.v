@@ -76,6 +76,7 @@ module nav_free_ctrl #(
     input  wire signed [11:0]  i_steer,       // 摇杆（归一化 ±1000）
     input  wire signed [11:0]  i_throttle,
     input  wire                i_manual,      // 1 = 手动接管档（摇杆此时归底盘，不动准心）
+    input  wire                i_pause,       // local stop/RC loss; explicit confirm to resume
     input  wire                i_confirm,     // 确认键（脉冲，CH5 下拨）
     input  wire                i_back,        // 返回键（脉冲，CH5 上拨）
     input  wire                i_aux_up,      // 辅助菜单向上（脉冲，CH8 上拨）
@@ -394,7 +395,7 @@ module nav_free_ctrl #(
         end else if (key_back) begin
             if (o_nav_state == ST_RUNNING) o_nav_state <= ST_PAUSED;
             else                           o_nav_state <= ST_SETUP;
-        end else if (i_manual && (o_nav_state == ST_RUNNING)) begin
+        end else if ((i_manual || i_pause) && (o_nav_state == ST_RUNNING)) begin
             // 运行中切手动挡 → 暂停（不是退出）。o_nav_mode 保持不变，恢复时沿用原寻点模式。
             o_nav_state <= ST_PAUSED;
         end else if (i_ctrl_fault) begin
@@ -403,7 +404,7 @@ module nav_free_ctrl #(
         end else if (i_ctrl_done) begin
             // 导航层报"当前点已到达" → 回 SETUP。本轮 i_ctrl_done 恒 0（未接）。
             o_nav_state <= ST_SETUP;
-        end else if (key_confirm && o_nav_ui_active) begin
+        end else if (key_confirm && o_nav_ui_active && !i_pause) begin
             // ★ 2026-10-19：确认必须**已在交互态**才算"执行辅助菜单项"。
             //   否则 ui_active=0 时按确认去"重新进入交互态"，会在同一拍被这里当成
             //   "开始导航"（点到「间断寻点」且点表非空时直接进 RUNNING）——那就是误触发。

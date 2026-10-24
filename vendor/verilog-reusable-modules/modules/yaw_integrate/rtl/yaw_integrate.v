@@ -71,7 +71,8 @@ module yaw_integrate #(
     parameter integer CLK_FREQ_HZ = 50_000_000,
     parameter integer INT_RATE_HZ = 1024,
     parameter integer DEADZONE_EN = 1,
-    parameter integer DEADZONE_TH = 30
+    parameter integer DEADZONE_TH = 30,
+    parameter integer SUM_PIPELINE = 0
 )(
     input  wire               i_clock,
     input  wire               i_reset_n,
@@ -145,12 +146,36 @@ module yaw_integrate #(
         (acc_sum >=  WRAP_LIM) ? (acc_sum - WRAP_SPAN) :
         (acc_sum <  WRAP_NEG)  ? (acc_sum + WRAP_SPAN) : acc_sum;
 
+    generate if(SUM_PIPELINE==0)begin: g_direct
     always @(posedge i_clock or negedge i_reset_n) begin
         if (!i_reset_n)          acc <= 32'sd0;
         else if (i_clear)        acc <= 32'sd0;      // 清零优先
         else if (!i_enable)      acc <= 32'sd0;      // 冻结期间保持零点
         else if (int_tick)       acc <= acc_folded[31:0];
     end
+    end else begin: g_pipeline
+        reg signed [32:0] sum_r;
+        reg pending;
+        // Signed bounds avoid a 32-bit absolute-value carry chain before the
+        // integration adder. Preserve the legacy INT_MIN comparison exactly.
+        wire dz_fast=(DEADZONE_EN!=0) &&
+            (((gz_now==32'sh80000000) && (gz_now<DZ_TH)) ||
+             ((DZ_TH>0) && (gz_now> -DZ_TH) && (gz_now<DZ_TH)));
+        wire signed [31:0] gz_fast=dz_fast ? 32'sd0 : gz_now;
+        wire signed [32:0] sum_fast={acc[31],acc}+{gz_fast[31],gz_fast};
+        wire signed [32:0] folded_r=(sum_r>=WRAP_LIM)?(sum_r-WRAP_SPAN):
+            (sum_r<WRAP_NEG)?(sum_r+WRAP_SPAN):sum_r;
+        always @(posedge i_clock or negedge i_reset_n)begin
+            if(!i_reset_n)begin sum_r<=0;pending<=0;acc<=0;end
+            else if(i_clear || !i_enable)begin sum_r<=0;pending<=0;acc<=0;end
+            else begin
+                pending<=int_tick;
+                if(int_tick)sum_r<=sum_fast;
+                if(pending)acc<=folded_r[31:0];
+            end
+        end
+        initial if(INT_DIV<2)$fatal(1,"SUM_PIPELINE needs at least three clocks per integration tick");
+    end endgenerate
 
     //---------------------------------------------------------------
     // 输出
