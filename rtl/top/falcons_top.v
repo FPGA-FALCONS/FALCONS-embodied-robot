@@ -1351,7 +1351,7 @@ module falcons_top (
     reg [15:0]  navpv_ps1, navpv_ps2;
     reg [2:0]   navaux_ps1, navaux_ps2;
     reg         navrun_ps1, navrun_ps2;
-    reg         navui_ps1, navui_ps2;      // 导航页交互态
+    reg         menu_dim_ps1, menu_dim_ps2; // 导航/AI交互态，共用菜单冻结样式
     reg         navpz_ps1, navpz_ps2;      // 导航暂停
     // ★ 2026-10-19：IMU 初始化失败 → 数据页「航向角」上方红字提示。
     //   源 `imu_err_flag` 本身就是 `u_imu` 里的纯 DFF 输出（`i_clk_50m` 域），
@@ -1368,7 +1368,7 @@ module falcons_top (
             navpv_ps1 <= 16'd0; navpv_ps2 <= 16'd0;
             navaux_ps1 <= 3'd0; navaux_ps2 <= 3'd0;
             navrun_ps1 <= 1'b0; navrun_ps2 <= 1'b0;
-            navui_ps1  <= 1'b0; navui_ps2  <= 1'b0;
+            menu_dim_ps1 <= 1'b0; menu_dim_ps2 <= 1'b0;
             navpz_ps1  <= 1'b0; navpz_ps2  <= 1'b0;
             imufail_ps1 <= 1'b0; imufail_ps2 <= 1'b0;
         end else begin
@@ -1381,7 +1381,7 @@ module falcons_top (
             navpv_ps1 <= nav_pt_v;         navpv_ps2 <= navpv_ps1;
             navaux_ps1 <= nav_aux_sel;     navaux_ps2 <= navaux_ps1;
             navrun_ps1 <= nav_run;         navrun_ps2 <= navrun_ps1;
-            navui_ps1  <= nav_ui_active;   navui_ps2  <= navui_ps1;
+            menu_dim_ps1 <= nav_ui_active || ai_master; menu_dim_ps2 <= menu_dim_ps1;
             navpz_ps1  <= nav_paused;      navpz_ps2  <= navpz_ps1;
             imufail_ps1 <= imu_fail_any;   imufail_ps2 <= imufail_ps1;
         end
@@ -1920,7 +1920,7 @@ module falcons_top (
         .i_menu_sel     (menu_ps2),
         .i_nav_run      (navrun_ps2),
         .i_nav_paused   (navpz_ps2),
-        .i_menu_dim     (navui_ps2),
+        .i_menu_dim     (menu_dim_ps2),
         .i_aux_sel      (navaux_ps2),
         .i_car_px       (navcar_ps2_x),
         .i_car_py       (navcar_ps2_y),

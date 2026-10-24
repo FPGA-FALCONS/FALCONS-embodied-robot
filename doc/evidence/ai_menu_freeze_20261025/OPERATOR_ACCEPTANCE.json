@@ -1,0 +1,14 @@
+{
+  "recorded_at": "2026-10-25T03:01:50.217409+08:00",
+  "evidence_type": "operator feedback in chat",
+  "feedback": "全部正常",
+  "bitstream_sha256": "f1ec6631b1a20617835e664804ca426b26785205163c0c163228259d6ea78c5d",
+  "confirmed": {
+    "ai_master_on_dims_left_menu_like_navigation": true,
+    "right_feature_tabs_keep_brightness": true,
+    "swa_back_or_swc_manual_restores_menu_brightness": true
+  },
+  "new_motion_tested": false,
+  "startup_green_stripes_feedback": "问题在上一版位流中有，现在问题没有出现了。",
+  "startup_green_stripes_root_cause_verified": false
+}

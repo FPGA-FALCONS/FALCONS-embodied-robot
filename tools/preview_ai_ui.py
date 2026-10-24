@@ -48,12 +48,20 @@ def main():
     if 'PASS: ai_ui_preview_tb 4 frames' not in text:raise RuntimeError('Preview did not complete')
     for index in range(4):
         im=Image.open(out/f'ai_mode_{index}.ppm').convert('RGB')
-        yellow=sum(pixel==(255,224,102) for pixel in im.crop((0,480,208,504)).getdata())
+        frozen=index<3
+        selected_ink=(138,122,46) if frozen else (255,224,102)
+        menu_ink=(90,97,112) if frozen else (229,231,235)
+        menu_bg=(11,16,25) if frozen else (16,24,40)
+        yellow=sum(pixel==selected_ink for pixel in im.crop((0,480,208,504)).getdata())
         if yellow<50:raise RuntimeError('Seventh AI menu item missing or clipped')
         for menu in range(7):
-            colors={(229,231,235),(255,224,102)}
+            colors={menu_ink,selected_ink}
             count=sum(pixel in colors for pixel in im.crop((0,48+72*menu,208,72+72*menu)).getdata())
             if count<50:raise RuntimeError('Menu item missing: '+str(menu))
+        if im.getpixel((8,120))!=menu_bg:
+            raise RuntimeError('AI menu must freeze while active and recover when closed')
+        if im.getpixel((8,544))!=(32,32,32):
+            raise RuntimeError('AI freeze must not change the cursor status bar')
         gap=im.crop((0,516,208,540))
         if any(pixel==(29,78,216) for pixel in gap.getdata()):raise RuntimeError('AI highlight overlaps status gap')
         for tab in range(3):

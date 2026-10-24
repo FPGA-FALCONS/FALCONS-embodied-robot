@@ -4,6 +4,7 @@ module ai_ui_preview_tb;
     reg [7:0] rx_data=0;
     reg [11:0] px=0,py=0;
     reg [1:0] selected=0;
+    reg ai_active=0;
     always #10 clk=~clk;always #10 pclk=~pclk;
     wire [23:0] base,rgb;
     wire glyph,connected,local_region,highlight;
@@ -15,7 +16,7 @@ module ai_ui_preview_tb;
         .i_pixel_req(1'b1),.i_video_active(1'b1),.o_pixel_rgb888(base),
         .i_page(3'd6),.i_menu_sel(3'd6),.i_ui_mode(2'd1),.i_estop(1'b0),
         .i_signal_ok(1'b1),.i_arm_hint(1'b0),.i_map_pixel(1'b0),.i_route_pixel(1'b0),
-        .i_planner_state(4'd0),.i_nav_run(1'b0),.i_nav_paused(1'b0),.i_menu_dim(1'b0),
+        .i_planner_state(4'd0),.i_nav_run(1'b0),.i_nav_paused(1'b0),.i_menu_dim(ai_active),
         .i_aux_sel(3'd0),.i_car_px(10'd0),.i_car_py(10'd0),.i_cur_px(10'd0),.i_cur_py(10'd0),
         .i_pt_px(160'd0),.i_pt_py(160'd0),.i_pt_v(16'd0),.o_dyn_raddr(dyn_addr),
         .i_dyn_rdata(8'd0),.i_imu_fail(1'b0),.i_tune_sel(4'd0),.i_tune_active(1'b0));
@@ -29,7 +30,7 @@ module ai_ui_preview_tb;
         $sformat(filename,"%0s/packet_counts.hex",output_dir);$readmemh(filename,packet_counts);
         #100;rst=1;#200;
         for(mode=0;mode<4;mode=mode+1)begin
-            selected=mode%3;px=0;py=0;
+            selected=mode%3;ai_active=mode<3;px=0;py=0;
             if(mode==3)begin rst=0;#100;rst=1;#200;end
             if(mode<3)begin
             $sformat(filename,"%0s/packets_%0d.hex",output_dir,mode);

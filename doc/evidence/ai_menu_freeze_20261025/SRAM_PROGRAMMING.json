@@ -1,0 +1,20 @@
+{
+  "recorded_at": "2026-10-25T03:01:50.217409+08:00",
+  "operation": "SRAM Program",
+  "programmer_exit_code": 0,
+  "success": true,
+  "flash_written": false,
+  "device": "GW5AT-138B",
+  "jtag_id": "0x0011081B",
+  "user_code": "0x0000D101",
+  "status_code": "0x00026230",
+  "bitstream_sha256": "f1ec6631b1a20617835e664804ca426b26785205163c0c163228259d6ea78c5d",
+  "bitstream_bytes": 40727037,
+  "build_inputs_sha256": "61f28b7b6b0f31ad4f4e1bf210c3853a82541176fa539d41663114811b84c1d2",
+  "programmer_log_sha256": "a5eb34c8385b75ac16f4bfab05482b887c420febae94dd62388fbd57fe5f30b3",
+  "rk_models_and_configuration_changed": false,
+  "host_service_restored": true,
+  "fresh_ai_control_verified": true,
+  "display_ack_verified": true,
+  "physical_menu_acceptance": "operator confirmed all normal"
+}

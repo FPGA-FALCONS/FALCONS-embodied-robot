@@ -1,0 +1,50 @@
+{
+  "at": "2026-10-25T03:00:21.233335+08:00",
+  "ai_module": {
+    "configured": true,
+    "active": false,
+    "mode": "semantic_navigation",
+    "selected": 0,
+    "vision_enabled": false,
+    "state": "off",
+    "instruction": "",
+    "reply": "",
+    "detections": [],
+    "last_error": null,
+    "control_link_fresh": true,
+    "record_armed": false
+  },
+  "control_snapshot_count": 497,
+  "latest_controls": {
+    "kind": "ai_controls",
+    "sequence": 239,
+    "enabled": false,
+    "rc_valid": true,
+    "manual": false,
+    "estop": false,
+    "swb_valid": true,
+    "selected": 0,
+    "display_ack": 14,
+    "display_bank": 1,
+    "mode": "semantic_navigation",
+    "chat": false,
+    "record": false,
+    "vision": false
+  },
+  "display_ack_count": 15,
+  "display_retries": 1,
+  "serial": {
+    "device": "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0",
+    "open": true,
+    "tx_frames": 8976,
+    "tx_bytes": 107712,
+    "rx_bytes": 74344,
+    "queued_frames": 0,
+    "last_error": null
+  },
+  "rx_errors": 0,
+  "voice_motion_busy": false,
+  "service": "NRestarts=0\nExecStart={ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 /home/orangepi/workspace/falcons_ai_interactive_20261024/releases/host_e464ccb6/host/ai_coordinator/main.py --config /home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/config.json serve ; ignore_errors=no ; start_time=[Sun 2026-10-25 02:59:31 CST] ; stop_time=[n/a] ; pid=510939 ; code=(null) ; status=0/0 }\nActiveState=active\nSubState=running\n",
+  "host_models_and_config_changed": false,
+  "fpga_sha256_from_programmer_receipt": "f1ec6631b1a20617835e664804ca426b26785205163c0c163228259d6ea78c5d"
+}

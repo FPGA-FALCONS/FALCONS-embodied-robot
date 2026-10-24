@@ -1,0 +1,438 @@
+{
+  "build.tcl": {
+    "bytes": 1526,
+    "sha256": "a9f514bde27e7de236c2a31d901fb1be69b74828fd6e4a2375f2a96e772ef6a6"
+  },
+  "constr/falcons.cst": {
+    "bytes": 19932,
+    "sha256": "558cc9533909178a66033c9f0195601bb0e5f9f1fc99006dc213edb71106bdbb"
+  },
+  "constr/falcons.sdc": {
+    "bytes": 11476,
+    "sha256": "d4149933eb57636645a43d01e6e0c33a28500734db31f4ca370f4bc026853643"
+  },
+  "constr/README.md": {
+    "bytes": 3876,
+    "sha256": "af6596abf7b39fc1fba6cff7b50355f4b979294ad8ead71dc413d4209f9e547c"
+  },
+  "deps/modules.list": {
+    "bytes": 2955,
+    "sha256": "d0a5bb596d10c7a0b8d5fe5d54b7c951462bdfb254628df06c8bd73bc360b19d"
+  },
+  "rtl/ai/ai_display_link.v": {
+    "bytes": 9888,
+    "sha256": "80147eb54680fbfd5ae6d370f1dacd0f68f807c03943fb835f6731680f4476e4"
+  },
+  "rtl/ai/ai_rc_control.v": {
+    "bytes": 2635,
+    "sha256": "31ca52d2b10591a1891ac586f534ffd2ec66a998962f8edaefca6a638cc21ee9"
+  },
+  "rtl/ai/ai_uart_tx.v": {
+    "bytes": 2555,
+    "sha256": "a904af1f28b6de681f89701b2f193cbf426b5338db516dcc0d5431818d2af66b"
+  },
+  "rtl/ai/ai_vision_link.v": {
+    "bytes": 8848,
+    "sha256": "e9aa144d3c05f25a2142505b81474ed3d269e6deabb542f1c2e21ca0b032b0c3"
+  },
+  "rtl/cam/cam_overlay.v": {
+    "bytes": 7843,
+    "sha256": "a092bd96b67ec79901e11de05fc5f450a26c0c41d0c1a283e78d5170886dc755"
+  },
+  "rtl/common/ai_menu_font.v": {
+    "bytes": 7192,
+    "sha256": "d2745c6efaaeb40f791e77501b366ef0527b996a623dfe4bbffdb8eb12dbbcf0"
+  },
+  "rtl/common/app_key.v": {
+    "bytes": 2728,
+    "sha256": "0b13c7fe71d1468d84c27a958eea2786e8a9838e6f328b6daa5b34bf1e0cdf2b"
+  },
+  "rtl/common/display_mm_to_cm.v": {
+    "bytes": 819,
+    "sha256": "ec9a77de3444c33069b8ca68860a9292cc4a35aa4d534d01d4ebeaae3e0f947d"
+  },
+  "rtl/common/font_num.v": {
+    "bytes": 308945,
+    "sha256": "cc1c2415f1049fbcafc7300d745ea7250f3004d2591fa129ba9cbe5b9fa1396a"
+  },
+  "rtl/common/font_rom.v": {
+    "bytes": 205519,
+    "sha256": "6ed6da8012af33f0504387956466f356544571813f0a65a9bc36ed23bdf3f303"
+  },
+  "rtl/common/font_rom_lg.v": {
+    "bytes": 320680,
+    "sha256": "6c78e9b2a7a9e750ce74477108a94a16129c57c179133d308c5d45ea58356a0e"
+  },
+  "rtl/common/reset_sync.v": {
+    "bytes": 2039,
+    "sha256": "3d5b37959cd9b1b1dcb4d6af1e82f871409cf220d66c0b38f8d9aea6ef9d9bcc"
+  },
+  "rtl/common/ui_text_rom.v": {
+    "bytes": 11226,
+    "sha256": "bc7a98a7f18b939fa98a506b97a16b3781818c48aba11e07275980bceed2941b"
+  },
+  "rtl/debug/rc_probe_report.v": {
+    "bytes": 4291,
+    "sha256": "4859fb44fe073a090de40734dcb7d250730c672f97b0713e17ec098f0457484a"
+  },
+  "rtl/debug/speed_report.v": {
+    "bytes": 12507,
+    "sha256": "999c9ede3158fb7a17e9acb84f90f7b5000da5c0947bd27679c116b68d2e53cb"
+  },
+  "rtl/debug/uart_cmd_rx.v": {
+    "bytes": 12082,
+    "sha256": "16be39ab85358a990a2b831acb11ec2b1da0dea4273417ddf2f51ea5c126d48c"
+  },
+  "rtl/debug/uart_command_router.v": {
+    "bytes": 5643,
+    "sha256": "2db4ad87dac5c313272ce96ddcce2eb1fb2e84a851f01cddbca65cf8980918e9"
+  },
+  "rtl/ip/ddr3_ctrl_2port.v": {
+    "bytes": 9525,
+    "sha256": "de3ab3ac7599f8eade5ae67c21e4d37b50c0a0ff21d90159fabfdead44c11517"
+  },
+  "rtl/ip/ddr3_memory_interface.v": {
+    "bytes": 1437454,
+    "sha256": "dac0b9e6ac7258c6f587aba2d295260fbeec6f43c2cf586ebd48c611a4d8fc86"
+  },
+  "rtl/ip/ddr_pll.v": {
+    "bytes": 4313,
+    "sha256": "b98c29795e5300345631678f37756fd833e2ba99820b44bd169e64b5b96af719"
+  },
+  "rtl/ip/fifo_ddr3_adapter.v": {
+    "bytes": 14933,
+    "sha256": "fdf4327c8c2f4da8bcaac63982e90e2fa1bbac422873964ee4f70384201340c8"
+  },
+  "rtl/ip/gowin_pll.v": {
+    "bytes": 5952,
+    "sha256": "6e00b15dc58d8e59f223baf832b2ca988aedb168080b18146adf8d14f187871b"
+  },
+  "rtl/ip/rd_data_fifo.v": {
+    "bytes": 109420,
+    "sha256": "f844e5bc8b35d8e8afc41b5e5d0d27702bf56d3de66294be124b8fe6b509373b"
+  },
+  "rtl/ip/wr_data_fifo.v": {
+    "bytes": 60659,
+    "sha256": "fb19f456247b3ee8bf74ae2d0f174d3ab4e07146c55c4cc83b220c43d74c263a"
+  },
+  "rtl/motor/chassis_ctrl.v": {
+    "bytes": 14285,
+    "sha256": "d8e5615829654ff295a259cc4304be089283981bf53edf2fca462e461f3cba2d"
+  },
+  "rtl/motor/speed_pid.v": {
+    "bytes": 8636,
+    "sha256": "6367d8cda842a6eeedc4cfed5bff752286ba62758e3425524f37a78046ab7fc5"
+  },
+  "rtl/motor/voice_nav_arbiter.v": {
+    "bytes": 825,
+    "sha256": "a3322f2a443f3ac8d3f383dae0db010a831d5617044351d28428665882d78f36"
+  },
+  "rtl/nav/cordic_atan2.v": {
+    "bytes": 9081,
+    "sha256": "c3036a627ec1558072dcb952011de3d986d4a319663f80dc452af55f18b19c8f"
+  },
+  "rtl/nav/nav_ctrl.v": {
+    "bytes": 46106,
+    "sha256": "110c0965a7ffba9e754575b58d6d043182800fc77a10e0a4a5a865ac760b85dc"
+  },
+  "rtl/nav/nav_point_ctrl.v": {
+    "bytes": 12878,
+    "sha256": "59e70d9fd15782fd6c149cc94c785df211fd48b957f2324c35a1316de61430df"
+  },
+  "rtl/nav/nav_pose.v": {
+    "bytes": 1509,
+    "sha256": "b6b117d2cb9235b7a215f34eae96ab944b892995beead5e48cb3a411dc1d3c47"
+  },
+  "rtl/odom/odom.v": {
+    "bytes": 24482,
+    "sha256": "551187c808597820e34490adbac1402a4f1365acbf81f3dde9cbe85cbc8e3407"
+  },
+  "rtl/odom/sin_lut_rom.v": {
+    "bytes": 9899,
+    "sha256": "8b488b68a4f28f8c8e669d8b9f2244f1e658ded0ef987117464fcfaf34f31448"
+  },
+  "rtl/rc/ht10a_input.v": {
+    "bytes": 5003,
+    "sha256": "0bd693e55190d212ce1e4fc5772eb868a0da23c3efd79feb56c81fe7fd9d5fb9"
+  },
+  "rtl/rc/manual_takeover.v": {
+    "bytes": 1912,
+    "sha256": "c28dcfaeafd506c53af3f01d9b0dde656146c892abfefaa75dcb15cd965c3429"
+  },
+  "rtl/rc/rc_drive_guard.v": {
+    "bytes": 1062,
+    "sha256": "dabe11424e7ff681dc30744a36d8175672c158afda399db1a210dbb03edc5c6c"
+  },
+  "rtl/rc/rc_input.v": {
+    "bytes": 13883,
+    "sha256": "f23e4db2b28ca5c198329a046a0253531477ca3f36a1698253d36399c9505e87"
+  },
+  "rtl/rc/rc_led_observer.v": {
+    "bytes": 2334,
+    "sha256": "ca39f03ae4820e26a1d9a76890218b440bc947ac04157cfce00992fe69783771"
+  },
+  "rtl/top/falcons_top.v": {
+    "bytes": 122466,
+    "sha256": "53a085de05749536926888d31d8fba6f18a1e1a339df364de9fc072deade6299"
+  },
+  "rtl/top/rc_led_test_top.v": {
+    "bytes": 2366,
+    "sha256": "79f11effe23dcba2a0496728cb8eed787da6e2605f995aea39d776bc84772f12"
+  },
+  "rtl/ui/div_iter.v": {
+    "bytes": 4521,
+    "sha256": "b97e367a5f66401fd47cc26e0cc81dfa32cd659469047c7ae4c67917ce0dd37a"
+  },
+  "rtl/ui/dyn_text_ram.v": {
+    "bytes": 2046,
+    "sha256": "11834faec98084b8b7e7d5e96a841d3fa64f8e844e63ae269c082f447ee57c90"
+  },
+  "rtl/ui/nav_free_ctrl.v": {
+    "bytes": 30036,
+    "sha256": "a4321fa9299aabf4176104ac43f612c6fccaac7a2e982d7362b5bbf1c03a159a"
+  },
+  "rtl/ui/nav_map_view.v": {
+    "bytes": 9500,
+    "sha256": "a13f49b5bb5947d4af4d190eb051773851b939247824315348f148ec2c2e7bd0"
+  },
+  "rtl/ui/nav_obstacle_ui.v": {
+    "bytes": 14858,
+    "sha256": "ee18837194de6e84ea1e31fb9705affae4e9d39ce4de97aabe6d8e6d46ca54c4"
+  },
+  "rtl/ui/num_text.v": {
+    "bytes": 18897,
+    "sha256": "bdbe1caa36c4b6f74cfb44276b2b06496b4577e0e2175f2f79390a5b75cc6217"
+  },
+  "rtl/ui/tune_ctrl.v": {
+    "bytes": 24644,
+    "sha256": "6ab20b6951185f095769581f089f0dbec64ed05fa44464becfbacf90be04d841"
+  },
+  "rtl/ui/ui_render.v": {
+    "bytes": 69843,
+    "sha256": "7ccb7488b035ec72a0cad888a57d9f278185b8ec268f55a363290d71658377b0"
+  },
+  "rtl/ui/ui_text_index.vh": {
+    "bytes": 12899,
+    "sha256": "bc0dd321f4ab7db8c652adc50778903fe566f6bebca84d97f3bfc1b871e31350"
+  },
+  "scripts/build_common.tcl": {
+    "bytes": 1634,
+    "sha256": "959e0484a6404dfb8380ed262022c0d3433a9f6a96672b9e1961e765de576a24"
+  },
+  "scripts/vendor_sources.tcl": {
+    "bytes": 3732,
+    "sha256": "c767f90b30d703ea65ed60d1acff26e24a2cd9161d2180ed588f527e265e8c78"
+  },
+  "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/motor_pwm.v": {
+    "bytes": 7164,
+    "sha256": "33b263cebfb655c702fc32061ae1dfa2f4feb43e8a08d6079d72541d09835892"
+  },
+  "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/motor_top.v": {
+    "bytes": 10060,
+    "sha256": "48ee00f0bed3f902b8cc938ccb6f9734deb59a88482ff3fbc4eb193f0327d58f"
+  },
+  "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/motor_unit.v": {
+    "bytes": 9376,
+    "sha256": "7b8ba795419bd895656c92bd3be4996306ec79d208d6fafd72782b4cadee6c8e"
+  },
+  "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/quad_decoder.v": {
+    "bytes": 8134,
+    "sha256": "58f01e67c6ca7ce452c39ce70d938e1f376aba68fa655148ccdd620fe114376b"
+  },
+  "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/speed_measure.v": {
+    "bytes": 5175,
+    "sha256": "bec1d1128787e4c7f44af2b69bca42ddd2706bb8482fd0c358b282a4496bd7b7"
+  },
+  "vendor/verilog-reusable-modules/modules/motor_tb6612/rtl/stall_detect.v": {
+    "bytes": 10762,
+    "sha256": "ee5b1decfa0c1de35150d66c749fa88921b124c4984f83b6bd1ee638eaf31678"
+  },
+  "vendor/verilog-reusable-modules/modules/uart/rtl/uart_byte_rx.v": {
+    "bytes": 8168,
+    "sha256": "5d50c50daecea3c2f9ddad79acb9fd6135f83677db3e712c8b82008dc2f4b169"
+  },
+  "vendor/verilog-reusable-modules/modules/uart/rtl/uart_byte_tx.v": {
+    "bytes": 5890,
+    "sha256": "4d507592ed26ecebee58062e946b90ad7e7aebe86d0a2327e8e7afd9688bed2d"
+  },
+  "vendor/verilog-reusable-modules/modules/uart/rtl/uart_rx_queue.v": {
+    "bytes": 3148,
+    "sha256": "8d8a74d1cfe3bb736f596d68e64cf70646872c44b51e17812261cf5399319869"
+  },
+  "vendor/verilog-reusable-modules/modules/uart/rtl/uart_tx_queue.v": {
+    "bytes": 3050,
+    "sha256": "9d507786a17af68258f14135866e4bfe4ddeec675112639ef07636baf4489e9e"
+  },
+  "vendor/verilog-reusable-modules/modules/sync_fifo/rtl/sync_fifo.v": {
+    "bytes": 3798,
+    "sha256": "3434fa65f5c13625af0e4b9e5317c1e9d40ababc09c856e9d27c0637285b3956"
+  },
+  "vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/display_pll.v": {
+    "bytes": 6106,
+    "sha256": "6148b69d2e487cafe7205d7aa9c52a480ee65584c7cf4f14dc594ac24962eaa2"
+  },
+  "vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/disp_driver.v": {
+    "bytes": 4019,
+    "sha256": "70ba03f48d168d77a6dd5670cf16c56a76476c349425a7cbe17145ca1f07444d"
+  },
+  "vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/dvi_tx.v": {
+    "bytes": 83927,
+    "sha256": "7393b54e0d7553b037b80e87582601bbe878435c6aeb0b32d04663add810fd6f"
+  },
+  "vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/hdmi_1024x600.v": {
+    "bytes": 1951,
+    "sha256": "62a9056a38980646e13adc0d8f57cb6ec082cc1ac02893cce8e23a4719ada6f6"
+  },
+  "vendor/verilog-reusable-modules/modules/imu660ra/rtl/bmi270_cfg_rom.v": {
+    "bytes": 221694,
+    "sha256": "da013edbe5038ea4af85bbda7043a9d7b6d5801fabcfa21d5a115f3d09b64609"
+  },
+  "vendor/verilog-reusable-modules/modules/imu660ra/rtl/imu_top.v": {
+    "bytes": 38630,
+    "sha256": "e1222d0a2af617290836821393c8a43e8435e98800cc224c895d254b5d6df446"
+  },
+  "vendor/verilog-reusable-modules/modules/imu660ra/rtl/spi_master_mode0.v": {
+    "bytes": 9288,
+    "sha256": "cae9b6e20e6fcc1e5be059a76f4a3be307815781c4a67f7516cf51a1a79eb5da"
+  },
+  "vendor/verilog-reusable-modules/modules/gyro_tilt_comp/rtl/gyro_tilt_comp.v": {
+    "bytes": 13973,
+    "sha256": "d064f4afdebdec39cb66bc144b39d8097b1d76c68566b538f7260179255889f4"
+  },
+  "vendor/verilog-reusable-modules/modules/yaw_integrate/rtl/yaw_integrate.v": {
+    "bytes": 9795,
+    "sha256": "445d4f65d28f4093a91a907de05a1fdee5bbd1d8dfc3103239de5d448ccc4e25"
+  },
+  "vendor/verilog-reusable-modules/modules/rc_pwm_receiver/rtl/rc_axis_normalize.v": {
+    "bytes": 4484,
+    "sha256": "2c82b316f3b654eb3ae585c788184dc954a43e67142f499867ba63d8af64e3ca"
+  },
+  "vendor/verilog-reusable-modules/modules/rc_pwm_receiver/rtl/rc_pwm_capture.v": {
+    "bytes": 6922,
+    "sha256": "377bc4af9ce2a8090acbc2b417f291377ed97a512643832178a3b4344a1b788d"
+  },
+  "vendor/verilog-reusable-modules/modules/rc_pwm_receiver/rtl/rc_receiver.v": {
+    "bytes": 6003,
+    "sha256": "fc3d72785017c654fa348c22914b461d9dee8ad07bb22f3cd16d896dd42bf6e1"
+  },
+  "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/camera_init.v": {
+    "bytes": 5874,
+    "sha256": "0ea507a00c0d25b65f951ba55fef578835a0774522db5e691195a402eaf52229"
+  },
+  "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/DVP_Capture.v": {
+    "bytes": 3824,
+    "sha256": "2f76676ced19a0cd49350ae2ce2e091345a7286b8f49c044a1ec2012c803316c"
+  },
+  "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/i2c_bit_shift.v": {
+    "bytes": 9948,
+    "sha256": "10a70a37d64bfaaee6db28392e2530e85fa75d2a67f1a78a6bdad1b342fd93d5"
+  },
+  "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/i2c_control.v": {
+    "bytes": 7577,
+    "sha256": "83318c8b2e61e89462d0e4de873ca66cbbaf7c7c5365cc3df6b46a1a5a520dbb"
+  },
+  "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/ov5640_capture.v": {
+    "bytes": 3956,
+    "sha256": "cb43496434c86855f8d8d43c685c0a9a7c760ccb5c45a340dc722c7a23f05b6a"
+  },
+  "vendor/verilog-reusable-modules/modules/ov5640_capture/rtl/ov5640_init_table_rgb.v": {
+    "bytes": 11399,
+    "sha256": "31221f6a7f76cbf4b10d20d9ab1156784cd13d6768bb9183874d5d2c3432313a"
+  },
+  "vendor/verilog-reusable-modules/modules/m10_radar/rtl/m10_packet_parser.v": {
+    "bytes": 16351,
+    "sha256": "ec843b53ffb4bbf9d46202e7e54589bbb80f3a0ff4550c2ffa369157bba06c7d"
+  },
+  "vendor/verilog-reusable-modules/modules/m10_radar/rtl/m10_point_cloud_core.v": {
+    "bytes": 4569,
+    "sha256": "232de13b456911cf569a01573e8966a3c89f9da3db15df4ab43a7b4b8ad40315"
+  },
+  "vendor/verilog-reusable-modules/modules/m10_radar/rtl/m10_radar.v": {
+    "bytes": 4119,
+    "sha256": "52b588f62907c4249731e14d645bd7f0071cd7eb6f9f732c84d4e0ddd7408131"
+  },
+  "vendor/verilog-reusable-modules/modules/m10_radar/rtl/point_bitmap.v": {
+    "bytes": 5713,
+    "sha256": "7d1183679cb0f440eb4cd4334264459f467e54db582a3b857264bca92335754d"
+  },
+  "vendor/verilog-reusable-modules/modules/m10_radar/rtl/point_cloud_video.v": {
+    "bytes": 17741,
+    "sha256": "c6882a84761665fdb70c3d556ac340de844c5b35c8003050e85607132e1d7569"
+  },
+  "vendor/verilog-reusable-modules/modules/m10_radar/rtl/polar_to_xy.v": {
+    "bytes": 6002,
+    "sha256": "639db8b0892b29c1c2ee9fcca1bd0f9e3b9be4a555dcfe68f20b61faf9fc1b4b"
+  },
+  "vendor/verilog-reusable-modules/modules/m10_radar/rtl/zoom_control.v": {
+    "bytes": 3008,
+    "sha256": "737b09bc47bd9a02aca3d8e3cf722cc46f8e1edc16ec9f7bd31c04e7f46762ac"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/auto_navigation.v": {
+    "bytes": 14958,
+    "sha256": "c1d4d4ca802dc7095440a2b93ae1fc5156ca4f6e64d397bce75d3d505c597809"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/lidar_scan_monitor.v": {
+    "bytes": 6886,
+    "sha256": "39552db30c0109c4b2af653f1f605cd78422e8d33eebc4b6a5cb851cca3d6057"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_command.v": {
+    "bytes": 9011,
+    "sha256": "f69243428de9d08509a2a3c5d10c9e97c7a3e94dfb97d84e6e4be17d4b67fd4a"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_drive.v": {
+    "bytes": 9531,
+    "sha256": "4e86edd2d2cc0910c763cae32b434300845c9bd25e97baf5e127c04d24d10010"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_map.v": {
+    "bytes": 7873,
+    "sha256": "42a10d185e42b69707bca346dd112b06583072b187dc2086592df6084e1d4fe8"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_map_arb.v": {
+    "bytes": 3807,
+    "sha256": "24b084f6c2a1654c78d2c1b683ea1555128cff23a2e5741f14cfdd34ebf39c85"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_planner.v": {
+    "bytes": 52830,
+    "sha256": "c4273559c05750c65f8f65fb84f2e78c9e91d482fc9237c7eb91c6ed2efcca9a"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_polar.v": {
+    "bytes": 15396,
+    "sha256": "39c7fe90c130c25895084a36676e0b1981b994d38f18a0b658363d5278c541ba"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_route.v": {
+    "bytes": 10340,
+    "sha256": "a338547730adb8e6944ad24156d627717455c26f8b511d03afbc659d3616debe"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_safety.v": {
+    "bytes": 1428,
+    "sha256": "c0b27de8b5ad1965896ecec46302e327baea65590640d1524ca35a23eba28fc4"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_scanner.v": {
+    "bytes": 7509,
+    "sha256": "0b06c781ffd9e11428e2fc486298cc4dfedf78fca0dff825dfc7a76482a4d76f"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_scan_accumulator.v": {
+    "bytes": 5220,
+    "sha256": "b512c6a12cc036651c58c1fff5a3048583054d3e5b27202d9b0b60e3b8a5a88c"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_segments.v": {
+    "bytes": 5519,
+    "sha256": "e3615cc84d6efbef5aaaa3e108771817c1f92e5a7f74419f50f219623da01bbc"
+  },
+  "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_top.v": {
+    "bytes": 37353,
+    "sha256": "9fcf5205f8bbc37ca0689339ffda9ee1084bcaad38e44bf5aab39756766bcd86"
+  },
+  "vendor/verilog-reusable-modules/modules/radar_navigation/rtl/nav_radar_adapter.v": {
+    "bytes": 13284,
+    "sha256": "bfec8b3b1a4b0b2f78f46af7213a60d9281579fa5edf1f8d0a8992052de141d1"
+  },
+  "vendor/verilog-reusable-modules/modules/radar_navigation/rtl/radar_navigation.v": {
+    "bytes": 6374,
+    "sha256": "ef2498d185dd46b34d0e56126c40c7166d206f264ee06ea446b4e5d7773f6a3b"
+  },
+  "vendor/verilog-reusable-modules/modules/voice_motion_bridge/rtl/voice_motion_bridge.v": {
+    "bytes": 15438,
+    "sha256": "6eadc37ba76811ce3314c61111914f5e11ea7352726e9edde58a319278f6f526"
+  }
+}

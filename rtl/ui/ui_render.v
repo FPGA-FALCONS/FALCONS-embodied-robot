@@ -70,7 +70,7 @@ module ui_render #(
     // ---- 导航页面公共显示；由顶层选择对应页面的数据 ----
     input  wire         i_nav_run,      // 1 = 导航中（状态栏变绿并显示「导航中」）
     input  wire         i_nav_paused,   // 1 = 导航暂停（状态栏浅橙 994D00 并显示「导航暂停」）
-    input  wire         i_menu_dim,     // 1 = 导航页交互态（菜单栏变暗、摇杆不再切菜单）
+    input  wire         i_menu_dim,     // 1 = 导航/AI交互态（菜单栏变暗、摇杆不再切菜单）
     input  wire [2:0]   i_aux_sel,      // 右下辅助菜单高亮项 0..4
     input  wire [9:0]   i_car_px,       // 车绿点像素坐标（来自 odom 航位）
     input  wire [9:0]   i_car_py,
@@ -978,6 +978,10 @@ module ui_render #(
     // ★ 2026-10-20：参数整定页也要把左侧菜单栏**变暗** —— 进页后摇杆/按键都归
     //   参数编辑，不再切菜单，用亮度提示和导航交互态一致。
     wire tune_ui    = (i_page == PG_TUNE) && i_tune_active;
+    // AI总开关开启后，菜单操作已冻结；复用导航/参数页的全部冻结配色。
+    // 独立于nav_ui，避免把AI页状态栏误画成导航运行/暂停。
+    wire ai_ui      = (i_page == PG_AI) && i_menu_dim;
+    wire menu_dim   = nav_ui || tune_ui || ai_ui;
 
     // ---- 坐标轴：只画轴、不画网格；都延伸到画面边缘 ----
     //   x 轴 y=300，从菜单右缘 208 到 1023；y 轴 x=412，全高 0..599。
@@ -1077,7 +1081,7 @@ module ui_render #(
     assign layer_color[0] = in_status_bar ?
         ((nav_ui && i_nav_paused) ? 24'h994D00 : (nav_ui && i_nav_run) ? 24'h006600 :
          i_ui_mode == 0 ? 24'h660000 : 24'h202020) :
-        in_menu_bar ? ((nav_ui || tune_ui) ? 24'h0B1019 : 24'h101828) : 24'h000000;
+        in_menu_bar ? (menu_dim ? 24'h0B1019 : 24'h101828) : 24'h000000;
     assign layer_color[1]  = 24'h2E3440;
     assign layer_color[2]  = 24'h1D4ED8;
     assign layer_color[3]  = 24'h3B82F6;
@@ -1089,8 +1093,8 @@ module ui_render #(
     assign layer_color[9]  = 24'h00C000;
     assign layer_color[10] = lg_imu_fail_d1 ? 24'hFF4040 :
         in_status_bar ? 24'hFFFFFF :
-        in_menu_bar ? (menu_sel_band ? ((nav_ui || tune_ui) ? 24'h8A7A2E : 24'hFFE066) :
-                                     ((nav_ui || tune_ui) ? 24'h5A6170 : 24'hE5E7EB)) : 24'hFFFFFF;
+        in_menu_bar ? (menu_sel_band ? (menu_dim ? 24'h8A7A2E : 24'hFFE066) :
+                                     (menu_dim ? 24'h5A6170 : 24'hE5E7EB)) : 24'hFFFFFF;
     assign layer_color[11] = sm_src_d1 ? 24'hFFFFFF : 24'h7CFC98;
     assign layer_color[12] = 24'hFFFFFF;
 

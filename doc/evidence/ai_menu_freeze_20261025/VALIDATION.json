@@ -1,0 +1,20 @@
+{
+  "application_simulations_passed": 43,
+  "original_six_page_pixel_baseline_unchanged": true,
+  "ai_preview_frames_passed": 4,
+  "ai_active_menu_dimming_verified_in_rtl": true,
+  "ai_off_menu_brightness_verified_in_rtl": true,
+  "right_tabs_and_status_unchanged_in_preview": true,
+  "boot_menu_pixels_checked": 374400,
+  "boot_menu_green_pixels": 0,
+  "boot_menu_unknown_pixels": 0,
+  "startup_stripes_root_cause": "not_identified; operator clarified phenomenon was in previous bitstream and no longer occurs in current version",
+  "fpga_programmed": true,
+  "physical_menu_freeze_verified": true,
+  "startup_stripes_current_version_reported_absent": true,
+  "physical_exit_restores_brightness_verified": true,
+  "physical_right_tabs_unchanged_verified": true,
+  "same_clock_timing_passed": true,
+  "bitstream_sha256": "f1ec6631b1a20617835e664804ca426b26785205163c0c163228259d6ea78c5d",
+  "operator_feedback": "全部正常"
+}

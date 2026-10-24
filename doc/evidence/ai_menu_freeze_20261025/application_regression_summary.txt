@@ -1,0 +1,53 @@
+PASS: imu_top_tb 16 checks, 0 errors
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_imu_top.log）
+
+================ 汇总 ================
+
+测试                       结果    检查数 说明
+--                       --    --- --
+yaw_pipeline             PASS    1 pass=1 / CHECKS=1
+manual_takeover          PASS   18 pass=18 / CHECKS=18
+ai_rc_control            PASS   20 pass=20 / CHECKS=20
+ai_uart_tx               PASS    5 pass=5 / CHECKS=5
+ai_display_link          PASS   15 pass=15 / CHECKS=15
+voice_motion_bridge      PASS   71 pass=71 / CHECKS=71
+uart_command_router      PASS 2304 pass=2304 / CHECKS=2304
+voice_motion_integration PASS   24 pass=24 / CHECKS=24
+ui_layers                PASS    1 pass=1 / CHECKS=1
+display_mm_to_cm         PASS    1 pass=1 / CHECKS=1
+nav_planner              PASS  531 pass=531 / CHECKS=531
+ui_pipeline              PASS    6 pass=6 / CHECKS=6
+imu_calib                PASS   22 pass=22 / CHECKS=22
+radar_coordinates        PASS   34 pass=34 / CHECKS=34
+nav_geometry             PASS   19 pass=19 / CHECKS=19
+nav_scan_accumulator     PASS   18 pass=18 / CHECKS=18
+nav_pose                 PASS    8 pass=8 / CHECKS=8
+obstacle_motion          PASS   10 pass=10 / CHECKS=10
+nav_command              PASS   20 pass=20 / CHECKS=20
+nav_map_view             PASS   40 pass=40 / CHECKS=40
+nav_point_ctrl           PASS   17 pass=17 / CHECKS=17
+obstacle_page            PASS   20 pass=20 / CHECKS=20
+obstacle_plan            PASS    5 pass=5 / CHECKS=5
+radar_map                PASS   20 pass=20 / CHECKS=20
+rc_led_test              PASS   27 pass=27 / CHECKS=27
+rc_probe_report          PASS    5 pass=5 / CHECKS=5
+reset_sync               PASS    6 pass=6 / CHECKS=6
+ht10a_input              PASS   83 pass=83 / CHECKS=83
+rc_input                 PASS   32 pass=32
+chassis_ctrl             PASS   23 pass=23
+num_text                 PASS  106 pass=106
+ui_render                PASS   50 pass=50
+nav_free                 PASS   88 pass=88
+speed_report             PASS    4 pass=4
+odom                     PASS   20 pass=20
+cordic_atan2             PASS   12 pass=12 / CHECKS=12
+nav_ctrl                 PASS  388 pass=388 / CHECKS=388
+nav_sys                  PASS   79 pass=79 / CHECKS=79
+tune_ctrl                PASS   68 pass=68 / CHECKS=68
+tune_page                PASS   58 pass=58 / CHECKS=58
+disp_driver              PASS 3955 pass=3955 / CHECKS=3955
+dyn_text_ram             PASS   70 pass=70 / CHECKS=70
+imu_top                  PASS   16 pass=16 / CHECKS=16
+
+
+全部 43 个测试通过
