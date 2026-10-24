@@ -20,10 +20,10 @@ from semantic_nav.mot1 import Frame, from_intent, heartbeat, STOP
 from ai_coordinator.motion_intents import inspect_motion
 
 
-def prepare_frame(text,seq=1,speed=40):
+def prepare_frame(text,seq=1,speed=40,distance=None):
     if type(seq) is not int or not 0<=seq<=255:raise ValueError('seq must be 0..255')
     if type(speed) is not int or not 1<=speed<=40:raise ValueError('initial test speed code must be 1..40')
-    decision=inspect_motion(text)
+    decision=inspect_motion(text,distance=distance,speed_code=speed)
     if decision is None or not decision['valid']:raise ValueError('Not a single supported immediate motion command')
     if not decision.get('wire_preview'):raise ValueError(decision['reason'])
     return decision['intent'],from_intent(decision['intent'],seq,speed)
@@ -73,16 +73,24 @@ def main(argv=None):
     parser.add_argument('text', nargs='+')
     parser.add_argument('--device')
     parser.add_argument('--dry-run', action='store_true')
-    parser.add_argument('--speed', type=int, default=40)
+    parser.add_argument('--speed', type=int, default=10)
     parser.add_argument('--seq', type=int, default=1)
+    parser.add_argument('--distance-speed', type=float)
+    parser.add_argument('--distance-calibrated', action='store_true')
     args = parser.parse_args(argv)
-    try:intent,frame=prepare_frame(''.join(args.text),args.seq,args.speed)
+    distance=None
+    if args.distance_speed is not None:
+        distance={'calibrated':args.distance_calibrated,'calibrated_speed_mps':args.distance_speed}
+    try:intent,frame=prepare_frame(''.join(args.text),args.seq,args.speed,distance)
     except ValueError as exc:
-        print(json.dumps({'error':str(exc),'sent':False,'executed':False},ensure_ascii=False))
+        print(json.dumps({'error':str(exc),'sent':False,'executed':False,'physical_task_completed':False,
+                          'distance_estimate':bool(distance)},ensure_ascii=False))
         return 2
     wire = frame.encode()
     output = {'intent': intent, 'frame': frame.__dict__, 'hex': wire.hex(),
-              'preview_only':bool(args.dry_run or not args.device),'physical_task_completed':False}
+              'preview_only':bool(args.dry_run or not args.device),'physical_task_completed':False,
+              'distance_estimate':bool(intent.get('distance_mode')=='timed_estimate'),
+              'arrival_verified':False}
     print(json.dumps(output, ensure_ascii=False, indent=2))
     if args.dry_run or not args.device:
         return 0

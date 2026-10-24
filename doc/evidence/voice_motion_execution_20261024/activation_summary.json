@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-24",
+  "board": "Orange Pi 5 / RK3588S, Ubuntu 22.04, kernel 6.1.99-rockchip-rk3588, aarch64",
+  "canonical_repo": "https://github.com/HITSZ-FPGA-FALCONS/FALCONS-embodied-robot",
+  "branch": "feat/fullstack-motion-release-20261024",
+  "release": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_181624_c7ae91",
+  "previous_release": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_181310_4a795c",
+  "baseline_before_work": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_163101_ddf286",
+  "backup_dir": "/home/orangepi/workspace/falcons_voice_motion_exec_20261024/backup",
+  "backup_sha256": {
+    "active_release.json.before_voice_execution": "76c456438af2e94a7c750ea36b4cf9c22185874c00b5a29d7b6b2efe3b566c10",
+    "config.json.before_voice_execution": "ddf90e48fcd47e593fabc1aec5320c49bcb290c1446a78e7c1a615afabfc24e1",
+    "falcons-ai-coordinator.service.before_voice_execution": "846737e1e099923e0fe5a2d83331a53c451eccc9c7a361b3c5f8800a9d0680d8"
+  },
+  "r2_backup_dir": "/home/orangepi/workspace/falcons_voice_motion_exec_20261024/backup_r2",
+  "r2_backup_sha256": {
+    "active_release.json": "5b8ac2ff29001a21d6685a1eff1a408fffcfc7a52e59c44aedb57f13dd976011",
+    "config.json": "6e88a75ca079639372d5f7843cdef06b354ec83f9e7003d6cf7aa34d451e943e",
+    "service": "3f025ca98c090a2a298f2837b329cb80b67ccb4954ba95174f49aee3ca81aeab"
+  },
+  "service": {
+    "name": "falcons-ai-coordinator.service",
+    "state": "active",
+    "config_gates": {
+      "mode": "shadow",
+      "model_loads_enabled": false,
+      "gateway.mode": "shadow",
+      "gateway.allow_motion": false,
+      "voice_motion.enabled": false,
+      "voice_motion.live_commissioned": false,
+      "camera.enabled": false,
+      "patrol.enabled": false
+    },
+    "microphone_preserved": "plughw:CARD=MIC,DEV=0",
+    "asr_timeout_s": 30
+  },
+  "serial_devices": {
+    "/dev/serial/by-id": "absent",
+    "connected": false,
+    "real_motion_possible": false
+  },
+  "board_tests": {
+    "coordinator": "131 tests, OK (includes 3 Linux pseudo-terminal motion tests)",
+    "camera": "36 tests, OK",
+    "semantic_nav": "12 tests, OK"
+  },
+  "plan_only_smoke": {
+    "forward": {"valid": true, "cmd": "forward", "duration_s": 0.8, "sent": false, "executed": false},
+    "forward_2m": {"valid": true, "distance_mode": "timed_estimate", "reason": "distance_speed_uncalibrated", "wire_preview": null, "sent": false},
+    "spin_ccw_360": {"valid": true, "cmd": "spin", "angle_deg": -360, "sent": false, "executed": false}
+  },
+  "truthful_state": {
+    "device_receipts_supported": false,
+    "action_complete_verified": false,
+    "physical_stop_verified": false,
+    "physical_task_completed": false,
+    "patrol_start_connected": false,
+    "tof_collision_protection": false
+  },
+  "not_done": [
+    "No FPGA UART device connected, so no real serial write or board MOT1 transmit.",
+    "No wheels-up test, no real ASR/microphone motion test, no floor test.",
+    "No encoder distance loop, no MOT1 completion receipt, no physical stop receipt.",
+    "No new RTL/bitstream; existing production bridge is unchanged."
+  ]
+}

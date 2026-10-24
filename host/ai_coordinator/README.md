@@ -81,6 +81,8 @@ HTTP仅绑定`127.0.0.1:18765`。`GET /status`、`GET /jobs/<id>`；`POST /text`
 
 当前固件未实现这些任务回执，不能仅把串口线插上就开启自动运动。现有19字节AA55视觉观察工具仍在`host/vision_bridge/`，本模块没有改变它的格式或宣称其支持导航任务。
 
+另有独立的低层MOT1运动入口：文本/ASR固定短语→`MotionBackend`→与FAM1共用唯一串口→FPGA `voice_motion_bridge`。默认关闭，需现场`voice_motion.live_commissioned=true`；MOT1没有任务级回执，串口写入和主机计时不算完成/停车。详见[语音到FPGA运动执行接入](../../doc/语音到FPGA运动执行接入_20261024.md)。
+
 ## FPGA图像输入：待真实USB联调
 
 提供独立FX2 Bulk-IN worker，用系统已有libusb。必须配置核实的VID/PID、IN端点和接口号；不加载固件、不解绑内核驱动。默认关闭。

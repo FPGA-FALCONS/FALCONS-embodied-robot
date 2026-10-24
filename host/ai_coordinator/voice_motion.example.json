@@ -1,5 +1,19 @@
 {
   "enabled": false,
+  "live_commissioned": false,
+  "backend": "mot1_shared_serial",
   "patrol_target": "fpga_preset",
-  "note": "Merge as config.voice_motion. This candidate only previews MOT1; it never opens a second UART or transmits motor commands. ai_search preserves the existing camera-assisted find-object patrol; fpga_preset is a camera-independent onboard route request awaiting firmware integration."
+  "speed": 10,
+  "heartbeat_s": 0.2,
+  "turn_window_s": 8.5,
+  "drive_margin_s": 0.3,
+  "distance": {
+    "calibrated": false,
+    "calibrated_speed_mps": null,
+    "min_speed_mps": 0.05,
+    "max_speed_mps": 0.5,
+    "max_distance_m": 2.0,
+    "max_duration_s": 5.0
+  },
+  "note": "Merge as config.voice_motion. The backend shares config.gateway.device under one exclusive serial owner; it never opens a second UART. enabled=true is not enough: live_commissioned must be set by an operator after the wheels-up/estop/RC check. FPGA MOT1 has no task acknowledgment; host timers and serial writes are not physical completion or stop evidence."
 }

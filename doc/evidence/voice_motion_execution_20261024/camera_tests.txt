@@ -1,0 +1,43 @@
+{"frames": 1, "parser_errors": 0, "trailing_bytes": 0, "source": "offline_wire_capture", "hardware_tested": false, "wire_protocol": "fimg1", "benchmark_no_image_io": false, "elapsed_s": 0.0003852840018225834, "bytes_read": 30, "parser_MB_s": 0.07786463974129525, "note": "File/parser speed is not USB hardware throughput", "firmware_loaded": false, "environment_changed": false, "motion_authorized": false}
+{"frames": 1, "parser_errors": 0, "trailing_bytes": 0, "source": "offline_wire_capture", "hardware_tested": false, "wire_protocol": "fim2", "benchmark_no_image_io": true, "elapsed_s": 9.916500130202621e-05, "bytes_read": 164, "parser_MB_s": 1.6538092860051123, "note": "File/parser speed is not USB hardware throughput", "firmware_loaded": false, "environment_changed": false, "motion_authorized": false}
+test_dimension_limits_and_unsupported_order (test_fx2_camera.ImageTests) ... ok
+test_known_colors_and_byte_orders (test_fx2_camera.ImageTests) ... ok
+test_ppm_export_and_exclusive_creation (test_fx2_camera.ImageTests) ... ok
+test_truncated_and_extra_payload_rejected (test_fx2_camera.ImageTests) ... ok
+test_descriptor_directions_and_types (test_fx2_camera.ProbeTests) ... ok
+test_detached_endpoint_is_reported (test_fx2_camera.ProbeTests) ... ok
+test_filter_and_unknown_pid_are_not_assumed (test_fx2_camera.ProbeTests) ... ok
+test_id_validation (test_fx2_camera.ProbeTests) ... ok
+test_missing_root_and_empty_bus (test_fx2_camera.ProbeTests) ... ok
+test_claim_does_not_detach_driver (test_stream.CameraTests) ... ok
+test_explicit_fimg2_usb_contract_skips_legacy_frame (test_stream.CameraTests) ... ok
+test_identity_swap_and_disconnect_fail (test_stream.CameraTests) ... ok
+test_timeout_partial_bytes_decode_and_cleanup (test_stream.CameraTests) ... ok
+test_encode_rejects_bad_fields (test_stream.FrameTests) ... ok
+test_offline_cli_saves_rgb_preview_without_claiming_live (test_stream.FrameTests) ... ok
+test_random_usb_boundaries_garbage_crc_and_replay (test_stream.FrameTests) ... ok
+test_uint32_wrap_and_reset_require_new_receiver (test_stream.FrameTests) ... ok
+test_duplicate_vid_pid_requires_path (test_stream.SelectionTests) ... ok
+test_invalid_selection (test_stream.SelectionTests) ... ok
+test_kernel_driver_refused (test_stream.SelectionTests) ... ok
+test_select_verified_endpoint (test_stream.SelectionTests) ... ok
+test_wrong_speed_interrupt_and_missing_endpoint_refused (test_stream.SelectionTests) ... ok
+test_abort_drops_partial_then_next_start_recovers (test_stream_v2.FIM2Tests) ... ok
+test_assembly_timeout_keeps_rows_from_becoming_frame (test_stream_v2.FIM2Tests) ... ok
+test_crc_covers_metadata_and_data_and_next_start_recovers (test_stream_v2.FIM2Tests) ... ok
+test_encode_refuses_bad_payload_control_and_dimensions (test_stream_v2.FIM2Tests) ... ok
+test_expected_size_header_length_and_garbage_bounded (test_stream_v2.FIM2Tests) ... ok
+test_full_resolution_frame_30fps_wire_budget (test_stream_v2.FIM2Tests) ... ok
+test_missing_reordered_or_duplicate_row_never_published (test_stream_v2.FIM2Tests) ... ok
+test_new_start_and_truncated_record_recover (test_stream_v2.FIM2Tests) ... ok
+test_no_publish_before_end (test_stream_v2.FIM2Tests) ... ok
+test_offline_cli_benchmark_no_images_and_no_hardware_claim (test_stream_v2.FIM2Tests) ... ok
+test_random_chunks_fullframe_and_independent_header_layout (test_stream_v2.FIM2Tests) ... ok
+test_shape_change_and_wrong_frame_refused (test_stream_v2.FIM2Tests) ... ok
+test_uint32_wrap_and_replay_rejected (test_stream_v2.FIM2Tests) ... ok
+test_usb_benchmark_counts_complete_frames_and_gaps (test_stream_v2.FIM2Tests) ... ok
+
+----------------------------------------------------------------------
+Ran 36 tests in 0.044s
+
+OK

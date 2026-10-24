@@ -14,6 +14,7 @@ from .announcements import Announcements
 from voice_bridge.preview import parse_task
 from .command_policy import inspect as inspect_command,immediate_stop,VERSION as POLICY_VERSION
 from .motion_intents import inspect_motion,VERSION as MOTION_POLICY_VERSION
+from .motion_backend import MotionBackend
 
 
 class Audit:
@@ -39,6 +40,9 @@ class Runtime:
         self.announcements=Announcements(self.cfg.get('announcements',{}),self.audit)
         if self.core.mode=='live' and self.cfg.get('gateway',{}).get('mode')!='serial':raise ValueError('live mode requires serial gateway')
         self.gateway=Gateway(self.cfg.get('gateway',{}),self.core.session_id,self.audit)
+        # The lambda is deliberate: tests and deployment can replace the
+        # gateway, but every MOT1 frame must still use its one serial owner.
+        self.motion=MotionBackend(lambda:self.gateway.transport,self.cfg,self.audit)
         self.workers={k:Worker(k,self.config,self.run_dir) for k in ('asr','vision','llm')}
         self.model_server=ModelServer(self.cfg['models']['llm'],self.run_dir)
         self.generation=0;self.jobs=OrderedDict();self.tasks=set();self.parse_lock=asyncio.Lock();self.server_lock=asyncio.Lock()
@@ -69,7 +73,11 @@ class Runtime:
             if self.last_tick is not None:self.max_tick_gap=max(self.max_tick_gap,now-self.last_tick)
             self.last_tick=now
             for event in self.gateway.poll(now):
-                if event.get('kind') in ('link_lost','link_reset') and self.core.state in self.core.ACTIVE:self.core.fail(now,event['kind'])
+                if event.get('kind') in ('link_lost','link_reset'):
+                    # Cancel host heartbeats and record the failed action.  The
+                    # FPGA watchdog remains the independent physical stop.
+                    self.motion.link_lost(event['kind'])
+                    if self.core.state in self.core.ACTIVE:self.core.fail(now,event['kind'])
                 else:self.core.on_status(event,now)
                 self.audit({'type':'fpga_event','event':event})
             self.core.tick(now);self.dispatch()
@@ -146,7 +154,11 @@ class Runtime:
                 'parser':answer,'stale':stale,'plan_only':plan_only}
         if not stale and not plan_only:
             needed={'search_v1','target_accept_v1','cancel_v1'}|({'return_home_v1'} if answer['task'].get('r') else set())
-            if answer['task']['i']=='search' and self.core.mode=='live' and (not self.gateway.snapshot()['motion_authorized'] or not self.camera_time_verified or not needed<=self.gateway.capabilities):
+            if self.motion.busy:
+                result['admission']={'accepted':False,'reason':'motion_action_owns_control'}
+            elif self.motion.owns_control:
+                result['admission']={'accepted':False,'reason':'voice_motion_holds_control_until_reset'}
+            elif answer['task']['i']=='search' and self.core.mode=='live' and (not self.gateway.snapshot()['motion_authorized'] or not self.camera_time_verified or not needed<=self.gateway.capabilities):
                 result['admission']={'accepted':False,'reason':'live_camera_time_or_fpga_not_commissioned'}
             else:result['admission']=self.core.submit(answer['task'],time.monotonic());self.dispatch()
         self.audit({'type':'parsed_instruction',**result});return result
@@ -166,14 +178,18 @@ class Runtime:
         if operation:
             if plan_only:return {'operation':operation,'preview_only':True,'executed':False}
             return self.confirm_pickup({'task_id':self.core.task_id})
-        decision=inspect_motion(text)
+        settings=self.motion.settings()
+        decision=inspect_motion(text,distance=self.motion.distance_policy(),speed_code=settings['speed'])
         if decision is None:return None
         intent=decision.get('intent',{});cmd=intent.get('cmd')
         if decision['valid'] and cmd in ('stop','patrol_stop'):
-            if plan_only:return {'operation':'stop','preview_only':True,'executed':False,'motion':decision}
-            return self.stop('voice_motion_stop')
+            if plan_only:
+                return {'operation':'stop','preview_only':True,'executed':False,'motion':decision,
+                        'physical_stop_verified':False}
+            result=self.stop('voice_motion_stop');result['motion']=decision;return result
         # Existing AI find-object patrol keeps its configured route and camera
-        # admission. Camera-independent patrol is an explicit FPGA preset choice.
+        # admission. Camera-independent patrol is an explicit FPGA preset choice
+        # and is not connected to a real route in this release.
         cfg=self.cfg.get('voice_motion',{})
         if decision['valid'] and cmd=='patrol_start' and cfg.get('patrol_target','ai_search')=='ai_search':
             if plan_only:return {'operation':'patrol','preview_only':True,'executed':False,'motion':decision}
@@ -181,17 +197,24 @@ class Runtime:
             return self.start_patrol({})
         if plan_only:reason='plan_only'
         elif not decision['valid']:reason=decision['reason']
-        elif cfg.get('enabled') is not True:reason='voice_motion_disabled'
         elif not decision.get('wire_preview'):reason=decision['reason']
+        elif cmd=='patrol_start':reason='patrol_route_not_connected'
+        elif cfg.get('enabled') is not True:reason='voice_motion_disabled'
         elif self.core.state in self.core.ACTIVE:reason='existing_mission_owns_control'
         elif self.cfg.get('model_loads_enabled',True) is not True:reason='model_and_motion_hold'
         elif self.core.mode!='live':reason='shadow_only'
-        else:reason='motion_firmware_not_commissioned'
-        result={'operation':'motion','raw_text':text,'motion':decision,'policy_version':MOTION_POLICY_VERSION,
-                'preview_only':True,'plan_only':plan_only,'accepted':False,'sent':False,'executed':False,
-                'motion_authorized':False,'physical_task_completed':False,'reason':reason}
-        if not plan_only:
+        else:
+            result=self.motion.execute(decision,text,plan_only=False)
+            result.update(operation='motion',raw_text=text,motion=decision,
+                          policy_version=MOTION_POLICY_VERSION)
             self.generation+=1;self.last_motion=result
+            self.audit({'type':'motion_instruction',**result})
+            return result
+        result=self.motion.preview(decision,text,plan_only)
+        result.update(operation='motion',raw_text=text,motion=decision,
+                      policy_version=MOTION_POLICY_VERSION,reason=reason)
+        if not plan_only:
+            self.generation+=1;self.last_motion=result;self.motion.last_result=result
         self.audit({'type':'motion_instruction',**result});return result
 
     def start_patrol(self,request):
@@ -294,7 +317,10 @@ class Runtime:
             self.camera_state='unavailable';self.audit({'type':'camera_unavailable','error':str(exc)[:500]})
 
     def stop(self,reason='operator_stop'):
-        self.generation+=1;self.core.stop(time.monotonic(),reason);self.dispatch()
+        self.generation+=1
+        # STOP is enqueued first and never waits for ASR/LLM/vision shutdown.
+        motion_stop=self.motion.stop_now(reason)
+        self.core.stop(time.monotonic(),reason);self.dispatch()
         # Do not wait for slow cancellation to enqueue the FPGA cancellation.
         try:current=asyncio.current_task()
         except RuntimeError:current=None
@@ -303,7 +329,8 @@ class Runtime:
         async def cleanup():
             await self.workers['llm'].close();await self.model_server.close()
         task=asyncio.create_task(cleanup());self.tasks.add(task);task.add_done_callback(self.tasks.discard)
-        return {'status':'stopped','motion_authorized':False,'mission':self.core.snapshot()}
+        return {'status':'stopped','motion_authorized':False,'mission':self.core.snapshot(),
+                'motion_stop':motion_stop}
 
     def warmup(self):
         if self.cfg.get('model_loads_enabled',True) is not True:raise RuntimeError('Model loads HOLD; warmup disabled')
@@ -327,13 +354,14 @@ class Runtime:
             'camera_state':self.camera_state,
             'fpga_camera_configured':self.camera_backend=='fx2' and bool(self.cfg.get('camera',{}).get('enabled',False)),
             'camera_source_time_verified':self.camera_time_verified,'announcements':self.announcements.snapshot(),
-            'voice_motion':{'enabled':self.cfg.get('voice_motion',{}).get('enabled',False),
-                            'policy_version':MOTION_POLICY_VERSION,'transport':'preview_only',
-                            'live_commissioned':False,'last_instruction':self.last_motion},
+            'voice_motion':{**self.motion.snapshot(),'policy_version':MOTION_POLICY_VERSION,
+                            'last_instruction':self.last_motion},
             'policy_version':POLICY_VERSION,'language_profile':self.cfg.get('language_profile','unspecified'),
             'model_loads_enabled':self.cfg.get('model_loads_enabled',True)}
 
     async def close(self):
+        # Best-effort STOP while the shared serial owner is still open.
+        self.motion.close()
         if self.camera_task:self.camera_task.cancel()
         for task in list(self.tasks):task.cancel()
         if self.ticker:self.ticker.cancel()

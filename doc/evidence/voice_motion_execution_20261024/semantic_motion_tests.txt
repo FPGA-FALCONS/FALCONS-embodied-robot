@@ -1,0 +1,17 @@
+test_distance_negation_compound_and_bad_options_refused (test_sender.SenderTests) ... ok
+test_distance_requires_explicit_calibration (test_sender.SenderTests) ... ok
+test_partial_writes_keep_entire_frame (test_sender.SenderTests) ... ok
+test_preview_never_opens_serial (test_sender.SenderTests) ... ok
+test_directed_motion_defaults (test_voice_nav.VoiceNavTests) ... ok
+test_intent_to_frame (test_voice_nav.VoiceNavTests) ... ok
+test_mot1_bad_crc_and_resync (test_voice_nav.VoiceNavTests) ... ok
+test_mot1_round_trip_and_crc (test_voice_nav.VoiceNavTests) ... ok
+test_numbers_and_patrol (test_voice_nav.VoiceNavTests) ... ok
+test_out_of_range_rejected (test_voice_nav.VoiceNavTests) ... ok
+test_spin_both_directions (test_voice_nav.VoiceNavTests) ... ok
+test_stop_and_non_motion (test_voice_nav.VoiceNavTests) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.006s
+
+OK

@@ -1,0 +1,62 @@
+{
+  "language_profile": "zh-C1b-Q8-v1",
+  "artifacts_ok": true,
+  "artifact_checks": [
+    {
+      "artifact": "llm",
+      "exists": true,
+      "valid": true,
+      "sha256_checked": true
+    },
+    {
+      "artifact": "system",
+      "exists": true,
+      "valid": true,
+      "sha256_checked": true
+    },
+    {
+      "artifact": "chat_template",
+      "exists": true,
+      "valid": true,
+      "sha256_checked": true
+    },
+    {
+      "artifact": "asr_model",
+      "exists": true,
+      "valid": true,
+      "sha256_checked": true
+    },
+    {
+      "artifact": "asr_tokens",
+      "exists": true,
+      "valid": true,
+      "sha256_checked": true
+    },
+    {
+      "artifact": "vision",
+      "exists": true,
+      "valid": true,
+      "sha256_checked": true
+    }
+  ],
+  "model_loads_enabled": false,
+  "voice_motion": {
+    "enabled": false,
+    "live_commissioned": false,
+    "backend": "mot1_shared_serial",
+    "device": null,
+    "device_receipts_supported": false,
+    "tof_collision_protection": false
+  },
+  "configured_for_live": false,
+  "physical_acceptance_verified": false,
+  "blockers": [
+    "板端模型负载暂停，等待重启原因排查",
+    "播报为日志模式，USB音箱尚未验收",
+    "相机图像通路尚未配置或验收",
+    "FPGA任务回执通路尚未联调",
+    "当前为观察/仿真模式，未启用实车任务"
+  ],
+  "board_models_loaded": false,
+  "devices_opened": false
+}

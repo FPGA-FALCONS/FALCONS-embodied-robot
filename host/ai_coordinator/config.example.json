@@ -4,6 +4,7 @@
   "mode": "shadow",
   "gateway": {
     "mode": "shadow",
+    "device": null,
     "allow_motion": false
   },
   "microphone": {
@@ -15,7 +16,21 @@
   },
   "voice_motion": {
     "enabled": false,
-    "patrol_target": "fpga_preset"
+    "live_commissioned": false,
+    "backend": "mot1_shared_serial",
+    "patrol_target": "fpga_preset",
+    "speed": 10,
+    "heartbeat_s": 0.2,
+    "turn_window_s": 8.5,
+    "drive_margin_s": 0.3,
+    "distance": {
+      "calibrated": false,
+      "calibrated_speed_mps": null,
+      "min_speed_mps": 0.05,
+      "max_speed_mps": 0.5,
+      "max_distance_m": 2.0,
+      "max_duration_s": 5.0
+    }
   },
   "policy": {
     "ack_timeout_s": 5,

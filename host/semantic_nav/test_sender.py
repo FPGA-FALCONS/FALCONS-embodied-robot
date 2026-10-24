@@ -15,6 +15,16 @@ class SenderTests(unittest.TestCase):
         for seq,speed in ((-1,40),(256,40),(1,-1),(1,256),(1,41)):
             with self.assertRaises(ValueError):send_motion.prepare_frame('前进',seq,speed)
 
+    def test_distance_requires_explicit_calibration(self):
+        with self.assertRaisesRegex(ValueError,'distance_speed_uncalibrated'):
+            send_motion.prepare_frame('前进一米')
+        with self.assertRaisesRegex(ValueError,'distance_speed_uncalibrated'):
+            send_motion.prepare_frame('前进一米',distance={'calibrated':False,'calibrated_speed_mps':.5})
+        intent,frame=send_motion.prepare_frame('前进一米',distance={'calibrated':True,'calibrated_speed_mps':.5})
+        self.assertEqual(intent['distance_mode'],'timed_estimate')
+        self.assertEqual(intent['duration_s'],2.0)
+        self.assertEqual((frame.cmd,frame.value),(1,2000))
+
     def test_preview_never_opens_serial(self):
         with patch.object(send_motion,'open_serial') as opened,patch('sys.stdout',new=io.StringIO()):
             self.assertEqual(send_motion.main(['--dry-run','原地逆时针转一圈']),0)

@@ -24,9 +24,17 @@ def inspect_config(config,deep=False):
     if not cfg.get('camera',{}).get('enabled'):blockers.append('相机图像通路尚未配置或验收')
     if cfg.get('gateway',{}).get('mode')!='serial':blockers.append('FPGA任务回执通路尚未联调')
     if cfg.get('mode')!='live':blockers.append('当前为观察/仿真模式，未启用实车任务')
+    voice=cfg.get('voice_motion',{})
+    if voice.get('enabled') is True and voice.get('live_commissioned') is not True:
+        blockers.append('语音运动已配置但未现场授权 live_commissioned=false')
     artifacts_ok=bool(checks) and all(c['valid'] for c in checks)
     return {'language_profile':cfg.get('language_profile'),'artifacts_ok':artifacts_ok,
             'artifact_checks':checks,'model_loads_enabled':cfg.get('model_loads_enabled',True),
+            'voice_motion':{'enabled':voice.get('enabled') is True,
+                'live_commissioned':voice.get('live_commissioned') is True,
+                'backend':voice.get('backend','mot1_shared_serial'),
+                'device':cfg.get('gateway',{}).get('device'),
+                'device_receipts_supported':False,'tof_collision_protection':False},
             'configured_for_live':not blockers,'physical_acceptance_verified':False,
             'blockers':blockers,'board_models_loaded':False,'devices_opened':False}
 

@@ -71,7 +71,12 @@ def install(args):
     cfg=copy.deepcopy(cfg);cfg.update(language_profile='zh-C1b-Q8-v1',model_loads_enabled=False,mode='shadow')
     cfg['gateway']={**cfg.get('gateway',{}),'mode':'shadow','allow_motion':False}
     cfg['camera']={**cfg.get('camera',{}),'enabled':False}
-    cfg['voice_motion']={**cfg.get('voice_motion',{}),'enabled':False,'patrol_target':'fpga_preset'}
+    voice_motion={**cfg.get('voice_motion',{}),'enabled':False,'live_commissioned':False,
+                  'backend':'mot1_shared_serial','patrol_target':'fpga_preset','speed':10,
+                  'heartbeat_s':.2,'turn_window_s':8.5,'drive_margin_s':.3}
+    voice_motion.setdefault('distance',{'calibrated':False,'calibrated_speed_mps':None,
+        'min_speed_mps':.05,'max_speed_mps':.5,'max_distance_m':2.,'max_duration_s':5.})
+    cfg['voice_motion']=voice_motion
     cfg['announcements']={**cfg.get('announcements',{}),'mode':'log','assets':str(release/'speech'),'device':cfg.get('announcements',{}).get('device')}
     cfg['patrol']={'enabled':False,'waypoints':[],'targets':['screwdriver'],'cycles':1,'stop_band_m':None}
     llm=cfg['models']['llm'];llm['system']=str(system);llm['label']='C1b Q8 / llama.cpp CPU'
@@ -128,7 +133,8 @@ def install(args):
         durable(root/'config.json',old_cfg);durable(root/'active_release.json',previous_active);durable(unit,old_unit)
         control('daemon-reload');control('start','falcons-ai-coordinator.service');raise
     receipt={'release':str(release),'activated':True,'model_loads_enabled':False,'patrol_enabled':False,
-             'voice':'Kokoro zf_001','mode':'shadow','physical_task_completed':False}
+             'voice':'Kokoro zf_001','mode':'shadow','voice_motion_live':False,
+             'device_receipts_supported':False,'physical_task_completed':False}
     durable(release/'deployment_receipt.json',json.dumps(receipt,indent=2));print(json.dumps(receipt))
 
 

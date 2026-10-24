@@ -1,0 +1,11 @@
+{
+  "release": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_181624_c7ae91",
+  "activated": true,
+  "model_loads_enabled": false,
+  "patrol_enabled": false,
+  "voice": "Kokoro zf_001",
+  "mode": "shadow",
+  "voice_motion_live": false,
+  "device_receipts_supported": false,
+  "physical_task_completed": false
+}

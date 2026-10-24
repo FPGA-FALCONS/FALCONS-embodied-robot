@@ -1,0 +1,9 @@
+RTL voice-motion regression, 2026-10-24, Icarus (sim/run_sim.ps1 -Simulator Icarus)
+
+voice_motion_bridge      PASS   71 checks
+uart_command_router       PASS   2304 legal MOT1 frames plus fault/ASCII checks
+voice_motion_integration PASS   16 checks
+
+Scope: existing production router, voice_motion_bridge and voice_nav_arbiter.
+No RTL was changed by the host execution-backend task. This is simulation and
+lint-level evidence, not wheels-up or physical vehicle validation.
