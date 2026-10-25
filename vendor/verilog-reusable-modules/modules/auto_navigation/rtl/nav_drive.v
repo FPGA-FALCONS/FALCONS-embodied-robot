@@ -71,9 +71,10 @@ module nav_drive #(
     localparam integer ALONG_HI = root_floor(2*(FRONT_OFFSET_MM+DIST)*(FRONT_OFFSET_MM+DIST))+1+CELL_MM;
     localparam integer ACROSS_HI = root_floor(2*HALF_WIDTH*HALF_WIDTH)+1+CELL_MM;
     localparam [3:0] IDLE=0, GEOMETRY=1, BOUNDS=2, REQUEST=3, RESPONSE=4,
-                     CELL_CENTER=5, ROTATE=6, FILTER=7, NEXT_CELL=8;
+                     CELL_CENTER=5, ROTATE=6, FILTER=7, NEXT_CELL=8, RELATIVE=9;
     reg [3:0] state;
     reg signed [16:0] cell_dx, cell_dy, along, across;
+    reg signed [16:0] cell_world_x, cell_world_y;
     reg cell_inside;
     wire check_ok = check_enable && pose_valid;
     reg [2:0] scan_dir, result_dir;
@@ -123,6 +124,8 @@ module nav_drive #(
             yhi          <= 0;
             cx           <= 0;
             cy           <= 0;
+            cell_world_x <= 0;
+            cell_world_y <= 0;
             cell_dx      <= 0;
             cell_dy      <= 0;
             along        <= 0;
@@ -162,24 +165,24 @@ module nav_drive #(
                     case (scan_dir)
                         0: begin
                             xmin <= sx + FRONT_OFFSET_MM;
-                            xmax <= sx + FRONT_OFFSET_MM + DIST;
+                            xmax <= sx + (FRONT_OFFSET_MM + DIST);
                             ymin <= sy - HALF_WIDTH;
                             ymax <= sy + HALF_WIDTH;
                         end
                         2: begin
                             ymin <= sy + FRONT_OFFSET_MM;
-                            ymax <= sy + FRONT_OFFSET_MM + DIST;
+                            ymax <= sy + (FRONT_OFFSET_MM + DIST);
                             xmin <= sx - HALF_WIDTH;
                             xmax <= sx + HALF_WIDTH;
                         end
                         4: begin
-                            xmin <= sx - FRONT_OFFSET_MM - DIST;
+                            xmin <= sx - (FRONT_OFFSET_MM + DIST);
                             xmax <= sx - FRONT_OFFSET_MM;
                             ymin <= sy - HALF_WIDTH;
                             ymax <= sy + HALF_WIDTH;
                         end
                         6: begin
-                            ymin <= sy - FRONT_OFFSET_MM - DIST;
+                            ymin <= sy - (FRONT_OFFSET_MM + DIST);
                             ymax <= sy - FRONT_OFFSET_MM;
                             xmin <= sx - HALF_WIDTH;
                             xmax <= sx + HALF_WIDTH;
@@ -224,8 +227,13 @@ module nav_drive #(
                     end
                 end
                 CELL_CENTER: begin
-                    cell_dx <= $signed(cx*CELL_MM)-HALF_MM+CELL_MM/2-sx;
-                    cell_dy <= $signed(cy*CELL_MM)-HALF_MM+CELL_MM/2-sy;
+                    cell_world_x <= $signed(cx*CELL_MM)+(CELL_MM/2-HALF_MM);
+                    cell_world_y <= $signed(cy*CELL_MM)+(CELL_MM/2-HALF_MM);
+                    state <= RELATIVE;
+                end
+                RELATIVE: begin
+                    cell_dx <= cell_world_x-sx;
+                    cell_dy <= cell_world_y-sy;
                     state <= ROTATE;
                 end
                 ROTATE: begin

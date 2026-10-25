@@ -23,7 +23,7 @@ module nav_bfs_tb;
         .mrd_valid(rd),.mrd_ready(rd_ready),.mrd_x(rx),.mrd_y(ry),
         .mrd_rsp_valid(response),.mrd_raw(raw),.mrd_cost(cost),
         .path_valid(valid),.path_ready(take),.path_x(x),.path_y(y),
-        .path_dir(dir),.path_last(last),.busy(busy),.success(success),.no_path(no_path),.path_len(length)
+        .path_dir(dir),.path_last(last),.busy(busy),.success(success),.no_path(no_path),.path_len(length),.start_relaxed()
     );
     function allowed;
         input integer ax,ay;
@@ -58,7 +58,7 @@ module nav_bfs_tb;
             delay_left <= cycles%4;
             if (rx>255 || ry>255) begin $display("FAIL: bfs out-of-map read"); errors = errors+1; end
         end
-        if (dut.tail-dut.head>peak) peak = dut.tail-dut.head;
+        if (dut.state>=7 && dut.state<=13 && dut.tail-dut.head>peak) peak = dut.tail-dut.head;
         if (held && (!valid || {last,dir,y,x} !== hold_data)) stable_ok = 0;
         held = valid && !take;
         if (held) hold_data = {last,dir,y,x};

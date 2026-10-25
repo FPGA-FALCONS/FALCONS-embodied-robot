@@ -23,7 +23,9 @@ def solve(scene):
     if not allowed(sx, sy) or not allowed(gx, gy):
         return [], 0, 0
     parent = {(gx, gy): None}
-    q = deque([(gx, gy, 0)])
+    root_vector = ((sx > gx)-(sx < gx), (sy > gy)-(sy < gy))
+    root_direction = DIR.index(root_vector) if root_vector != (0, 0) else 0
+    q = deque([(gx, gy, root_direction)])
     peak, expanded = 1, 0
     while q and (sx, sy) not in parent:
         x, y, heading = q.popleft()

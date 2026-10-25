@@ -25,7 +25,8 @@ module nav_bfs #(
     output wire        path_last,
     output wire        busy,
     output reg         success, no_path,
-    output reg  [15:0] path_len
+    output reg  [15:0] path_len,
+    output wire        start_relaxed
 );
     localparam integer N = GRID_W * GRID_H;
     localparam [4:0] IDLE = 0, START_READ = 1, GOAL_READ = 2, READ_WAIT = 3,
@@ -38,7 +39,7 @@ module nav_bfs #(
     reg [18:0] queue [0:QMAX-1];
     reg [15:0] sx, sy, start_cell, goal_cell, clear_cell;
     reg [15:0] head, tail, current, walk_cell, next_cell;
-    reg [2:0] heading, cache_dir, slot, next_dir;
+    reg [2:0] heading, cache_dir, slot, next_dir, seed_heading;
     reg [7:0] free_cells;
     reg seen_q, raw_q, cost_q, escape_q, start_blocked;
 
@@ -106,6 +107,7 @@ module nav_bfs #(
     wire [16:0] walk_next = neighbour(walk_cell,path_dir);
     wire mark = state == MARK && !seen_q;
     wire [15:0] queue_mask = QMAX-1;
+    assign start_relaxed = start_blocked;
     assign req_ready = reset_n && state == IDLE;
     assign busy = state != IDLE;
     assign path_valid = reset_n && state == EMIT;
@@ -119,7 +121,7 @@ module nav_bfs #(
             else if (state == SEED) seen[goal_cell] <= 1;
             else if (mark) seen[next_cell] <= 1;
             if (mark) parent[next_cell] <= next_dir^3'd4;
-            if (state == SEED) queue[0] <= {3'd0,goal_cell};
+            if (state == SEED) queue[0] <= {seed_heading,goal_cell};
             else if (mark && next_cell != start_cell && tail-head<QMAX)
                 queue[tail&queue_mask] <= {next_dir,next_cell};
         end
@@ -142,6 +144,7 @@ module nav_bfs #(
             current <= 0;
             walk_cell <= 0;
             next_cell <= 0;
+            seed_heading <= 0;
             heading <= 0;
             cache_dir <= 0;
             slot <= 0;
@@ -161,6 +164,11 @@ module nav_bfs #(
                 success <= 0;
                 no_path <= 0;
                 path_len <= 0;
+                // 根节点按目标指向起点的方向展开，开放轴向路段不会因固定东向种子绕行。
+                seed_heading <= start_y==goal_y ? (start_x>=goal_x ? 3'd0 : 3'd4) :
+                                start_x==goal_x ? (start_y>=goal_y ? 3'd2 : 3'd6) :
+                                start_x>goal_x ? (start_y>goal_y ? 3'd1 : 3'd7) :
+                                                (start_y>goal_y ? 3'd3 : 3'd5);
                 sx <= start_x;
                 sy <= start_y;
                 start_cell <= start_y*GRID_W+start_x;

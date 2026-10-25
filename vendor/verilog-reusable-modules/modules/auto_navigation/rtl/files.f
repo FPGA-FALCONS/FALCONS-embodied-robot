@@ -6,6 +6,7 @@ nav_scanner.v
 nav_scan_accumulator.v
 nav_bfs.v
 nav_line_cells.v
+nav_center.v
 nav_planner.v
 nav_route.v
 nav_segments.v
