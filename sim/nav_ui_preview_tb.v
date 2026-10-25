@@ -33,7 +33,7 @@ module nav_ui_preview_tb;
         .map_start(map_start), .map_done(map_done),
         .route_valid(route_valid), .route_x(route_x), .route_y(route_y),
         .route_start(route_start), .route_done(route_done),
-        .cmd_valid(1'b0), .target_axis_y(1'b0),
+        .cmd_valid(1'b0), .target_line_dir(2'd0),
         .pose_x_mm(32'sd0), .pose_y_mm(32'sd0),
         .target_x_mm(32'sd0), .target_y_mm(32'sd0),
         .pixel_clk(pixel_clk), .pixel_rst_n(rst_n), .frame_start(frame_start),

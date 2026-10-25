@@ -13,7 +13,7 @@
 //   - target_x/y 保留当前段；drive_x/y/index 为最远控制目标，final_target 属于这个输出目标。
 // 关键不变量：
 //   - 活动路线在候选失败时保持；只有 publish 更新 active_length/route_id。
-//   - X 字高两位存方向，低 16 位是格号；锁定段保留，仅输出时跨同向边界取最远点。
+//   - X 字高三位存方向，低 16 位是格号；锁定段保留，仅输出时跨同向边界取最远点。
 // 禁止事项：
 //   - 不要把 final_target 当整车最终目标，它只表示活动前缀末点。
 //   - 显示帧遇发布或失效会中止，下次 start 丢弃未完成帧；完成帧只含同一活动路线。
@@ -31,7 +31,7 @@ module nav_route #(
                               load_full,
     input  wire        [15:0] load_x,
                               load_y,
-    input  wire         [1:0] load_dir,
+    input  wire         [2:0] load_dir,
     input  wire               publish,
     output reg                active_valid,
     output reg         [15:0] active_length,
@@ -39,7 +39,7 @@ module nav_route #(
     input  wire        [15:0] target_index,
     output reg         [15:0] target_x,
                               target_y,
-    output reg          [1:0] target_dir,
+    output reg          [2:0] target_dir,
     output wire               final_target,
     output wire        [15:0] drive_x,
                               drive_y,
@@ -59,12 +59,13 @@ module nav_route #(
     output wire               route_disp_frame_start,
     output wire               route_disp_frame_done
 );
-    // X 字扩为 18 位，方向占用原 BSRAM 字的两位余量，共用已有读口。
-    reg [17:0] wp_x[0:1][0:MAX_WP-1];
+    // X 字扩为 19 位，保存三位方向，共用已有同步读口。
+    reg [18:0] wp_x[0:1][0:MAX_WP-1];
     reg [15:0] wp_y[0:1][0:MAX_WP-1];
     reg bank, done;
     reg [15:0] count, first_x, first_y;
-    reg [1:0] publish_hold, first_dir;
+    reg [1:0] publish_hold;
+    reg [2:0] first_dir;
     // 后续路线已经合并同向点，只有锁定首段与其后第一段可能同向。
     reg [15:0] first_drive_x, first_drive_y, active_drive_x, active_drive_y;
     reg first_joined, active_joined;

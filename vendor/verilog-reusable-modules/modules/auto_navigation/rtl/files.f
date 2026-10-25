@@ -4,6 +4,9 @@ nav_polar.v
 nav_map.v
 nav_scanner.v
 nav_scan_accumulator.v
+nav_dijkstra.v
+nav_line_cells.v
+nav_center.v
 nav_planner.v
 nav_route.v
 nav_segments.v

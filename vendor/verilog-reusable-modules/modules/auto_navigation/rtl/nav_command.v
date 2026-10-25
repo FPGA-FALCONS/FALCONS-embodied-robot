@@ -7,7 +7,7 @@
 //   - 输出当前方向最远已验证终点；不生成 v/ω，不重复判断控制器停稳。
 // 接口约定：
 //   - 单时钟、异步低有效复位；目标位置用 signed mm。
-//   - segment_dir：0 东、1 北、2 西、3 南；segment_valid 覆盖坐标和元数据对齐。
+//   - segment_dir：0 东起逆时针 0..7；segment_valid 覆盖坐标和元数据对齐。
 //   - 正常 cmd_valid↑→ctrl_done↑→cmd_valid↓→ctrl_done↓；done 是保持电平。
 //   - 急停先等 done=0 再等新的 done=1；有可执行动作才撤急停，再等 done=0。
 //   - 同方向纵向终点允许实时更新；ctrl_linear_active 表示即将或正在平移。
@@ -29,8 +29,8 @@ module nav_command (
     input  wire               segment_valid,
                               segment_last,
                               segment_final,
-    // 0 东 / 1 北 / 2 西 / 3 南
-    input  wire         [1:0] segment_dir,
+    // 0 东、1 东北、2 北、3 西北、4 西、5 西南、6 南、7 东南
+    input  wire         [2:0] segment_dir,
     input  wire signed [31:0] segment_x_mm,
                               segment_y_mm,
     input  wire        [15:0] segment_index,
@@ -40,8 +40,8 @@ module nav_command (
     output wire               cmd_valid,
     output reg  signed [31:0] target_x_mm,
                               target_y_mm,
-    // 显示当前任务轴向：0 水平、1 竖直，仅 cmd_valid=1 时使用。
-    output wire               target_axis_y,
+    // 显示当前任务线型：0 水平、1 正45°、2 竖直、3 负45°，仅 cmd_valid 有效时使用。
+    output wire         [1:0] target_line_dir,
     output wire               emergency_stop,
     output reg                advance,
     output reg         [15:0] advance_index,
@@ -62,10 +62,10 @@ module nav_command (
                      FINISHED     = 8,
                      MOVE_RELEASE = 9;
     reg [3:0] state;
-    reg [1:0] command_dir;
+    reg [2:0] command_dir;
     reg signed [31:0] sx_q, sy_q;
     reg [15:0] index_q, command_index;
-    reg [1:0] dir_q;
+    reg [2:0] dir_q;
     reg last_q, final_q, command_last, command_final;
     reg segment_valid_q;
     // 描述符寄存后再执行，路线 RAM 和毫米换算不叠进控制寄存器使能。
@@ -93,7 +93,7 @@ module nav_command (
     wire data_fault = !enable || !sensors_valid || !route_valid;
     wire incompatible = usable && dir_q != command_dir;
     assign cmd_valid = reset_n && active;
-    assign target_axis_y = command_dir[0];
+    assign target_line_dir = command_dir[1:0];
     assign emergency_stop = reset_n && (state == STOP_LOW || state == STOP_DONE || state == HOLD);
     assign stopped = state == HOLD || state == RELEASE || state == SELECT ||
         state == WAIT_SEGMENT || state == FINISHED || state == MOVE_RELEASE;

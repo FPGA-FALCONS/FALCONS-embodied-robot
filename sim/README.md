@@ -15,10 +15,10 @@
 | nav_pose | 实际 odom 流水 → 导航位置 / 控制采样，不滞后一个测速窗口 |
 | radar_map | UART 实包、公共位姿、四朝向障碍、清零 |
 | obstacle_page | 独立避障页面、16 目的地、暂停 / 手动接管、无路不跳点 |
-| obstacle_plan | UI 目标接真实 BFS，未授权运动时预规划 |
+| obstacle_plan | UI 目标接真实 Dijkstra，未授权运动时预规划 |
 | nav_point_ctrl | 动态目标、先转再走、完成电平、停车握手与抢占 |
 | nav_map_view | 地图 / 路线双缓冲、空路线、覆盖旧点、中止帧、完整线段 |
-| obstacle_motion | 真实 UI + BFS + 点位控制，两个目的地、转弯、暂停恢复、近障停车及清除后续行 |
+| obstacle_motion | 真实 UI + Dijkstra + 点位控制，两个目的地、转弯、暂停恢复、近障停车及清除后续行 |
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64
@@ -181,3 +181,34 @@ powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_radar_gate.ps1 -Netl
 新增 `nav_command` 20 项 / 92 周期，验证显示轴向对应正在执行的目标任务，包含四方向、同向动态目标与换向停车握手。`nav_map_view` 从 17 增至 40 项 / 1049163 周期，验证忽略横向偏差的四方向当前段、前进清尾、目标延长/缩短、零长度、撤销、帧内输入变化、保留中间锁定点和后续拐角；原地图与路线双缓冲断言保留。UART 显示测试、静态预览显式连接新增输入。
 
 35 台完整应用回归通过，补充显示三项后对 `nav_map_view,nav_command,radar_coordinates` 定向回归通过，最终累计 3234 项。运动仍为 98000033 周期 / 22 轮规划，六页原扫描指纹不变。命令、显示绘制周期与范围见[本轮验证](../doc/当前段轴线补画验证_20261023.md)。
+
+
+## 八方向搜索核心（2026-10-25）
+
+新增 `nav_bfs` 自检：41 个室内、方向和墙角场景，对照独立等权 BFS 的完整逐格路径，164 项 / 12639801 周期通过，队列峰值 452/8192。读图和输出都有背压；斜向必须检查两侧格。生成器 `sim/bfs_eight.py` 仅依赖标准库和已有地图函数，产物在 `logs/eight_direction/fixtures/`。阶段实现、回归及构建对比见[改造记录](../doc/八方向导航改造记录_20261025.md)。
+
+
+## 八方向导航链路（2026-10-25）
+
+`nav_planner` 已切换为八方向压缩航点验证：41 个地图、164 项，逐格还原航点与独立 BFS 对照。原直角居中内部探针断言随算法替换删除，新八方向居中在下一步独立验证。新增 `nav_line_cells` 17 项 / 228 周期、`nav_drive` 33 项 / 1253125 周期（扫描最长 478 周期）、`nav_route` 32 项 / 243 周期；`nav_command` 扩至 40 项，显示扩至 47 项 / 1377026 周期。八方向握手、锁定前缀和候选隔离均通过。
+
+本步完整 47 台 / 8226 项通过。运动台 228000033 周期 / 48 轮规划，两个目的地、暂停恢复、raw 急停及清障续行通过；等权八方向路线不保证运动时间比四方向更短。交付显示字段已替换为两位 `target_line_dir`。
+
+
+## 八方向居中（2026-10-25）
+
+新增 `nav_center` 41 项 / 32642 周期，覆盖八方向预期平移、端点与非整步尾点、全段最小间隙、预算拒绝、探针之间障碍的完整复核；新增 `nav_planner_limit` 6 项 / 22336 周期，覆盖居中后中继、容量截断排空、重入和起终点同格。规划台同时运行 CENTER_EN=0/1，329 项 / 12661972 周期，41 图中实际接受 22 次居中（8 次斜段）。所有航点逐格还原检查通行性，斜步检查两侧格，原始输出匹配独立参考，居中输出检查 10/14 增长预算。
+
+完整 49 台 / 8438 项通过；前探再拆相对坐标寄存拍后，前探、实际运动、UI 规划三台再次通过。运动恢复为 98000033 周期 / 22 轮规划；前探最长 548 周期。`python sim/plot_bfs_eight.py --centered` 绘制真实居中航点与原始路线对照；不将绘图当功能自检。根节点方向改为目标朝起点，避免固定东向种子带来的开放轴向斜折；BFS 仍等权。
+
+
+## 四桶 Dijkstra（2026-10-25，替换等权八方向版本）
+
+当前入口为 `nav_dijkstra`、`nav_dijkstra_pool` 和 `nav_planner`。搜索参考由 `dijkstra_eight.py` 用独立二叉堆生成，直步 2、斜步 3；同一格等代价时优先累计转弯少，再保留直行扩展的发现顺序。57 张图包含原 41 图、不等长斜段和 12 组室内随机障碍。新增小容量共享池自检覆盖满池失败、释放复用、重复请求和搜索中复位。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64
+python sim/plot_dijkstra.py --centered
+```
+
+生成物在 `logs/dijkstra/`。绘图从 `baseline_route/waypoints_center_1.csv` 读取改造前等权 BFS 的实际居中航点，从本轮回归读取 Dijkstra 航点；相同地图、原点、膨胀和居中参数。前面等权 BFS 小节是历史结果；对应搜索模块、参考生成和绘图入口已由本节替换，生产 RTL 不保留旧算法分支。完整结果见 [Dijkstra 验证记录](../doc/Dijkstra导航验证_20261025.md)。

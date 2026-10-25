@@ -3,9 +3,10 @@
 module nav_command_tb;
     reg clk = 0, reset_n = 0, enable = 0, ctrl_done = 0;
     always #10 clk = ~clk;
-    reg [1:0] segment_dir = 0;
+    reg [2:0] segment_dir = 0;
     reg signed [31:0] segment_x_mm = 500, segment_y_mm = 25;
-    wire cmd_valid, emergency_stop, target_axis_y;
+    wire cmd_valid, emergency_stop;
+    wire [1:0] target_line_dir;
     wire signed [31:0] target_x_mm, target_y_mm;
     integer cycles = 0, checks = 0, errors = 0, direction;
     always @(posedge clk) cycles <= cycles + 1;
@@ -18,7 +19,7 @@ module nav_command_tb;
         .segment_y_mm(segment_y_mm), .segment_index(16'd0),
         .forward_clear(1'b1), .ctrl_linear_active(1'b1), .ctrl_done(ctrl_done),
         .cmd_valid(cmd_valid), .target_x_mm(target_x_mm), .target_y_mm(target_y_mm),
-        .target_axis_y(target_axis_y), .emergency_stop(emergency_stop),
+        .target_line_dir(target_line_dir), .emergency_stop(emergency_stop),
         .advance(), .advance_index(), .arrived(), .at_target(), .stopped()
     );
 
@@ -35,7 +36,7 @@ module nav_command_tb;
     endtask
 
     initial begin
-        for (direction = 0; direction < 4; direction = direction + 1) begin
+        for (direction = 0; direction < 8; direction = direction + 1) begin
             @(negedge clk);
             reset_n = 0;
             enable = 0;
@@ -54,23 +55,29 @@ module nav_command_tb;
             ctrl_done = 0;
             wait (cmd_valid);
             @(negedge clk);
-            check(target_axis_y == (direction % 2) &&
+            check(target_line_dir == (direction % 4) &&
                   target_x_mm == 500 && target_y_mm == 25,
                   "accepted task axis matches coordinates for each direction");
 
-            if (direction % 2 == 0) segment_x_mm = 800;
-            else segment_y_mm = 800;
+            case (direction)
+                0,1,7: segment_x_mm = segment_x_mm+300;
+                3,4,5: segment_x_mm = segment_x_mm-300;
+            endcase
+            case (direction)
+                1,2,3: segment_y_mm = segment_y_mm+300;
+                5,6,7: segment_y_mm = segment_y_mm-300;
+            endcase
             repeat (4) @(negedge clk);
-            check(cmd_valid && target_axis_y == (direction % 2) &&
+            check(cmd_valid && target_line_dir == (direction % 4) &&
                   target_x_mm == segment_x_mm && target_y_mm == segment_y_mm,
                   "same-direction target update preserves active axis");
 
-            segment_dir = (direction + 1) % 4;
+            segment_dir = (direction + 1) % 8;
             @(negedge clk);
-            check(cmd_valid && target_axis_y == (direction % 2),
+            check(cmd_valid && target_line_dir == (direction % 4),
                   "incoming direction does not change active command axis early");
             repeat (3) @(negedge clk);
-            check(emergency_stop && !cmd_valid && target_axis_y == (direction % 2),
+            check(emergency_stop && !cmd_valid && target_line_dir == (direction % 4),
                   "incompatible direction still stops before replacing command");
             ctrl_done = 1;
             wait (!emergency_stop);
@@ -78,7 +85,7 @@ module nav_command_tb;
             ctrl_done = 0;
             wait (cmd_valid);
             @(negedge clk);
-            check(target_axis_y == ((direction + 1) % 2),
+            check(target_line_dir == ((direction + 1) % 4),
                   "new task axis changes only after stop handshake");
         end
         $display("CHECKS: %0d", checks);

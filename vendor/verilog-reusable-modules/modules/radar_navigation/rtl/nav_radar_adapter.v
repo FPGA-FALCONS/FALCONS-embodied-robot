@@ -70,8 +70,8 @@ module nav_radar_adapter #(
     output wire signed [31:0] target_x_mm,
     // 任务连续世界目标 y，signed mm；与 x 一起交给控制器。
     output wire signed [31:0] target_y_mm,
-    // 显示当前任务轴向：0 水平、1 竖直，仅 cmd_valid=1 时使用。
-    output wire               target_axis_y,
+    // 显示当前任务线型：0 水平、1 正45°、2 竖直、3 负45°，仅 cmd_valid 有效时使用。
+    output wire         [1:0] target_line_dir,
 
     // 正式任务接口：供整车界面读取。
     // 正式任务状态：0关闭/1运行中/2暂停/3已到达/4无路；不用于底盘控制。
@@ -223,7 +223,7 @@ module nav_radar_adapter #(
         .emergency_stop     (emergency_stop),
         .target_x_mm        (target_x_mm),
         .target_y_mm        (target_y_mm),
-        .target_axis_y      (target_axis_y),
+        .target_line_dir      (target_line_dir),
         .nav_state          (nav_state),
         .st_sensors_valid   (st_sensors_valid),
         .st_brake_clear     (st_brake_clear),
