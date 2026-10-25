@@ -44,7 +44,7 @@ def solve(scene):
             dx, dy = DIR[direction]
             child = (x+dx, y+dy)
             candidate = value + (3 if dx and dy else 2)
-            turn_count = turns[point] + int(point != (gx,gy) and direction != heading[point])
+            turn_count = min(255, turns[point] + int(point != (gx,gy) and direction != heading[point]))
             old = distance.get(child, 1 << 30)
             if (not allowed(*child) or candidate > old or
                     (candidate == old and turn_count >= turns[child]) or
@@ -99,6 +99,21 @@ def fixtures():
             raw[y*N+x] = 0
         cases.append(dict(name=f'room_furniture_random_{seed}', raw=raw, cost=bytearray(raw),
                           start=(112,112), goal=(143,139), escape=0))
+    # A single thin corridor with 258 right-angle turns; no diagonal corner cuts.
+    raw = bytearray([1])*(N*N)
+    cursor = [4,2]
+    raw[cursor[1]*N+cursor[0]] = 0
+    def line_to(x,y):
+        dx=(x>cursor[0])-(x<cursor[0]);dy=(y>cursor[1])-(y<cursor[1])
+        while cursor != [x,y]:
+            cursor[0]+=dx;cursor[1]+=dy;raw[cursor[1]*N+cursor[0]]=0
+    for x,y in [(6,2),(6,0),(8,0),(8,2),(12,2),(12,0),(14,0),(14,2),(20,2)]:
+        line_to(x,y)
+    for row in range(1,126):
+        line_to(cursor[0],2+2*row)
+        line_to(4 if row%2 else 20,2+2*row)
+    cases.append(dict(name='turn_count_saturates',raw=raw,cost=bytearray(raw),
+                      start=(4,2),goal=tuple(cursor),escape=0))
     return cases
 
 
@@ -111,7 +126,7 @@ def main():
     manifest, records = [str(len(cases))], []
     for index, case in enumerate(cases):
         path, peak, expanded = solve(case)
-        assert peak < 8192
+        assert peak < 2048
         (args.output/f'map_{index}.hex').write_text(
             ''.join(f'{2*r+c:x}\n' for r, c in zip(case['raw'], case['cost'])), encoding='ascii')
         (args.output/f'path_{index}.hex').write_text(
@@ -124,6 +139,9 @@ def main():
             assert weighted == 2*max(ax,ay)+min(ax,ay)
             directions = [(b%N-a%N,b//N-a//N) for a,b in zip(path,path[1:])]
             assert sum(a != b for a,b in zip(directions,directions[1:])) <= 1
+        if case['name']=='turn_count_saturates':
+            directions=[(b%N-a%N,b//N-a//N) for a,b in zip(path,path[1:])]
+            assert sum(a!=b for a,b in zip(directions,directions[1:]))>255
         records.append(dict(index=index, name=case['name'], steps=len(path)-1,
                             cost=weighted, peak=peak, expanded=expanded))
     (args.output/'cases.txt').write_text('\n'.join(manifest)+'\n', encoding='ascii')

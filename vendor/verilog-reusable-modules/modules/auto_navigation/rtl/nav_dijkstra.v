@@ -1,11 +1,12 @@
 // 八方向反向 Dijkstra：直步 2、斜步 3，四个循环桶内按 FIFO 排序。
 // 等代价优先累计转弯少，再保留先发现的父方向；单格单父，不保证全局最少转弯。
-// 距离、父方向、条目格号和链指针均为同步 RAM，单写口；访问和比较分拍。
+// 每格仅存未发现/已确定/四桶编号；转弯计数饱和于 255。
+// 桶状态、父方向、条目格号和链指针均为同步 RAM，单写口；访问和比较分拍。
 // 输出包含起终点，path_len 仍为格步数；局部接出和斜向两侧格规则沿用规划器。
 module nav_dijkstra #(
     parameter integer GRID_W      = 256,
                       GRID_H      = 256,
-                      QMAX        = 8192,
+                      QMAX        = 2048,
                       START_RELAX = 4
 ) (
     input  wire        clk,
@@ -32,20 +33,20 @@ module nav_dijkstra #(
     localparam integer N = GRID_W * GRID_H;
     localparam integer AW = $clog2(QMAX);
     localparam integer INIT_N = N > QMAX ? N : QMAX;
-    // 65535 条边、每边最多 3，18 位可覆盖整个地图；全 1 表示未发现。
-    localparam [17:0] INF = 18'h3ffff;
+    localparam [2:0] UNSEEN = 3'b000, SETTLED = 3'b001;
     localparam [4:0] IDLE = 0, START_READ = 1, GOAL_READ = 2,
                      READ_WAIT = 3, READ_TAKE = 4, CLEAR = 5, SEED = 6,
                      PICK = 7, POP_READ = 8, POP_TAKE = 9,
-                     DIST_READ = 10, DIST_TAKE = 11, CACHE = 12,
+                     NODE_READ = 10, NODE_TAKE = 11, CACHE = 12,
                      CACHE_NEXT = 13, EXPAND = 14, RELAX_READ = 15,
                      RELAX = 16, ALLOC_READ = 17, ENQUEUE = 18,
                      NEXT = 19, WALK_READ = 20, WALK_TAKE = 21, EMIT = 22,
-                     RELAX_TAKE = 23, TIE_MARK = 24;
+                     RELAX_TAKE = 23, TIE_MARK = 24,
+                     SETTLE = 25, RELATIVE = 26;
 
     reg [4:0] state, read_return;
-    reg [17:0] distance [0:N-1];
-    reg [15:0] turns [0:N-1];
+    reg [2:0] node_tag [0:N-1];
+    reg [7:0] turns [0:N-1];
     reg [2:0] parent [0:N-1];
     reg [15:0] entry_cell [0:QMAX-1];
     reg [AW-1:0] link [0:QMAX-1];
@@ -53,8 +54,9 @@ module nav_dijkstra #(
     reg [3:0] bucket_empty;
     reg [AW-1:0] free_head, pop_slot, alloc_slot;
     reg [AW:0] free_count;
-    reg [17:0] current_cost, trial_cost, distance_q;
-    reg [15:0] current_turns, trial_turns, turns_q;
+    reg [1:0] current_bucket, trial_bucket, trial_step, node_offset;
+    reg [2:0] node_q;
+    reg [7:0] current_turns, trial_turns, turns_q;
     reg shorter, equal_cost, fewer_turns;
     reg [AW-1:0] link_q;
     reg [15:0] cell_q;
@@ -136,35 +138,38 @@ module nav_dijkstra #(
     wire seed_en = reset_n && state == SEED;
     wire push_en = reset_n && state == ENQUEUE;
     wire tie_en = reset_n && state == TIE_MARK;
+    wire settle_en = reset_n && state == SETTLE;
     wire pop_en = reset_n && state == POP_TAKE;
-    wire [1:0] push_bucket = trial_cost[1:0];
-    wire [1:0] pop_bucket = current_cost[1:0];
 
     // 各 RAM 统一写口；读口寄存器不复位，使用前由对应读状态装入。
-    wire dist_we = (clear_en && clear_cell < N) || seed_en || push_en || tie_en;
-    wire [15:0] dist_wa = clear_en ? clear_cell : (seed_en ? goal_cell : next_cell);
-    wire [17:0] dist_wd = clear_en ? INF : (seed_en ? 18'd0 : trial_cost);
-    wire [15:0] dist_ra = state == RELAX_READ ? next_cell : current;
+    wire init_node = clear_en && clear_cell < N;
+    wire tag_we = init_node || seed_en || push_en || settle_en;
+    wire [15:0] table_wa = clear_en ? clear_cell :
+                             (seed_en ? goal_cell : (settle_en ? current : next_cell));
+    wire [2:0] tag_wd = clear_en ? UNSEEN :
+                           (settle_en ? SETTLED : {1'b1,seed_en ? 2'd0 : trial_bucket});
+    wire turns_we = init_node || seed_en || push_en || tie_en;
+    wire [15:0] table_ra = state == RELAX_READ ? next_cell : current;
     wire [15:0] parent_ra = state == WALK_READ ? walk_cell : current;
     wire cell_we = seed_en || push_en;
     wire [AW-1:0] cell_wa = seed_en ? {AW{1'b0}} : alloc_slot;
     wire [15:0] cell_wd = seed_en ? goal_cell : next_cell;
     wire link_we = (clear_en && clear_cell < QMAX) || pop_en ||
-                   (push_en && !bucket_empty[push_bucket]);
+                   (push_en && !bucket_empty[trial_bucket]);
     wire [AW-1:0] link_wa = clear_en ? clear_cell[AW-1:0] :
-                                (pop_en ? pop_slot : bucket_tail[push_bucket]);
+                                (pop_en ? pop_slot : bucket_tail[trial_bucket]);
     wire [AW-1:0] link_wd = clear_en ? clear_cell[AW-1:0] + 1'b1 :
                                 (pop_en ? free_head : alloc_slot);
     wire [AW-1:0] link_ra = state == POP_READ ? pop_slot : free_head;
     always @(posedge clk) begin
-        if (dist_we) distance[dist_wa] <= dist_wd;
-        if (dist_we) turns[dist_wa] <= clear_en || seed_en ? 16'd0 : trial_turns;
+        if (tag_we) node_tag[table_wa] <= tag_wd;
+        if (turns_we) turns[table_wa] <= clear_en || seed_en ? 8'd0 : trial_turns;
         if (push_en || tie_en) parent[next_cell] <= next_dir ^ 3'd4;
         if (cell_we) entry_cell[cell_wa] <= cell_wd;
         if (link_we) link[link_wa] <= link_wd;
-        if (state == DIST_READ || state == RELAX_READ) distance_q <= distance[dist_ra];
-        if (state == DIST_READ || state == RELAX_READ) turns_q <= turns[dist_ra];
-        if (state == DIST_READ || state == WALK_READ) parent_q <= parent[parent_ra];
+        if (state == NODE_READ || state == RELAX_READ) node_q <= node_tag[table_ra];
+        if (state == NODE_READ || state == RELAX_READ) turns_q <= turns[table_ra];
+        if (state == NODE_READ || state == WALK_READ) parent_q <= parent[parent_ra];
         if (state == POP_READ || state == ALLOC_READ) link_q <= link[link_ra];
         if (state == POP_READ) cell_q <= entry_cell[pop_slot];
     end
@@ -206,8 +211,10 @@ module nav_dijkstra #(
             success <= 0;
             no_path <= 0;
             path_len <= 0;
-            current_cost <= 0;
-            trial_cost <= 0;
+            current_bucket <= 0;
+            trial_bucket <= 0;
+            trial_step <= 0;
+            node_offset <= 0;
             current_turns <= 0;
             trial_turns <= 0;
             shorter <= 0;
@@ -284,30 +291,30 @@ module nav_dijkstra #(
                 bucket_empty <= 4'b1110;
                 free_head <= 1;
                 free_count <= QMAX-1;
-                current_cost <= 0;
+                current_bucket <= 0;
                 state <= PICK;
             end
             PICK: if (&bucket_empty) begin
                 no_path <= 1;
                 state <= IDLE;
-            end else if (bucket_empty[pop_bucket]) current_cost <= current_cost + 1'b1;
+            end else if (bucket_empty[current_bucket]) current_bucket <= current_bucket + 1'b1;
             else begin
-                pop_slot <= bucket_head[pop_bucket];
+                pop_slot <= bucket_head[current_bucket];
                 state <= POP_READ;
             end
             POP_READ: state <= POP_TAKE;
             POP_TAKE: begin
                 current <= cell_q;
-                if (bucket_head[pop_bucket] == bucket_tail[pop_bucket]) bucket_empty[pop_bucket] <= 1;
-                else bucket_head[pop_bucket] <= link_q;
+                if (bucket_head[current_bucket] == bucket_tail[current_bucket]) bucket_empty[current_bucket] <= 1;
+                else bucket_head[current_bucket] <= link_q;
                 free_head <= pop_slot;
                 free_count <= free_count + 1'b1;
-                state <= DIST_READ;
+                state <= NODE_READ;
             end
-            DIST_READ: state <= DIST_TAKE;
-            DIST_TAKE: if (distance_q != current_cost) state <= PICK;
+            NODE_READ: state <= NODE_TAKE;
+            NODE_TAKE: state <= node_q[2] && node_q[1:0] == current_bucket ? SETTLE : PICK;
             // 只有从最小代价桶取出起点，才确定最终父链；旧条目直接跳过。
-            else if (current == start_cell) begin
+            SETTLE: if (current == start_cell) begin
                 walk_cell <= start_cell;
                 state <= WALK_READ;
             end else begin
@@ -339,14 +346,21 @@ module nav_dijkstra #(
             else begin
                 next_cell <= expand_cell[15:0];
                 next_dir <= expand_dir;
-                trial_cost <= current_cost + (expand_dir[0] ? 18'd3 : 18'd2);
-                trial_turns <= current_turns + {15'd0,current != goal_cell && expand_dir != heading};
+                trial_step <= expand_dir[0] ? 2'd3 : 2'd2;
+                trial_bucket <= current_bucket + (expand_dir[0] ? 2'd3 : 2'd2);
+                trial_turns <= current_turns +
+                    {7'd0,current != goal_cell && expand_dir != heading && !(&current_turns)};
                 state <= RELAX_READ;
             end
-            RELAX_READ: state <= RELAX;
+            RELAX_READ: state <= RELATIVE;
+            // 有效未确定代价仅在 d..d+3，模 4 相减即可恢复相对代价。
+            RELATIVE: begin
+                node_offset <= node_q[1:0] - current_bucket;
+                state <= RELAX;
+            end
             RELAX: begin
-                shorter <= trial_cost < distance_q;
-                equal_cost <= trial_cost == distance_q;
+                shorter <= node_q == UNSEEN || (node_q[2] && trial_step < node_offset);
+                equal_cost <= node_q[2] && trial_step == node_offset;
                 fewer_turns <= trial_turns < turns_q;
                 state <= RELAX_TAKE;
             end
@@ -363,9 +377,9 @@ module nav_dijkstra #(
                 state <= ENQUEUE;
             end
             ENQUEUE: begin
-                if (bucket_empty[push_bucket]) bucket_head[push_bucket] <= alloc_slot;
-                bucket_tail[push_bucket] <= alloc_slot;
-                bucket_empty[push_bucket] <= 0;
+                if (bucket_empty[trial_bucket]) bucket_head[trial_bucket] <= alloc_slot;
+                bucket_tail[trial_bucket] <= alloc_slot;
+                bucket_empty[trial_bucket] <= 0;
                 free_head <= link_q;
                 free_count <= free_count - 1'b1;
                 state <= NEXT;

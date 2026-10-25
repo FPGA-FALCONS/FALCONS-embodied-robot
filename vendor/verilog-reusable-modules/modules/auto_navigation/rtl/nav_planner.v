@@ -1,7 +1,7 @@
 // 八方向规划流水：2/3 Dijkstra → 共线段终点 → 三段窗口居中 → 有限间距航点。
 // 中继放在居中之后，避免把长段提前截断而失去两端的转角上下文。
 module nav_planner #(
-    parameter integer GRID_W = 16, GRID_H = 16, QMAX = 8192, W_MAX = 39,
+    parameter integer GRID_W = 16, GRID_H = 16, QMAX = 2048, W_MAX = 39,
                       BFS_RELAX = 4, CENTER_EN = 1, L_MIN = 4, PROBE_D = 20, PROBE_STEP = 4,
                       CLEAR_TRIGGER = 8, PATH_INC_MAX = 20
 ) (

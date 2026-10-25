@@ -204,7 +204,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_radar_gate.ps1 -Netl
 
 ## 四桶 Dijkstra（2026-10-25，替换等权八方向版本）
 
-当前入口为 `nav_dijkstra`、`nav_dijkstra_pool` 和 `nav_planner`。搜索参考由 `dijkstra_eight.py` 用独立二叉堆生成，直步 2、斜步 3；同一格等代价时优先累计转弯少，再保留直行扩展的发现顺序。57 张图包含原 41 图、不等长斜段和 12 组室内随机障碍。新增小容量共享池自检覆盖满池失败、释放复用、重复请求和搜索中复位。
+当前入口为 `nav_dijkstra`、`nav_dijkstra_pool` 和 `nav_planner`。搜索参考由 `dijkstra_eight.py` 用独立二叉堆生成，直步 2、斜步 3；同一格等代价时优先累计转弯少，再保留直行扩展的发现顺序。当前 58 张图包含原 41 图、不等长斜段、12 组室内随机障碍和超过 255 次转弯的单通道。参考仍保存完整累计代价，转弯计数饱和于 255；RTL 使用三位桶状态和 2048 条共享队列。新增小容量共享池自检覆盖满池失败、释放复用、重复请求和搜索中复位。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64
@@ -212,3 +212,8 @@ python sim/plot_dijkstra.py --centered
 ```
 
 生成物在 `logs/dijkstra/`。绘图从 `baseline_route/waypoints_center_1.csv` 读取改造前等权 BFS 的实际居中航点，从本轮回归读取 Dijkstra 航点；相同地图、原点、膨胀和居中参数。前面等权 BFS 小节是历史结果；对应搜索模块、参考生成和绘图入口已由本节替换，生产 RTL 不保留旧算法分支。完整结果见 [Dijkstra 验证记录](../doc/Dijkstra导航验证_20261025.md)。
+
+
+## Dijkstra 存储缩减（2026-10-25）
+
+3 位状态替换 18 位绝对距离，增加 SETTLE 和 RELATIVE 两拍；8 位饱和转弯计数替换 16 位计数，默认队列 2048。nav_dijkstra 自检额外检查起点已确定状态、转弯计数、桶回绕、旧条目与饱和场景。原 57 图的原始/居中航点与改前 CSV 逐条比较。验证与同主线基线的综合布线对比见 [存储优化记录](../doc/Dijkstra存储优化验证_20261025.md)。

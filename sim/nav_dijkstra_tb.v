@@ -11,7 +11,7 @@ module nav_dijkstra_tb;
     reg [15:0] reference [0:4095];
     integer cycles = 0,checks = 0,errors = 0,delay_left,address;
     integer fd,result,count,index,ex,position,begin_cycle,peak,wait_count;
-    integer px,py,dx,dy,expected_cost,actual_cost,k,improved=0,stale=0,ties=0;
+    integer px,py,dx,dy,expected_cost,actual_cost,k,improved=0,stale=0,ties=0,wraps=0,expected_turns,old_direction,direction_now,saturation_cases=0;
     reg geometry_ok,reference_ok,stable_ok,held = 0;
     reg [35:0] hold_data;
     reg [2047:0] fixture_dir,file_name;
@@ -56,12 +56,13 @@ module nav_dijkstra_tb;
             pending <= 1;
             address <= ry*256+rx;
             delay_left <= cycles%4;
-            if (rx>255 || ry>255) begin $display("FAIL: bfs out-of-map read"); errors = errors+1; end
+            if (rx>255 || ry>255) begin $display("FAIL: dijkstra out-of-map read"); errors = errors+1; end
         end
-        if (dut.state>=7 && dut.state<=19 && 8192-dut.free_count>peak) peak = 8192-dut.free_count;
+        if (dut.state>=7 && dut.state<=19 && 2048-dut.free_count>peak) peak = 2048-dut.free_count;
+        if (dut.state == 7 && dut.bucket_empty != 4'hf && dut.bucket_empty[dut.current_bucket] && dut.current_bucket == 3) wraps = wraps+1;
         if (dut.state == 24) ties = ties+1;
-        if (dut.state == 16 && dut.trial_cost < dut.distance_q && dut.distance_q != 18'h3ffff) improved = improved + 1;
-        if (dut.state == 11 && dut.distance_q != dut.current_cost) stale = stale + 1;
+        if (dut.state == 23 && dut.shorter && dut.node_q[2]) improved = improved + 1;
+        if (dut.state == 11 && (!dut.node_q[2] || dut.node_q[1:0] != dut.current_bucket)) stale = stale + 1;
         if (held && (!valid || {last,dir,y,x} !== hold_data)) stable_ok = 0;
         held = valid && !take;
         if (held) hold_data = {last,dir,y,x};
@@ -84,7 +85,7 @@ module nav_dijkstra_tb;
         fixture_dir = "../logs/dijkstra/fixtures";
         if ($value$plusargs("FIXTURE_DIR = %s",fixture_dir)) begin end
         file_name = {fixture_dir,"/cases.txt"}; fd = $fopen(file_name,"r");
-        if (!fd) begin $display("FAIL: bfs missing fixtures"); $finish; end
+        if (!fd) begin $display("FAIL: dijkstra missing fixtures"); $finish; end
         result = $fscanf(fd,"%d\n",count);
         repeat(4) @(negedge clk);
         reset_n = 1;
@@ -97,6 +98,13 @@ module nav_dijkstra_tb;
             expected_cost = 0;
             for (k=1;k<=ex;k=k+1) expected_cost = expected_cost +
                 (reference[k]%256 != reference[k-1]%256 && reference[k]/256 != reference[k-1]/256 ? 3 : 2);
+            expected_turns = 0;
+            old_direction = -1;
+            for (k=1;k<=ex;k=k+1) begin
+                direction_now = reference[k]-reference[k-1];
+                if (k>1 && direction_now != old_direction) expected_turns=expected_turns+1;
+                old_direction=direction_now;
+            end
             actual_cost = 0;
             position = 0;
             peak = 0;
@@ -115,13 +123,19 @@ module nav_dijkstra_tb;
             check(!busy && (ex<0 ? no_path && !success : success && !no_path),"reachability matches independent Dijkstra");
             check(ex<0 ? position == 0 : position == ex+1 && length == ex && actual_cost == expected_cost,"minimum 2/3 cost and reference steps");
             check(reference_ok && geometry_ok,"all cells match straight-first reference and reject corner cutting");
-            check(stable_ok && peak<=8192,"backpressure and queue bound");
+            check(stable_ok && peak<=2048,"backpressure and queue bound");
+            if (ex>=0) begin
+                check(dut.node_tag[sy*256+sx] == 3'b001 &&
+                      dut.turns[sy*256+sx] == (expected_turns>255 ? 255 : expected_turns),
+                      "settled state and saturating turn count");
+                if (expected_turns>255) saturation_cases=saturation_cases+1;
+            end
             $display("METRICS: dijkstra case=%0d cycles=%0d steps=%0d peak=%0d",index,cycles-begin_cycle,length,peak);
             repeat(3) @(negedge clk);
         end
         $fclose(fd);
-        check(improved > 0 && stale > 0 && ties > 0,"maps exercise distance improvements, turn ties and stale entries");
-        $display("METRICS: improvements=%0d stale=%0d ties=%0d",improved,stale,ties);
+        check(improved > 0 && stale > 0 && ties > 0 && wraps > 0 && saturation_cases > 0,"maps exercise distance improvements, turn ties and stale entries");
+        $display("METRICS: improvements=%0d stale=%0d ties=%0d wraps=%0d saturation=%0d",improved,stale,ties,wraps,saturation_cases);
         $display("CHECKS: %0d",checks);
         $display("METRICS: nav_dijkstra_tb cycles=%0d errors=%0d",cycles,errors);
         if (!errors) $display("PASS: nav_dijkstra_tb");
