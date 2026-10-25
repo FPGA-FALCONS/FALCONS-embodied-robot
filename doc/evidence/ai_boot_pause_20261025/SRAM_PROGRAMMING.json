@@ -1,0 +1,17 @@
+{
+  "recorded_at": "2026-10-25T13:35:38.969997+08:00",
+  "operation": "SRAM Program",
+  "success": true,
+  "programmer_exit_code": 0,
+  "flash_written": false,
+  "device": "GW5AT-138B",
+  "jtag_id": "0x0011081B",
+  "user_code": "0x0000DE68",
+  "status_code": "0x00026230",
+  "bitstream_sha256": "715d7ac16969dd2ba1fe95917f0ccbea5a716eabde134f85f620955e1ec5221e",
+  "bitstream_bytes": 40217085,
+  "programmer_log_sha256": "00b4c721cffd23b59186483fe2125b3333656c70354b5dec9face0b3deacf07d",
+  "programmed_before_rk_reboot": true,
+  "post_reboot_camera_and_manual_ui_operator_confirmed": true,
+  "movement_commands_sent_by_deployment": false
+}

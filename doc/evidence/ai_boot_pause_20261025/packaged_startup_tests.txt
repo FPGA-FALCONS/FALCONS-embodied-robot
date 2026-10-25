@@ -1,0 +1,16 @@
+test_prepare_preserves_motion_and_model_assets (test_startup.InstallerTests.test_prepare_preserves_motion_and_model_assets) ... ok
+test_release_manifest_cannot_reference_an_external_file (test_startup.InstallerTests.test_release_manifest_cannot_reference_an_external_file) ... ok
+test_release_manifest_rejects_modified_source (test_startup.InstallerTests.test_release_manifest_rejects_modified_source) ... ok
+test_systemd_paths_are_quoted_and_percent_escaped (test_startup.InstallerTests.test_systemd_paths_are_quoted_and_percent_escaped) ... ok
+test_all_required_models_ready_before_single_tone_and_reload (test_startup.StartupTests.test_all_required_models_ready_before_single_tone_and_reload) ... ok
+test_close_cancels_a_blocked_health_call (test_startup.StartupTests.test_close_cancels_a_blocked_health_call) ... ok
+test_disabled_model_loads_do_not_load_or_sound (test_startup.StartupTests.test_disabled_model_loads_do_not_load_or_sound) ... ok
+test_failed_speaker_retries_without_unloading_or_repeating_successful_tone (test_startup.StartupTests.test_failed_speaker_retries_without_unloading_or_repeating_successful_tone) ... ok
+test_optional_vision_failure_and_absent_camera_do_not_block_voice_models (test_startup.StartupTests.test_optional_vision_failure_and_absent_camera_do_not_block_voice_models) ... ok
+test_ready_tone_is_one_short_pcm_note_on_explicit_speaker (test_startup.StartupTests.test_ready_tone_is_one_short_pcm_note_on_explicit_speaker) ... ok
+test_required_failure_blocks_ready_and_tone_until_recovery (test_startup.StartupTests.test_required_failure_blocks_ready_and_tone_until_recovery) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.408s
+
+OK

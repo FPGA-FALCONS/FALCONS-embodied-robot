@@ -33,7 +33,10 @@ class AiModule:
         self.last_rx = None
         self.sequence = None
         self.active = False
-        self.rearm_required = False
+        self.paused_manual = False
+        self.vision_resume_required = False
+        self.confirm_toggle = None
+        self.rearm_required = runtime.cfg.get('startup', {}).get('enabled') is True
         self.chat = False
         self.mode = 'semantic_navigation'
         self.selected = 0
@@ -78,14 +81,15 @@ class AiModule:
         task.add_done_callback(self.cleanup.discard)
         return task
 
-    def _cancel(self, reason):
+    def _cancel(self, reason, preserve_view=False):
         self.epoch += 1
         self.released.set()
         if self.work and not self.work.done():
             self.work.cancel()
         self.record_armed = False
         self.record_high = False
-        self.instruction = self.reply = ''
+        if not preserve_view:
+            self.instruction = self.reply = ''
         self.error = None
         self.rt.stop(reason)
         self.state = 'idle' if self.active else 'off'
@@ -110,26 +114,43 @@ class AiModule:
         self.sequence = seq
         self.last_rx = now
         self.controls = event
+        toggle=event.get('confirm_toggle',False)
+        confirmed=self.confirm_toggle is not None and toggle!=self.confirm_toggle
+        self.confirm_toggle=toggle
         self.display_ack=event.get('display_ack',0)
         self.display_bank=event.get('display_bank',0)
         if not event['enabled'] and event['rc_valid'] and not event['manual'] and not event['estop']:
             self.rearm_required=False
+        previous_pause=self.paused_manual
+        paused=bool(event['enabled'] and event['manual'] and event['rc_valid'] and not event['estop'])
+        startup=getattr(self.rt,'startup',None)
         usable = (event['enabled'] and event['rc_valid'] and event['swb_valid'] and
                   not self.rearm_required and
                   not event['manual'] and not event['estop'] and
+                  (startup is None or startup.ready) and
                   self.rt.cfg.get('model_loads_enabled') is True)
         self.mode, self.selected = event['mode'], event['selected']
         chat = event['chat']
-        vision = bool(usable and not chat and event['vision'])
-        changed = (usable, chat, vision) != (self.active, self.chat, self.vision)
+        if paused:
+            self.vision_resume_required=True
+        elif usable and (confirmed or event['mode']!='object_recognition'):
+            self.vision_resume_required=False
+        vision = bool(usable and not chat and event['vision'] and not self.vision_resume_required)
+        changed = ((usable, chat, vision, paused) != (self.active, self.chat, self.vision, self.paused_manual)
+                   or (usable and confirmed))
         self.active, self.chat, self.vision = usable, chat, vision
+        self.paused_manual=paused
         if changed:
-            self._cancel('ai_switch_or_mode_changed')
+            self._cancel('ai_manual_pause' if paused else 'ai_switch_or_mode_changed',
+                         preserve_view=paused or previous_pause)
+            if paused:self.state='paused_manual'
+            elif usable and self.vision_resume_required:self.state='waiting_next'
             self.target = None
             self._task(self._set_vision(vision))
             if not usable:
-                self.history = []
-                self._task(self._release_models(self.work))
+                if not paused:
+                    self.history = []
+                    self._task(self._release_models(self.work))
             elif not chat:
                 self._task(self._release_chat(self.work))
         if not usable:
@@ -185,14 +206,15 @@ class AiModule:
                 await asyncio.gather(self.rt.image_pump, return_exceptions=True)
             for name in ('camera', 'vision'):
                 if name in self.rt.workers:
-                    await self.rt.workers[name].close()
+                    if name=='camera' or not self.rt.cfg.get('startup',{}).get('enabled'):
+                        await self.rt.workers[name].close()
             self.rt.camera_state = 'disabled'
             self.detections = []
 
     async def _release_models(self, previous=None):
         if previous:
             await asyncio.gather(previous, return_exceptions=True)
-        if not self.active:
+        if not self.active and not self.rt.cfg.get('startup',{}).get('enabled'):
             await self.rt.workers['asr'].close()
             await self.chat_worker.close()
             await self.tts_worker.close()
@@ -201,7 +223,7 @@ class AiModule:
     async def _release_chat(self, previous=None):
         if previous:
             await asyncio.gather(previous, return_exceptions=True)
-        if not self.chat:
+        if not self.chat and not self.rt.cfg.get('startup',{}).get('enabled'):
             await self.chat_worker.close()
             await self.tts_worker.close()
             await self.chat_server.close()
@@ -253,7 +275,10 @@ class AiModule:
                            'chat': chat, 'capture': metadata})
             if self.mode == 'object_recognition':
                 self.target = next((name for name, label in NAMES.items() if label in self.instruction), None)
-                self.state = 'object_recognition'
+                self.vision_resume_required=False
+                self.vision=True
+                await self._set_vision(True)
+                if self.rt.camera_state!='unavailable':self.state = 'object_recognition'
                 return
             if not chat:
                 self.state = 'semantic_navigation'
@@ -309,7 +334,8 @@ class AiModule:
         labels = {'off':'关闭','idle':'待命','recording':'录音中','recognizing':'语音识别中',
                   'chat_thinking':'聊天思考中','synthesizing':'语音合成中','speaking':'正在播报',
                   'no_speech':'未识别到语音','error':'功能暂不可用',
-                  'semantic_navigation':'处理导航指令','object_recognition':'目标识别中'}
+                  'semantic_navigation':'处理导航指令','object_recognition':'目标识别中',
+                  'paused_manual':'手动接管，任务已暂停','waiting_next':'等待确认或新的录音任务'}
         mode = {'semantic_navigation':'语义导航','object_recognition':'目标识别','chat':'聊天机器人 Qwen3.5-0.8B'}[self.mode]
         requested = self.controls and self.controls.get('enabled')
         state = labels.get(self.state,self.state)
@@ -317,7 +343,10 @@ class AiModule:
         if self.active and self.mode=='semantic_navigation' and motion and motion.snapshot().get('busy'):
             state='运动指令计时中'
         if requested and not self.active:
-            state = '手动接管' if self.controls.get('manual') else '急停' if self.controls.get('estop') else '等待遥控或主机就绪'
+            state = '手动接管，任务已暂停' if self.controls.get('manual') else '急停' if self.controls.get('estop') else '等待遥控或模型就绪'
+            startup=getattr(self.rt,'startup',None)
+            if not self.controls.get('manual') and startup and not startup.ready:
+                state='模型加载中，请稍候' if startup.state!='retrying' else '模型加载重试中'
             if self.rearm_required:state='请先返回再确认开启AI'
         return ['AI模块 总开关: ' + ('开启' if requested else '关闭'),
                 'CH8选择 SWA确认/返回 SWB录音/结束',
@@ -330,6 +359,8 @@ class AiModule:
         self.last_rx=None;self.sequence=None
         self.rearm_required=True
         self.active=self.vision=False
+        self.paused_manual=False
+        self.vision_resume_required=True
         self._invalidate_display()
         self._cancel(reason)
         self._task(self._set_vision(False))
@@ -389,6 +420,7 @@ class AiModule:
     def snapshot(self):
         return {'configured': self.enabled, 'active': self.active,
                 'mode': self.mode, 'selected': self.selected,
+                'paused_manual':self.paused_manual,'vision_resume_required':self.vision_resume_required,
                 'vision_enabled': self.vision, 'state': self.state,
                 'instruction': self.instruction, 'reply': self.reply,
                 'detections': self.detections, 'last_error': self.error,

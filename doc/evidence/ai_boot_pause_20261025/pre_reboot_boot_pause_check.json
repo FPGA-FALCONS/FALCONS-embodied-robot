@@ -1,0 +1,59 @@
+{
+  "at_s": 1121.227458624,
+  "boot_id": "7025e905-6ac7-473f-9de7-dec19585432a",
+  "startup": {
+    "enabled": true,
+    "ready": true,
+    "state": "ready",
+    "required_models": [
+      "asr",
+      "llm",
+      "chat",
+      "tts"
+    ],
+    "loaded": {
+      "asr": {
+        "load_s": 6.548581284999955,
+        "ready_at_s": 971.500188891
+      },
+      "llm": {
+        "load_s": 0.0015280149999625792,
+        "ready_at_s": 989.064291841
+      },
+      "chat": {
+        "load_s": 14.30006671000001,
+        "ready_at_s": 1003.457097298
+      },
+      "tts": {
+        "load_s": 8.80987002400002,
+        "ready_at_s": 1012.359426657
+      },
+      "vision": {
+        "load_s": 1.0651339649999727,
+        "ready_at_s": 1013.520313982
+      }
+    },
+    "errors": {},
+    "ready_tone_played": true,
+    "ready_tone_error": null
+  },
+  "ai_module": {
+    "configured": true,
+    "active": false,
+    "mode": "semantic_navigation",
+    "selected": 0,
+    "paused_manual": false,
+    "vision_resume_required": false,
+    "vision_enabled": false,
+    "state": "off",
+    "instruction": "",
+    "reply": "",
+    "detections": [],
+    "last_error": null,
+    "control_link_fresh": true,
+    "record_armed": false
+  },
+  "voice_motion_busy": false,
+  "unit": "NRestarts=0\nMemoryCurrent=5442629632\nMemoryMax=6442450944\nActiveState=active\nUnitFileState=enabled\n",
+  "linger": "yes"
+}

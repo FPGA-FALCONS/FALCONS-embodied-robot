@@ -22,25 +22,26 @@ module ai_rc_control #(
     reg swb_candidate,swb_seen,swb_ready,swb_down;
     wire swb_classifiable=swb_us<16'd1200 || swb_us>16'd1800;
     wire swb_next=swb_us>16'd1800; // down/high starts; up/low stops recording.
-    reg record_armed;
+    reg record_armed,confirm_toggle;
     reg [1:0] mode_d;
     wire active=o_master && i_rc_valid && swb_ready && swb_valid && !i_manual && !i_estop;
     assign o_chat=o_mode==2;
     assign o_vision=active && o_mode==1;
     assign o_flags={11'd0,(swb_ready && swb_valid),i_estop,i_manual,i_rc_valid,o_master};
-    assign o_controls={3'd0,o_selected,o_record,o_mode};
+    // bit5翻转表示一次明确确认，允许暂停后重新启动同一个识别功能。
+    assign o_controls={2'd0,confirm_toggle,o_selected,o_record,o_mode};
     always @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
             o_master<=0;o_mode<=0;o_selected<=0;o_record<=0;
-            swb_candidate<=0;swb_seen<=0;swb_ready<=0;swb_down<=0;record_armed<=0;mode_d<=0;
+            swb_candidate<=0;swb_seen<=0;swb_ready<=0;swb_down<=0;record_armed<=0;mode_d<=0;confirm_toggle<=0;
         end else begin
-            if(!i_host_alive || !i_rc_valid || i_manual || i_estop) o_master<=0;
-            else if(i_enter_confirm) begin o_master<=1;o_mode<=0;o_selected<=0;end
+            if(!i_host_alive || !i_rc_valid || i_estop) o_master<=0;
+            else if(i_enter_confirm && !i_manual) begin o_master<=1;o_mode<=0;o_selected<=0;end
             else if(!i_ai_page || i_back) o_master<=0;
-            else if(o_master) begin
+            else if(o_master && !i_manual) begin
                 if(i_select_prev) o_selected<=o_selected==0?2:o_selected-1'b1;
                 else if(i_select_next) o_selected<=o_selected==2?0:o_selected+1'b1;
-                if(i_feature_confirm) o_mode<=o_selected;
+                if(i_feature_confirm) begin o_mode<=o_selected;confirm_toggle<=!confirm_toggle;end
             end
             if(!swb_valid) begin swb_seen<=0;swb_ready<=0;end
             else if(swb_update && swb_classifiable) begin

@@ -1,0 +1,69 @@
+{
+  "at": "2026-10-25T13:33:31.324281+08:00",
+  "startup": {
+    "enabled": true,
+    "ready": true,
+    "state": "ready",
+    "required_models": [
+      "asr",
+      "llm",
+      "chat",
+      "tts"
+    ],
+    "loaded": {
+      "asr": {
+        "load_s": 7.465631228000001,
+        "ready_at_s": 20.085223691
+      },
+      "llm": {
+        "load_s": 0.001432641999997486,
+        "ready_at_s": 37.735066975
+      },
+      "chat": {
+        "load_s": 13.944315562,
+        "ready_at_s": 51.769762916
+      },
+      "tts": {
+        "load_s": 8.559011543000004,
+        "ready_at_s": 60.427232989
+      },
+      "vision": {
+        "load_s": 1.4242875809999944,
+        "ready_at_s": 61.955881455
+      }
+    },
+    "errors": {},
+    "ready_tone_played": true,
+    "ready_tone_error": null
+  },
+  "ai_module": {
+    "configured": true,
+    "active": true,
+    "mode": "chat",
+    "selected": 2,
+    "paused_manual": false,
+    "vision_resume_required": false,
+    "vision_enabled": false,
+    "state": "idle",
+    "last_error": null,
+    "control_link_fresh": true,
+    "record_armed": true
+  },
+  "voice_motion_busy": false,
+  "manual_with_ai_master_on_snapshots": 34,
+  "manual_pause_events": 2,
+  "recording_start_events": 7,
+  "ready_tone_events": 1,
+  "unit": "NRestarts=0\nMemoryCurrent=5592752128\nMemoryMax=6442450944\nActiveState=active\n",
+  "serial": {
+    "device": "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0",
+    "open": true,
+    "tx_frames": 52451,
+    "tx_bytes": 629412,
+    "rx_bytes": 599243,
+    "queued_frames": 0,
+    "last_error": null
+  },
+  "rx_errors": 0,
+  "cgroup_memory_events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n"
+}

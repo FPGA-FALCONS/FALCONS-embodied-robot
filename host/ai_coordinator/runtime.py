@@ -17,6 +17,7 @@ from .command_policy import inspect as inspect_command,immediate_stop,VERSION as
 from .motion_intents import inspect_motion,VERSION as MOTION_POLICY_VERSION
 from .motion_backend import MotionBackend
 from .ai_module import AiModule
+from .startup import StartupModels
 
 
 class Audit:
@@ -60,6 +61,7 @@ class Runtime:
             if self.cfg.get('model_loads_enabled',True) is True:
                 self.workers['camera']=Worker('camera',self.config,self.run_dir);self.camera_state='configured'
         self.ai=AiModule(self)
+        self.startup=StartupModels(self)
         self.next_link_retry=0.
 
     async def start(self):
@@ -73,6 +75,7 @@ class Runtime:
             if not self.ai.enabled:raise
             self.audit({'type':'ai_uart_waiting','error':str(exc)[:200]})
         self.ticker=asyncio.create_task(self._tick())
+        self.startup.start()
         if 'camera' in self.workers and not self.ai.enabled:self.camera_task=asyncio.create_task(self._camera())
         self.audit({'type':'coordinator_started','run_dir':str(self.run_dir),'mode':self.core.mode})
 
@@ -368,7 +371,8 @@ class Runtime:
         for pending in list(self.tasks):
             if pending is not current:pending.cancel()
         async def cleanup():
-            await self.workers['llm'].close();await self.model_server.close()
+            if not self.startup.enabled:
+                await self.workers['llm'].close();await self.model_server.close()
         task=asyncio.create_task(cleanup());self.tasks.add(task);task.add_done_callback(self.tasks.discard)
         return {'status':'stopped','motion_authorized':False,'mission':self.core.snapshot(),
                 'motion_stop':motion_stop}
@@ -399,9 +403,11 @@ class Runtime:
             'voice_motion':{**self.motion.snapshot(),'policy_version':MOTION_POLICY_VERSION,
                             'last_instruction':self.last_motion},
             'policy_version':POLICY_VERSION,'language_profile':self.cfg.get('language_profile','unspecified'),
-            'model_loads_enabled':self.cfg.get('model_loads_enabled',True),'ai_module':self.ai.snapshot()}
+            'model_loads_enabled':self.cfg.get('model_loads_enabled',True),'ai_module':self.ai.snapshot(),
+            'startup':self.startup.snapshot()}
 
     async def close(self):
+        await self.startup.close()
         # Best-effort STOP while the shared serial owner is still open.
         self.motion.close()
         await self.ai.close()

@@ -1,0 +1,17 @@
+{
+  "recorded_at": "2026-10-25T13:35:38.969997+08:00",
+  "feedback": "都正常",
+  "evidence_type": "operator feedback in chat",
+  "bitstream_sha256": "715d7ac16969dd2ba1fe95917f0ccbea5a716eabde134f85f620955e1ec5221e",
+  "host_source_sha256": "5279fd477071effb94335a4e670e752ec547d3bef272cd479896c9e1245cc47a",
+  "confirmed": {
+    "rk_reboot_ready_tone_heard_once": true,
+    "camera_image_rotated_180_and_menu_normal": true,
+    "manual_retains_ai_master_and_current_chat_page": true,
+    "speech_stops_and_pause_is_shown": true,
+    "cursor_return_accepts_fresh_swb_recording_without_old_task_resume": true
+  },
+  "moving_chassis_takeover_tested": false,
+  "object_recognition_tested": false,
+  "cold_power_cycle_tested": false
+}

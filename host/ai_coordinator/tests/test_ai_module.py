@@ -52,6 +52,13 @@ class LinkTests(unittest.TestCase):
         for frame in frames:
             self.assertEqual(crc16(frame[:10]), int.from_bytes(frame[10:], 'big'))
 
+    def test_explicit_same_mode_confirmation_toggle_is_carried(self):
+        reader=ControlReader()
+        event=reader.feed(Frame(1,0x50,19,32|1).encode())[0]
+        self.assertTrue(event['confirm_toggle'])
+        self.assertEqual(event['mode'],'object_recognition')
+        self.assertEqual(reader.feed(Frame(2,0x50,19,64).encode()),[])
+
 
 class Port:
     fd = 1
@@ -160,6 +167,88 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.controls(record=False)
         self.assertTrue(self.ai.active)
         self.assertEqual(len(self.starts),1)
+
+    async def test_manual_preserves_page_history_and_requires_fresh_recording(self):
+        self.controls(mode='chat',chat=True,selected=2)
+        self.ai.instruction='你好';self.ai.reply='你好，我在这里。'
+        self.ai.history=[{'role':'user','content':'你好'}]
+        self.controls(mode='chat',chat=True,selected=2,record=True)
+        await asyncio.wait_for(self.started.get(),.5)
+        self.ai.instruction='你好';self.ai.reply='你好，我在这里。'
+        epoch=self.ai.epoch
+        self.controls(mode='chat',chat=True,selected=2,manual=True,record=True)
+        await asyncio.sleep(0)
+        self.assertTrue(self.ai.controls['enabled'])
+        self.assertTrue(self.ai.paused_manual)
+        self.assertFalse(self.ai._current(epoch,True))
+        self.assertEqual(self.ai.reply,'你好，我在这里。')
+        self.assertEqual(len(self.ai.history),1)
+        self.controls(mode='chat',chat=True,selected=2,record=True)
+        self.assertFalse(self.ai.record_armed)
+        self.assertEqual(len(self.starts),1)
+        self.controls(mode='chat',chat=True,selected=2,record=False)
+        self.controls(mode='chat',chat=True,selected=2,record=True)
+        await asyncio.wait_for(self.started.get(),.5)
+        self.assertEqual(len(self.starts),2)
+
+    async def test_manual_vision_waits_for_new_confirmation_after_cursor_return(self):
+        self.controls(mode='object_recognition',vision=True,selected=1,confirm_toggle=False)
+        self.assertTrue(self.ai.vision)
+        self.controls(mode='object_recognition',vision=True,selected=1,manual=True,confirm_toggle=False)
+        self.assertFalse(self.ai.vision)
+        self.controls(mode='object_recognition',vision=True,selected=1,confirm_toggle=False)
+        self.assertTrue(self.ai.active)
+        self.assertFalse(self.ai.vision)
+        self.assertTrue(self.ai.vision_resume_required)
+        self.controls(mode='object_recognition',vision=True,selected=1,confirm_toggle=True)
+        self.assertTrue(self.ai.vision)
+        self.assertFalse(self.ai.vision_resume_required)
+
+    async def test_boot_loading_blocks_held_record_until_models_ready_and_fresh_gesture(self):
+        self.rt.startup=types.SimpleNamespace(ready=False,state='loading')
+        self.controls(record=True)
+        self.assertFalse(self.ai.active)
+        self.assertIn('模型加载中',self.ai.lines()[3])
+        self.rt.startup.ready=True
+        self.controls(record=True)
+        self.assertFalse(self.ai.record_armed)
+        self.controls(record=False);self.controls(record=True)
+        await asyncio.wait_for(self.started.get(),.5)
+        self.assertEqual(len(self.starts),1)
+
+    async def test_same_mode_confirm_cancels_old_work_without_replaying_held_record(self):
+        self.controls(confirm_toggle=False);self.controls(record=True,confirm_toggle=False)
+        await asyncio.wait_for(self.started.get(),.5)
+        epoch=self.ai.epoch
+        self.controls(record=True,confirm_toggle=True)
+        self.assertGreater(self.ai.epoch,epoch)
+        self.assertFalse(self.ai.record_armed)
+        self.assertEqual(len(self.starts),1)
+
+    async def test_boot_preloaded_models_are_not_unloaded_by_idle_ai_release(self):
+        from unittest.mock import AsyncMock
+        self.rt.cfg['startup']={'enabled':True}
+        self.rt.workers={'asr':types.SimpleNamespace(close=AsyncMock())}
+        self.ai.active=False;self.ai.chat=False
+        with patch.object(self.ai.chat_worker,'close',new_callable=AsyncMock) as chat_close, \
+             patch.object(self.ai.tts_worker,'close',new_callable=AsyncMock) as tts_close:
+            await AiModule._release_models(self.ai)
+            await AiModule._release_chat(self.ai)
+            chat_close.assert_not_awaited();tts_close.assert_not_awaited()
+            self.rt.workers['asr'].close.assert_not_awaited()
+
+    async def test_service_restart_requires_observing_master_off_before_new_session(self):
+        await self.ai.close()
+        self.rt.cfg['startup']={'enabled':True}
+        self.ai=AiModule(self.rt);self.ai.clock=lambda:1.
+        self.controls(record=True)
+        self.assertTrue(self.ai.rearm_required)
+        self.assertFalse(self.ai.active)
+        self.controls(enabled=False)
+        self.controls(record=True)
+        self.assertTrue(self.ai.active)
+        self.assertFalse(self.ai.record_armed)
+        self.assertIsNone(self.ai.work)
 
     async def test_write_failure_closes_link_and_requires_new_master_confirmation(self):
         self.controls()

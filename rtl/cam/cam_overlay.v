@@ -98,6 +98,9 @@ module cam_overlay #(
     ov5640_capture #(
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
+        // 同时上下翻转和左右镜像，使相机源画面旋转180度；UI菜单不参与翻转。
+        .IMAGE_FLIP_EN (1),
+        .IMAGE_MIRROR_EN(1),
         .SYS_CLOCK    (SYS_CLOCK)
     ) u_camera (
         .cfg_clk       (clk_50m_pll),

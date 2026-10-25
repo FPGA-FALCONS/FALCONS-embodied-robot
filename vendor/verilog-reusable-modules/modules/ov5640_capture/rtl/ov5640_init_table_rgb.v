@@ -38,7 +38,9 @@ module ov5640_init_table_rgb #(
   // Declare the ROM variable
   reg [23:0] rom[252:0];
 
-  always@(*) begin
+  // 表内仅含参数常量，使用静态ROM初始化；无信号敏感项的always @*
+  // 在RTL仿真中不会触发，导致整表保持未知值。寄存器内容与读延迟不变。
+  initial begin
     rom[0 ] = 24'h3103_11; // system clock from pad, bit[1]
     rom[1 ] = 24'h3008_82; // software reset, bit[7]
     //delay 5ms

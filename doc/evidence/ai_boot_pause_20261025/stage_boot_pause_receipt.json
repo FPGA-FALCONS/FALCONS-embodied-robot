@@ -1,0 +1,10 @@
+{
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/host_5279fd47",
+  "source_sha256": "5279fd477071effb94335a4e670e752ec547d3bef272cd479896c9e1245cc47a",
+  "files": 196,
+  "test_exit_code": 0,
+  "test_log": "/home/orangepi/workspace/falcons_ai_interactive_20261024/board_tests_boot_pause_20261025.txt",
+  "service_changed": false,
+  "models_loaded_by_staging": false,
+  "motion_commands_sent": false
+}

@@ -90,12 +90,13 @@ class ControlReader:
             seq, command, raw_flags, controls, reserved = struct.unpack('>BBHBB', frame[4:10])
             flags=raw_flags&255
             mode, selected = controls & 3, (controls >> 3) & 3
-            if command != CONTROL or flags & ~63 or controls & ~31 or reserved or mode > 2 or selected > 2:
+            if command != CONTROL or flags & ~63 or controls & ~63 or reserved or mode > 2 or selected > 2:
                 continue
             result.append({'kind': 'ai_controls', 'sequence': seq,
                            'enabled': bool(flags & 1), 'rc_valid': bool(flags & 2),
                            'manual': bool(flags & 4), 'estop': bool(flags & 8),
                            'swb_valid': bool(flags & 16), 'selected': selected,
+                           'confirm_toggle':bool(controls & 32),
                            'display_ack':raw_flags>>8,'display_bank':(flags>>5)&1,
                            'mode': ('semantic_navigation','object_recognition','chat')[mode],
                            'chat': mode == 2, 'record': bool(controls & 4), 'vision': mode == 1})

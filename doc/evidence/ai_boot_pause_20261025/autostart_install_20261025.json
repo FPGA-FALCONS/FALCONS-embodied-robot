@@ -1,0 +1,8 @@
+{
+  "installed": true,
+  "linger": "yes",
+  "backup": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/autostart_backups/20261025_132323_c3a8cb0b",
+  "service": "/home/orangepi/.config/systemd/user/falcons-ai-coordinator.service",
+  "models_ready_verified": false,
+  "note": "Inspect /status startup readiness; enabled service alone is not model-load acceptance"
+}

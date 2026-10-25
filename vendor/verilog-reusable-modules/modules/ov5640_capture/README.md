@@ -2,6 +2,8 @@
 
 `ov5640_capture`封装了 SCCB/I²C 初始化和 8 位 DVP 到 RGB565 的采集过程。默认配置是 1024×600 RGB565，配置时钟为 50 MHz，SCCB 时钟为 400 kHz。
 
+RGB寄存器表使用静态ROM初始化，支持纯RTL仿真。应用可同时设置`IMAGE_FLIP_EN=1`和`IMAGE_MIRROR_EN=1`实现源画面180°翻转；模块默认方向不变。应用的`sim/camera_rotation_tb.v`逐项比较253个表项，确认只有`0x3820`及`0x3821`的方向配置发生变化。
+
 ## 公共接口
 
 | 信号 | 方向 | 时钟域 | 含义 |

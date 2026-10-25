@@ -214,7 +214,9 @@ $sources += @("$ProjectRoot\rtl\ai\ai_rc_control.v", "$ProjectRoot\rtl\ai\ai_uar
               "$ProjectRoot\rtl\ai\ai_display_link.v", "$ProjectRoot\rtl\common\ai_menu_font.v",
               "$PSScriptRoot\manual_takeover_tb.v", "$PSScriptRoot\ai_rc_control_tb.v", "$PSScriptRoot\ai_uart_tx_tb.v", "$PSScriptRoot\ai_display_link_tb.v")
 $sources += @("$VendorRoot\yaw_integrate\rtl\yaw_integrate.v", "$PSScriptRoot\yaw_pipeline_tb.v")
+$sources += @("$VendorRoot\ov5640_capture\rtl\ov5640_init_table_rgb.v", "$PSScriptRoot\camera_rotation_tb.v")
 $tests = @(
+    @{ Name = 'camera_rotation'; Top = 'camera_rotation_tb'; Desc = 'Camera flip and mirror / all 253 initialization register entries' },
     @{ Name = 'yaw_pipeline'; Top = 'yaw_pipeline_tb'; Desc = '20000 cycle equivalence for optional yaw sum/wrap pipeline' },
     @{ Name = 'manual_takeover'; Top = 'manual_takeover_tb'; Desc = 'SWC stop before local stick takeover, fresh encoder feedback' },
     @{ Name = 'ai_rc_control'; Top = 'ai_rc_control_tb'; Desc = 'AI master/submenu/SWB recording/failsafe' },

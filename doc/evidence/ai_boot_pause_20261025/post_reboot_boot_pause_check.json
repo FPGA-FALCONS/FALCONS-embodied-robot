@@ -1,0 +1,116 @@
+{
+  "at": "2026-10-25T13:28:31.337967+08:00",
+  "boot_id": "57f4bbe1-1066-44c1-a4c3-27275da2f61c",
+  "different_boot_verified": true,
+  "uptime_s": 118.374836493,
+  "ssh_session_started_at_s": 102.926312,
+  "all_loaded_before_ssh_login": true,
+  "startup": {
+    "enabled": true,
+    "ready": true,
+    "state": "ready",
+    "required_models": [
+      "asr",
+      "llm",
+      "chat",
+      "tts"
+    ],
+    "loaded": {
+      "asr": {
+        "load_s": 7.465631228000001,
+        "ready_at_s": 20.085223691
+      },
+      "llm": {
+        "load_s": 0.001432641999997486,
+        "ready_at_s": 37.735066975
+      },
+      "chat": {
+        "load_s": 13.944315562,
+        "ready_at_s": 51.769762916
+      },
+      "tts": {
+        "load_s": 8.559011543000004,
+        "ready_at_s": 60.427232989
+      },
+      "vision": {
+        "load_s": 1.4242875809999944,
+        "ready_at_s": 61.955881455
+      }
+    },
+    "errors": {},
+    "ready_tone_played": true,
+    "ready_tone_error": null
+  },
+  "ai_module": {
+    "configured": true,
+    "active": false,
+    "mode": "semantic_navigation",
+    "selected": 0,
+    "paused_manual": false,
+    "vision_resume_required": false,
+    "vision_enabled": false,
+    "state": "off",
+    "instruction": "",
+    "reply": "",
+    "detections": [],
+    "last_error": null,
+    "control_link_fresh": true,
+    "record_armed": false
+  },
+  "voice_motion_busy": false,
+  "unit": "NRestarts=0\nExecMainStartTimestampMonotonic=11292389\nMemoryCurrent=5435031552\nMemoryMax=6442450944\nActiveState=active\nUnitFileState=enabled\n",
+  "linger": "yes",
+  "ready_tone_events": [
+    {
+      "at_s": 62.289449837,
+      "type": "startup_ready_tone",
+      "played": true
+    }
+  ],
+  "exactly_one_ready_tone_this_boot": true,
+  "tone_before_ssh_login": true,
+  "control_snapshot_count": 2572,
+  "latest_controls": {
+    "kind": "ai_controls",
+    "sequence": 7,
+    "enabled": false,
+    "rc_valid": true,
+    "manual": false,
+    "estop": false,
+    "swb_valid": true,
+    "selected": 0,
+    "confirm_toggle": false,
+    "display_ack": 47,
+    "display_bank": 1,
+    "mode": "semantic_navigation",
+    "chat": false,
+    "record": false,
+    "vision": false
+  },
+  "display_retries": 0,
+  "max_tick_gap_s": 0.24300367300000048,
+  "serial": {
+    "device": "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0",
+    "open": true,
+    "tx_frames": 24838,
+    "tx_bytes": 298056,
+    "rx_bytes": 379687,
+    "queued_frames": 0,
+    "last_error": null
+  },
+  "rx_errors": 0,
+  "cgroup_memory_events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n",
+  "active_release": {
+    "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/host_5279fd47",
+    "source_manifest_sha256": "10098cc101431abd6cca06f7738c666b8727cfccdddd33c33944a87169b36ae5",
+    "previous_release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/host_e464ccb6",
+    "installed_by": "install_autostart.py"
+  },
+  "ready_tone_wav": {
+    "channels": 1,
+    "rate": 44100,
+    "frames": 8820,
+    "duration_s": 0.2,
+    "sha256": "4adf09bba76526d320f53fcf9493bc2f5cc42eba9ebb56810854c2db549c1b6f"
+  }
+}
