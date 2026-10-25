@@ -38,7 +38,7 @@ module nav_top #(
     input wire [31:0] ai_epoch,ai_begin_epoch,ai_expected_crc,ai_word,
     input wire [15:0] ai_begin_version,
     input wire [12:0] ai_word_index,
-    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,
+    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,ai_layer_busy,
     output wire [15:0] ai_layer_version,
     output wire [3:0] ai_error_code,
 
@@ -127,6 +127,7 @@ module nav_top #(
     wire visual_blocked,visual_changed;
     wire effective_valid,effective_raw,effective_cost;
     wire arb_timeout,arb_busy;
+    assign ai_layer_busy=visual_blocked;
     wire map_idle;
     wire scan_wr_valid, scan_wr_ready, scan_wr_val;
     wire [15:0] scan_wr_x, scan_wr_y;

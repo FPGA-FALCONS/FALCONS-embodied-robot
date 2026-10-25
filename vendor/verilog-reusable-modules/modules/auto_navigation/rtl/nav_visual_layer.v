@@ -38,14 +38,20 @@ module nav_visual_layer #(
     wire cost_write=writing && written[CELL_BITS];
     wire [CELL_BITS:0] write_address={stage_bank,written[CELL_BITS-1:0]};
     wire [CELL_BITS:0] read_address={front_bank,i_read_address};
+    wire raw_write=writing && !written[CELL_BITS];
+    wire [CELL_BITS:0] raw_read_address=cost_write?write_address:read_address;
     // A single synchronous raw read port is shared by normal reads and the
     // back-bank cost-superset check. The caller blocks reads while writing.
     always @(posedge clk) begin
-        if(cost_write) raw_q<=raw_mem[write_address];
-        else if(i_read) raw_q<=raw_mem[read_address];
-        if(i_read) cost_q<=cost_mem[read_address];
-        if(writing && !written[CELL_BITS]) raw_mem[write_address]<=shift_word[0];
-        if(cost_write) cost_mem[write_address]<=shift_word[0];
+        // Explicit write-first bypass avoids Gowin's unsupported DPB
+        // read-before-write mode. Consumers are blocked during writes; the
+        // bypass value is never presented as a navigation read response.
+        if(raw_write) begin
+            raw_mem[write_address]<=shift_word[0];raw_q<=shift_word[0];
+        end else if(cost_write || i_read) raw_q<=raw_mem[raw_read_address];
+        if(cost_write) begin
+            cost_mem[write_address]<=shift_word[0];cost_q<=shift_word[0];
+        end else if(i_read) cost_q<=cost_mem[read_address];
     end
     assign o_raw=i_enable && o_layer_valid ? raw_q : 1'b0;
     assign o_cost=i_enable && o_layer_valid ? cost_q : 1'b0;

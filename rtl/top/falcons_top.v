@@ -400,10 +400,32 @@ module falcons_top (
     wire obs_ctrl_done, obs_linear_active, obs_ctrl_fault;
     wire obs_auto_valid;
     wire signed [31:0] obs_auto_center, obs_auto_diff;
+    wire inspection_owned,inspection_goal_valid,inspection_motion_enable,inspection_force_stop,inspection_pending_motion;
+    wire [7:0] inspection_goal_x,inspection_goal_y,inspection_status;
+    wire inspection_begin,inspection_commit,inspection_word_valid,inspection_stopped;
+    wire inspection_word_ready,inspection_layer_valid,inspection_committed,inspection_error,inspection_layer_busy;
+    wire [31:0] inspection_layer_epoch,inspection_layer_crc,inspection_layer_word;
+    wire [15:0] inspection_begin_version,inspection_layer_version;
+    wire [12:0] inspection_word_index;
+    wire [3:0] inspection_error_code;
+    wire [7:0] inspection_tx_data;
+    wire inspection_tx_valid,inspection_tx_last,inspection_tx_ready;
+    reg inspection_auto_valid;
+    reg signed [31:0] inspection_auto_center,inspection_auto_diff;
     wire obs_owns_control = planner_cmd_valid || planner_emergency_stop;
-    wire nav_selected_valid = obs_owns_control ? obs_auto_valid : nav_auto_valid;
-    wire signed [31:0] nav_selected_center = obs_owns_control ? obs_auto_center : nav_auto_center;
-    wire signed [31:0] nav_selected_diff = obs_owns_control ? obs_auto_diff : nav_auto_diff;
+    wire nav_selected_valid = inspection_owned ? inspection_auto_valid : obs_owns_control ? obs_auto_valid : nav_auto_valid;
+    wire signed [31:0] nav_selected_center = inspection_owned ? inspection_auto_center : obs_owns_control ? obs_auto_center : nav_auto_center;
+    wire signed [31:0] nav_selected_diff = inspection_owned ? inspection_auto_diff : obs_owns_control ? obs_auto_diff : nav_auto_diff;
+    // Same drive-code mapping as the reviewed MOT1 bridge: 30 << 2 = 120.
+    // Clamp/register separately from navigation arithmetic and final muxes.
+    always @(posedge i_clk_50m or negedge sys_rst_n)begin
+        if(!sys_rst_n)begin inspection_auto_valid<=0;inspection_auto_center<=0;inspection_auto_diff<=0;end
+        else if(inspection_owned && !inspection_force_stop)begin
+            inspection_auto_valid<=obs_auto_valid;
+            inspection_auto_center<=obs_auto_center>120?32'sd120:obs_auto_center< -120?-32'sd120:obs_auto_center;
+            inspection_auto_diff<=obs_auto_diff;
+        end else begin inspection_auto_valid<=0;inspection_auto_center<=0;inspection_auto_diff<=0;end
+    end
     wire voice_owned, voice_auto_valid;
     wire signed [31:0] voice_auto_center, voice_auto_diff;
     wire auto_selected_valid;
@@ -412,7 +434,7 @@ module falcons_top (
     // Ownership persists after STOP/completion/fault. Never fall back to a
     // still-running navigation command when a voice action finishes.
     voice_nav_arbiter u_voice_nav_arbiter (
-        .i_voice_owned(voice_owned), .i_voice_valid(voice_auto_valid),
+        .i_voice_owned(voice_owned && !inspection_owned), .i_voice_valid(voice_auto_valid),
         .i_voice_center(voice_auto_center), .i_voice_diff(voice_auto_diff),
         .i_nav_valid(nav_selected_valid), .i_nav_center(nav_selected_center),
         .i_nav_diff(nav_selected_diff), .o_valid(auto_selected_valid),
@@ -673,7 +695,7 @@ module falcons_top (
         .clk          (i_clk_50m),
         .rst_n        (sys_rst_n),
         .i_enable     (manual_drive ? run_en : (auto_selected_valid && rc_signal_ok && cursor_mode)),
-        .i_estop      (estop_latch | key4_press | tof_estop | !rc_signal_ok | manual_takeover_brake | (!manual_drive && planner_emergency_stop)),
+        .i_estop      (estop_latch | key4_press | tof_estop | !rc_signal_ok | manual_takeover_brake | (!manual_drive && (planner_emergency_stop | inspection_force_stop))),
         .i_manual     (chassis_manual),
         .i_steer      (steer_in),
         .i_throttle   (throttle_in),
@@ -1109,7 +1131,7 @@ module falcons_top (
         .i_feature_confirm(rc_confirm && page==PAGE_AI && ai_master),
         .i_rc_valid(rc_signal_ok),.i_manual(manual_drive),
         .i_host_alive(ai_host_alive),
-        .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | planner_emergency_stop | (|stall_vec)),
+        .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | (planner_emergency_stop && !inspection_owned) | (|stall_vec)),
         .i_swb_pwm(i_rc_pwm[4]),
         .o_master(ai_master),.o_chat(ai_chat),.o_record(ai_record),.o_vision(ai_vision),
         .o_mode(ai_mode),.o_selected(ai_selected),
@@ -1166,11 +1188,12 @@ module falcons_top (
 
     wire [7:0] csv_stream_data;
     wire csv_stream_valid,csv_stream_ready;
-    ai_uart_tx #(.CLK_HZ(CLK_HZ),.BAUD_RATE(BAUD_DEBUG)) u_ai_uart_tx(
+    ai_uart_tx #(.CLK_HZ(CLK_HZ),.BAUD_RATE(BAUD_DEBUG),.INSPECTION_ENABLE(1)) u_ai_uart_tx(
         .clk(i_clk_50m),.rst_n(sys_rst_n),.i_csv_data(csv_stream_data),
         .i_csv_valid(csv_stream_valid),.o_csv_ready(csv_stream_ready),
         .i_flags({ai_display_ack,2'd0,ai_display_bank,ai_flags[4:0]}),.i_controls(ai_controls),
-        .i_ai_link_active(ai_host_alive),.o_uart_tx(o_uart_tx));
+        .i_ai_link_active(ai_host_alive),.i_inspection_data(inspection_tx_data),.i_inspection_valid(inspection_tx_valid),
+        .i_inspection_last(inspection_tx_last),.o_inspection_ready(inspection_tx_ready),.o_uart_tx(o_uart_tx));
     speed_report #(
         .CLK_FREQ_HZ    (CLK_HZ),
         .BAUD_RATE      (BAUD_DEBUG),
@@ -1542,28 +1565,67 @@ module falcons_top (
         .pose_yaw_cdeg(navigation_yaw_cdeg)
     );
     wire map_disp_valid, map_disp_occupied, map_disp_start, map_disp_done;
+    reg [31:0] inspection_epoch;
+    reg [15:0] inspection_user_token;
+    wire inspection_permission=ai_master && ai_mode==1 && page==PAGE_AI;
+    wire navigation_sensors_valid;
+    always @(posedge i_clk_50m or negedge sys_rst_n)begin
+        if(!sys_rst_n)begin inspection_epoch<=1;inspection_user_token<=0;end
+        else begin
+            if(count_clear_r || yaw_clear_r || imu_calib_done)inspection_epoch<=inspection_epoch+1'b1;
+            if(inspection_permission && !manual_drive && rc_confirm)inspection_user_token<=inspection_user_token+1'b1;
+        end
+    end
+    inspection_application #(.CLK_HZ(CLK_HZ)) u_inspection(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.i_rx_data(motion_rx_data),.i_rx_valid(motion_rx_valid),
+        .i_permission(inspection_permission),.i_manual(manual_drive),
+        .i_safety(rc_signal_ok && voice_imu_healthy && navigation_pose_valid && navigation_sensors_valid &&
+                  !estop_latch && !tof_estop && !(|stall_vec)),
+        .i_link(ai_host_alive),.i_local_pause((rc_confirm || rc_back || ai_record) && (inspection_motion_enable || inspection_pending_motion)),
+        .i_user_token(inspection_user_token),.i_epoch(inspection_epoch),
+        .i_pose_tick(navigation_pose_tick),.i_pose_valid(navigation_pose_valid),
+        .i_x_mm(navigation_x_mm),.i_y_mm(navigation_y_mm),.i_yaw_cdeg(navigation_yaw_cdeg),
+        .i_ctrl_done(obs_ctrl_done),.i_command_idle(!planner_cmd_valid && !planner_emergency_stop && !obs_ctrl_done),
+        .i_ctrl_fault(obs_ctrl_fault),.i_nav_state(planner_nav_state),
+        .o_owned(inspection_owned),.o_goal_valid(inspection_goal_valid),.o_motion_enable(inspection_motion_enable),
+        .o_force_stop(inspection_force_stop),.o_goal_x(inspection_goal_x),.o_goal_y(inspection_goal_y),
+        .o_pending_motion(inspection_pending_motion),
+        .o_layer_begin(inspection_begin),.o_layer_commit(inspection_commit),.o_layer_word_valid(inspection_word_valid),
+        .o_layer_epoch(inspection_layer_epoch),.o_layer_crc(inspection_layer_crc),.o_layer_word(inspection_layer_word),
+        .o_layer_version(inspection_begin_version),.o_layer_word_index(inspection_word_index),
+        .i_layer_ready(inspection_word_ready),.i_layer_valid(inspection_layer_valid),.i_layer_committed(inspection_committed),
+        .i_layer_error(inspection_error),.i_layer_busy(inspection_layer_busy),.i_layer_version(inspection_layer_version),
+        .i_layer_error_code(inspection_error_code),.o_stopped(inspection_stopped),.o_status(inspection_status),
+        .o_tx_data(inspection_tx_data),.o_tx_valid(inspection_tx_valid),.o_tx_last(inspection_tx_last),.i_tx_ready(inspection_tx_ready));
     wire route_disp_valid, route_disp_start, route_disp_done;
     wire [7:0] route_disp_x, route_disp_y;
     reg navigation_motion_enable;
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) navigation_motion_enable <= 0;
-        else navigation_motion_enable <= obs_run && !manual_drive && rc_signal_ok &&
+        else navigation_motion_enable <= (inspection_owned?inspection_motion_enable:obs_run) && !manual_drive && rc_signal_ok &&
                                          !estop_latch && !tof_estop && !obs_ctrl_fault;
     end
-    radar_navigation u_radar_navigation (
+    radar_navigation #(.AI_LAYER_ENABLE(1)) u_radar_navigation (
         .forward_check_cells(tune_p[391:384]), .vehicle_width_mm(tune_p[431:416]),
         .clk(i_clk_50m), .reset_n(nav_reset_n),
-        .map_enable(navigation_pose_valid), .plan_enable(obs_goal_valid),
+        .map_enable(navigation_pose_valid), .plan_enable(inspection_owned?inspection_goal_valid:obs_goal_valid),
         .motion_enable(navigation_motion_enable),
         .radar_rx(i_radar_rx), .pose_valid(navigation_pose_valid),
         .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
         .pose_yaw_cdeg(navigation_yaw_cdeg),
-        .goal_valid(obs_goal_valid), .goal_x_cell(obs_goal_x), .goal_y_cell(obs_goal_y),
+        .goal_valid(inspection_owned?inspection_goal_valid:obs_goal_valid),
+        .goal_x_cell(inspection_owned?inspection_goal_x:obs_goal_x),.goal_y_cell(inspection_owned?inspection_goal_y:obs_goal_y),
+        .ai_enable(inspection_owned),.ai_begin(inspection_begin),.ai_abort(1'b0),.ai_commit(inspection_commit),
+        .ai_word_valid(inspection_word_valid),.ai_stopped(inspection_stopped),.ai_epoch(inspection_epoch),
+        .ai_begin_epoch(inspection_layer_epoch),.ai_expected_crc(inspection_layer_crc),.ai_word(inspection_layer_word),
+        .ai_begin_version(inspection_begin_version),.ai_word_index(inspection_word_index),
+        .ai_word_ready(inspection_word_ready),.ai_layer_valid(inspection_layer_valid),.ai_layer_version(inspection_layer_version),
+        .ai_committed(inspection_committed),.ai_error(inspection_error),.ai_error_code(inspection_error_code),.ai_layer_busy(inspection_layer_busy),
         .ctrl_done(obs_ctrl_done), .ctrl_linear_active(obs_linear_active),
         .cmd_valid(planner_cmd_valid), .emergency_stop(planner_emergency_stop),
         .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
         .target_line_dir(planner_target_line_dir),
-        .nav_state(planner_nav_state),
+        .nav_state(planner_nav_state),.sensors_valid(navigation_sensors_valid),
         .display_enable((page == PAGE_RADAR) || (page == PAGE_NAV_OBS)),
         .map_disp_valid(map_disp_valid), .map_disp_occupied(map_disp_occupied),
         .map_disp_frame_start(map_disp_start), .map_disp_frame_done(map_disp_done),
@@ -1629,7 +1691,7 @@ module falcons_top (
 
     nav_point_ctrl u_nav_point_ctrl (
         .clk(i_clk_50m), .rst_n(sys_rst_n),
-        .i_cmd_valid(planner_cmd_valid), .i_emergency_stop(planner_emergency_stop),
+        .i_cmd_valid(planner_cmd_valid), .i_emergency_stop(planner_emergency_stop | (inspection_force_stop && !manual_drive)),
         .i_target_x_mm(planner_target_x), .i_target_y_mm(planner_target_y),
         .i_tick(navigation_pose_tick), .i_x_mm(navigation_x_mm), .i_y_mm(navigation_y_mm),
         .i_yaw_centi(navigation_yaw_cdeg), .i_v_mms(odom_v_mms), .i_stall(stall_vec),

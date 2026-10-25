@@ -218,7 +218,15 @@ $sources += @("$VendorRoot\yaw_integrate\rtl\yaw_integrate.v", "$PSScriptRoot\ya
 $sources += @("$VendorRoot\ov5640_capture\rtl\ov5640_init_table_rgb.v", "$PSScriptRoot\camera_rotation_tb.v")
 $sources += @("$ProjectRoot\rtl\ai\inspection_packet_rx.v", "$PSScriptRoot\inspection_packet_tb.v",
               "$PSScriptRoot\nav_visual_layer_tb.v", "$PSScriptRoot\visual_navigation_tb.v")
+$sources += @("$ProjectRoot\rtl\ai\inspection_nav_control.v", "$ProjectRoot\rtl\ai\inspection_dispatch.v",
+              "$ProjectRoot\rtl\ai\inspection_packet_tx.v", "$ProjectRoot\rtl\ai\inspection_telemetry.v", "$ProjectRoot\rtl\ai\inspection_application.v",
+              "$PSScriptRoot\inspection_control_tb.v", "$PSScriptRoot\inspection_tx_tb.v", "$PSScriptRoot\inspection_dispatch_tb.v", "$PSScriptRoot\inspection_uart_tb.v", "$PSScriptRoot\inspection_application_tb.v")
 $tests = @(
+    @{ Name = 'inspection_application'; Top = 'inspection_application_tb'; Desc = 'Python transaction to production authority and actual-stop handshake' },
+    @{ Name = 'inspection_dispatch'; Top = 'inspection_dispatch_tb'; Desc = 'Synchronous message RAM / authenticated layer stream / stopped commit' },
+    @{ Name = 'inspection_uart'; Top = 'inspection_uart_tb'; Desc = 'Physical UART arbitration / whole CSV / indivisible inspection transaction' },
+    @{ Name = 'inspection_control'; Top = 'inspection_control_tb'; Desc = 'Actual stopped handshake, physical confirm, manual priority and local lease' },
+    @{ Name = 'inspection_tx'; Top = 'inspection_tx_tb'; Desc = 'Status snapshot / whole transaction / CRC under byte backpressure' },
     @{ Name = 'visual_navigation'; Top = 'visual_navigation_tb'; Desc = 'Camera-only wall changes actual Dijkstra route; AI exit restores radar map' },
     @{ Name = 'inspection_packet'; Top = 'inspection_packet_tb'; Desc = 'Python/RTL transaction CRC, synchronous RAM, corruption and timeout' },
     @{ Name = 'nav_visual_layer'; Top = 'nav_visual_layer_tb'; Desc = 'Atomic visual raw/cost layer, stopped commit, CRC and epoch isolation' },

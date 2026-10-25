@@ -35,7 +35,7 @@ module auto_navigation #(
     input wire [31:0] ai_epoch,ai_begin_epoch,ai_expected_crc,ai_word,
     input wire [15:0] ai_begin_version,
     input wire [12:0] ai_word_index,
-    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,
+    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,ai_layer_busy,
     output wire [15:0] ai_layer_version,
     output wire [3:0] ai_error_code,
 
@@ -255,6 +255,7 @@ module auto_navigation #(
         .ai_error(ai_error),
         .ai_layer_version(ai_layer_version),
         .ai_error_code(ai_error_code),
+        .ai_layer_busy(ai_layer_busy),
         .forward_check_cells (forward_check_cells),
         .vehicle_width_mm    (vehicle_width_mm),
         .pose_valid        (navigation_pose_valid),

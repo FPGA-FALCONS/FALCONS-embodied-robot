@@ -21,7 +21,7 @@ module radar_navigation #(
     input wire [31:0] ai_epoch,ai_begin_epoch,ai_expected_crc,ai_word,
     input wire [15:0] ai_begin_version,
     input wire [12:0] ai_word_index,
-    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,
+    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,ai_layer_busy,
     output wire [15:0] ai_layer_version,
     output wire [3:0] ai_error_code,
 
@@ -59,6 +59,7 @@ module radar_navigation #(
 
     // 界面任务状态：0 关闭，1 运行中，2 暂停，3 已到达，4 无路。
     output wire         [3:0] nav_state,
+    output wire               sensors_valid,
 
     // 同时控制地图和路线显示；点云输出不受此开关影响。
     input  wire               display_enable,
@@ -104,6 +105,7 @@ module radar_navigation #(
         .ai_error(ai_error),
         .ai_layer_version(ai_layer_version),
         .ai_error_code(ai_error_code),
+        .ai_layer_busy(ai_layer_busy),
         .forward_check_cells    (forward_check_cells),
         .vehicle_width_mm       (vehicle_width_mm),
         .map_enable             (map_enable),
@@ -140,7 +142,7 @@ module radar_navigation #(
         .cloud_distance_mm      (cloud_distance_mm),
 
         // 不向交付接口引出诊断信号；不改变内部导航和停车判断。
-        .st_sensors_valid       (),
+        .st_sensors_valid       (sensors_valid),
         .st_brake_clear         (),
         .st_stop_cause          (),
         .st_at_target           (),
