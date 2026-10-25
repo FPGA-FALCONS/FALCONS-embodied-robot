@@ -11,9 +11,9 @@ module ui_pipeline_tb;
     wire req, de;
     wire [23:0] rgb;
     wire [7:0] red, green, blue;
-    wire [5:0] raddr;
+    wire [6:0] raddr;
     reg [7:0] text_q;
-    reg [7:0] text_mem [0:63];
+    reg [7:0] text_mem [0:127];
     reg [31:0] expected [0:5];
     reg [31:0] hash;
     integer p, n, cycles = 0, errors = 0;
@@ -52,8 +52,8 @@ module ui_pipeline_tb;
         expected[2] = 32'h71923fef;
         expected[3] = 32'h7e66cce3;
         expected[4] = 32'h1eaec97b;
-        expected[5] = 32'hd2a584ff;
-        for (n = 0; n < 64; n = n + 1) text_mem[n] = 8'd16 + n % 10;
+        expected[5] = 32'h77725a83; // 参数页新增两行；前五页指纹保持不变。
+        for (n = 0; n < 128; n = n + 1) text_mem[n] = 8'd16 + n % 10;
         for (p = 0; p < 6; p = p + 1) begin
             @(negedge clk); rst_n = 0; page = p;
             repeat (4) @(negedge clk);

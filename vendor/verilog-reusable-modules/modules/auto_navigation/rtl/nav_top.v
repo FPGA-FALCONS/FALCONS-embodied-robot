@@ -19,10 +19,6 @@
 //   - 不要让显示反压建图；不要等待 motion_stopped 才允许开始普通规划。
 // ============================================================================
 module nav_top #(
-    parameter integer        FORWARD_CHECK_CELLS = 6,
-    parameter integer        VEHICLE_WIDTH_MM    = 180,
-    parameter integer        FRONT_OFFSET_MM     = 150,
-    parameter integer        LATERAL_MARGIN_MM   = 20,
     parameter integer        PLAN_INFLATE_CELLS  = 4,
     parameter integer        GRID_W              = 256,
     parameter integer        GRID_H              = 256,
@@ -34,6 +30,10 @@ module nav_top #(
 ) (
     input  wire               clk,
     input  wire               reset_n,
+
+    // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
+    input  wire         [7:0] forward_check_cells,
+    input  wire        [15:0] vehicle_width_mm,
 
     input  wire               pose_valid,
     input  wire signed [31:0] pose_x_mm,
@@ -588,14 +588,12 @@ module nav_top #(
         .GRID_W             (GRID_W),
         .GRID_H             (GRID_H),
         .CELL_MM            (CELL_MM),
-        .HALF_MM            (HALF_MM),
-        .FORWARD_CHECK_CELLS(FORWARD_CHECK_CELLS),
-        .VEHICLE_WIDTH_MM   (VEHICLE_WIDTH_MM),
-        .FRONT_OFFSET_MM    (FRONT_OFFSET_MM),
-        .LATERAL_MARGIN_MM  (LATERAL_MARGIN_MM)
+        .HALF_MM            (HALF_MM)
     ) u_drive (
         .clk            (clk),
         .reset_n        (reset_n),
+        .forward_check_cells (forward_check_cells),
+        .vehicle_width_mm    (vehicle_width_mm),
         .pose_x_mm      (pose_x_mm),
         .pose_y_mm      (pose_y_mm),
         .pose_valid     (pose_valid),

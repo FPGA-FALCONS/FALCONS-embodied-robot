@@ -47,7 +47,7 @@ module tune_page_tb;
     reg          tact_i = 1'b1;
 
     wire [23:0] rgb;
-    wire [5:0]  dyn_raddr;
+    wire [6:0]  dyn_raddr;
     reg  [7:0]  dyn_rdata = 8'd24;          // 字库索引 24 = '8'（合法字形，能点亮）
 
     // 与实际扫描器一致：像素坐标在沿后推进，再由下一沿消费。
@@ -119,8 +119,8 @@ module tune_page_tb;
     integer wcnt;           // scan_color 的结果
     integer x, y;
     integer i;
-    integer row_lbl [0:10];
-    integer row_val [0:10];
+    integer row_lbl [0:13];
+    integer row_val [0:13];
 
     task scan_color;
         input integer x0;
@@ -244,7 +244,7 @@ module tune_page_tb;
         // ------------------------------------------------------------------
         // G3 12 行标签逐行有白字
         // ------------------------------------------------------------------
-        for (i = 0; i < 12; i = i + 1) begin
+        for (i = 0; i < 14; i = i + 1) begin
             scan_color(LBL_X0, LBL_X1,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_TDY,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_TDY + 23,
@@ -263,6 +263,8 @@ module tune_page_tb;
         chk_pos("g3_label_row9",  row_lbl[9]);
         chk_pos("g3_label_row10", row_lbl[10]);
         chk_pos("g3_label_row11", row_lbl[11]);
+        chk_pos("g3_label_row12", row_lbl[12]);
+        chk_pos("g3_label_row13", row_lbl[13]);
 
         // ------------------------------------------------------------------
         // G4 12 行数值逐行有绿字（5 字符 × 16 = 80 px）
@@ -270,7 +272,7 @@ module tune_page_tb;
         //     16 宽 × 24 高 —— 正好漏掉了「下部被截断」这个上板 bug。
         //     这里扫满 24 行，截断会立刻失败。
         // ------------------------------------------------------------------
-        for (i = 0; i < 12; i = i + 1) begin
+        for (i = 0; i < 14; i = i + 1) begin
             scan_color(VAL_X0, VAL_X1,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_VDY,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_VDY + 23,
@@ -289,6 +291,8 @@ module tune_page_tb;
         chk_pos("g4_value_row9",  row_val[9]);
         chk_pos("g4_value_row10", row_val[10]);
         chk_pos("g4_value_row11", row_val[11]);
+        chk_pos("g4_value_row12", row_val[12]);
+        chk_pos("g4_value_row13", row_val[13]);
 
         // ------------------------------------------------------------------
         // G5 单位：第 0..4 行有，第 5..10 行无
@@ -317,6 +321,16 @@ module tune_page_tb;
         scan_color(UNI_X0, UNI_X1, TUNE_Y0 + 10 * TUNE_STEP + TUNE_VDY,
                    TUNE_Y0 + 10 * TUNE_STEP + TUNE_VDY + 15, C_WHITE);
         chk_zero("g5_unit_row10_none", wcnt);
+        scan_color(UNI_X0, UNI_X1, TUNE_Y0 + 12*TUNE_STEP + 6,
+                   TUNE_Y0 + 12*TUNE_STEP + 29, C_WHITE);
+        chk_pos("front_cells_unit", wcnt);
+        scan_color(UNI_X0, UNI_X1, TUNE_Y0 + 13*TUNE_STEP + 6,
+                   TUNE_Y0 + 13*TUNE_STEP + 29, C_WHITE);
+        chk_pos("width_mm_unit", wcnt);
+        tsel_i = 13;
+        repeat (5) @(posedge pixel_clk);
+        scan_color(HL_X0, HL_X1, 540, 575, C_BLUE);
+        chk_pos("width_last_row_highlight", wcnt);
         // ------------------------------------------------------------------
         // G6 高亮条随 i_tune_sel 移动
         // ------------------------------------------------------------------

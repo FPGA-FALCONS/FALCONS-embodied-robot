@@ -53,7 +53,7 @@ module ui_render_tb;
 
     reg map_i = 0, route_i = 0;
     wire [23:0] rgb;
-    wire [5:0]  dyn_raddr;
+    wire [6:0]  dyn_raddr;
     reg  [7:0]  dyn_rdata = 8'd24;          // 字库索引 24 = '8'（合法字符，能点亮）
 
     integer errors = 0;

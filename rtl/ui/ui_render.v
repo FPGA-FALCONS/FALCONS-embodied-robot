@@ -20,9 +20,9 @@
 //
 // 【文本段（seg）】同一条扫描行可能有多段文字，所以译码结果是若干段描述符，
 //   再按当前 slot 选出命中的那一段。
-//   大字段 40 位：{valid, src, rom_addr[11:0], ram_addr[5:0], len[5:0], xw[5:0], row[4:0]}
-//     src = 0 → 静态文案 ROM；src = 1 → 动态字符 RAM（num_text 生成的实时数值）
-//   小字段 32 位：{valid, src, rom_addr[11:0], ram_addr[5:0], len[5:0], xw[5:0]}（保留不用）
+//   大字 30 位：{valid, rom_addr[11:0], len[5:0], xw[5:0], row[4:0]}。
+//   小字 38 位：{valid, src, rom_addr[11:0], ram_addr[6:0], len[5:0], xw[5:0], row[4:0]}。
+//     小字 src = 0 → 动态字符 RAM，src = 1 → 静态文案 ROM。
 //
 // 【四页】0 摄像头 / 1 雷达 / 2 运行数据 / 3 路径点导航
 //   页 0/1/3 显示占位提示；页 2 显示车图 + 实时数值。
@@ -81,7 +81,7 @@ module ui_render #(
     input  wire [15:0]  i_pt_v,         // 该点有效
 
     // ---- 动态数值字符 RAM 读端口（pixel 域）----
-    output wire [5:0]  o_dyn_raddr,
+    output wire [6:0]  o_dyn_raddr,
     input  wire [7:0]  i_dyn_rdata,
 
     // ---- IMU 状态提示（2026-10-19 需求方指示）----
@@ -89,7 +89,7 @@ module ui_render #(
     //   数据页「航向角」标签正上方用**红字**显示「imu初始化错误」。
     //   此刻航向角/角速度会恒为 0，没有这行提示根本分不清"车没转"和"IMU 没起来"。
     input  wire         i_imu_fail,
-    input  wire [3:0]   i_tune_sel,     // 参数整定页当前选中行（0..11）
+    input  wire [3:0]   i_tune_sel,     // 参数整定页当前选中行（0..13）
     // 2026-10-20（上板二次反馈）：参数页处于「编辑态」才变暗左侧菜单栏、才画行高亮条。
     //   退出编辑态后 page 仍停在参数页（与导航页退出 nav_ui 同构），
     //   此时菜单栏恢复正常亮度、高亮条消失，菜单键恢复可用。
@@ -146,7 +146,7 @@ module ui_render #(
     localparam integer TUNE_LBL_XW  = TUNE_LBL_X / LG_CELL;
     localparam integer TUNE_VAL_XW  = 24;   // 数值左界 24×16 = 384
     localparam integer TUNE_UNIT_XW = 30;   // 单位左界 30×16 = 480
-    localparam integer TUNE_ROWS    = 12;   // 参数行数（与 tune_ctrl 的 12 项一一对应）
+    localparam integer TUNE_ROWS    = 14;   // 参数行数（与 tune_ctrl 的 14 项一一对应）
 
     // ------------------------------------------------------------------
     // 文案取用（function：纯组合，综合稳）  {addr[11:0], len[5:0]}
@@ -189,6 +189,8 @@ module ui_render #(
                 4'd9:    tune_label_text = {UI_TXT_TUNE_L8_ADDR,  UI_TXT_TUNE_L8_LEN};
                 4'd10:   tune_label_text = {UI_TXT_TUNE_L9_ADDR,  UI_TXT_TUNE_L9_LEN};
                 4'd11:   tune_label_text = {UI_TXT_TUNE_L10_ADDR, UI_TXT_TUNE_L10_LEN};
+                4'd12:   tune_label_text = {UI_TXT_TUNE_FORWARD_ADDR, UI_TXT_TUNE_FORWARD_LEN};
+                4'd13:   tune_label_text = {UI_TXT_TUNE_WIDTH_ADDR, UI_TXT_TUNE_WIDTH_LEN};
                 default: tune_label_text = {UI_TXT_TUNE_L0_ADDR,  UI_TXT_TUNE_L0_LEN};
             endcase
         end
@@ -203,7 +205,8 @@ module ui_render #(
         begin
             case (idx)
                 4'd0:       tune_unit_text = {UI_TXT_TUNE_UMMS_ADDR,  UI_TXT_TUNE_UMMS_LEN};
-                4'd1:       tune_unit_text = {UI_TXT_TUNE_UMM_ADDR,   UI_TXT_TUNE_UMM_LEN};
+                4'd12:      tune_unit_text = {UI_TXT_TUNE_CELLS_ADDR, UI_TXT_TUNE_CELLS_LEN};
+                4'd1, 4'd13: tune_unit_text = {UI_TXT_TUNE_UMM_ADDR,   UI_TXT_TUNE_UMM_LEN};
                 4'd2, 4'd3: tune_unit_text = {UI_TXT_TUNE_UDEG_ADDR,  UI_TXT_TUNE_UDEG_LEN};
                 4'd4:       tune_unit_text = {UI_TXT_TUNE_UDEGS_ADDR, UI_TXT_TUNE_UDEGS_LEN};
                 default:    tune_unit_text = 18'd0;
@@ -300,21 +303,21 @@ module ui_render #(
         end
     endfunction
 
-    //   ★ 2026-10-18：sm 段由 24 位扩到 **37 位**，新增静态文案 ROM 源。
+    //   ★ 2026-10-18：sm 段由 24 位扩到 **38 位**，新增静态文案 ROM 源。
     //     动机：lg 通路一个字符固定占 24 px 格，ASCII（/ ° r p m）笔画只有 7~12 px，
     //     居中后左右各留 6~7 px 空白（实测 '/' 空隙 14 px），看起来"散"。
     //     改由 16 px 的 sm 通路渲染后，'/'、'p'、'm' 的空隙降到 6/6/4 px，
     //     与数字的 '0'（宽 10、空隙 6）完全一致。
     //
     //     位段（**低 17 位与 lg 段位置完全相同**）：
-    //       [36]valid | [35]src | [34:23]rom_addr(12) | [22:17]ram_addr(6)
+    //       [37]valid | [36]src | [35:24]rom_addr(12) | [23:17]ram_addr(7)
     //       | [16:11]len | [10:5]xw | [4:0]row
-    //     ★ 因为 [22:17]/[16:11]/[10:5]/[4:0] 一个都没动，原有位索引只有
-    //       valid 需要从 [23] 上移到 [36]。src = 0 → 动态数值 RAM，1 → 静态文案 ROM。
-    function [36:0] seg_sm;
+    //     动态字符地址扩为 7 位；长度、横坐标和行号仍保留原来的低 17 位位置。
+    //     src = 0 → 动态数值 RAM，1 → 静态文案 ROM。
+    function [37:0] seg_sm;
         input              src;
         input [11:0]       rom_addr;
-        input [5:0]        ram_addr;
+        input [6:0]        ram_addr;
         input [5:0]        len;
         input [5:0]        xw;
         input [4:0]        row;
@@ -324,8 +327,8 @@ module ui_render #(
     endfunction
 
     // 动态数值（RAM 源）
-    function [36:0] seg_sm_ram;
-        input [5:0] base;      // 动态 RAM 起始地址（字段号 × 5）
+    function [37:0] seg_sm_ram;
+        input [6:0] base;      // 动态 RAM 起始地址（字段号 × 5）
         input [5:0] len;       // 字符数
         input [5:0] xw;
         input [4:0] row;
@@ -335,13 +338,13 @@ module ui_render #(
     endfunction
 
     // 静态文案（ROM 源，16 px 格）—— 用于「/°」「/rpm」这类符号后缀
-    function [36:0] seg_sm_rom;
+    function [37:0] seg_sm_rom;
         input [11:0] addr;     // ui_text_rom 地址
         input [5:0]  len;
         input [5:0]  xw;
         input [4:0]  row;
         begin
-            seg_sm_rom = seg_sm(1'b1, addr, 6'd0, len, xw, row);
+            seg_sm_rom = seg_sm(1'b1, addr, 7'd0, len, xw, row);
         end
     endfunction
 
@@ -612,11 +615,11 @@ module ui_render #(
     wire [11:0] sm_x_look = i_pixel_x + 12'd3;
     wire [5:0] sm_slot = sm_x_look[9:4];
 
-    reg [36:0] sm_seg [0:5];
+    reg [37:0] sm_seg [0:5];
     integer    si;
     reg [17:0] tu;          // 参数整定页：单位 {addr,len} 的组合暂存
     always @(*) begin
-        for (si = 0; si < 6; si = si + 1) sm_seg[si] = 37'd0;
+        for (si = 0; si < 6; si = si + 1) sm_seg[si] = 38'd0;
 
         // ---- 非避障导航页：右上角准心坐标（x 在上、y 在下，竖排）----
         //   两行 y = 24 与 56，最右墨迹到 x=1007（离右边缘 16 px，不贴边）。
@@ -705,7 +708,7 @@ module ui_render #(
                                        6'd32, (i_pixel_y - 12'd504));
         end
 
-        // ---- 参数整定页：11 行数值（16px，读 dyn_text_ram）+ 单位（静态 ROM）----
+        // ---- 参数整定页：14 行数值（16px，读 dyn_text_ram）+ 单位（静态 ROM）----
         //   ★ 数值复用 num_text 的字段 0..10（字段号 = 行号，基址 = 行号 × 5）：
         //     顶层在 page==PAGE_TUNE 时把 num_text 的 i_v0..i_v10 换成 tune_ctrl 的
         //     显示值，所以这里完全沿用数据页那套「数字 → 字符串 → RAM」通路，
@@ -730,11 +733,11 @@ module ui_render #(
         end
     end
 
-    reg [36:0] sm_sel;
+    reg [37:0] sm_sel;
     always @(*) begin
-        sm_sel = 37'd0;
+        sm_sel = 38'd0;
         for (si = 0; si < 6; si = si + 1) begin
-            if (sm_seg[si][36] &&
+            if (sm_seg[si][37] &&
                 (sm_slot >= sm_seg[si][10:5]) &&
                 (sm_slot <  (sm_seg[si][10:5] + sm_seg[si][16:11]))) begin
                 sm_sel = sm_seg[si];
@@ -743,18 +746,18 @@ module ui_render #(
     end
 
     // 只保留选中段后续使用的字段，长度只用于上面的区间选择。
-    reg [30:0] sm_sel_q;
+    reg [31:0] sm_sel_q;
     reg [5:0]  sm_slot_q;
     always @(posedge i_pixel_clk) begin
-        sm_sel_q  <= {sm_sel[36:17], sm_sel[10:0]};
+        sm_sel_q  <= {sm_sel[37:17], sm_sel[10:0]};
         sm_slot_q <= sm_slot;
     end
 
-    wire        sm_in_text = sm_sel_q[30];
-    wire        sm_src     = sm_sel_q[29];
+    wire        sm_in_text = sm_sel_q[31];
+    wire        sm_src     = sm_sel_q[30];
     wire [5:0]  sm_off     = sm_slot_q - sm_sel_q[10:5];
-    wire [5:0]  sm_ram_rd  = sm_sel_q[16:11] + sm_off;
-    wire [11:0] sm_rom_rd  = sm_sel_q[28:17] + sm_off;
+    wire [6:0]  sm_ram_rd  = sm_sel_q[17:11] + sm_off;
+    wire [11:0] sm_rom_rd  = sm_sel_q[29:18] + sm_off;
 
     // 动态数值 RAM 的读口
     assign o_dyn_raddr = sm_ram_rd;
@@ -775,16 +778,16 @@ module ui_render #(
     reg [4:0] sm_row_d1;
     // ★ 2026-10-18：多锁两路，供小数点叠加层用（与 sm_in_text_d1 同相）
     reg [5:0] sm_xw_d1;      // 段起始字组号（字段左边界 / 16）
-    reg [5:0] sm_fbase_d1;   // 段字符 RAM 基址（反查字段号 → 小数位数 dec）
+    reg [6:0] sm_fbase_d1;   // 段字符 RAM 基址（反查字段号 → 小数位数 dec）
     always @(posedge i_pixel_clk) begin
         sm_in_text_d1 <= sm_in_text;
         sm_src_d1     <= sm_src;
         sm_row_d1     <= sm_sel_q[4:0];
         sm_xw_d1      <= sm_sel_q[10:5];
-        sm_fbase_d1   <= sm_sel_q[16:11];
+        sm_fbase_d1   <= sm_sel_q[17:11];
     end
     //   src = 0 → 动态数值 RAM；src = 1 → 静态文案 ROM
-    //   ★ ROM 段的 [22:17] 恒为 0，于是小数点判定的 field_dec(0) = 0（不画点），
+    //   ★ ROM 段的 [23:17] 恒为 0，于是小数点判定的 field_dec(0) = 0（不画点），
     //     天然正确，不需要额外判断；但**别**把数值段误写成 ROM 段。
     wire [7:0] sm_char_index = sm_in_text_d1
                              ? (sm_src_d1 ? sm_rom_char : sm_ram_char)
@@ -838,9 +841,9 @@ module ui_render #(
     //     ★ 2026-10-18 调整：初版是 3x3，需求方看预览图后要求"稍微小一点"。
     // ------------------------------------------------------------------
     function [1:0] field_dec;      // 返回该字段的小数位数（0 = 不画点）
-        input [5:0] base_addr;
+        input [6:0] base_addr;
         begin
-            // ★ 2026-10-20（综合报错后补）：参数整定页复用数据页的字段 0..11，
+            // ★ 2026-10-20（综合报错后补）：参数整定页复用数据页的字段 0..13，
             //   但 12 项参数**全是整数**。若仍按 base_addr 查表，字段 6/7/8
             //   （base 30/35/40）会被画上小数点 —— 航向 Kd=6 显示成 "  0.06"。
             //   故参数页一律不画点；数据页行为完全不变。

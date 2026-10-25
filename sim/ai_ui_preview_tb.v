@@ -8,7 +8,7 @@ module ai_ui_preview_tb;
     always #10 clk=~clk;always #10 pclk=~pclk;
     wire [23:0] base,rgb;
     wire glyph,connected,local_region,highlight;
-    wire [5:0] dyn_addr;
+    wire [6:0] dyn_addr;
     reg [7:0] packet_bytes[0:119999];reg [31:0] packet_counts[0:3];
     reg [2047:0] output_dir;reg [4095:0] filename;
     integer fd,mode,i,row,col;

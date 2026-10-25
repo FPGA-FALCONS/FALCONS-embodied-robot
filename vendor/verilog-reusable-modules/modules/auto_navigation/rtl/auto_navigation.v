@@ -21,16 +21,16 @@
 //   - 不要用显示流控制底盘，也不要把诊断状态替代 cmd_valid / emergency_stop。
 // ============================================================================
 module auto_navigation #(
-    parameter integer FORWARD_CHECK_CELLS = 6,
-    parameter integer VEHICLE_WIDTH_MM    = 180,
-    parameter integer FRONT_OFFSET_MM     = 150,
-    parameter integer LATERAL_MARGIN_MM   = 20,
     parameter integer PLAN_INFLATE_CELLS  = 4
 ) (
     // 50 MHz 公共时钟；所有控制/位姿多位输入需已同步到此域。
     input  wire               clk,
     // 异步低有效复位；同时清任务、路线、整圈状态并重新初始化地图。
     input  wire               reset_n,
+
+    // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
+    input  wire         [7:0] forward_check_cells,
+    input  wire        [15:0] vehicle_width_mm,
 
     // 允许启动新规划轮次；撤销不取消在途计算，不清活动路线。
     input  wire               plan_enable,
@@ -220,14 +220,12 @@ module auto_navigation #(
         .CELL_MM            (50),
         .HALF_MM            (6400),
         .MAX_WP             (1024),
-        .FORWARD_CHECK_CELLS(FORWARD_CHECK_CELLS),
-        .VEHICLE_WIDTH_MM   (VEHICLE_WIDTH_MM),
-        .FRONT_OFFSET_MM    (FRONT_OFFSET_MM),
-        .LATERAL_MARGIN_MM  (LATERAL_MARGIN_MM),
         .PLAN_INFLATE_CELLS (PLAN_INFLATE_CELLS)
     ) u_nav (
         .clk               (clk),
         .reset_n           (reset_n),
+        .forward_check_cells (forward_check_cells),
+        .vehicle_width_mm    (vehicle_width_mm),
         .pose_valid        (navigation_pose_valid),
         .pose_x_mm         (pose_x_mm),
         .pose_y_mm         (pose_y_mm),

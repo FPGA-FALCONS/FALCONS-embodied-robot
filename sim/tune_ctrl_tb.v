@@ -21,7 +21,7 @@ module tune_ctrl_tb;
     reg i_confirm = 1'b0, i_back = 1'b0;
 reg signed [11:0] i_throttle = 12'sd0;   // CH2：选行（向上 = 行号减 1）
 
-    wire [383:0]       o_param, o_disp;
+    wire [447:0]       o_param, o_disp;
     wire [3:0]         o_sel;
     wire signed [31:0] o_k_slow_q10;
     wire               o_exit, o_div_busy;
@@ -195,14 +195,14 @@ reg signed [11:0] i_throttle = 12'sd0;   // CH2：选行（向上 = 行号减 1�
         // ------------------------------------------------------------------
         pulse_aux_down;
         chk_int("g4_sel1", o_sel, 1);
-        for (k = 0; k < 10; k = k + 1) pulse_aux_down;
-        chk_int("g4_sel11", o_sel, 11);
+        for (k = 0; k < 12; k = k + 1) pulse_aux_down;
+        chk_int("g4_sel13", o_sel, 13);
         pulse_aux_down;
         chk_int("g4_sel_wrap0", o_sel, 0);
         pulse_aux_up;
-        chk_int("g4_sel_wrap11", o_sel, 11);
+        chk_int("g4_sel_wrap13", o_sel, 13);
         pulse_aux_up;
-        chk_int("g4_sel10", o_sel, 10);
+        chk_int("g4_sel12", o_sel, 12);
 
         // ------------------------------------------------------------------
         // G5 单步调值：必须回中才能再触发（一次 push 只走一步）
@@ -335,6 +335,36 @@ reg signed [11:0] i_throttle = 12'sd0;   // CH2：选行（向上 = 行号减 1�
         @(negedge clk); i_throttle = 0;
         tick(5);
         chk_int("g13_short_up", o_sel, 3);
+
+        // 新增配置：循环选行、调值、恢复默认及上下限。
+        rst_n = 0; tick(10); rst_n = 1; tick(200);
+        chk_int("front_default", `P(12), 4);
+        chk_int("width_default", `P(13), 180);
+        for (k = 0; k < 12; k = k + 1) pulse_aux_down;
+        chk_int("front_select", o_sel, 12);
+        push_pos;
+        chk_int("front_add", `P(12), 5);
+        chk_int("front_display", `D(12), 5);
+        for (k = 0; k < 20; k = k + 1) push_neg;
+        chk_int("front_min", `P(12), 1);
+        for (k = 0; k < 20; k = k + 1) push_pos;
+        chk_int("front_max", `P(12), 16);
+        pulse_confirm;
+        chk_int("front_restore", `P(12), 4);
+        pulse_aux_down;
+        push_pos;
+        chk_int("width_add", `P(13), 190);
+        chk_int("width_display", `D(13), 190);
+        for (k = 0; k < 50; k = k + 1) push_neg;
+        chk_int("width_min", `P(13), 50);
+        for (k = 0; k < 50; k = k + 1) push_pos;
+        chk_int("width_max", `P(13), 500);
+        pulse_confirm;
+        chk_int("width_restore", `P(13), 180);
+        i_manual = 1;
+        push_pos;
+        chk_int("width_manual_lock", `P(13), 180);
+        i_manual = 0;
 
         // ------------------------------------------------------------------
         $display("");

@@ -634,15 +634,15 @@ module falcons_top (
     reg signed [15:0] kp_r, ki_r, kd_r;
 
     // ------------------------------------------------------------------
-    // 参数整定页的 11 项参数（2026-10-20，一期：存 RAM，掉电丢失）
-    //   ★ 位序：第 k 项在 tune_p[k*32 +: 32]，k = 0..11，与 rtl\ui\tune_ctrl.v
+    // 参数整定页的 14 项参数（2026-10-20，一期：存 RAM，掉电丢失）
+    //   ★ 位序：第 k 项在 tune_p[k*32 +: 32]，k = 0..13，与 rtl\ui\tune_ctrl.v
     //     的 o_sel、ui_render 的字段号、num_text 的字段号**四处一致**。
     //   ★ 这里只声明 wire，实例 u_tune_ctrl 在文件末尾（第 12c 节）—— Verilog
     //     允许先声明后实例化，但不能先使用后声明。
     // ------------------------------------------------------------------
-    wire [383:0] tune_p;        // 参数值本身（给 nav_ctrl / speed_pid）
-    wire [383:0] tune_disp;     // 显示值（已按单位换算，给 num_text）
-    wire [3:0]   tune_sel;      // 当前选中行 0..10
+    wire [447:0] tune_p;        // 参数值本身（给 nav_ctrl / speed_pid）
+    wire [447:0] tune_disp;     // 显示值（已按单位换算，给 num_text）
+    wire [3:0]   tune_sel;      // 当前选中行 0..13
     wire signed [31:0] tune_k_slow;   // = V_CRUISE×1024/D_SLOW，由 tune_ctrl 的除法器算
 
     //   速度环 PID 的两路写方（串口 / 页面）：靠"页面值变化沿"触发，避免每拍覆盖
@@ -1393,9 +1393,9 @@ module falcons_top (
     wire signed [31:0] tgt_right_rpm = (tgt_right * 100) >>> 10;
 
     wire       dyn_we;
-    wire [5:0] dyn_waddr;
+    wire [6:0] dyn_waddr;
     wire [7:0] dyn_wdata;
-    wire [5:0] dyn_raddr;
+    wire [6:0] dyn_raddr;
     wire [7:0] dyn_rdata;
 
     // ★ 2026-10-16 字段按需求原文 §29 的数据页布局重排（9 项）：
@@ -1552,6 +1552,7 @@ module falcons_top (
                                          !estop_latch && !tof_estop && !obs_ctrl_fault;
     end
     radar_navigation u_radar_navigation (
+        .forward_check_cells(tune_p[391:384]), .vehicle_width_mm(tune_p[431:416]),
         .clk(i_clk_50m), .reset_n(nav_reset_n),
         .map_enable(navigation_pose_valid), .plan_enable(obs_goal_valid),
         .motion_enable(navigation_motion_enable),
@@ -1824,23 +1825,24 @@ module falcons_top (
     wire signed [31:0] nt_v9  = tune_page ? tune_disp[319:288] : nav_cur_x_cm_r; // 参数 9 速度环 Kp
     wire signed [31:0] nt_v10 = tune_page ? tune_disp[351:320] : nav_cur_y_cm_r; // 参数 10 速度环 Ki
     wire signed [31:0] nt_v11 = tune_page ? tune_disp[383:352] : 32'sd0;
+    wire signed [31:0] nt_v12 = tune_page ? tune_disp[415:384] : 32'sd0;
+    wire signed [31:0] nt_v13 = tune_page ? tune_disp[447:416] : 32'sd0;
     // ★ 2026-10-20（综合报错后补）：哪些字段"带小数"（= num_text 里"整数部分至少几位"）。
     //   数据页：字段 6 中心速度 / 7 航位 x / 8 航位 y / 9 准心 x / 10 准心 y，均 2 位小数
     //           → bit 6..10 置 1 → 12'b0111_1100_0000（= 0x7C0）
-    //   参数页：12 项全是整数 → 全 0。否则航向 Kd=6 会显示成 "  006"，
+    //   参数页：14 项全是整数 → 全 0。否则航向 Kd=6 会显示成 "  006"，
     //           且 ui_render 的 field_dec 还会在百位后画点，变成 "  0.06"。
-    wire [11:0] nt_frac_mask = tune_page ? 12'b0000_0000_0000 : 12'b0111_1100_0000;
+    wire [13:0] nt_frac_mask = tune_page ? 14'b00_0000_0000_0000 : 14'b00_0111_1100_0000;
 
     num_text #(
         .CLK_HZ     (CLK_HZ),
         .REFRESH_MS (100),
-        .NUM_FIELDS (12)
+        .NUM_FIELDS (14)
     ) u_num_text (
         .clk    (i_clk_50m),
         .rst_n  (sys_rst_n),
         // ★ 2026-10-20：参数整定页复用这 11 个字段（字段号 = 参数行号）。
-        //   两页互斥（page 不同），所以按页 mux 即可，不用扩 dyn_text_ram 深度、
-        //   也不用改 ui_render 的段描述符位宽 —— 只是换数值来源。
+        //   两页互斥（page 不同），按页选择来源；14 个字段使用 128 字节字符 RAM。
         //   切换页时字段可能短暂混写（num_text 100 ms 刷新一轮），视觉可接受。
         .i_v0   (nt_v0),             // 字段 0：航向角 / 参数 0 车速
         .i_v1   (nt_v1),             // 字段 1：A 右后轮 / 参数 1 减速距离
@@ -1854,6 +1856,8 @@ module falcons_top (
         .i_v9   (nt_v9),             // 字段 9：准心 x / 参数 9 速度环 Kp
         .i_v10  (nt_v10),            // 字段 10：准心 y / 参数 10 速度环 Ki
         .i_v11  (nt_v11),            // 字段 11：参数 11 速度环 Kd（数据页恒 0）
+        .i_v12  (nt_v12),            // 前探格数
+        .i_v13  (nt_v13),            // 车宽 mm
         .i_frac_mask(nt_frac_mask),   // 哪些字段带小数（按页面切换，见声明处）
         .o_we   (dyn_we),
         .o_addr (dyn_waddr),
@@ -1861,8 +1865,8 @@ module falcons_top (
     );
 
     dyn_text_ram #(
-        .DEPTH     (64),
-        .ADDR_BITS (6)
+        .DEPTH     (128),
+        .ADDR_BITS (7)
     ) u_dyn_text (
         .i_clk_w (i_clk_50m),        // 写：sys 域
         .i_we    (dyn_we),

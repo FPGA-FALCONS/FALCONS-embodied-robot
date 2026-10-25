@@ -2,8 +2,8 @@
 // 模块：nav_drive
 // ----------------------------------------------------------------------------
 // 职责：
-//   - 独立读取 raw 图，判断当前轴向直行的车前矩形；不读取 cost。
-//   - 默认从前缘向前 3 格，半宽为 ceil(车宽/2)+横向余量；相切格也纳入。
+//   - 独立读取 raw 图，判断路线八方向直行的车前矩形；不读取 cost。
+//   - 从定位中心点向前探测指定格数，总宽度为车宽；相切格也纳入。
 //   - 不限制停稳后的原地转向，不估算底盘制动距离，不输出速度。
 // 接口约定：
 //   - 单时钟、异步低有效复位；内部按 50 MHz 使用 16 位扫描计数和 17 位结果年龄计数。
@@ -13,7 +13,7 @@
 // 关键不变量：
 //   - forward_clear 同时要求方向、检查使能和时效有效；未就绪并不等于已知无障碍。
 //   - segment_blocked 只表示有效结果命中 raw/边界，不覆盖过期、无方向和等待结果。
-//   - 前探参数相对同一个位姿参考点；默认车宽 180 mm，前缘 150 mm 和余量 20 mm 待整定。
+//   - 配置在扫描开始时锁存，UI 默认前探 4 格、车宽 180 mm。
 // 禁止事项：
 //   - 不要在转向途中沿用旧方向结果，不要把 segment_blocked=0 当成 forward_clear=1。
 // ============================================================================
@@ -21,14 +21,14 @@ module nav_drive #(
     parameter integer GRID_W              = 256,
                       GRID_H              = 256,
                       CELL_MM             = 50,
-    parameter signed  HALF_MM             = 6400,
-    parameter integer FORWARD_CHECK_CELLS = 6,
-    parameter integer VEHICLE_WIDTH_MM    = 180,
-    parameter integer FRONT_OFFSET_MM     = 150,
-    parameter integer LATERAL_MARGIN_MM   = 20
+    parameter signed  HALF_MM             = 6400
 ) (
     input  wire               clk,
                               reset_n,
+
+    // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
+    input  wire         [7:0] forward_check_cells,
+    input  wire        [15:0] vehicle_width_mm,
     input  wire signed [31:0] pose_x_mm,
                               pose_y_mm,
     input  wire         [2:0] heading,
@@ -46,32 +46,17 @@ module nav_drive #(
 );
     localparam [15:0] PERIOD  = 16'd50000;
     localparam [16:0] MAX_AGE = 17'd100000;
-    localparam integer        HALF_WIDTH = (VEHICLE_WIDTH_MM + 1) / 2 + LATERAL_MARGIN_MM;
-    localparam integer        DIST       = FORWARD_CHECK_CELLS * CELL_MM;
-    localparam integer        DIV_M      = ((1 << 22) + CELL_MM - 1) / CELL_MM;
-    // 只在常量展开时求平方根，运行时没有乘法开方或角度运算。
-    function integer root_floor;
-        input integer value;
-        integer root, bit_index, trial;
-        begin
-            root=0;
-            for (bit_index=15;bit_index>=0;bit_index=bit_index-1) begin
-                trial=root|(1<<bit_index);
-                if (trial*trial<=value) root=trial;
-            end
-            root_floor=root;
-        end
-    endfunction
-    localparam integer DIAG_LO = FRONT_OFFSET_MM>=HALF_WIDTH ?
-        root_floor((FRONT_OFFSET_MM-HALF_WIDTH)*(FRONT_OFFSET_MM-HALF_WIDTH)/2) :
-        -root_floor((FRONT_OFFSET_MM-HALF_WIDTH)*(FRONT_OFFSET_MM-HALF_WIDTH)/2)-1;
-    localparam integer DIAG_HI = root_floor((FRONT_OFFSET_MM+DIST+HALF_WIDTH)*
-                                          (FRONT_OFFSET_MM+DIST+HALF_WIDTH)/2)+1;
-    localparam integer ALONG_LO = root_floor(2*FRONT_OFFSET_MM*FRONT_OFFSET_MM)-CELL_MM;
-    localparam integer ALONG_HI = root_floor(2*(FRONT_OFFSET_MM+DIST)*(FRONT_OFFSET_MM+DIST))+1+CELL_MM;
-    localparam integer ACROSS_HI = root_floor(2*HALF_WIDTH*HALF_WIDTH)+1+CELL_MM;
+    localparam integer DIV_M = ((1 << 22) + CELL_MM - 1) / CELL_MM;
+    reg [7:0] scan_cells;
+    reg [15:0] scan_width, half_width, distance_mm;
+    // Q16 常量投影，尺寸、乘法和边界分拍，运行时不使用开方或除法。
+    reg [31:0] diag_half_q16, diag_end_q16, along_q16, across_q16;
+    wire signed [31:0] diag_lo = -$signed({16'd0, diag_half_q16[31:16]}) - 1;
+    wire signed [31:0] diag_hi = $signed({16'd0, diag_end_q16[31:16]}) + 1;
+    wire signed [31:0] along_hi = $signed({16'd0, along_q16[31:16]}) + 1 + CELL_MM;
+    wire signed [31:0] across_hi = $signed({16'd0, across_q16[31:16]}) + 1 + CELL_MM;
     localparam [3:0] IDLE=0, GEOMETRY=1, BOUNDS=2, REQUEST=3, RESPONSE=4,
-                     CELL_CENTER=5, ROTATE=6, FILTER=7, NEXT_CELL=8, RELATIVE=9;
+                     CELL_CENTER=5, ROTATE=6, FILTER=7, NEXT_CELL=8, RELATIVE=9, DIMENSIONS=10, PROJECT=11;
     reg [3:0] state;
     reg signed [16:0] cell_dx, cell_dy, along, across;
     reg signed [16:0] cell_world_x, cell_world_y;
@@ -107,6 +92,14 @@ module nav_drive #(
             state        <= IDLE;
             scan_count   <= 0;
             result_count <= 0;
+            scan_cells   <= 0;
+            scan_width   <= 0;
+            half_width   <= 0;
+            distance_mm  <= 0;
+            diag_half_q16 <= 0;
+            diag_end_q16 <= 0;
+            along_q16    <= 0;
+            across_q16   <= 0;
             scan_dir     <= 0;
             result_dir   <= 0;
             scan_due     <= 1;
@@ -156,51 +149,65 @@ module nav_drive #(
                     sx         <= pose_x_mm;
                     sy         <= pose_y_mm;
                     scan_dir   <= heading;
+                    scan_cells <= forward_check_cells;
+                    scan_width <= vehicle_width_mm;
                     scan_count <= 0;
                     scan_due   <= 0;
                     scan_bad   <= 0;
-                    state      <= GEOMETRY;
+                    state      <= DIMENSIONS;
+                end
+                DIMENSIONS: begin
+                    half_width  <= ({1'b0, scan_width} + 17'd1) >> 1;
+                    distance_mm <= scan_cells * CELL_MM;
+                    state       <= PROJECT;
+                end
+                PROJECT: begin
+                    diag_half_q16 <= half_width * 32'd46341;
+                    diag_end_q16  <= (half_width + distance_mm) * 32'd46341;
+                    along_q16     <= distance_mm * 32'd92682;
+                    across_q16    <= half_width * 32'd92682;
+                    state         <= GEOMETRY;
                 end
                 GEOMETRY: begin
                     case (scan_dir)
                         0: begin
-                            xmin <= sx + FRONT_OFFSET_MM;
-                            xmax <= sx + (FRONT_OFFSET_MM + DIST);
-                            ymin <= sy - HALF_WIDTH;
-                            ymax <= sy + HALF_WIDTH;
+                            xmin <= sx;
+                            xmax <= sx + distance_mm;
+                            ymin <= sy - half_width;
+                            ymax <= sy + half_width;
                         end
                         2: begin
-                            ymin <= sy + FRONT_OFFSET_MM;
-                            ymax <= sy + (FRONT_OFFSET_MM + DIST);
-                            xmin <= sx - HALF_WIDTH;
-                            xmax <= sx + HALF_WIDTH;
+                            ymin <= sy;
+                            ymax <= sy + distance_mm;
+                            xmin <= sx - half_width;
+                            xmax <= sx + half_width;
                         end
                         4: begin
-                            xmin <= sx - (FRONT_OFFSET_MM + DIST);
-                            xmax <= sx - FRONT_OFFSET_MM;
-                            ymin <= sy - HALF_WIDTH;
-                            ymax <= sy + HALF_WIDTH;
+                            xmin <= sx - distance_mm;
+                            xmax <= sx;
+                            ymin <= sy - half_width;
+                            ymax <= sy + half_width;
                         end
                         6: begin
-                            ymin <= sy - (FRONT_OFFSET_MM + DIST);
-                            ymax <= sy - FRONT_OFFSET_MM;
-                            xmin <= sx - HALF_WIDTH;
-                            xmax <= sx + HALF_WIDTH;
+                            ymin <= sy - distance_mm;
+                            ymax <= sy;
+                            xmin <= sx - half_width;
+                            xmax <= sx + half_width;
                         end
                         default: begin
                             if (scan_dir==1 || scan_dir==7) begin
-                                xmin <= sx+DIAG_LO;
-                                xmax <= sx+DIAG_HI;
+                                xmin <= sx+diag_lo;
+                                xmax <= sx+diag_hi;
                             end else begin
-                                xmin <= sx-DIAG_HI;
-                                xmax <= sx-DIAG_LO;
+                                xmin <= sx-diag_hi;
+                                xmax <= sx-diag_lo;
                             end
                             if (scan_dir==1 || scan_dir==3) begin
-                                ymin <= sy+DIAG_LO;
-                                ymax <= sy+DIAG_HI;
+                                ymin <= sy+diag_lo;
+                                ymax <= sy+diag_hi;
                             end else begin
-                                ymin <= sy-DIAG_HI;
-                                ymax <= sy-DIAG_LO;
+                                ymin <= sy-diag_hi;
+                                ymax <= sy-diag_lo;
                             end
                         end
                     endcase
@@ -249,7 +256,7 @@ module nav_drive #(
                 FILTER: begin
                     // 格子面积在变换后的两轴各有 CELL_MM 半宽，相切也要检查。
                     cell_inside <= !scan_dir[0] ||
-                        (along>=ALONG_LO && along<=ALONG_HI && across>=-ACROSS_HI && across<=ACROSS_HI);
+                        (along>=-CELL_MM && along<=along_hi && across>=-across_hi && across<=across_hi);
                     state <= REQUEST;
                 end
                 REQUEST: begin

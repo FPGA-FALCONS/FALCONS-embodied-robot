@@ -19,7 +19,7 @@ module nav_ui_preview_tb;
     reg [7:0] route_x = 0, route_y = 0;
     wire map_pixel, route_pixel;
     wire [23:0] rgb;
-    wire [5:0] text_address;
+    wire [6:0] text_address;
     reg [7:0] text_memory [0:63];
     reg [7:0] text_q;
     always @(posedge pixel_clk) text_q <= text_memory[text_address];

@@ -3,6 +3,8 @@ module nav_drive_tb;
     reg clk=0, reset_n=0, pose_valid=1;
     always #10 clk=~clk;
     reg [2:0] heading=0;
+    reg [7:0] check_cells=4;
+    reg [15:0] width_mm=180;
     reg signed [31:0] px=25,py=25;
     reg hit=0,response=0,raw=0,pending=0;
     integer hit_x=0,hit_y=0,address_x,address_y,delay_left;
@@ -11,6 +13,7 @@ module nav_drive_tb;
     wire [15:0] x,y;
     wire ready=!pending && cycles%5!=0;
     nav_drive dut (
+        .forward_check_cells(check_cells), .vehicle_width_mm(width_mm),
         .clk(clk),.reset_n(reset_n),.pose_valid(pose_valid),.check_enable(1'b1),
         .pose_x_mm(px),.pose_y_mm(py),.heading(heading),
         .mrd_valid(request),.mrd_ready(ready),.mrd_x(x),.mrd_y(y),
@@ -61,16 +64,61 @@ module nav_drive_tb;
             nx=-dy; ny=dx;
             scan();
             check(clear && !blocked,"free front region permits motion");
-            @(negedge clk); hit=1; hit_x=128+5*dx; hit_y=128+5*dy;
+            @(negedge clk); hit=1; hit_x=128+2*dx; hit_y=128+2*dy;
             scan();
             check(blocked && !clear,"raw obstacle ahead stops motion");
-            @(negedge clk); hit_x=128+5*dx+8*nx; hit_y=128+5*dy+8*ny;
+            @(negedge clk); hit_x=128+2*dx+8*nx; hit_y=128+2*dy+8*ny;
             scan();
             check(clear && !blocked,"lateral obstacle outside front region is ignored");
             @(negedge clk); hit_x=128-5*dx; hit_y=128-5*dy;
             scan();
             check(clear && !blocked,"obstacle behind car is ignored");
         end
+        // 车中心附近的真实障碍也检查，不再跳过原来的前缘偏移。
+        @(negedge clk); heading=0; hit=1; hit_x=128; hit_y=128;
+        scan();
+        check(blocked && !clear,"raw obstacle at center is checked");
+        @(negedge clk); hit_x=131; hit_y=128; check_cells=2;
+        scan();
+        check(clear && !blocked,"two-cell lookahead ignores obstacle three cells ahead");
+        @(negedge clk); check_cells=4;
+        scan();
+        check(blocked && !clear,"four-cell lookahead includes same obstacle");
+        @(negedge clk); hit_x=133;
+        scan();
+        check(clear && !blocked,"obstacle beyond four cells is ignored");
+        @(negedge clk); hit_x=132;
+        scan();
+        check(blocked && !clear,"cell intersecting front endpoint is checked");
+        @(negedge clk); hit_x=130; hit_y=131; width_mm=180;
+        scan();
+        check(clear && !blocked,"width has no additional lateral margin");
+        @(negedge clk); width_mm=300;
+        scan();
+        check(blocked && !clear,"runtime width increase includes lateral obstacle");
+        @(negedge clk); width_mm=100;
+        scan();
+        check(clear && !blocked,"runtime width decrease excludes lateral obstacle");
+        // 配置只影响下一次扫描，中途不能混用新旧尺寸。
+        @(negedge clk); check_cells=2; width_mm=180; hit_x=131; hit_y=128;
+        wait(busy);
+        @(negedge clk); check_cells=4; width_mm=300;
+        wait(!busy);
+        @(negedge clk);
+        check(clear && !blocked,"in-flight scan retains captured configuration");
+        scan();
+        check(blocked && !clear,"next scan uses updated configuration");
+        // UI 上限在八方向全部能于 1 ms 内完成，覆盖最长、最宽矩形。
+        @(negedge clk); check_cells=16; width_mm=500; hit=0;
+        for(d=0;d<8;d=d+1) begin
+            @(negedge clk); heading=d;
+            scan();
+            check(clear && !blocked,"largest UI dimensions complete without timeout");
+            check(cycles-begin_cycle<50000,"scan latency stays below one millisecond");
+        end
+        @(negedge clk); heading=0; px=6300; check_cells=4; width_mm=180;
+        scan();
+        check(blocked && !clear,"front rectangle cannot cross map boundary");
         @(negedge clk); pose_valid=0;
         repeat(3) @(negedge clk);
         check(!clear,"invalid pose never grants front clearance");

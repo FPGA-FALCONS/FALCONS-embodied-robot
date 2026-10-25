@@ -7,16 +7,16 @@
 // 接线、坐标、启动和控制流程见 ../docs/delivery_handoff.md。
 // ============================================================================
 module radar_navigation #(
-    parameter integer FORWARD_CHECK_CELLS = 6,
-    parameter integer VEHICLE_WIDTH_MM    = 180,
-    parameter integer FRONT_OFFSET_MM     = 150,
-    parameter integer LATERAL_MARGIN_MM   = 20,
     // 规划时障碍向横纵各预留的格数，同时用于停后局部接出和路线复核。
     parameter integer PLAN_INFLATE_CELLS  = 4
 ) (
     // 公共时钟与复位；除串口输入外，输入应已完整同步到此时钟域。
     input  wire               clk,
     input  wire               reset_n,
+
+    // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
+    input  wire         [7:0] forward_check_cells,
+    input  wire        [15:0] vehicle_width_mm,
 
     // 建图、规划和自动动作分别授权；撤销运动授权会先要求停车。
     input  wire               map_enable,
@@ -69,14 +69,12 @@ module radar_navigation #(
     output wire        [15:0] cloud_distance_mm   // 毫米；0/FFFF 等值由显示端过滤。
 );
     nav_radar_adapter #(
-        .FORWARD_CHECK_CELLS (FORWARD_CHECK_CELLS),
-        .VEHICLE_WIDTH_MM    (VEHICLE_WIDTH_MM),
-        .FRONT_OFFSET_MM     (FRONT_OFFSET_MM),
-        .LATERAL_MARGIN_MM   (LATERAL_MARGIN_MM),
         .PLAN_INFLATE_CELLS  (PLAN_INFLATE_CELLS)
     ) u_adapter (
         .clk                    (clk),
         .reset_n                (reset_n),
+        .forward_check_cells    (forward_check_cells),
+        .vehicle_width_mm       (vehicle_width_mm),
         .map_enable             (map_enable),
         .plan_enable            (plan_enable),
         .motion_enable          (motion_enable),

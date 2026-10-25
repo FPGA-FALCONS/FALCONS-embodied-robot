@@ -34,31 +34,33 @@ module num_text_tb;
 
     reg signed [31:0] v0, v1, v2, v3, v4, v5, v6, v7, v8;
     reg signed [31:0] v9 = 32'sd0, v10 = 32'sd0, v11 = 32'sd0;
+    reg signed [31:0] v12 = 4, v13 = 180;
     // ★ 2026-10-20：哪些字段带小数。默认 = 数据页配置（字段 6..10 带小数）。
-    reg [11:0] frac_mask = 12'b0111_1100_0000;
+    reg [13:0] frac_mask = 14'b00_0111_1100_0000;
 
     wire        o_we;
-    wire [5:0]  o_addr;
+    wire [6:0]  o_addr;
     wire [7:0]  o_data;
 
     integer errors = 0;
     integer i;
 
     // 抓取写入的字符（64 深，避免 o_addr 越界）
-    reg [7:0] cap [0:63];
+    reg [7:0] cap [0:127];
 
     num_text #(
         .CLK_HZ     (10_000_000),
         .REFRESH_MS (1),
         .FIELD_W    (FW),
         // ★ 2026-10-20：9 → 12，覆盖新增的字段 11（参数整定页速度环 Kd）
-        .NUM_FIELDS (12)
+        .NUM_FIELDS (14)
     ) dut (
         .clk    (clk),
         .rst_n  (rst_n),
         .i_v0   (v0), .i_v1 (v1), .i_v2 (v2),
         .i_v3   (v3), .i_v4 (v4), .i_v5 (v5), .i_v6 (v6),
         .i_v7   (v7), .i_v8 (v8), .i_v9 (v9), .i_v10 (v10), .i_v11 (v11),
+        .i_v12 (v12), .i_v13 (v13),
         .i_frac_mask (frac_mask),
         .o_we   (o_we),
         .o_addr (o_addr),
@@ -94,7 +96,7 @@ module num_text_tb;
     initial begin
         $display("======== num_text 单元测试（实时数值格式化，5 字符/字段）========");
 
-        for (i = 0; i < 64; i = i + 1) cap[i] = 8'hFF;   // 用 FF 标记"未写入"
+        for (i = 0; i < 128; i = i + 1) cap[i] = 8'hFF;   // 用 FF 标记"未写入"
 
         v0 = 32'sd300;      // → "  300"
         v1 = -32'sd45;      // → "  -45"（负号贴最高位左侧一格）
@@ -284,7 +286,7 @@ module num_text_tb;
         //   现改为由顶层按页面给 i_frac_mask。下面两条锁住这个语义。
         // ---------------------------------------------------------------
         $display("-- 掩码语义：v11=6 且 bit11=0（参数页）→ 空格 x4 '6'（无前导零）--");
-        frac_mask = 12'b0111_1100_0000;   // bit11 = 0
+        frac_mask = 14'b00_0111_1100_0000;   // bit11 = 0
         v11 = 32'sd6;
         wait_refresh;
         check_ch("f11_nofrac[0]", cap[11*FW+0], CH_SPACE);
@@ -294,7 +296,7 @@ module num_text_tb;
         check_ch("f11_nofrac[4]", cap[11*FW+4], CH_0 + 6);
 
         $display("-- 掩码语义：v6=0 且 bit6=0（参数页）→ 空格 x4 '0'（不是 000）--");
-        frac_mask = 12'b0000_0000_0000;   // 参数页：全 0
+        frac_mask = 14'b00_0000_0000_0000;   // 参数页：全 0
         v6 = 32'sd0;
         wait_refresh;
         check_ch("f6_frac_off[0]", cap[6*FW+0], CH_SPACE);
@@ -302,6 +304,14 @@ module num_text_tb;
         check_ch("f6_frac_off[2]", cap[6*FW+2], CH_SPACE);
         check_ch("f6_frac_off[3]", cap[6*FW+3], CH_SPACE);
         check_ch("f6_frac_off[4]", cap[6*FW+4], CH_0);
+
+        // 新字段跨过 6 位地址边界，地址 64 不得回绕覆盖字段 0。
+        check_ch("front_addr64", cap[64], CH_0 + 4);
+        check_ch("width_addr65", cap[65], CH_SPACE);
+        check_ch("width_addr66", cap[66], CH_SPACE);
+        check_ch("width_addr67", cap[67], CH_0 + 1);
+        check_ch("width_addr68", cap[68], CH_0 + 8);
+        check_ch("width_addr69", cap[69], CH_0);
 
         $display("======== 结果 ========");
         if (errors == 0) $display("PASS: num_text all checks passed");
