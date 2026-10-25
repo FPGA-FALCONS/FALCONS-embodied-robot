@@ -1,0 +1,15 @@
+{
+  "files": {
+    "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/config.json": "983c45e58b188ba72d5c6672daeb6dc71edde34db28d6eac0686e927f59a2233",
+    "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/active_release.json": "ca20f261ad5edb76a441af42835777c22361023784a1e9c0455ef9ec99cf94b9",
+    "/home/orangepi/.config/systemd/user/falcons-ai-coordinator.service": "bd98fb36037c6946123af1e059c10cb849730804c9fd9906d0e4e701da171c11"
+  },
+  "service": "MainPID=1647\nNRestarts=0\nActiveState=active\n",
+  "camera": {
+    "camera_backend": "fx2",
+    "camera_state": "disabled",
+    "camera_configured": false
+  },
+  "ai_active": false,
+  "startup_ready": true
+}

@@ -1,0 +1,10 @@
+{
+  "required_uvc_controls": {
+    "exposure_dynamic_framerate": 0
+  },
+  "controls_applied_by_existing_camera_worker": false,
+  "source_timestamp_verified": false,
+  "metric_calibration_verified": false,
+  "motion_authorized": false,
+  "note": "Disabled camera candidate only. The existing worker does not apply these controls; verify/control them explicitly before relying on this measured rate."
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "archive": "uvc_prepare_sources_v2.zip",
+  "bytes": 574153,
+  "sha256": "e1bf708668831d06076b3af676c91bedfb77a6a1e27a4535b328445222a78ab0",
+  "source_files": 193,
+  "isolated_tool_root": "/home/orangepi/workspace/falcons_uvc_prepare_20261025_v2",
+  "active_service_changed": false,
+  "changed_code": {
+    "host/ai_coordinator/uvc_prepare.py": {
+      "sha256": "864bcd49c93059d27503b023915b7fab8ad58a2eac7fca41d684aa02e77b2795",
+      "bytes": 17256
+    },
+    "host/ai_coordinator/tests/test_uvc_prepare.py": {
+      "sha256": "719f508c7deaab9d337cf788ccfdef0e56e66d5ab314f5088f72c18395a9fd46",
+      "bytes": 7903
+    }
+  },
+  "raw_photos_stored_outside_git": "D:\\Programs\\FPGA Projects\\FALCONS-embodied-robot\\build\\rk_uvc_20261025\\evidence_v2\\capture_720p_fixed_rate"
+}

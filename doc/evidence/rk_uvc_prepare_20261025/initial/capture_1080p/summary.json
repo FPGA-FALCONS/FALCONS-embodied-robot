@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "success": false,
+  "device_probe": {
+    "identity": {
+      "device": "/dev/v4l/by-id/usb-Generic_USB_Cam_200901010001-video-index0",
+      "node": "/dev/video20",
+      "usb_path": "/sys/devices/platform/fc880000.usb/usb5/5-1",
+      "vid": 3034,
+      "pid": 22614
+    },
+    "capability": {
+      "driver": "uvcvideo",
+      "card": "USB Cam: USB Cam",
+      "bus_info": "usb-fc880000.usb-1",
+      "version": 393571,
+      "capabilities": 2225078273,
+      "device_caps": 69206017,
+      "video_capture": true,
+      "metadata_capture": false,
+      "streaming": true
+    },
+    "modes": [
+      {
+        "fourcc": "MJPG",
+        "width": 2560,
+        "height": 1440,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 1024,
+        "height": 768,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 320,
+        "height": 240,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 424,
+        "height": 240,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 640,
+        "height": 360,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 848,
+        "height": 480,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 960,
+        "height": 540,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 1280,
+        "height": 720,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 640,
+        "height": 480,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 1920,
+        "height": 1080,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 2592,
+        "height": 1944,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "MJPG",
+        "width": 1280,
+        "height": 800,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 2560,
+        "height": 1440,
+        "fps": 2.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 1024,
+        "height": 768,
+        "fps": 8.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 320,
+        "height": 240,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 424,
+        "height": 240,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 640,
+        "height": 360,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 848,
+        "height": 480,
+        "fps": 20.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 960,
+        "height": 540,
+        "fps": 15.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 1280,
+        "height": 720,
+        "fps": 8.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 640,
+        "height": 480,
+        "fps": 30.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 1920,
+        "height": 1080,
+        "fps": 5.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 2592,
+        "height": 1944,
+        "fps": 2.0
+      },
+      {
+        "fourcc": "YUYV",
+        "width": 1280,
+        "height": 800,
+        "fps": 8.0
+      }
+    ],
+    "capture_candidate": true,
+    "formats_text": "ioctl: VIDIOC_ENUM_FMT\n\tType: Video Capture\n\n\t[0]: 'MJPG' (Motion-JPEG, compressed)\n\t\tSize: Discrete 2560x1440\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 1024x768\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 320x240\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 424x240\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 640x360\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 848x480\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 960x540\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 1280x720\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 640x480\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 1920x1080\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 2592x1944\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 1280x800\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t[1]: 'YUYV' (YUYV 4:2:2)\n\t\tSize: Discrete 2560x1440\n\t\t\tInterval: Discrete 0.500s (2.000 fps)\n\t\tSize: Discrete 1024x768\n\t\t\tInterval: Discrete 0.125s (8.000 fps)\n\t\tSize: Discrete 320x240\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 424x240\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 640x360\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 848x480\n\t\t\tInterval: Discrete 0.050s (20.000 fps)\n\t\tSize: Discrete 960x540\n\t\t\tInterval: Discrete 0.067s (15.000 fps)\n\t\tSize: Discrete 1280x720\n\t\t\tInterval: Discrete 0.125s (8.000 fps)\n\t\tSize: Discrete 640x480\n\t\t\tInterval: Discrete 0.033s (30.000 fps)\n\t\tSize: Discrete 1920x1080\n\t\t\tInterval: Discrete 0.200s (5.000 fps)\n\t\tSize: Discrete 2592x1944\n\t\t\tInterval: Discrete 0.500s (2.000 fps)\n\t\tSize: Discrete 1280x800\n\t\t\tInterval: Discrete 0.125s (8.000 fps)\n",
+    "controls_text": "\nUser Controls\n\n                     brightness 0x00980900 (int)    : min=-64 max=64 step=1 default=0 value=0\n                       contrast 0x00980901 (int)    : min=0 max=100 step=1 default=40 value=40\n                     saturation 0x00980902 (int)    : min=0 max=100 step=1 default=64 value=64\n                            hue 0x00980903 (int)    : min=-180 max=180 step=1 default=0 value=0\n        white_balance_automatic 0x0098090c (bool)   : default=1 value=1\n                          gamma 0x00980910 (int)    : min=100 max=500 step=1 default=300 value=300\n                           gain 0x00980913 (int)    : min=1 max=128 step=1 default=64 value=64\n           power_line_frequency 0x00980918 (menu)   : min=0 max=2 default=1 value=1 (50 Hz)\n      white_balance_temperature 0x0098091a (int)    : min=2800 max=6500 step=10 default=4600 value=4600 flags=inactive\n                      sharpness 0x0098091b (int)    : min=0 max=100 step=1 default=50 value=50\n         backlight_compensation 0x0098091c (int)    : min=0 max=2 step=1 default=0 value=0\n\nCamera Controls\n\n                  auto_exposure 0x009a0901 (menu)   : min=0 max=3 default=3 value=3 (Aperture Priority Mode)\n         exposure_time_absolute 0x009a0902 (int)    : min=50 max=10000 step=1 default=166 value=166 flags=inactive\n     exposure_dynamic_framerate 0x009a0903 (bool)   : default=0 value=1\n                 focus_absolute 0x009a090a (int)    : min=0 max=1023 step=1 default=68 value=68 flags=inactive\n     focus_automatic_continuous 0x009a090c (bool)   : default=1 value=1\n"
+  },
+  "requested": {
+    "device": "/dev/v4l/by-id/usb-Generic_USB_Cam_200901010001-video-index0",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30.0,
+    "fourcc": "MJPG",
+    "frames": 150,
+    "warmup_frames": 10
+  },
+  "negotiated": {
+    "width": 1920.0,
+    "height": 1080.0,
+    "fps": 30.0,
+    "fourcc_code": 1196444237.0
+  },
+  "opencv_version": "4.12.0",
+  "frames_read": 150,
+  "measured_host_fps": 19.962444449613102,
+  "host_gap_ms": {
+    "median": 48.48348600000918,
+    "p95": 70.27374880003663,
+    "max": 71.936973999982
+  },
+  "samples": [
+    {
+      "file": "frame_0000.png",
+      "sha256": "ff0f563f541bf3b4268c3cf844d82d77580efe6176e733adccac4acf438b21b9"
+    },
+    {
+      "file": "frame_0075.png",
+      "sha256": "b713ac6eab7b9f5a8a89bf3ff6611a91c20818ab4ab81a716262bb0825b11cc0"
+    },
+    {
+      "file": "frame_0149.png",
+      "sha256": "b7938eed0eabe382e81ac0a452acd0b7c996914c337305d9d7d281bb326d1df3"
+    }
+  ],
+  "source_timestamp_verified": false,
+  "timestamp_origin": "host_receipt_only",
+  "stereo_sync_verified": false,
+  "metric_calibration_verified": false,
+  "reason": "host_rate_below_80_percent"
+}

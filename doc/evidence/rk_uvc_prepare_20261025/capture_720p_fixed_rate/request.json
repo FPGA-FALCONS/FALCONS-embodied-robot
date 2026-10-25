@@ -1,0 +1,9 @@
+{
+  "device": "/dev/v4l/by-id/usb-Generic_USB_Cam_200901010001-video-index0",
+  "width": 1280,
+  "height": 720,
+  "fps": 30.0,
+  "fourcc": "MJPG",
+  "frames": 300,
+  "warmup_frames": 10
+}
