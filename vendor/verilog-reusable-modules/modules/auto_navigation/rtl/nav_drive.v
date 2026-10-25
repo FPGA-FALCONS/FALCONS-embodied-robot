@@ -7,7 +7,7 @@
 //   - 不限制停稳后的原地转向，不估算底盘制动距离，不输出速度。
 // 接口约定：
 //   - 单时钟、异步低有效复位；内部按 50 MHz 使用 16 位扫描计数和 17 位结果年龄计数。
-//   - 位置用 mm；heading 由路线给出：0 东、1 北、2 西、3 南，不检查实际朝向。
+//   - 位置用 mm；heading 由路线给出：0 东起逆时针 0..7，不检查实际朝向。
 //   - 每 1 ms 启动扫描，扫描超时 1 ms，结果距扫描开始必须小于 2 ms。
 //   - mrd_valid/ready 接受格号，mrd_rsp_valid 返回 raw；请求成交后失效也须排空响应。
 // 关键不变量：
@@ -31,7 +31,7 @@ module nav_drive #(
                               reset_n,
     input  wire signed [31:0] pose_x_mm,
                               pose_y_mm,
-    input  wire         [1:0] heading,
+    input  wire         [2:0] heading,
     input  wire               pose_valid,
                               check_enable,
     output wire               mrd_valid,
@@ -49,14 +49,34 @@ module nav_drive #(
     localparam integer        HALF_WIDTH = (VEHICLE_WIDTH_MM + 1) / 2 + LATERAL_MARGIN_MM;
     localparam integer        DIST       = FORWARD_CHECK_CELLS * CELL_MM;
     localparam integer        DIV_M      = ((1 << 22) + CELL_MM - 1) / CELL_MM;
-    localparam         [ 2:0] IDLE     = 0,
-                              GEOMETRY = 1,
-                              BOUNDS   = 2,
-                              REQUEST  = 3,
-                              RESPONSE = 4;
-    reg [2:0] state;
+    // 只在常量展开时求平方根，运行时没有乘法开方或角度运算。
+    function integer root_floor;
+        input integer value;
+        integer root, bit_index, trial;
+        begin
+            root=0;
+            for (bit_index=15;bit_index>=0;bit_index=bit_index-1) begin
+                trial=root|(1<<bit_index);
+                if (trial*trial<=value) root=trial;
+            end
+            root_floor=root;
+        end
+    endfunction
+    localparam integer DIAG_LO = FRONT_OFFSET_MM>=HALF_WIDTH ?
+        root_floor((FRONT_OFFSET_MM-HALF_WIDTH)*(FRONT_OFFSET_MM-HALF_WIDTH)/2) :
+        -root_floor((FRONT_OFFSET_MM-HALF_WIDTH)*(FRONT_OFFSET_MM-HALF_WIDTH)/2)-1;
+    localparam integer DIAG_HI = root_floor((FRONT_OFFSET_MM+DIST+HALF_WIDTH)*
+                                          (FRONT_OFFSET_MM+DIST+HALF_WIDTH)/2)+1;
+    localparam integer ALONG_LO = root_floor(2*FRONT_OFFSET_MM*FRONT_OFFSET_MM)-CELL_MM;
+    localparam integer ALONG_HI = root_floor(2*(FRONT_OFFSET_MM+DIST)*(FRONT_OFFSET_MM+DIST))+1+CELL_MM;
+    localparam integer ACROSS_HI = root_floor(2*HALF_WIDTH*HALF_WIDTH)+1+CELL_MM;
+    localparam [3:0] IDLE=0, GEOMETRY=1, BOUNDS=2, REQUEST=3, RESPONSE=4,
+                     CELL_CENTER=5, ROTATE=6, FILTER=7, NEXT_CELL=8;
+    reg [3:0] state;
+    reg signed [16:0] cell_dx, cell_dy, along, across;
+    reg cell_inside;
     wire check_ok = check_enable && pose_valid;
-    reg [1:0] scan_dir, result_dir;
+    reg [2:0] scan_dir, result_dir;
     reg [15:0] scan_count;
     reg [16:0] result_count;
     reg scan_due, scan_bad, result_valid, result_block;
@@ -73,7 +93,7 @@ module nav_drive #(
         end
     endfunction
     assign busy = reset_n && (state != IDLE);
-    assign mrd_valid = reset_n && (state == REQUEST) && !stale_scan;
+    assign mrd_valid = reset_n && (state == REQUEST) && cell_inside && !stale_scan;
     assign mrd_x = cx;
     assign mrd_y = cy;
     assign forward_clear = reset_n && check_ok && result_valid && heading == result_dir &&
@@ -103,6 +123,11 @@ module nav_drive #(
             yhi          <= 0;
             cx           <= 0;
             cy           <= 0;
+            cell_dx      <= 0;
+            cell_dy      <= 0;
+            along        <= 0;
+            across       <= 0;
+            cell_inside  <= 0;
         end else begin
             // 到期后保持，直到新扫描启动或新结果返回；不会回绕放行旧结果。
             if (!scan_due) begin
@@ -141,23 +166,39 @@ module nav_drive #(
                             ymin <= sy - HALF_WIDTH;
                             ymax <= sy + HALF_WIDTH;
                         end
-                        1: begin
+                        2: begin
                             ymin <= sy + FRONT_OFFSET_MM;
                             ymax <= sy + FRONT_OFFSET_MM + DIST;
                             xmin <= sx - HALF_WIDTH;
                             xmax <= sx + HALF_WIDTH;
                         end
-                        2: begin
+                        4: begin
                             xmin <= sx - FRONT_OFFSET_MM - DIST;
                             xmax <= sx - FRONT_OFFSET_MM;
                             ymin <= sy - HALF_WIDTH;
                             ymax <= sy + HALF_WIDTH;
                         end
-                        3: begin
+                        6: begin
                             ymin <= sy - FRONT_OFFSET_MM - DIST;
                             ymax <= sy - FRONT_OFFSET_MM;
                             xmin <= sx - HALF_WIDTH;
                             xmax <= sx + HALF_WIDTH;
+                        end
+                        default: begin
+                            if (scan_dir==1 || scan_dir==7) begin
+                                xmin <= sx+DIAG_LO;
+                                xmax <= sx+DIAG_HI;
+                            end else begin
+                                xmin <= sx-DIAG_HI;
+                                xmax <= sx-DIAG_LO;
+                            end
+                            if (scan_dir==1 || scan_dir==3) begin
+                                ymin <= sy+DIAG_LO;
+                                ymax <= sy+DIAG_HI;
+                            end else begin
+                                ymin <= sy-DIAG_HI;
+                                ymax <= sy-DIAG_LO;
+                            end
                         end
                     endcase
                     if (stale_scan) state <= IDLE;
@@ -179,29 +220,59 @@ module nav_drive #(
                         xhi   <= to_cell(xmax);
                         cy    <= to_cell(ymin - 1);
                         yhi   <= to_cell(ymax);
-                        state <= REQUEST;
+                        state <= CELL_CENTER;
                     end
                 end
-                REQUEST: begin
-                    if (mrd_valid && mrd_ready) state <= RESPONSE;
-                    else if (stale_scan) state <= IDLE;
+                CELL_CENTER: begin
+                    cell_dx <= $signed(cx*CELL_MM)-HALF_MM+CELL_MM/2-sx;
+                    cell_dy <= $signed(cy*CELL_MM)-HALF_MM+CELL_MM/2-sy;
+                    state <= ROTATE;
                 end
-                RESPONSE:
-                if (mrd_rsp_valid) begin
-                    // 已被接受的读即使失效也排空；绝不把旧方向响应当成新窗口。
+                ROTATE: begin
+                    case (scan_dir)
+                        1: begin along <= cell_dx+cell_dy; across <= cell_dy-cell_dx; end
+                        3: begin along <= cell_dy-cell_dx; across <= -cell_dx-cell_dy; end
+                        5: begin along <= -cell_dx-cell_dy; across <= cell_dx-cell_dy; end
+                        7: begin along <= cell_dx-cell_dy; across <= cell_dx+cell_dy; end
+                        default: begin along <= 0; across <= 0; end
+                    endcase
+                    state <= FILTER;
+                end
+                FILTER: begin
+                    // 格子面积在变换后的两轴各有 CELL_MM 半宽，相切也要检查。
+                    cell_inside <= !scan_dir[0] ||
+                        (along>=ALONG_LO && along<=ALONG_HI && across>=-ACROSS_HI && across<=ACROSS_HI);
+                    state <= REQUEST;
+                end
+                REQUEST: begin
                     if (stale_scan) state <= IDLE;
-                    else if (mrd_raw || (cx == xhi && cy == yhi)) begin
+                    else if (!cell_inside) state <= NEXT_CELL;
+                    else if (mrd_valid && mrd_ready) state <= RESPONSE;
+                end
+                RESPONSE: if (mrd_rsp_valid) begin
+                    if (stale_scan) state <= IDLE;
+                    else if (mrd_raw) begin
                         result_valid <= 1;
-                        result_block <= mrd_raw;
-                        result_dir   <= scan_dir;
-                        result_count <= {1'b0, scan_count} + 17'd1;
-                        state        <= IDLE;
+                        result_block <= 1;
+                        result_dir <= scan_dir;
+                        result_count <= {1'b0,scan_count}+17'd1;
+                        state <= IDLE;
+                    end else state <= NEXT_CELL;
+                end
+                NEXT_CELL: begin
+                    if (stale_scan) state <= IDLE;
+                    else if (cx==xhi && cy==yhi) begin
+                        result_valid <= 1;
+                        result_block <= 0;
+                        result_dir <= scan_dir;
+                        result_count <= {1'b0,scan_count}+17'd1;
+                        state <= IDLE;
                     end else begin
-                        if (cx == xhi) begin
+                        if (cx==xhi) begin
                             cx <= xlo;
-                            cy <= cy + 16'd1;
-                        end else cx <= cx + 16'd1;
-                        state <= REQUEST;
+                            cy <= cy+1'b1;
+                        end else cx <= cx+1'b1;
+                        state <= CELL_CENTER;
                     end
                 end
                 default: state <= IDLE;

@@ -15,7 +15,7 @@ module nav_map_view (
     input  wire        route_done,
 
     input  wire               cmd_valid,
-    input  wire               target_axis_y, // 0 水平、1 竖直；忽略横向偏差。
+    input  wire         [1:0] target_line_dir, // 0 水平、1 正45°、2 竖直、3 负45°。
     input  wire signed [31:0] pose_x_mm,
     input  wire signed [31:0] pose_y_mm,
     input  wire signed [31:0] target_x_mm,
@@ -86,7 +86,10 @@ module nav_map_view (
     reg [10:0] point_count, point_length, point_index;
     reg [15:0] clear_address, point_q;
     reg [7:0] draw_x, draw_y, end_x, end_y;
-    reg current_segment, current_axis_y;
+    reg current_segment;
+    reg [1:0] current_line_dir;
+    reg [7:0] pose_cell_x, pose_cell_y;
+    reg signed [9:0] delta_x, delta_y, diagonal_t, clip_t, tlo, thi;
     reg [13:0] pose_offset_x, pose_offset_y, target_offset_x, target_offset_y;
     wire route_accept = route_state == RECEIVE && route_available &&
                         (route_start || route_receiving);
@@ -116,7 +119,15 @@ module nav_map_view (
             end_x <= 0;
             end_y <= 0;
             current_segment <= 0;
-            current_axis_y <= 0;
+            current_line_dir <= 0;
+            pose_cell_x <= 0;
+            pose_cell_y <= 0;
+            delta_x <= 0;
+            delta_y <= 0;
+            diagonal_t <= 0;
+            clip_t <= 0;
+            tlo <= 0;
+            thi <= 0;
             pose_offset_x <= 0;
             pose_offset_y <= 0;
             target_offset_x <= 0;
@@ -129,7 +140,7 @@ module nav_map_view (
                     if (route_done) begin
                         // 与目标和方向同拍取样；先平移到地图坐标，清图时再换格号。
                         current_segment <= cmd_valid;
-                        current_axis_y <= target_axis_y;
+                        current_line_dir <= target_line_dir;
                         pose_offset_x <= pose_x_mm + 32'sd6400;
                         pose_offset_y <= pose_y_mm + 32'sd6400;
                         target_offset_x <= target_x_mm + 32'sd6400;
@@ -142,12 +153,42 @@ module nav_map_view (
                     end
                 end
                 CLEAR: begin
-                    if (clear_address == 0) begin
-                        draw_x <= (current_axis_y ? target_offset_x : pose_offset_x) / 14'd50;
-                        draw_y <= (current_axis_y ? pose_offset_y : target_offset_y) / 14'd50;
-                        end_x <= target_offset_x / 14'd50;
-                        end_y <= target_offset_y / 14'd50;
-                    end
+                    // 清后台期间完成坐标换算和投影，不串入像素域读图路径。
+                    case (clear_address)
+                        0: begin
+                            pose_cell_x <= pose_offset_x / 14'd50;
+                            pose_cell_y <= pose_offset_y / 14'd50;
+                            end_x <= target_offset_x / 14'd50;
+                            end_y <= target_offset_y / 14'd50;
+                        end
+                        1: begin
+                            delta_x <= $signed({1'b0,pose_cell_x})-$signed({1'b0,end_x});
+                            delta_y <= $signed({1'b0,pose_cell_y})-$signed({1'b0,end_y});
+                        end
+                        2: begin
+                            diagonal_t <= current_line_dir==1 ? (delta_x+delta_y)>>>1 :
+                                                                              (delta_x-delta_y)>>>1;
+                            if (current_line_dir==1) begin
+                                tlo <= end_x<end_y ? -$signed({1'b0,end_x}) : -$signed({1'b0,end_y});
+                                thi <= end_x>end_y ? 10'sd255-$signed({1'b0,end_x}) :
+                                                    10'sd255-$signed({1'b0,end_y});
+                            end else begin
+                                tlo <= -$signed({1'b0,end_x}) > $signed({1'b0,end_y})-10'sd255 ?
+                                       -$signed({1'b0,end_x}) : $signed({1'b0,end_y})-10'sd255;
+                                thi <= 10'sd255-$signed({1'b0,end_x}) < $signed({1'b0,end_y}) ?
+                                       10'sd255-$signed({1'b0,end_x}) : $signed({1'b0,end_y});
+                            end
+                        end
+                        3: clip_t <= diagonal_t<tlo ? tlo : diagonal_t>thi ? thi : diagonal_t;
+                        4: begin
+                            case (current_line_dir)
+                                0: begin draw_x <= pose_cell_x; draw_y <= end_y; end
+                                2: begin draw_x <= end_x; draw_y <= pose_cell_y; end
+                                1: begin draw_x <= end_x+clip_t; draw_y <= end_y+clip_t; end
+                                3: begin draw_x <= end_x+clip_t; draw_y <= end_y-clip_t; end
+                            endcase
+                        end
+                    endcase
                     clear_address <= clear_address + 1'b1;
                     if (&clear_address) begin
                         if (current_segment) route_state <= PLOT;
@@ -177,9 +218,10 @@ module nav_map_view (
                             if (!current_segment) point_index <= point_index + 1'b1;
                             route_state <= FETCH;
                         end
-                    end else if (draw_x != end_x)
-                        draw_x <= draw_x < end_x ? draw_x + 1'b1 : draw_x - 1'b1;
-                    else draw_y <= draw_y < end_y ? draw_y + 1'b1 : draw_y - 1'b1;
+                    end else begin
+                        if (draw_x != end_x) draw_x <= draw_x < end_x ? draw_x + 1'b1 : draw_x - 1'b1;
+                        if (draw_y != end_y) draw_y <= draw_y < end_y ? draw_y + 1'b1 : draw_y - 1'b1;
+                    end
                 end
                 default: route_state <= RECEIVE;
             endcase

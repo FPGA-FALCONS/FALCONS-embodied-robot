@@ -63,7 +63,7 @@ module radar_coordinates_tb;
         .route_start    (1'b0),
         .route_done     (1'b0),
         .cmd_valid      (1'b0),
-        .target_axis_y  (1'b0),
+        .target_line_dir  (2'd0),
         .pose_x_mm      (px),
         .pose_y_mm      (py),
         .target_x_mm    (32'sd0),

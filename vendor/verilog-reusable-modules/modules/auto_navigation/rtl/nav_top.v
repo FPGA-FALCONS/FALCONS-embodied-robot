@@ -70,8 +70,8 @@ module nav_top #(
                               emergency_stop,
     output wire signed [31:0] target_x_mm,
                               target_y_mm,
-    // 显示当前任务轴向：0 水平、1 竖直，仅 cmd_valid=1 时使用。
-    output wire               target_axis_y,
+    // 显示当前任务线型：0 水平、1 正45°、2 竖直、3 负45°，仅 cmd_valid 有效时使用。
+    output wire         [1:0] target_line_dir,
 
     // 正式任务接口：供整车界面读取。
     // 正式任务状态：0关闭/1运行中/2暂停/3已到达/4无路。
@@ -204,7 +204,7 @@ module nav_top #(
     wire load_valid, load_ready, load_last;
     wire segment_load_valid, segment_load_ready, segment_load_last, segments_busy;
     wire [15:0] segment_load_x, segment_load_y;
-    wire [1:0] segment_load_dir;
+    wire [2:0] segment_load_dir;
     wire [15:0] load_x, load_y;
 
     function [15:0] to_cell;
@@ -235,20 +235,24 @@ module nav_top #(
     reg [3:0] rstate;
     reg commit_valid, candidate_commit, load_inject;
     reg [15:0] plan_x, plan_y;
-    reg [1:0] plan_dir;
+    reg [2:0] plan_dir;
     wire inject_prefix = candidate_commit && !(plan_x == round_goal_x && plan_y == round_goal_y);
     reg [15:0] candidate_index;
     wire candidate_complete, candidate_valid;
     wire [15:0] candidate_length, candidate_x, candidate_y;
-    reg [15:0] scan_xlo;
-    reg [15:0] vx, vy, vex, vey, entry_x, entry_y;
+    reg [15:0] vx, vy, entry_x, entry_y;
     reg signed [31:0] start_x_mm, start_y_mm;
     // 保留防立即折返约束，只使用锁定方向和计划点，不读取实际位姿。
-    wire reverse_commit = candidate_commit && candidate_index == 1 &&
-        ((plan_dir == 0 && candidate_y == plan_y && candidate_x < plan_x) ||
-         (plan_dir == 1 && candidate_x == plan_x && candidate_y < plan_y) ||
-         (plan_dir == 2 && candidate_y == plan_y && candidate_x > plan_x) ||
-         (plan_dir == 3 && candidate_x == plan_x && candidate_y > plan_y));
+    wire [2:0] candidate_direction = candidate_y==plan_y ? (candidate_x>=plan_x ? 3'd0 : 3'd4) :
+        candidate_x==plan_x ? (candidate_y>=plan_y ? 3'd2 : 3'd6) :
+        candidate_x>plan_x ? (candidate_y>plan_y ? 3'd1 : 3'd7) :
+                            (candidate_y>plan_y ? 3'd3 : 3'd5);
+    reg [2:0] candidate_dir_q;
+    always @(posedge clk) candidate_dir_q <= candidate_direction;
+    wire reverse_commit = candidate_commit && candidate_index==1 &&
+        (candidate_x!=plan_x || candidate_y!=plan_y) && candidate_dir_q==(plan_dir^3'd4);
+    wire line_valid, line_last, line_invalid;
+    wire [15:0] line_x, line_y;
     reg [15:0] box_xlo, box_xhi, box_ylo, box_yhi;
     reg local_cost, first_read, validation_dirty;
     reg [15:0] update_x, update_y, seen_version;
@@ -260,7 +264,7 @@ module nav_top #(
         $signed({1'b0, update_y}) >= $signed({1'b0, box_ylo}) - PLAN_INFLATE_CELLS &&
         $signed({1'b0, update_y}) <= $signed({1'b0, box_yhi}) + PLAN_INFLATE_CELLS;
     wire version_changed = seen_version != st_map_version;
-    wire own_read_valid = rstate == R_CHECK;
+    wire own_read_valid = rstate == R_CHECK && line_valid;
     wire own_read_ready, own_rsp;
     wire bfs_read_valid;
     wire [15:0] bfs_read_x, bfs_read_y;
@@ -276,7 +280,14 @@ module nav_top #(
         end
     endfunction
     wire checked_free = !arb_rsp_raw && (!arb_rsp_cost ||
-        (!candidate_commit && (first_read || (local_cost && near_entry(vx, vy)))));
+        (!candidate_commit && (first_read || (local_cost && near_entry(line_x, line_y)))));
+    wire line_advance = rstate==R_RESPONSE && own_rsp && checked_free && !first_read;
+    nav_line_cells u_verify_line (
+        .clk(clk), .reset_n(reset_n), .start(rstate==R_SEG), .cancel(rstate==R_ABORT),
+        .x0(vx), .y0(vy), .x1(candidate_x), .y1(candidate_y),
+        .valid(line_valid), .ready(line_advance), .x(line_x), .y(line_y),
+        .last(line_last), .invalid(line_invalid)
+    );
     wire pl_req_valid, pl_req_ready;
     wire pl_wp_valid, pl_wp_ready, pl_wp_last;
     wire [15:0] pl_wp_x, pl_wp_y;
@@ -344,8 +355,8 @@ module nav_top #(
 
     assign pl_mrd_valid       = planner_read ? bfs_read_valid : own_read_valid;
     // 首次先读实际接入格，不能把坐标排序后的线段端点当成起点。
-    assign pl_mrd_x           = planner_read ? bfs_read_x : (first_read ? entry_x : vx);
-    assign pl_mrd_y           = planner_read ? bfs_read_y : (first_read ? entry_y : vy);
+    assign pl_mrd_x           = planner_read ? bfs_read_x : (first_read ? entry_x : line_x);
+    assign pl_mrd_y           = planner_read ? bfs_read_y : (first_read ? entry_y : line_y);
     assign own_read_ready     = arb_gnt[1];
     assign own_rsp            = arb_rsp_valid[1];
     assign pl_mrd_ready       = arb_gnt[1] && planner_read;
@@ -423,7 +434,6 @@ module nav_top #(
         .GRID_W   (GRID_W),
         .GRID_H   (GRID_H),
         .W_MAX    (W_MAX),
-        .CENTER_EN(1),
         .BFS_RELAX(PLAN_INFLATE_CELLS)
     ) u_plan (
         .clk          (clk),
@@ -465,7 +475,7 @@ module nav_top #(
     wire final_target;
     reg  [15:0] target_index;
     reg  [ 2:0] target_wait;
-    wire [ 1:0] r_target_dir;
+    wire [ 2:0] r_target_dir;
     wire advance, motion_stopped, arrived;
     wire [15:0] advance_index;
     wire publish_route = rstate == R_PUB && publish_ok;
@@ -640,7 +650,7 @@ module nav_top #(
         .cmd_valid      (cmd_valid),
         .target_x_mm    (target_x_mm),
         .target_y_mm    (target_y_mm),
-        .target_axis_y  (target_axis_y),
+        .target_line_dir  (target_line_dir),
         .emergency_stop (emergency_stop),
         .advance        (advance),
         .advance_index  (advance_index),
@@ -687,11 +697,11 @@ module nav_top #(
             candidate_index  <= 0;
             plan_dir         <= 0;
             round_motion     <= 0;
-            scan_xlo         <= 0;
+
             vx               <= 0;
             vy               <= 0;
-            vex              <= 0;
-            vey              <= 0;
+
+
             entry_x          <= 0;
             entry_y          <= 0;
             start_x_mm       <= 0;
@@ -793,24 +803,8 @@ module nav_top #(
                 R_WAIT:  if (fetch_wait != 0) fetch_wait <= fetch_wait - 1'b1;
  else rstate <= R_SEG;
                 R_SEG: begin
-                    if (!candidate_valid || reverse_commit || (vx != candidate_x && vy != candidate_y))
-                        rstate <= R_ABORT;
+                    if (!candidate_valid || reverse_commit) rstate <= R_ABORT;
                     else begin
-                        vx       <= vx < candidate_x ? vx : candidate_x;
-                        vy       <= vy < candidate_y ? vy : candidate_y;
-                        vex      <= vx > candidate_x ? vx : candidate_x;
-                        vey      <= vy > candidate_y ? vy : candidate_y;
-                        scan_xlo <= vx < candidate_x ? vx : candidate_x;
-                        if (candidate_index == 0 && !candidate_commit) begin
-                            if (entry_y == candidate_y && to_cell(start_y_mm - 1) != entry_y)
-                                vy <= to_cell(start_y_mm - 1);
-                            if (entry_x == candidate_x && to_cell(
-                                    start_x_mm - 1
-                                ) != entry_x) begin
-                                vx       <= to_cell(start_x_mm - 1);
-                                scan_xlo <= to_cell(start_x_mm - 1);
-                            end
-                        end
                         if (candidate_x < box_xlo) box_xlo <= candidate_x;
                         if (candidate_x > box_xhi) box_xhi <= candidate_x;
                         if (candidate_y < box_ylo) box_ylo <= candidate_y;
@@ -818,7 +812,8 @@ module nav_top #(
                         rstate <= R_CHECK;
                     end
                 end
-                R_CHECK: if (own_read_ready) rstate <= R_RESPONSE;
+                R_CHECK: if (line_invalid) rstate <= R_ABORT;
+                         else if (own_read_ready) rstate <= R_RESPONSE;
                 R_RESPONSE:
                 if (own_rsp) begin
                     if (first_read) begin
@@ -827,16 +822,8 @@ module nav_top #(
                     end
                     if (!checked_free) rstate <= R_ABORT;
                     else if (first_read) rstate <= R_CHECK;
-                    else if (vx == vex && vy == vey) begin
-                        rstate <= R_NEXT;
-                    end else begin
-                        if (vx != vex) vx <= vx < vex ? vx + 1'b1 : vx - 1'b1;
-                        else begin
-                            vx <= scan_xlo;
-                            vy <= vy + 1'b1;
-                        end
-                        rstate <= R_CHECK;
-                    end
+                    else if (line_last) rstate <= R_NEXT;
+                    else rstate <= R_CHECK;
                 end
                 R_NEXT: begin
                     vx <= candidate_x;

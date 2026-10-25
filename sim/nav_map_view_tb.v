@@ -7,7 +7,8 @@ module nav_map_view_tb;
     reg map_valid = 0, map_occupied = 0, map_start = 0, map_done = 0;
     reg route_valid = 0, route_start = 0, route_done = 0;
     reg [7:0] route_x = 0, route_y = 0;
-    reg cmd_valid = 0, target_axis_y = 0;
+    reg cmd_valid = 0;
+    reg [1:0] target_line_dir = 0;
     reg signed [31:0] pose_x_mm = 0, pose_y_mm = 0;
     reg signed [31:0] target_x_mm = 0, target_y_mm = 0;
     reg frame_start = 0;
@@ -22,7 +23,7 @@ module nav_map_view_tb;
         .map_start(map_start), .map_done(map_done),
         .route_valid(route_valid), .route_x(route_x), .route_y(route_y),
         .route_start(route_start), .route_done(route_done),
-        .cmd_valid(cmd_valid), .target_axis_y(target_axis_y),
+        .cmd_valid(cmd_valid), .target_line_dir(target_line_dir),
         .pose_x_mm(pose_x_mm), .pose_y_mm(pose_y_mm),
         .target_x_mm(target_x_mm), .target_y_mm(target_y_mm),
         .pixel_clk(pixel_clk), .pixel_rst_n(rst_n),
@@ -45,7 +46,7 @@ module nav_map_view_tb;
     // 每次只发一个终点，当前段必须由命令补画；收完后立即改变输入验证取样。
     task command_frame;
         input integer px, py, tx, ty;
-        input axis_y;
+        input [1:0] line_dir;
         reg old_request;
         integer begin_cycle;
         begin
@@ -53,7 +54,7 @@ module nav_map_view_tb;
             @(negedge clk);
             old_request = dut.route_request;
             cmd_valid = 1;
-            target_axis_y = axis_y;
+            target_line_dir = line_dir;
             pose_x_mm = px;
             pose_y_mm = py;
             target_x_mm = tx;
@@ -65,14 +66,14 @@ module nav_map_view_tb;
             route_done = 0;
             begin_cycle = cycles;
             cmd_valid = 0;
-            target_axis_y = !axis_y;
+            target_line_dir = line_dir+1'b1;
             pose_x_mm = 3000;
             pose_y_mm = 3000;
             target_x_mm = 3000;
             target_y_mm = 3000;
             wait (dut.route_request != old_request);
             $display("METRICS: command axis=%0d pose=(%0d,%0d) target=(%0d,%0d) draw_cycles=%0d",
-                     axis_y, px, py, tx, ty, cycles - begin_cycle);
+                     line_dir, px, py, tx, ty, cycles - begin_cycle);
             next_frame();
         end
     endtask
@@ -224,7 +225,7 @@ module nav_map_view_tb;
         sample_cell(130, 131);
         check(!route_pixel, "west segment does not follow lateral offset");
 
-        command_frame(275, -400, 25, 500, 1);
+        command_frame(275, -400, 25, 500, 2);
         sample_cell(128, 125);
         check(route_pixel, "north current segment is vertical");
         sample_cell(133, 125);
@@ -232,13 +233,13 @@ module nav_map_view_tb;
         sample_cell(130, 128);
         check(!route_pixel, "axis change clears old horizontal segment");
 
-        command_frame(-175, 500, 25, -400, 1);
+        command_frame(-175, 500, 25, -400, 2);
         sample_cell(128, 130);
         check(route_pixel, "south current segment is vertical");
         sample_cell(124, 130);
         check(!route_pixel, "south segment does not follow lateral offset");
 
-        command_frame(25, -400, 25, -400, 1);
+        command_frame(25, -400, 25, -400, 2);
         sample_cell(128, 120);
         check(route_pixel, "zero-length current segment draws endpoint");
         sample_cell(128, 125);
@@ -271,7 +272,7 @@ module nav_map_view_tb;
         wait (dut.route_available);
         @(negedge clk);
         cmd_valid = 1;
-        target_axis_y = 0;
+        target_line_dir = 0;
         pose_x_mm = -200;
         pose_y_mm = 175;
         target_x_mm = 525;
@@ -291,13 +292,30 @@ module nav_map_view_tb;
         check(route_pixel, "drawing current prefix preserves following corner segment");
         sample_cell(125, 131);
         check(!route_pixel, "prefix and future route do not create lateral connector");
+        command_frame(-400, -250, 500, 500, 1);
+        sample_cell(125,125);
+        check(route_pixel, "positive diagonal current segment ignores lateral offset");
+        sample_cell(125,128);
+        check(!route_pixel, "diagonal prefix does not create an L-shaped connector");
+        command_frame(500, 650, -400, -400, 1);
+        sample_cell(133,133);
+        check(route_pixel, "southwest current segment uses the same diagonal family");
+        command_frame(500, -250, -400, 650, 3);
+        sample_cell(133,128);
+        check(route_pixel, "northwest current segment follows negative diagonal");
+        command_frame(-400, 650, 500, -250, 3);
+        sample_cell(133,128);
+        check(route_pixel, "southeast current segment follows negative diagonal");
+        command_frame(-6375, -6375, -6375, 6375, 1);
+        check(dut.route_memory[{dut.route_front,8'd255,8'd0}], "projection clips to the map boundary endpoint");
+        check(!dut.route_memory[{dut.route_front,8'd191,8'd64}], "clipped diagonal projection never wraps into map interior");
         $display("CHECKS: %0d", checks);
         $display("METRICS: nav_map_view_tb cycles=%0d errors=%0d", cycles, errors);
         if (errors == 0) $display("PASS: nav_map_view_tb");
         $finish;
     end
     initial begin
-        #30000000;
+        #50000000;
         $display("FAIL: nav_map_view_tb timeout");
         $finish;
     end

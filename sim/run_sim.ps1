@@ -199,7 +199,7 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$ProjectRoot\rtl\ui\nav_map_view.v", "$PSScriptRoot\nav_map_view_tb.v", "$PSScriptRoot\nav_command_tb.v",
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
               "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
-              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v", "$PSScriptRoot\nav_bfs_tb.v")
+              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v", "$PSScriptRoot\nav_bfs_tb.v", "$PSScriptRoot\nav_line_cells_tb.v", "$PSScriptRoot\nav_route_tb.v", "$PSScriptRoot\nav_drive_tb.v")
 
 $sources += @("$ProjectRoot\rtl\common\display_mm_to_cm.v", "$PSScriptRoot\display_mm_to_cm_tb.v", "$PSScriptRoot\ui_layers_tb.v")
 
@@ -215,6 +215,9 @@ $sources += @("$ProjectRoot\rtl\ai\ai_rc_control.v", "$ProjectRoot\rtl\ai\ai_uar
               "$PSScriptRoot\manual_takeover_tb.v", "$PSScriptRoot\ai_rc_control_tb.v", "$PSScriptRoot\ai_uart_tx_tb.v", "$PSScriptRoot\ai_display_link_tb.v")
 $sources += @("$VendorRoot\yaw_integrate\rtl\yaw_integrate.v", "$PSScriptRoot\yaw_pipeline_tb.v")
 $tests = @(
+    @{ Name = 'nav_route'; Top = 'nav_route_tb'; Desc = 'Eight-direction locked prefix / farthest target / candidate isolation' },
+    @{ Name = 'nav_line_cells'; Top = 'nav_line_cells_tb'; Desc = 'Eight-direction inclusive segments and flank cells' },
+    @{ Name = 'nav_drive'; Top = 'nav_drive_tb'; Desc = 'Eight-direction raw front checks / lateral / behind / invalid pose' },
     @{ Name = 'nav_bfs'; Top = 'nav_bfs_tb'; Desc = 'Eight equal-cost directions / straight first / no corner cuts / indoor reference' },
     @{ Name = 'yaw_pipeline'; Top = 'yaw_pipeline_tb'; Desc = '20000 cycle equivalence for optional yaw sum/wrap pipeline' },
     @{ Name = 'manual_takeover'; Top = 'manual_takeover_tb'; Desc = 'SWC stop before local stick takeover, fresh encoder feedback' },
@@ -268,12 +271,7 @@ if ($Only.Count) {
 }
 
 # 生成确定性的室内地图与独立 BFS 参考，产物留在 logs/。
-if (@($tests | Where-Object { $_.Name -eq 'nav_planner' }).Count) {
-    & python (Join-Path $PSScriptRoot 'bfs_indoor.py') --output (Join-Path $LogDir 'bfs_straight/fixtures')
-    if ($LASTEXITCODE -ne 0) { throw 'Indoor BFS fixture generation failed' }
-}
-
-if (@($tests | Where-Object { $_.Name -eq 'nav_bfs' }).Count) {
+if (@($tests | Where-Object { $_.Name -in @('nav_bfs','nav_planner') }).Count) {
     & python (Join-Path $PSScriptRoot 'bfs_eight.py') --output (Join-Path $LogDir 'eight_direction/fixtures')
     if ($LASTEXITCODE -ne 0) { throw 'Eight-direction fixture generation failed' }
 }
