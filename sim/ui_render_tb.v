@@ -107,7 +107,7 @@ module ui_render_tb;
     end
 
     ui_render dut (
-        .i_map_pixel(map_i), .i_route_pixel(route_i), .i_planner_state(4'd0),
+        .i_map_pixel(map_i), .i_route_pixel(route_i), .i_obstacle_state(3'd0),
         .i_pixel_clk    (pixel_clk),
         .i_reset_n      (rst_n),
         .i_pixel_x      (scan_px),

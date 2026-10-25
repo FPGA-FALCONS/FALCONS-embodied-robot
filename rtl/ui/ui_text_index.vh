@@ -4,8 +4,8 @@
 //       再用 char_index*16+row 从 font_rom（16x16）取 16bit 行点阵，
 //       或 char_index*24+row 从 font_rom_lg（24x24）取 24bit 行点阵。
 
-localparam integer UI_FONT_CHAR_COUNT = 246;
-localparam integer UI_TEXT_TOTAL_CHARS = 369;
+localparam integer UI_FONT_CHAR_COUNT = 252;
+localparam integer UI_TEXT_TOTAL_CHARS = 387;
 
 // {名, 文案, 起始地址, 字符数}
 localparam [11:0] UI_TXT_MENU_VEHICLE_ADDR = 12'd0;  // 运行数据显示
@@ -234,4 +234,12 @@ localparam [11:0] UI_TXT_TUNE_WIDTH_ADDR = 12'd366;  // 车宽
 localparam [5:0] UI_TXT_TUNE_WIDTH_LEN  = 6'd2;
 localparam [11:0] UI_TXT_TUNE_CELLS_ADDR = 12'd368;  // 格
 localparam [5:0] UI_TXT_TUNE_CELLS_LEN  = 6'd1;
+localparam [11:0] UI_TXT_AUX_RESUME_NAV_ADDR = 12'd369;  // 继续导航
+localparam [5:0] UI_TXT_AUX_RESUME_NAV_LEN  = 6'd4;
+localparam [11:0] UI_TXT_AUX_RETRY_NAV_ADDR = 12'd373;  // 重试导航
+localparam [5:0] UI_TXT_AUX_RETRY_NAV_LEN  = 6'd4;
+localparam [11:0] UI_TXT_AUX_RETURN_EDIT_ADDR = 12'd377;  // 返回重新选点
+localparam [5:0] UI_TXT_AUX_RETURN_EDIT_LEN  = 6'd6;
+localparam [11:0] UI_TXT_ST_CTRL_FAULT_ADDR = 12'd383;  // 控制故障
+localparam [5:0] UI_TXT_ST_CTRL_FAULT_LEN  = 6'd4;
 

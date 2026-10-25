@@ -3,7 +3,8 @@
 // UART / 极坐标转换另由 radar_map_tb 覆盖。50 MHz 周期不压缩，运动每 10 ms 推进。
 // 理想差速底盘瞬时响应速度 / 刹车，仅验证连接和流程，不代表实车制动性能。
 module obstacle_motion_tb;
-    reg clk = 0, rst_n = 0, active = 0;
+    `include "nav_obstacle_states.vh"
+    reg clk = 0, rst_n = 0, active = 0, manual = 0;
     always #10 clk = ~clk;
     reg confirm = 0, back = 0, down = 0;
     reg signed [11:0] steer = 0, throttle = 0;
@@ -11,9 +12,11 @@ module obstacle_motion_tb;
     wire run, paused, goal, request, estop, done, linear, fault, auto_valid;
     wire [7:0] gx, gy;
     wire [3:0] nav_state;
+    wire [2:0] ui_state;
     wire signed [31:0] tx, ty, center, diff;
     wire [31:0] rounds;
     integer cycles = 0, checks = 0, errors = 0, tick_count = 0, ticks = 0;
+    integer manual_tick, old_x;
     reg tick = 0;
     real px = 25.0, py = 25.0, heading = 0.0, speed, rotation;
     always @(posedge clk) cycles <= cycles + 1;
@@ -23,7 +26,7 @@ module obstacle_motion_tb;
             if (tick_count == 499999) begin
                 tick_count = 0;
                 ticks = ticks + 1;
-                speed = auto_valid && !estop ? $itor(center) * 0.33617 : 0.0;
+                speed = manual ? 750.0 : auto_valid && !estop ? $itor(center) * 0.33617 : 0.0;
                 rotation = auto_valid && !estop ? $itor(diff) * 0.23853 : 0.0;
                 heading = heading + rotation * 0.01;
                 if (heading >= 180.0) heading = heading - 360.0;
@@ -43,11 +46,11 @@ module obstacle_motion_tb;
 
     nav_obstacle_ui #(.CLK_HZ(1000)) ui (
         .clk(clk), .rst_n(rst_n), .i_active(active), .i_clear(1'b0),
-        .i_x_mm(x), .i_y_mm(y), .i_manual(1'b0), .i_steer(steer), .i_throttle(throttle),
+        .i_x_mm(x), .i_y_mm(y), .i_manual(manual), .i_steer(steer), .i_throttle(throttle),
         .i_confirm(confirm), .i_back(back), .i_aux_up(1'b0), .i_aux_down(down),
         .i_nav_state(nav_state), .i_command_idle(!request && !estop && !done),
         .i_pause(1'b0), .i_ctrl_fault(fault),
-        .o_cur_x_mm(), .o_cur_y_mm(), .o_aux_sel(), .o_pt_count(), .o_nav_state(),
+        .o_cur_x_mm(), .o_cur_y_mm(), .o_aux_sel(), .o_pt_count(), .o_nav_state(ui_state),
         .o_nav_ui_active(), .o_nav_run(run), .o_nav_paused(paused),
         .o_goal_valid(goal), .o_goal_x_cell(gx), .o_goal_y_cell(gy),
         .o_pt_px(), .o_pt_py(), .o_pt_v(), .o_car_px(), .o_car_py(), .o_cur_px(), .o_cur_py()
@@ -150,9 +153,16 @@ module obstacle_motion_tb;
         stop_x = x;
         repeat (500000) @(negedge clk);
         check(x == stop_x && velocity == 0, "paused vehicle remains stopped while planning advances");
+        // 正常手动行驶 100 ms，跨越至少一格；定位与规划仍按真实周期推进。
+        manual=1; manual_tick=ticks; old_x=x;
+        wait(ticks>=manual_tick+10);
+        manual=0;
+        repeat(10) @(negedge clk);
+        check(paused && x>=old_x+60 && gx==136 && gy==128,
+              "manual movement crosses cells without consuming destination or resuming");
         key(0);
         wait (!estop && center > 0);
-        check(run, "resume returns to active point execution");
+        check(run && tx>x, "resume replans forward from moved pose");
         observation(1);
         wait (estop && done);
         check(center == 0 && velocity == 0 && goal, "near raw obstacle stops vehicle without cancelling destination");
@@ -167,6 +177,21 @@ module obstacle_motion_tb;
         wait (nav_state == 3);
         check(x >= 395 && x <= 455 && y >= 395 && y <= 455 && center == 0,
               "second destination reached and stopped after corner turn");
+        wait(ui_state==OBS_DONE);
+        check(!goal && !run && !request, "final completion releases goal and control request");
+        key(0);
+        check(ui_state==OBS_DONE && !goal, "confirm cannot restart finished navigation");
+        key(2);
+        repeat(5) @(negedge clk);
+        steer=-1000;
+        repeat(400) @(negedge clk);
+        steer=0;
+        repeat(5) @(negedge clk);
+        key(0); key(1); key(1); key(0);
+        wait(goal);
+        check(run && gx>136, "return-to-editor submits an independent new task");
+        wait(ui_state==OBS_DONE);
+        check(!goal && !run && center==0, "second complete navigation stops and releases its task");
         check(rounds > 2, "background planner runs throughout vehicle motion");
         $display("CHECKS: %0d", checks);
         $display("METRICS: obstacle_motion_tb cycles=%0d motion_cycles=%0d ticks=%0d rounds=%0d errors=%0d", cycles, cycles-start_cycles, ticks, rounds, errors);

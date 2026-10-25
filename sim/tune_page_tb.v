@@ -58,7 +58,7 @@ module tune_page_tb;
     end
 
     ui_render dut (
-        .i_map_pixel(1'b0), .i_route_pixel(1'b0), .i_planner_state(4'd0),
+        .i_map_pixel(1'b0), .i_route_pixel(1'b0), .i_obstacle_state(3'd0),
         .i_pixel_clk    (pixel_clk),
         .i_reset_n      (rst_n),
         .i_pixel_x      (scan_px),

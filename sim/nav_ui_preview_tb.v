@@ -10,7 +10,7 @@ module nav_ui_preview_tb;
     reg [2:0] page = 2, aux = 0;
     reg [1:0] ui_mode = 1;
     reg running = 0, paused = 0, editing = 0, estop = 0, signal_ok = 1;
-    reg [3:0] planner = 0;
+    reg [2:0] obstacle_state = 0;
     reg [9:0] car_x = 415, car_y = 297, cursor_x = 745, cursor_y = 165;
     reg [159:0] pt_x = 0, pt_y = 0;
     reg [15:0] pt_v = 0;
@@ -44,7 +44,7 @@ module nav_ui_preview_tb;
         .i_pixel_req(1'b1), .i_video_active(1'b1), .o_pixel_rgb888(rgb),
         .i_page(page), .i_ui_mode(ui_mode), .i_estop(estop), .i_signal_ok(signal_ok),
         .i_arm_hint(1'b0), .i_menu_sel(page), .i_map_pixel(map_pixel),
-        .i_route_pixel(route_pixel), .i_planner_state(planner),
+        .i_route_pixel(route_pixel), .i_obstacle_state(obstacle_state),
         .i_nav_run(running), .i_nav_paused(paused), .i_menu_dim(editing),
         .i_aux_sel(aux), .i_car_px(car_x), .i_car_py(car_y),
         .i_cur_px(cursor_x), .i_cur_py(cursor_y), .i_pt_px(pt_x), .i_pt_py(pt_y), .i_pt_v(pt_v),
@@ -144,7 +144,7 @@ module nav_ui_preview_tb;
         capture("00_radar_map");
         page = 3;
         capture("01_navigation_idle");
-        editing = 1;
+        editing = 1; obstacle_state = 1;
         capture("02_empty_selection");
         pt_x[9:0] = 505; pt_y[9:0] = 165;
         pt_x[19:10] = 745; pt_y[19:10] = 165; pt_v = 3;
@@ -152,21 +152,23 @@ module nav_ui_preview_tb;
         aux = 1; capture("04_undo_selected");
         aux = 3; capture("05_clear_selected");
         aux = 2; capture("06_ready_start");
-        route_image(0); running = 1; planner = 1; car_x = 505; car_y = 231;
+        route_image(0); running = 1; obstacle_state = 2; car_x = 505; car_y = 231;
         capture("07_running");
-        running = 0; paused = 1; planner = 2;
+        running = 0; paused = 1; obstacle_state = 3;
         capture("08_paused");
-        running = 1; paused = 0; planner = 3; car_x = 745; car_y = 165;
+        running = 0; paused = 0; obstacle_state = 4; car_x = 745; car_y = 165;
         capture("09_arrived");
-        route_image(1); map_image(1); planner = 4; car_x = 505; car_y = 231;
+        route_image(1); map_image(1); running = 1; obstacle_state = 6; car_x = 505; car_y = 231;
         capture("10_no_path");
-        running = 0; paused = 1; planner = 2; estop = 1;
+        running = 0; paused = 1; obstacle_state = 3; estop = 1;
         capture("11_emergency_stop");
         estop = 0; ui_mode = 0;
         capture("12_manual_takeover");
         ui_mode = 1; signal_ok = 0;
         capture("13_no_signal");
-        $display("PASS: nav_ui_preview_tb 14 frames");
+        signal_ok = 1; paused = 0; obstacle_state = 5;
+        capture("14_control_fault");
+        $display("PASS: nav_ui_preview_tb 15 frames");
         $finish;
     end
 endmodule

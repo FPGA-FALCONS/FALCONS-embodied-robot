@@ -16,7 +16,7 @@ module ai_ui_preview_tb;
         .i_pixel_req(1'b1),.i_video_active(1'b1),.o_pixel_rgb888(base),
         .i_page(3'd6),.i_menu_sel(3'd6),.i_ui_mode(2'd1),.i_estop(1'b0),
         .i_signal_ok(1'b1),.i_arm_hint(1'b0),.i_map_pixel(1'b0),.i_route_pixel(1'b0),
-        .i_planner_state(4'd0),.i_nav_run(1'b0),.i_nav_paused(1'b0),.i_menu_dim(ai_active),
+        .i_obstacle_state(3'd0),.i_nav_run(1'b0),.i_nav_paused(1'b0),.i_menu_dim(ai_active),
         .i_aux_sel(3'd0),.i_car_px(10'd0),.i_car_py(10'd0),.i_cur_px(10'd0),.i_cur_py(10'd0),
         .i_pt_px(160'd0),.i_pt_py(160'd0),.i_pt_v(16'd0),.o_dyn_raddr(dyn_addr),
         .i_dyn_rdata(8'd0),.i_imu_fail(1'b0),.i_tune_sel(4'd0),.i_tune_active(1'b0));

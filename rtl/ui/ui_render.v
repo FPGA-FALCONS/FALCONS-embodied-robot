@@ -65,7 +65,7 @@ module ui_render #(
     // ---- 雷达 / 避障显示；位图在像素时钟域读取 ----
     input  wire         i_map_pixel,
     input  wire         i_route_pixel,
-    input  wire [3:0]   i_planner_state,
+    input  wire [2:0]   i_obstacle_state, // 避障页行为/显示状态，见 nav_obstacle_states.vh
 
     // ---- 导航页面公共显示；由顶层选择对应页面的数据 ----
     input  wire         i_nav_run,      // 1 = 导航中（状态栏变绿并显示「导航中」）
@@ -98,6 +98,7 @@ module ui_render #(
 
     // UI 文案索引（localparam；由 tools/gen_font_rom.py 生成，与本文件同目录）
     `include "ui_text_index.vh"
+    `include "nav_obstacle_states.vh"
 
     localparam integer SM_CELL = 16;        // 小字点阵边长（保留通路，当前无段）
 
@@ -225,8 +226,18 @@ module ui_render #(
                 case (idx)
                     0: nav_aux_text = {UI_TXT_AUX_SET_POINT_ADDR, UI_TXT_AUX_SET_POINT_LEN};
                     1: nav_aux_text = {UI_TXT_AUX_UNDO_POINT_ADDR, UI_TXT_AUX_UNDO_POINT_LEN};
-                    2: nav_aux_text = i_nav_run ? {UI_TXT_AUX_PAUSE_NAV_ADDR, UI_TXT_AUX_PAUSE_NAV_LEN} :
-                                                   {UI_TXT_AUX_START_NAV_ADDR, UI_TXT_AUX_START_NAV_LEN};
+                    2: case (i_obstacle_state)
+                        OBS_RUN, OBS_NO_PATH:
+                            nav_aux_text = {UI_TXT_AUX_PAUSE_NAV_ADDR, UI_TXT_AUX_PAUSE_NAV_LEN};
+                        OBS_PAUSE:
+                            nav_aux_text = {UI_TXT_AUX_RESUME_NAV_ADDR, UI_TXT_AUX_RESUME_NAV_LEN};
+                        OBS_FAULT:
+                            nav_aux_text = {UI_TXT_AUX_RETRY_NAV_ADDR, UI_TXT_AUX_RETRY_NAV_LEN};
+                        OBS_DONE:
+                            nav_aux_text = {UI_TXT_AUX_RETURN_EDIT_ADDR, UI_TXT_AUX_RETURN_EDIT_LEN};
+                        default:
+                            nav_aux_text = {UI_TXT_AUX_START_NAV_ADDR, UI_TXT_AUX_START_NAV_LEN};
+                    endcase
                     default: nav_aux_text = {UI_TXT_AUX_CLEAR_ALL_ADDR, UI_TXT_AUX_CLEAR_ALL_LEN};
                 endcase
             end else case (idx)
@@ -264,9 +275,13 @@ module ui_render #(
         else if (!i_signal_ok)      status_text = {UI_TXT_ST_NOSIGNAL_ADDR,    UI_TXT_ST_NOSIGNAL_LEN};
         else if (i_arm_hint)        status_text = {UI_TXT_ST_ARM_DENY_ADDR,    UI_TXT_ST_ARM_DENY_LEN};
         // ★ 2026-10-19：非避障导航页按下「间断/非间断寻点」后进入运行态，状态栏显示「导航中」
-        else if (i_page == PG_NAV_OBS && i_planner_state == 4'd3)
+        else if (i_page == PG_NAV_OBS && i_ui_mode == 2'd0)
+                                   status_text = {UI_TXT_ST_MANUAL_ADDR, UI_TXT_ST_MANUAL_LEN};
+        else if (i_page == PG_NAV_OBS && i_obstacle_state == OBS_FAULT)
+                                   status_text = {UI_TXT_ST_CTRL_FAULT_ADDR, UI_TXT_ST_CTRL_FAULT_LEN};
+        else if (i_page == PG_NAV_OBS && i_obstacle_state == OBS_DONE)
                                    status_text = {UI_TXT_ST_ARRIVED_ADDR, UI_TXT_ST_ARRIVED_LEN};
-        else if (i_page == PG_NAV_OBS && i_planner_state == 4'd4)
+        else if (i_page == PG_NAV_OBS && i_obstacle_state == OBS_NO_PATH)
                                    status_text = {UI_TXT_ST_NO_PATH_ADDR, UI_TXT_ST_NO_PATH_LEN};
         else if (i_nav_paused)      status_text = {UI_TXT_ST_PAUSED_ADDR,      UI_TXT_ST_PAUSED_LEN};
         else if (i_nav_run)         status_text = {UI_TXT_ST_RUNNING_ADDR,     UI_TXT_ST_RUNNING_LEN};
@@ -380,10 +395,15 @@ module ui_render #(
 
     // ---------------- 大字段数组：菜单 4 项 + 状态栏 + 数据页 + 占位 ----------------
     //   同一条扫描行最多 4 段（数据页 y=240 那行：左轮速 / 右前轮速 / 角速度标签 / 角速度数值）
+    wire obs_edit = i_obstacle_state == OBS_EDIT;
+    wire obs_action = i_obstacle_state == OBS_RUN || i_obstacle_state == OBS_NO_PATH ||
+                      i_obstacle_state == OBS_PAUSE || i_obstacle_state == OBS_FAULT;
+    reg aux_text_disabled;
     reg [29:0] lg_seg [0:5];
     integer    li, mi, ai, ti;
     always @(*) begin
         for (li = 0; li < 6; li = li + 1) lg_seg[li] = 30'd0;
+        aux_text_disabled = 0;
 
         // ---- 左侧菜单 6 项（2026-10-19 由 4 项扩为 5 项；2026-10-20 增第 6 项「参数整定」）----
         //   七项起始 y：48 / 120 / 192 / 264 / 336 / 408 / 480。
@@ -408,6 +428,8 @@ module ui_render #(
                 if (i_page != PG_NAV_OBS || ai < 4) begin
                 if ((i_pixel_y >= (NAV_AUX_Y0 + ai * NAV_AUX_STEP + NAV_AUX_TDY)) &&
                     (i_pixel_y <  (NAV_AUX_Y0 + ai * NAV_AUX_STEP + NAV_AUX_TDY + LG_CELL))) begin
+                    aux_text_disabled = i_page == PG_NAV_OBS &&
+                        (!i_menu_dim || i_ui_mode == 0 || (!obs_edit && !(ai == 2 && obs_action)));
                     lg_seg[1] = seg_lg_rom(nav_aux_text(ai[2:0]), NAV_AUX_XW,
                                            (i_pixel_y - (NAV_AUX_Y0 + ai * NAV_AUX_STEP + NAV_AUX_TDY)));
                 end
@@ -537,16 +559,18 @@ module ui_render #(
     //     没有空闲位放颜色标记，所以这里用 ROM 地址反查 —— 追加一条独立文案
     //     就有唯一地址，比挤位宽干净。
     reg [29:0] lg_sel;
-    reg        lg_imu_fail;
+    reg        lg_imu_fail, lg_aux_dim;
     always @(*) begin
         lg_sel      = 30'd0;
         lg_imu_fail = 1'b0;
+        lg_aux_dim  = 1'b0;
         for (li = 0; li < 6; li = li + 1) begin
             if (lg_seg[li][29] &&
                 (lg_slot >= lg_seg[li][10:5]) &&
                 (lg_slot <  (lg_seg[li][10:5] + lg_seg[li][16:11]))) begin
                 lg_sel      = lg_seg[li];
                 lg_imu_fail = (lg_seg[li][28:17] == UI_TXT_IMU_FAIL_ADDR);
+                lg_aux_dim = li == 1 && aux_text_disabled;
             end
         end
     end
@@ -555,7 +579,7 @@ module ui_render #(
     reg [11:0] lg_addr_q;
     reg [5:0]  lg_start_q, lg_slot_q;
     reg [4:0]  lg_row_q;
-    reg        lg_valid_q, lg_fail_q;
+    reg        lg_valid_q, lg_fail_q, lg_dim_q;
     always @(posedge i_pixel_clk) begin
         lg_addr_q  <= lg_sel[28:17];
         lg_start_q <= lg_sel[10:5];
@@ -563,6 +587,7 @@ module ui_render #(
         lg_row_q   <= lg_sel[4:0];
         lg_valid_q <= lg_sel[29];
         lg_fail_q  <= lg_imu_fail;
+        lg_dim_q   <= lg_aux_dim;
     end
 
     wire        lg_in_text = lg_valid_q;
@@ -582,10 +607,11 @@ module ui_render #(
     // lg 通路只有静态文案，不需要 RAM 源（也省掉一级源选择）
     reg lg_in_text_d1;
     reg [4:0] lg_row_d1;
-    reg lg_imu_fail_d1;
+    reg lg_imu_fail_d1, lg_aux_dim_d1;
     always @(posedge i_pixel_clk) begin
         lg_in_text_d1  <= lg_in_text;
         lg_row_d1      <= lg_row_q;
+        lg_aux_dim_d1  <= lg_dim_q;
         lg_imu_fail_d1 <= lg_fail_q;   // 与 lg_in_text_d1 同拍，供末尾"大字"染红
     end
     wire [7:0] lg_char_index = lg_in_text_d1 ? lg_rom_char : 8'd0;
@@ -1024,7 +1050,7 @@ module ui_render #(
     //     准心落在绿点上时几乎看不见 —— 加到 10 后每侧伸出 4 px，两者都清晰。
     wire signed [12:0] kdx = $signed({1'b0, i_pixel_x}) - $signed({1'b0, i_cur_px});
     wire signed [12:0] kdy = $signed({1'b0, i_pixel_y}) - $signed({1'b0, i_cur_py});
-    wire nav_cross = nav_pg &&
+    wire nav_cross = nav_pg && (i_page != PG_NAV_OBS || (obs_edit && i_ui_mode != 0)) &&
         (((kdy == 0) && kdx >= -13'sd10 && kdx <= 13'sd10) ||
          ((kdx == 0) && kdy >= -13'sd10 && kdy <= 13'sd10));
 
@@ -1034,6 +1060,7 @@ module ui_render #(
         (i_pixel_x >= 12'd832) && (i_pixel_x <= 12'd1023) &&
         (i_pixel_y >= 12'd414) && (i_pixel_y <= 12'd599);
     wire nav_aux_hi = nav_pg &&
+        (i_page != PG_NAV_OBS || (nav_ui && i_ui_mode != 0 && (obs_edit || obs_action))) &&
         (i_pixel_x >= 12'd832) && (i_pixel_x <= 12'd1023) &&
         (i_pixel_y >= nav_aux_top) && (i_pixel_y < (nav_aux_top + NAV_AUX_STEP));
 
@@ -1095,6 +1122,7 @@ module ui_render #(
     assign layer_color[8]  = 24'hFFFFFF;
     assign layer_color[9]  = 24'h00C000;
     assign layer_color[10] = lg_imu_fail_d1 ? 24'hFF4040 :
+        lg_aux_dim_d1 ? 24'h5A6170 :
         in_status_bar ? 24'hFFFFFF :
         in_menu_bar ? (menu_sel_band ? (menu_dim ? 24'h8A7A2E : 24'hFFE066) :
                                      (menu_dim ? 24'h5A6170 : 24'hE5E7EB)) : 24'hFFFFFF;

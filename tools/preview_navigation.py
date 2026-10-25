@@ -23,6 +23,7 @@ STATES = [
     ("11_emergency_stop", "整车急停：状态栏显示急停"),
     ("12_manual_takeover", "手动接管：自动任务保持暂停"),
     ("13_no_signal", "遥控失联：状态栏显示无信号"),
+    ("14_control_fault", "控制故障：确认重试当前目的地"),
 ]
 
 
@@ -60,11 +61,11 @@ def main():
     result = run([args.modelsim / "vsim.exe", "-c", "-modelsimini", ini,
                   "preview_work.nav_ui_preview_tb", "+OUT=" + str(output),
                   "-do", "run -all; quit -f"])
-    if "PASS: nav_ui_preview_tb 14 frames" not in result:
+    if "PASS: nav_ui_preview_tb 15 frames" not in result:
         raise RuntimeError("Preview did not finish; see render.log")
     title_font = ImageFont.truetype("C:/Windows/Fonts/msyh.ttc", 22)
     caption_font = ImageFont.truetype("C:/Windows/Fonts/msyh.ttc", 18)
-    sheet = Image.new("RGB", (1328, 7 * 432 + 106), "#151b26")
+    sheet = Image.new("RGB", (1328, ((len(STATES) + 1) // 2) * 432 + 106), "#151b26")
     draw = ImageDraw.Draw(sheet)
     draw.text((24, 16), "自动导航 UI · 当前 RTL 渲染预览", font=title_font, fill="#edf3ff")
     draw.text((24, 53), "示例地图与状态输入；原图 1024×600。橙色：原始障碍  蓝色：路线  绿色：车辆  白色：目的地 / 准心",
@@ -78,7 +79,7 @@ def main():
         draw.text((left + 4, top), f"{i + 1:02d}  {title}", font=caption_font, fill="#edf3ff")
         sheet.paste(thumb, (left, top + 32))
     sheet.save(output / "overview.png")
-    for group_name, indices in [("selection", range(8)), ("states", range(8, 14))]:
+    for group_name, indices in [("selection", range(8)), ("states", range(8, len(STATES)))]:
         tiles = list(indices)
         group = Image.new("RGB", (1328, ((len(tiles) + 1) // 2) * 432 + 60), "#151b26")
         group_draw = ImageDraw.Draw(group)

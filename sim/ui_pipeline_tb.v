@@ -35,7 +35,7 @@ module ui_pipeline_tb;
         .i_signal_ok(page != 5), .i_arm_hint(1'b0), .i_menu_sel(page),
         .i_map_pixel((px[6:3] == 4'd5) && (py[6:3] == 4'd6)),
         .i_route_pixel((px[5:2] == 4'd7) || (py[5:2] == 4'd4)),
-        .i_planner_state(4'd3), .i_nav_run(page == 3), .i_nav_paused(page == 4),
+        .i_obstacle_state(3'd4), .i_nav_run(1'b0), .i_nav_paused(page == 4),
         .i_menu_dim(page == 3 || page == 4), .i_aux_sel(3'd2),
         .i_car_px(10'd415), .i_car_py(10'd297),
         .i_cur_px(10'd745), .i_cur_py(10'd165),
@@ -50,7 +50,7 @@ module ui_pipeline_tb;
         expected[0] = 32'h1b1c15f3;
         expected[1] = 32'h8c6a9a7c;
         expected[2] = 32'h71923fef;
-        expected[3] = 32'h7e66cce3;
+        expected[3] = 32'h877039e8; // 避障完成态禁编辑并提示返回；其他页保持原指纹。
         expected[4] = 32'h1eaec97b;
         expected[5] = 32'h77725a83; // 参数页新增两行；前五页指纹保持不变。
         for (n = 0; n < 128; n = n + 1) text_mem[n] = 8'd16 + n % 10;

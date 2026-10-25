@@ -370,8 +370,7 @@ module falcons_top (
     wire [4:0]              nav_pt_count = (page == PAGE_NAV_OBS) ? obs_pt_count : free_nav_pt_count;
     wire                    obs_run;
     wire                    nav_run = (page == PAGE_NAV_OBS) ? obs_run : free_nav_run;
-    wire [1:0]              obs_ui_state;
-    wire [1:0]              nav_state = (page == PAGE_NAV_OBS) ? obs_ui_state : free_nav_state;
+    wire [2:0]              obs_ui_state;
     wire                    obs_ui_active;
     wire                    nav_ui_active = (page == PAGE_NAV_OBS) ? obs_ui_active : free_nav_ui_active;
     wire                    obs_paused;
@@ -1878,14 +1877,14 @@ module falcons_top (
     );
 
     wire map_pixel, route_pixel;
-    reg [3:0] planner_state_ps1, planner_state_ps2;
+    reg [2:0] obstacle_state_ps1, obstacle_state_ps2;
     always @(posedge pixel_clk or negedge pixel_rst_n) begin
         if (!pixel_rst_n) begin
-            planner_state_ps1 <= 0;
-            planner_state_ps2 <= 0;
+            obstacle_state_ps1 <= 0;
+            obstacle_state_ps2 <= 0;
         end else begin
-            planner_state_ps1 <= planner_nav_state;
-            planner_state_ps2 <= planner_state_ps1;
+            obstacle_state_ps1 <= obs_ui_state;
+            obstacle_state_ps2 <= obstacle_state_ps1;
         end
     end
     nav_map_view u_nav_map_view (
@@ -1912,7 +1911,7 @@ module falcons_top (
         (ai_local_region || (ai_connected && pixel_y>=120 && pixel_y<540)))
         ? (ai_glyph ? (ai_highlight?24'hffe066:24'he8f0f8) : (ai_highlight?24'h1d4ed8:24'h101820)) : ui_rgb_base;
     ui_render u_ui (
-        .i_map_pixel(map_pixel), .i_route_pixel(route_pixel), .i_planner_state(planner_state_ps2),
+        .i_map_pixel(map_pixel), .i_route_pixel(route_pixel), .i_obstacle_state(obstacle_state_ps2),
         .i_pixel_clk    (pixel_clk),
         .i_reset_n      (pixel_rst_n),
         .i_pixel_x      (pixel_x),

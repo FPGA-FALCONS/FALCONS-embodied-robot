@@ -6,7 +6,7 @@ module obstacle_plan_tb;
     reg [3:0] nav_status=0;
     reg command_idle=1;
     wire [3:0] feedback;
-    wire [1:0] state;
+    wire [2:0] state;
     wire [4:0] count;
     wire run,paused,ui,goal;
     wire [7:0] gx,gy;

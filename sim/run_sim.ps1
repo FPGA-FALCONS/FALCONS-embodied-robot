@@ -198,7 +198,8 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$ProjectRoot\rtl\nav\nav_pose.v", "$PSScriptRoot\radar_map_tb.v", "$PSScriptRoot\nav_pose_tb.v",
               "$ProjectRoot\rtl\ui\nav_map_view.v", "$PSScriptRoot\nav_map_view_tb.v", "$PSScriptRoot\nav_command_tb.v",
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
-              "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
+              "$PSScriptRoot\obstacle_page_tb.v",
+              "$PSScriptRoot\obstacle_display_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
               "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v", "$PSScriptRoot\nav_dijkstra_tb.v", "$PSScriptRoot\nav_dijkstra_pool_tb.v", "$PSScriptRoot\nav_line_cells_tb.v", "$PSScriptRoot\nav_route_tb.v", "$PSScriptRoot\nav_center_tb.v", "$PSScriptRoot\nav_planner_limit_tb.v", "$PSScriptRoot\nav_drive_tb.v")
 
 $sources += @("$ProjectRoot\rtl\common\display_mm_to_cm.v", "$PSScriptRoot\display_mm_to_cm_tb.v", "$PSScriptRoot\ui_layers_tb.v")
@@ -245,6 +246,7 @@ $tests = @(
     @{ Name = 'nav_command'; Top = 'nav_command_tb'; Desc = 'Active task axis / live target / direction change handshake' },
     @{ Name = 'nav_map_view'; Top = 'nav_map_view_tb'; Desc = 'Map / route double buffering / projected current segment / live targets' },
     @{ Name = 'nav_point_ctrl'; Top = 'nav_point_ctrl_tb'; Desc = 'Point task / live target / emergency handshake' },
+    @{ Name = 'obstacle_display'; Top = 'obstacle_display_tb'; Desc = 'Obstacle UI result / resume / retry labels, disabled actions and crosshair' },
     @{ Name = 'obstacle_page'; Top = 'obstacle_page_tb'; Desc = 'Obstacle page and multiple destinations' },
     @{ Name = 'obstacle_plan'; Top = 'obstacle_plan_tb'; Desc = 'Obstacle UI to real BFS preplanning' },
     @{ Name = 'radar_map'; Top = 'radar_map_tb'; Desc = 'UART radar to world map and coherent pose' },

@@ -24,6 +24,7 @@ module ui_layers_tb;
         force dut.menu_sel_band = mode[2];
         force dut.lg_imu_fail_d1 = mode[0];
         force dut.sm_src_d1 = mode[1];
+        force dut.lg_aux_dim_d1 = 0;
         for (m = 0; m < 32; m = m + 1) begin
             mode = m;
             for (h = 0; h < 4096; h = h + 1) begin
