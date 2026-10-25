@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-module nav_bfs_tb;
+module nav_dijkstra_tb;
     reg clk = 0, reset_n = 0, request = 0, escape = 0;
     always #10 clk = ~clk;
     reg [15:0] sx,sy,gx,gy;
@@ -11,13 +11,13 @@ module nav_bfs_tb;
     reg [15:0] reference [0:4095];
     integer cycles = 0,checks = 0,errors = 0,delay_left,address;
     integer fd,result,count,index,ex,position,begin_cycle,peak,wait_count;
-    integer px,py,dx,dy;
+    integer px,py,dx,dy,expected_cost,actual_cost,k,improved=0,stale=0,ties=0;
     reg geometry_ok,reference_ok,stable_ok,held = 0;
     reg [35:0] hold_data;
     reg [2047:0] fixture_dir,file_name;
     wire rd_ready = !pending && cycles%5 != 0;
     wire take = cycles%7 >= 2;
-    nav_bfs dut (
+    nav_dijkstra dut (
         .clk(clk),.reset_n(reset_n),.req_valid(request),.req_ready(ready),
         .allow_start_escape(escape),.start_x(sx),.start_y(sy),.goal_x(gx),.goal_y(gy),
         .mrd_valid(rd),.mrd_ready(rd_ready),.mrd_x(rx),.mrd_y(ry),
@@ -37,8 +37,8 @@ module nav_bfs_tb;
         input [511:0] text;
         begin
             checks = checks+1;
-            if (condition !== 1'b1) begin errors = errors+1; $display("FAIL: bfs case=%0d %0s",index,text); end
-            else $display("pass bfs case=%0d %0s",index,text);
+            if (condition !== 1'b1) begin errors = errors+1; $display("FAIL: dijkstra case=%0d %0s",index,text); end
+            else $display("pass dijkstra case=%0d %0s",index,text);
         end
     endtask
     always @(posedge clk) begin
@@ -58,7 +58,10 @@ module nav_bfs_tb;
             delay_left <= cycles%4;
             if (rx>255 || ry>255) begin $display("FAIL: bfs out-of-map read"); errors = errors+1; end
         end
-        if (dut.state>=7 && dut.state<=13 && dut.tail-dut.head>peak) peak = dut.tail-dut.head;
+        if (dut.state>=7 && dut.state<=19 && 8192-dut.free_count>peak) peak = 8192-dut.free_count;
+        if (dut.state == 24) ties = ties+1;
+        if (dut.state == 16 && dut.trial_cost < dut.distance_q && dut.distance_q != 18'h3ffff) improved = improved + 1;
+        if (dut.state == 11 && dut.distance_q != dut.current_cost) stale = stale + 1;
         if (held && (!valid || {last,dir,y,x} !== hold_data)) stable_ok = 0;
         held = valid && !take;
         if (held) hold_data = {last,dir,y,x};
@@ -66,6 +69,7 @@ module nav_bfs_tb;
             if (position>4095 || reference[position] !== y*256+x) reference_ok = 0;
             if (!allowed(x,y)) geometry_ok = 0;
             if (position>0) begin
+                actual_cost = actual_cost + (x != px && y != py ? 3 : 2);
                 dx = $signed({1'b0,x})-px;
                 dy = $signed({1'b0,y})-py;
                 if (dx>1 || dx< -1 || dy>1 || dy< -1 || (dx == 0 && dy == 0)) geometry_ok = 0;
@@ -77,7 +81,7 @@ module nav_bfs_tb;
         end
     end
     initial begin
-        fixture_dir = "../logs/eight_direction/fixtures";
+        fixture_dir = "../logs/dijkstra/fixtures";
         if ($value$plusargs("FIXTURE_DIR = %s",fixture_dir)) begin end
         file_name = {fixture_dir,"/cases.txt"}; fd = $fopen(file_name,"r");
         if (!fd) begin $display("FAIL: bfs missing fixtures"); $finish; end
@@ -90,6 +94,10 @@ module nav_bfs_tb;
             if (ex >= 0) begin
                 $sformat(file_name,"%0s/path_%0d.hex",fixture_dir,index); $readmemh(file_name,reference,0,ex);
             end
+            expected_cost = 0;
+            for (k=1;k<=ex;k=k+1) expected_cost = expected_cost +
+                (reference[k]%256 != reference[k-1]%256 && reference[k]/256 != reference[k-1]/256 ? 3 : 2);
+            actual_cost = 0;
             position = 0;
             peak = 0;
             geometry_ok = 1;
@@ -104,18 +112,20 @@ module nav_bfs_tb;
             while (busy && wait_count<10000000) begin @(negedge clk);
             wait_count = wait_count+1;
             end
-            check(!busy && (ex<0 ? no_path && !success : success && !no_path),"reachability matches independent BFS");
-            check(ex<0 ? position == 0 : position == ex+1 && length == ex,"equal-cost shortest step count");
+            check(!busy && (ex<0 ? no_path && !success : success && !no_path),"reachability matches independent Dijkstra");
+            check(ex<0 ? position == 0 : position == ex+1 && length == ex && actual_cost == expected_cost,"minimum 2/3 cost and reference steps");
             check(reference_ok && geometry_ok,"all cells match straight-first reference and reject corner cutting");
-            check(stable_ok && peak<8192,"backpressure and queue bound");
-            $display("METRICS: bfs case=%0d cycles=%0d steps=%0d peak=%0d",index,cycles-begin_cycle,length,peak);
+            check(stable_ok && peak<=8192,"backpressure and queue bound");
+            $display("METRICS: dijkstra case=%0d cycles=%0d steps=%0d peak=%0d",index,cycles-begin_cycle,length,peak);
             repeat(3) @(negedge clk);
         end
         $fclose(fd);
+        check(improved > 0 && stale > 0 && ties > 0,"maps exercise distance improvements, turn ties and stale entries");
+        $display("METRICS: improvements=%0d stale=%0d ties=%0d",improved,stale,ties);
         $display("CHECKS: %0d",checks);
-        $display("METRICS: nav_bfs_tb cycles=%0d errors=%0d",cycles,errors);
-        if (!errors) $display("PASS: nav_bfs_tb");
+        $display("METRICS: nav_dijkstra_tb cycles=%0d errors=%0d",cycles,errors);
+        if (!errors) $display("PASS: nav_dijkstra_tb");
         $finish;
     end
-    initial begin #4000000000; $display("FAIL: nav_bfs timeout"); $finish; end
+    initial begin #4000000000; $display("FAIL: nav_dijkstra timeout"); $finish; end
 endmodule

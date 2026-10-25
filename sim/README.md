@@ -15,10 +15,10 @@
 | nav_pose | 实际 odom 流水 → 导航位置 / 控制采样，不滞后一个测速窗口 |
 | radar_map | UART 实包、公共位姿、四朝向障碍、清零 |
 | obstacle_page | 独立避障页面、16 目的地、暂停 / 手动接管、无路不跳点 |
-| obstacle_plan | UI 目标接真实 BFS，未授权运动时预规划 |
+| obstacle_plan | UI 目标接真实 Dijkstra，未授权运动时预规划 |
 | nav_point_ctrl | 动态目标、先转再走、完成电平、停车握手与抢占 |
 | nav_map_view | 地图 / 路线双缓冲、空路线、覆盖旧点、中止帧、完整线段 |
-| obstacle_motion | 真实 UI + BFS + 点位控制，两个目的地、转弯、暂停恢复、近障停车及清除后续行 |
+| obstacle_motion | 真实 UI + Dijkstra + 点位控制，两个目的地、转弯、暂停恢复、近障停车及清除后续行 |
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64
@@ -200,3 +200,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_radar_gate.ps1 -Netl
 新增 `nav_center` 41 项 / 32642 周期，覆盖八方向预期平移、端点与非整步尾点、全段最小间隙、预算拒绝、探针之间障碍的完整复核；新增 `nav_planner_limit` 6 项 / 22336 周期，覆盖居中后中继、容量截断排空、重入和起终点同格。规划台同时运行 CENTER_EN=0/1，329 项 / 12661972 周期，41 图中实际接受 22 次居中（8 次斜段）。所有航点逐格还原检查通行性，斜步检查两侧格，原始输出匹配独立参考，居中输出检查 10/14 增长预算。
 
 完整 49 台 / 8438 项通过；前探再拆相对坐标寄存拍后，前探、实际运动、UI 规划三台再次通过。运动恢复为 98000033 周期 / 22 轮规划；前探最长 548 周期。`python sim/plot_bfs_eight.py --centered` 绘制真实居中航点与原始路线对照；不将绘图当功能自检。根节点方向改为目标朝起点，避免固定东向种子带来的开放轴向斜折；BFS 仍等权。
+
+
+## 四桶 Dijkstra（2026-10-25，替换等权八方向版本）
+
+当前入口为 `nav_dijkstra`、`nav_dijkstra_pool` 和 `nav_planner`。搜索参考由 `dijkstra_eight.py` 用独立二叉堆生成，直步 2、斜步 3；同一格等代价时优先累计转弯少，再保留直行扩展的发现顺序。57 张图包含原 41 图、不等长斜段和 12 组室内随机障碍。新增小容量共享池自检覆盖满池失败、释放复用、重复请求和搜索中复位。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64
+python sim/plot_dijkstra.py --centered
+```
+
+生成物在 `logs/dijkstra/`。绘图从 `baseline_route/waypoints_center_1.csv` 读取改造前等权 BFS 的实际居中航点，从本轮回归读取 Dijkstra 航点；相同地图、原点、膨胀和居中参数。前面等权 BFS 小节是历史结果；对应搜索模块、参考生成和绘图入口已由本节替换，生产 RTL 不保留旧算法分支。完整结果见 [Dijkstra 验证记录](../doc/Dijkstra导航验证_20261025.md)。

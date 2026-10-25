@@ -1,4 +1,4 @@
-// 八方向规划流水：等权 BFS → 共线段终点 → 三段窗口居中 → 有限间距航点。
+// 八方向规划流水：2/3 Dijkstra → 共线段终点 → 三段窗口居中 → 有限间距航点。
 // 中继放在居中之后，避免把长段提前截断而失去两端的转角上下文。
 module nav_planner #(
     parameter integer GRID_W = 16, GRID_H = 16, QMAX = 8192, W_MAX = 39,
@@ -32,7 +32,7 @@ module nav_planner #(
     reg [15:0] cursor_x, cursor_y, end_x, end_y, remaining, count, limit;
     reg signed [1:0] step_x, step_y;
     reg point_last, chunk_last;
-    wire bfs_ready, bfs_busy, bfs_success, bfs_no_path, start_relaxed;
+    wire search_ready, search_busy, search_success, search_no_path, start_relaxed;
     wire path_valid, path_ready, path_last;
     wire [15:0] path_x, path_y;
     wire [2:0] path_dir;
@@ -41,8 +41,8 @@ module nav_planner #(
     wire center_ready, center_valid, center_last, center_busy;
     wire [15:0] center_x, center_y;
     wire begin_round = req_valid && req_ready && wp_limit != 0;
-    wire cancel_center = state == WAIT_POINT && !bfs_busy && bfs_no_path;
-    assign req_ready = reset_n && state == IDLE && bfs_ready && !center_busy;
+    wire cancel_center = state == WAIT_POINT && !search_busy && search_no_path;
+    assign req_ready = reset_n && state == IDLE && search_ready && !center_busy;
     assign busy = state != IDLE;
     assign wp_valid = reset_n && state == OUTPUT;
     assign path_ready = state != IDLE && !corner_pending && !collecting_done;
@@ -52,15 +52,15 @@ module nav_planner #(
     assign b_ready = mrd_ready && !c_valid;
     assign c_ready = mrd_ready;
     always @(posedge clk) if(mrd_valid && mrd_ready) read_owner <= c_valid;
-    nav_bfs #(.GRID_W(GRID_W), .GRID_H(GRID_H), .QMAX(QMAX), .BFS_RELAX(BFS_RELAX)) u_bfs (
-        .clk(clk), .reset_n(reset_n), .req_valid(begin_round), .req_ready(bfs_ready),
+    nav_dijkstra #(.GRID_W(GRID_W), .GRID_H(GRID_H), .QMAX(QMAX), .START_RELAX(BFS_RELAX)) u_search (
+        .clk(clk), .reset_n(reset_n), .req_valid(begin_round), .req_ready(search_ready),
         .allow_start_escape(allow_start_escape),
         .start_x(start_x), .start_y(start_y), .goal_x(goal_x), .goal_y(goal_y),
         .mrd_valid(b_valid), .mrd_ready(b_ready), .mrd_x(b_x), .mrd_y(b_y),
         .mrd_rsp_valid(mrd_rsp_valid && !read_owner), .mrd_raw(mrd_raw), .mrd_cost(mrd_cost),
         .path_valid(path_valid), .path_ready(path_ready), .path_x(path_x), .path_y(path_y),
-        .path_dir(path_dir), .path_last(path_last), .busy(bfs_busy),
-        .success(bfs_success), .no_path(bfs_no_path), .path_len(path_len), .start_relaxed(start_relaxed)
+        .path_dir(path_dir), .path_last(path_last), .busy(search_busy),
+        .success(search_success), .no_path(search_no_path), .path_len(path_len), .start_relaxed(start_relaxed)
     );
     nav_center #(.GRID_W(GRID_W), .GRID_H(GRID_H), .CENTER_EN(CENTER_EN),
         .L_MIN(L_MIN), .PROBE_D(PROBE_D), .PROBE_STEP(PROBE_STEP),
@@ -163,7 +163,7 @@ module nav_planner #(
                 end_y <= center_y;
                 point_last <= center_last;
                 state <= MEASURE;
-            end else if(!bfs_busy && bfs_no_path) begin
+            end else if(!search_busy && search_no_path) begin
                 no_path <= 1;
                 state <= IDLE;
             end
@@ -191,9 +191,9 @@ module nav_planner #(
                     state <= MAKE_POINT;
                 end
             end
-            DRAIN:if(!bfs_busy && !center_busy && !corner_pending) begin
-                success <= bfs_success;
-                no_path <= bfs_no_path;
+            DRAIN:if(!search_busy && !center_busy && !corner_pending) begin
+                success <= search_success;
+                no_path <= search_no_path;
                 state <= IDLE;
             end
             default:state <= IDLE;

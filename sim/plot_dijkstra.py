@@ -8,11 +8,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Patch
-from bfs_eight import fixtures
+from dijkstra_eight import fixtures
 
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
-ROOT = Path('logs/eight_direction')
+ROOT = Path('logs/dijkstra')
 
 
 def metric(points):
@@ -29,7 +29,7 @@ def main():
     if args.centered:
         with (ROOT/'waypoints_center_1.csv').open() as f:
             centered = list(csv.DictReader(f))
-    with Path('logs/eight_direction/four_direction/waypoints_center_0.csv').open() as f:
+    with Path('logs/dijkstra/baseline_route/waypoints_center_1.csv').open() as f:
         old = list(csv.DictReader(f))
     titles = ['房间与错位门洞', '斜走廊连接两间房', '斜隔墙、门洞与斜放家具']
     bounds = [(-2.6, 6.3, -3.6, 5.2), (-1.65, 6.4, -1.65, 4.45), (-2.6, 6.3, -3.6, 4.6)]
@@ -43,11 +43,11 @@ def main():
         cells = [int(x, 16) for x in (ROOT/f'fixtures/path_{index}.hex').read_text().split()]
         second = [(x % 256, x // 256) for x in cells]
         paths = [first, second]
-        labels = ['原四方向：实际 RTL 航点', '八方向：RTL 已逐格核对']
+        labels = ['等权 BFS 居中：实际 RTL 航点', '2/3 Dijkstra：RTL 已逐格核对']
         colors = ['#cc7722', '#1677c8']
         if args.centered:
             paths.append([scene['start']] + [(int(r['x']), int(r['y'])) for r in centered if int(r['case']) == index])
-            labels.append('八方向居中：实际 RTL 航点')
+            labels.append('2/3 Dijkstra 居中：实际 RTL 航点')
             colors.append('#15876a')
         fig, axes = plt.subplots(1, len(paths), figsize=(6.5*len(paths), 6.7))
         fig.subplots_adjust(left=.065, right=.985, bottom=.16, top=.85, wspace=.15)
@@ -63,11 +63,11 @@ def main():
             ax.grid(alpha=.12)
             ax.set_title(f'{label}\n{distance:.2f} m · {turns} 次方向变化')
             records.append(dict(case=index, mode=label, distance_m=distance, turns=int(turns)))
-        fig.suptitle(titles[index]+('｜四方向 / 八方向原始 / 八方向居中' if args.centered else '｜同一膨胀地图、直行优先，均未做居中'), fontsize=14)
+        fig.suptitle(titles[index]+('｜等权 BFS 居中 / Dijkstra 原始 / Dijkstra 居中' if args.centered else '｜同一膨胀地图、直行优先，均未做居中'), fontsize=14)
         fig.legend(handles=[Patch(color=(.15,.18,.21), label='原始墙体 / 家具'),
                             Patch(color=(.92,.84,.78), label='规划预留区：4格 / 200 mm')],
                    loc='lower center', bbox_to_anchor=(.5,.05), ncol=2, frameon=False)
-        fig.text(.5,.015,'256×256 · 50 mm/格 · 中心原点；八邻域等权 BFS 禁止穿墙角；本图展示搜索结果，不代表实车运动。',ha='center',fontsize=9)
+        fig.text(.5,.015,'256×256 · 50 mm/格 · 中心原点；八邻域 2/3 Dijkstra 禁止穿墙角；本图展示搜索结果，不代表实车运动。',ha='center',fontsize=9)
         target=ROOT/(f'case_{index}_centered.png' if args.centered else f'case_{index}_eight.png')
         fig.savefig(target,dpi=150,bbox_inches='tight')
         plt.close(fig)

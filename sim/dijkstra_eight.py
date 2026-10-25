@@ -1,7 +1,8 @@
-"""Independent equal-cost eight-neighbour BFS fixtures; outputs only to logs/."""
+"""Independent heap Dijkstra (2/3), indoor fixtures and corner checks; outputs only to logs/."""
 import argparse
 import json
-from collections import deque
+from heapq import heappush, heappop
+import random
 from pathlib import Path
 from bfs_indoor import scenes, N
 
@@ -23,25 +24,42 @@ def solve(scene):
     if not allowed(sx, sy) or not allowed(gx, gy):
         return [], 0, 0
     parent = {(gx, gy): None}
+    distance = {(gx, gy): 0}
+    heading = {}
+    turns = {(gx, gy): 0}
     root_vector = ((sx > gx)-(sx < gx), (sy > gy)-(sy < gy))
-    root_direction = DIR.index(root_vector) if root_vector != (0, 0) else 0
-    q = deque([(gx, gy, root_direction)])
-    peak, expanded = 1, 0
-    while q and (sx, sy) not in parent:
-        x, y, heading = q.popleft()
+    heading[gx, gy] = DIR.index(root_vector) if root_vector != (0, 0) else 0
+    q = [(0, 0, (gx, gy))]
+    sequence, peak, expanded = 0, 1, 0
+    while q:
+        value, _, point = heappop(q)
+        if distance[point] != value:
+            continue
+        if point == (sx, sy):
+            break
+        x, y = point
         expanded += 1
         for offset in ORDER:
-            direction = (heading + offset) % 8
+            direction = (heading[point] + offset) % 8
             dx, dy = DIR[direction]
-            point = (x+dx, y+dy)
-            if (point in parent or not allowed(*point) or
+            child = (x+dx, y+dy)
+            candidate = value + (3 if dx and dy else 2)
+            turn_count = turns[point] + int(point != (gx,gy) and direction != heading[point])
+            old = distance.get(child, 1 << 30)
+            if (not allowed(*child) or candidate > old or
+                    (candidate == old and turn_count >= turns[child]) or
                     (dx and dy and not (allowed(x+dx, y) and allowed(x, y+dy)))):
                 continue
-            parent[point] = (x, y)
-            if point == (sx, sy):
-                break
-            q.append((*point, direction))
+            equal = candidate == old
+            parent[child] = point
+            turns[child] = turn_count
+            distance[child] = candidate
+            heading[child] = direction
+            if not equal:
+                sequence += 1
+                heappush(q, (candidate, sequence, child))
             peak = max(peak, len(q))
+
     path = []
     if (sx, sy) in parent:
         point = (sx, sy)
@@ -68,12 +86,25 @@ def fixtures():
             cost[128*N+129] = cost[129*N+128] = 0
         cases.append(dict(name=f'corner_sides_{side}', raw=bytearray(cost), cost=cost,
                           start=(128, 128), goal=(129, 129), escape=0))
+    for dx, dy in [(40,12), (40,-12), (-40,12), (-40,-12)]:
+        cases.append(dict(name=f'unequal_diagonal_{dx}_{dy}', raw=bytearray(N*N),
+                          cost=bytearray(N*N), start=(128,128), goal=(128+dx,128+dy), escape=0))
+    for seed in range(12):
+        rng = random.Random(seed)
+        raw = bytearray([1]) * (N*N)
+        for y in range(110, 144):
+            for x in range(110, 146):
+                raw[y*N+x] = int(rng.random() < .15)
+        for x, y in [(112,112), (143,139)]:
+            raw[y*N+x] = 0
+        cases.append(dict(name=f'room_furniture_random_{seed}', raw=raw, cost=bytearray(raw),
+                          start=(112,112), goal=(143,139), escape=0))
     return cases
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output', type=Path, default=Path('logs/eight_direction/fixtures'))
+    parser.add_argument('--output', type=Path, default=Path('logs/dijkstra/fixtures'))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     cases = fixtures()
@@ -87,11 +118,17 @@ def main():
             ''.join(f'{p:04x}\n' for p in path) or '0000\n', encoding='ascii')
         manifest.append(' '.join(map(str, (index, *case['start'], *case['goal'],
                                           case['escape'], len(path)-1))))
+        weighted = sum(3 if abs(b%N-a%N) and abs(b//N-a//N) else 2 for a,b in zip(path,path[1:])) if path else -1
+        if case['name'].startswith('unequal_diagonal_'):
+            ax=abs(case['start'][0]-case['goal'][0]); ay=abs(case['start'][1]-case['goal'][1])
+            assert weighted == 2*max(ax,ay)+min(ax,ay)
+            directions = [(b%N-a%N,b//N-a//N) for a,b in zip(path,path[1:])]
+            assert sum(a != b for a,b in zip(directions,directions[1:])) <= 1
         records.append(dict(index=index, name=case['name'], steps=len(path)-1,
-                            peak=peak, expanded=expanded))
+                            cost=weighted, peak=peak, expanded=expanded))
     (args.output/'cases.txt').write_text('\n'.join(manifest)+'\n', encoding='ascii')
     (args.output/'reference.json').write_text(json.dumps(records, indent=2), encoding='utf-8')
-    print(f'Generated {len(cases)} eight-direction indoor/corner fixtures')
+    print(f'Generated {len(cases)} Dijkstra indoor/corner/unequal diagonal fixtures')
 
 
 if __name__ == '__main__':

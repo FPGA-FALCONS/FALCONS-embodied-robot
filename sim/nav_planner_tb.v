@@ -92,12 +92,12 @@ module nav_planner_check #(parameter integer CENTER_EN=0) (
         end
     end
     initial begin
-        fixture_dir="../logs/eight_direction/fixtures";
+        fixture_dir="../logs/dijkstra/fixtures";
         if ($value$plusargs("FIXTURE_DIR=%s",fixture_dir)) begin end
         file_name={fixture_dir,"/cases.txt"}; fd=$fopen(file_name,"r");
-        $sformat(file_name,"../logs/eight_direction/waypoints_center_%0d.csv",CENTER_EN);
+        $sformat(file_name,"../logs/dijkstra/waypoints_center_%0d.csv",CENTER_EN);
         waypoints=$fopen(file_name,"w");
-        $sformat(file_name,"../logs/eight_direction/rtl_center_%0d.csv",CENTER_EN);
+        $sformat(file_name,"../logs/dijkstra/rtl_center_%0d.csv",CENTER_EN);
         metrics=$fopen(file_name,"w");
         $fdisplay(waypoints,"case,point,x,y,last");
         $fdisplay(metrics,"case,cycles,steps,points,success,no_path,weighted_length");
@@ -121,8 +121,8 @@ module nav_planner_check #(parameter integer CENTER_EN=0) (
             @(negedge clk); request=0;
             wait_count=0;
             while (busy && wait_count<10000000) begin @(negedge clk); wait_count=wait_count+1; end
-            check(!busy && (ex<0 ? no_path && !success : success && !no_path),"reachability matches independent BFS");
-            check(ex<0 ? points==0 : (CENTER_EN ? position>=ex && weighted_length<=reference_length+200 : position==ex) && length==ex && px==gx && py==gy,"compressed route keeps shortest step count and goal");
+            check(!busy && (ex<0 ? no_path && !success : success && !no_path),"reachability matches independent Dijkstra");
+            check(ex<0 ? points==0 : (CENTER_EN ? weighted_length<=reference_length+200 : position==ex) && length==ex && px==gx && py==gy,"compressed route keeps reference and centering budget");
             check((CENTER_EN || reference_ok) && geometry_ok,"complete segments match reference and reject corner cuts");
             check(stable_ok,"waypoints remain stable under backpressure");
             $fdisplay(metrics,"%0d,%0d,%0d,%0d,%0d,%0d,%0d",index,cycles-begin_cycle,length,points,success,no_path,weighted_length);

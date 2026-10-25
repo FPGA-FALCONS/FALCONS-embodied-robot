@@ -199,7 +199,7 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$ProjectRoot\rtl\ui\nav_map_view.v", "$PSScriptRoot\nav_map_view_tb.v", "$PSScriptRoot\nav_command_tb.v",
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
               "$PSScriptRoot\obstacle_page_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
-              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v", "$PSScriptRoot\nav_bfs_tb.v", "$PSScriptRoot\nav_line_cells_tb.v", "$PSScriptRoot\nav_route_tb.v", "$PSScriptRoot\nav_center_tb.v", "$PSScriptRoot\nav_planner_limit_tb.v", "$PSScriptRoot\nav_drive_tb.v")
+              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v", "$PSScriptRoot\nav_dijkstra_tb.v", "$PSScriptRoot\nav_dijkstra_pool_tb.v", "$PSScriptRoot\nav_line_cells_tb.v", "$PSScriptRoot\nav_route_tb.v", "$PSScriptRoot\nav_center_tb.v", "$PSScriptRoot\nav_planner_limit_tb.v", "$PSScriptRoot\nav_drive_tb.v")
 
 $sources += @("$ProjectRoot\rtl\common\display_mm_to_cm.v", "$PSScriptRoot\display_mm_to_cm_tb.v", "$PSScriptRoot\ui_layers_tb.v")
 
@@ -220,7 +220,8 @@ $tests = @(
     @{ Name = 'nav_route'; Top = 'nav_route_tb'; Desc = 'Eight-direction locked prefix / farthest target / candidate isolation' },
     @{ Name = 'nav_line_cells'; Top = 'nav_line_cells_tb'; Desc = 'Eight-direction inclusive segments and flank cells' },
     @{ Name = 'nav_drive'; Top = 'nav_drive_tb'; Desc = 'Eight-direction raw front checks / lateral / behind / invalid pose' },
-    @{ Name = 'nav_bfs'; Top = 'nav_bfs_tb'; Desc = 'Eight equal-cost directions / straight first / no corner cuts / indoor reference' },
+    @{ Name = 'nav_dijkstra_pool'; Top = 'nav_dijkstra_pool_tb'; Desc = 'Shared pool full / reuse / restart / reset' },
+    @{ Name = 'nav_dijkstra'; Top = 'nav_dijkstra_tb'; Desc = 'Four buckets / 2-3 cost / straight first / no corner cuts / heap reference' },
     @{ Name = 'yaw_pipeline'; Top = 'yaw_pipeline_tb'; Desc = '20000 cycle equivalence for optional yaw sum/wrap pipeline' },
     @{ Name = 'manual_takeover'; Top = 'manual_takeover_tb'; Desc = 'SWC stop before local stick takeover, fresh encoder feedback' },
     @{ Name = 'ai_rc_control'; Top = 'ai_rc_control_tb'; Desc = 'AI master/submenu/SWB recording/failsafe' },
@@ -231,7 +232,7 @@ $tests = @(
     @{ Name = 'voice_motion_integration'; Top = 'voice_motion_integration_tb'; Desc = 'Production router, bridge and authority mux against nonzero navigation' },
     @{ Name = 'ui_layers'; Top = 'ui_layers_tb'; Desc = 'Parallel layer priority / 131072 overlap and palette combinations' },
     @{ Name = 'display_mm_to_cm'; Top = 'display_mm_to_cm_tb'; Desc = 'Signed display conversion / int32 limits / continuous pipeline / reset' },
-    @{ Name = 'nav_planner'; Top = 'nav_planner_tb'; Desc = 'Indoor rooms / diagonal walls / straight-first BFS / centered segments / queue wrap' },
+    @{ Name = 'nav_planner'; Top = 'nav_planner_tb'; Desc = 'Indoor rooms / diagonal walls / 2-3 Dijkstra / centered segments / queue wrap' },
     @{ Name = 'ui_pipeline'; Top = 'ui_pipeline_tb'; Desc = 'Real HDMI scan / six complete pages / baseline pixel fingerprints' },
     @{ Name = 'imu_calib'; Top = 'imu_calib_tb'; Desc = 'IMU calibration pipeline / coherent samples / seed / reject / completion / timeout' },
     @{ Name = 'radar_coordinates'; Top = 'radar_coordinates_tb'; Desc = 'UART quadrants / world map / display / 72 captured packets' },
@@ -272,9 +273,9 @@ if ($Only.Count) {
     if (-not $tests.Count) { throw 'No tests selected' }
 }
 
-# 生成确定性的室内地图与独立 BFS 参考，产物留在 logs/。
-if (@($tests | Where-Object { $_.Name -in @('nav_bfs','nav_planner') }).Count) {
-    & python (Join-Path $PSScriptRoot 'bfs_eight.py') --output (Join-Path $LogDir 'eight_direction/fixtures')
+# 生成确定性的室内地图与独立堆式 Dijkstra 参考，产物留在 logs/。
+if (@($tests | Where-Object { $_.Name -in @('nav_dijkstra','nav_planner') }).Count) {
+    & python (Join-Path $PSScriptRoot 'dijkstra_eight.py') --output (Join-Path $LogDir 'dijkstra/fixtures')
     if ($LASTEXITCODE -ne 0) { throw 'Eight-direction fixture generation failed' }
 }
 
