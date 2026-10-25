@@ -107,6 +107,14 @@ module nav_bfs #(
     wire [16:0] walk_next = neighbour(walk_cell,path_dir);
     wire mark = state == MARK && !seen_q;
     wire [15:0] queue_mask = QMAX-1;
+    wire clear_en = reset_n && state == CLEAR;
+    wire seed_en = reset_n && state == SEED;
+    wire mark_en = reset_n && mark;
+    wire seen_we = clear_en || seed_en || mark_en;
+    wire [15:0] seen_wa = clear_en ? clear_cell : (seed_en ? goal_cell : next_cell);
+    wire queue_we = seed_en || (mark_en && next_cell != start_cell && tail-head < QMAX);
+    wire [15:0] queue_wa = seed_en ? 16'd0 : (tail & queue_mask);
+    wire [18:0] queue_wd = seed_en ? {seed_heading,goal_cell} : {next_dir,next_cell};
     assign start_relaxed = start_blocked;
     assign req_ready = reset_n && state == IDLE;
     assign busy = state != IDLE;
@@ -116,15 +124,10 @@ module nav_bfs #(
     assign path_last = walk_cell == goal_cell;
 
     always @(posedge clk) begin
-        if (reset_n) begin
-            if (state == CLEAR) seen[clear_cell] <= 0;
-            else if (state == SEED) seen[goal_cell] <= 1;
-            else if (mark) seen[next_cell] <= 1;
-            if (mark) parent[next_cell] <= next_dir^3'd4;
-            if (state == SEED) queue[0] <= {seed_heading,goal_cell};
-            else if (mark && next_cell != start_cell && tail-head<QMAX)
-                queue[tail&queue_mask] <= {next_dir,next_cell};
-        end
+        // 每张表只有一个写地址和写使能，保持块 RAM 推断。
+        if (seen_we) seen[seen_wa] <= !clear_en;
+        if (mark_en) parent[next_cell] <= next_dir^3'd4;
+        if (queue_we) queue[queue_wa] <= queue_wd;
     end
 
     always @(posedge clk or negedge reset_n) begin
