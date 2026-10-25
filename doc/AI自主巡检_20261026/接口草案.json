@@ -1,0 +1,83 @@
+{
+  "document_kind": "architecture_draft_not_wire_protocol",
+  "date": "2026-10-26",
+  "baseline_commit": "437b48d11365fd9943988fa33efa72856560578c",
+  "implementation_status": "design_offline_planning_and_standalone_rtl",
+  "implemented_components": ["offline_any_angle_planner", "snapshot_file_interface", "standalone_rtl_supercover_check"],
+  "production_navigation_integrated": false,
+  "motion_authorized": false,
+  "hardware_tested": false,
+  "requirements": ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"],
+  "ui": {
+    "page_id": 6,
+    "proposed_inspection_mode": 3,
+    "existing_modes_preserved": [0, 1, 2],
+    "views": ["camera", "map", "records"],
+    "select_action": "cycle_view_only_while_inside_inspection",
+    "view_switch_changes_mission": false
+  },
+  "navigation": {
+    "frame": "navigation_origin",
+    "unit": "mm",
+    "grid_size": [256, 256],
+    "cell_size_mm": 50,
+    "bounds_mm_half_open": [-6400, 6400],
+    "unknown_target_coordinate": null,
+    "return_policy": "replan_to_saved_home_on_current_fused_map",
+    "blocked_return_policy": "replan_then_stop_if_no_feasible_route",
+    "outbound_history_required": false,
+    "production_route_directions": 8,
+    "any_angle_candidate": "cell_center_theta_shadow_only",
+    "return_completion_requires": ["matched_execution_receipt", "home_pose_tolerance", "stationary"]
+  },
+  "vision": {
+    "position_method": "calibrated_ground_intersection",
+    "bbox_center_is_metric_position": false,
+    "requires": ["measured_intrinsics", "distortion_model", "measured_extrinsics", "verified_ground_support_pixel", "capture_matched_pose", "valid_localization_epoch", "validated_position_error"],
+    "existing_geometry": "host/ai_coordinator/ground_target.py",
+    "metric_unknown_policy": "retain_detection_and_hold_if_in_reachable_corridor"
+  },
+  "obstacles": {
+    "sources": ["lidar", "vision"],
+    "raw_query": "lidar_raw OR visual_raw",
+    "cost_query": "lidar_cost OR visual_cost",
+    "consumers": ["planner", "route_validation", "near_field_raw_check", "display"],
+    "update_policy": "complete_transaction_then_atomic_commit",
+    "lidar_clear_removes_vision": false,
+    "temporary_invisibility_removes_vision": false,
+    "reset_policy": "stop_and_invalidate_spatial_state"
+  },
+  "limits_proposed_not_implemented": {
+    "objects": 32,
+    "optional_display_trail_nodes": 2048,
+    "localization_error_mm": null,
+    "max_speed_mm_s": null,
+    "guaranteed_deceleration_mm_s2": null,
+    "freshness_deadline_ms": null,
+    "tracking_tolerance_mm": null
+  },
+  "mission_states": ["READY", "OUTBOUND", "OBSERVE_HOLD", "UPDATE_OBSTACLES", "RETURN_PREPARE", "RETURNING", "COMPLETE", "PAUSED", "CANCELLED", "FAULT"],
+  "logical_messages_proposed": [
+    {"name": "capture_pose", "direction": "fpga_to_rk", "fields": ["boot_id", "frame_id", "capture_tick", "pose_x_mm", "pose_y_mm", "pose_yaw_cdeg", "localization_epoch", "calibration_id"]},
+    {"name": "inspection_control", "direction": "rk_to_fpga", "fields": ["version", "session_id", "task_id", "action_id", "sequence", "localization_epoch", "action", "goal_x_cell", "goal_y_cell"]},
+    {"name": "visual_layer_transaction", "direction": "rk_to_fpga", "fields": ["version", "session_id", "task_id", "sequence", "localization_epoch", "revision", "count", "objects", "integrity", "commit"]},
+    {"name": "inspection_status", "direction": "fpga_to_rk", "fields": ["version", "boot_id", "session_id", "task_id", "action_id", "sequence", "localization_epoch", "state", "stationary", "layer_revision", "route_progress", "reason"]},
+    {"name": "inspection_ui_snapshot", "direction": "rk_to_fpga", "fields": ["version", "task_id", "sequence", "source_frame_id", "calibration_id", "image_geometry_id", "localization_epoch", "objects", "text", "validity"]}
+  ],
+  "object_record_example": {
+    "example_only": true,
+    "object_id": "demo-object-001",
+    "class": "screwdriver",
+    "source_frame_id": "front:demo-session:17",
+    "localization_epoch": "demo-epoch",
+    "calibration_id": null,
+    "position_valid": false,
+    "position_mm": null,
+    "footprint_mm": null,
+    "position_error_mm": null,
+    "state": "position_pending"
+  },
+  "physical_action_opcode_assignments": null,
+  "repository_publication_authorized": true,
+  "hardware_deployed": false
+}

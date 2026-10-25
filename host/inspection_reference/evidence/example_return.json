@@ -1,0 +1,34 @@
+{
+  "schema": "falcons.shadow.route.v1",
+  "map_revision": 2,
+  "localization_epoch": "synthetic:1",
+  "input_sha256": "d53704a8f9e88a9e90169f17a0443d7050bb34620ce854e861d1887d259173f3",
+  "mission_leg": "return_home",
+  "coordinate_unit": "cell_center",
+  "cell_size_mm": 50,
+  "execution_interface": null,
+  "algorithm": "theta",
+  "status": "ok",
+  "path": [
+    [
+      17,
+      6
+    ],
+    [
+      9,
+      4
+    ],
+    [
+      2,
+      6
+    ]
+  ],
+  "length_cells": 15.52632114051584,
+  "length_m": 0.776316057025792,
+  "turns": 1,
+  "expanded": 36,
+  "visibility_checks": 382,
+  "current_fpga_direction_compatible": false,
+  "motion_authorized": false,
+  "hardware_tested": false
+}

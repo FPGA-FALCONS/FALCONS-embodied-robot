@@ -1,0 +1,19 @@
+test_blocked_outside_and_no_path_are_explicit (test_planning.PlanningTests.test_blocked_outside_and_no_path_are_explicit) ... ok
+test_budget_exhaustion_is_not_reported_as_no_path (test_planning.PlanningTests.test_budget_exhaustion_is_not_reported_as_no_path) ... ok
+test_diagonal_cannot_squeeze_through_blocked_corner (test_planning.PlanningTests.test_diagonal_cannot_squeeze_through_blocked_corner) ... ok
+test_eight_neighbor_baseline_already_has_diagonals (test_planning.PlanningTests.test_eight_neighbor_baseline_already_has_diagonals) ... ok
+test_empty_field_theta_takes_arbitrary_angle (test_planning.PlanningTests.test_empty_field_theta_takes_arbitrary_angle) ... ok
+test_lidar_clear_does_not_remove_vision_or_overlap (test_planning.PlanningTests.test_lidar_clear_does_not_remove_vision_or_overlap) ... ok
+test_return_can_change_corridor_when_old_route_is_blocked (test_planning.PlanningTests.test_return_can_change_corridor_when_old_route_is_blocked) ... ok
+test_same_cell_and_validation (test_planning.PlanningTests.test_same_cell_and_validation) ... ok
+test_segment_paths_are_clear_by_independent_oracle (test_planning.PlanningTests.test_segment_paths_are_clear_by_independent_oracle) ... ok
+test_supercover_matches_independent_collision_geometry (test_planning.PlanningTests.test_supercover_matches_independent_collision_geometry) ... ok
+test_cli_writes_explicit_no_path_and_refuses_input_overwrite (test_route_cli.SnapshotTests.test_cli_writes_explicit_no_path_and_refuses_input_overwrite) ... ok
+test_input_hash_tracks_map_changes_and_eight_direction_option (test_route_cli.SnapshotTests.test_input_hash_tracks_map_changes_and_eight_direction_option) ... ok
+test_invalid_contract_is_rejected (test_route_cli.SnapshotTests.test_invalid_contract_is_rejected) ... ok
+test_return_uses_current_visual_obstacles_and_saved_home (test_route_cli.SnapshotTests.test_return_uses_current_visual_obstacles_and_saved_home) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.600s
+
+OK

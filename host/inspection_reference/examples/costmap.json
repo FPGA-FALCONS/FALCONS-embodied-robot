@@ -1,0 +1,16 @@
+{
+  "schema": "falcons.costmap.snapshot.v1",
+  "configuration_space_inflated": true,
+  "example_only": true,
+  "width": 20,
+  "height": 14,
+  "cell_size_mm": 50,
+  "revision": 2,
+  "localization_epoch": "synthetic:1",
+  "home_epoch": "synthetic:1",
+  "current": [17, 6],
+  "home": [2, 6],
+  "goal": [2, 6],
+  "lidar_cost": [],
+  "vision_cost": [[10, 5], [10, 6], [10, 7]]
+}

@@ -1,0 +1,3 @@
+
+PASS cases=461 accepted_reads=8771
+tb_supercover.sv:111: $finish called at 642590000 (1ps)

@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "scope": "standalone_rtl_simulation",
+  "hardware_tested": false,
+  "production_integrated": false,
+  "synthesis_timing_verified": false,
+  "seed": 261026,
+  "cases": 461,
+  "vectors_sha256": "6635b20664a32939834032c45114f3dc090f11cf75c700ed6997816edda45327",
+  "accepted_reads": 8771,
+  "files_sha256": {
+    "rtl/inspection/nav_supercover_check.v": "51614a431448a9eda446c0ab6ca77335d51c43942b91e31e56a387f0939bf418",
+    "host/inspection_reference/rtl_tb/tb_supercover.sv": "c1f6169ed2cad3b96ea3b87e5f72c22ecea3f346b21e0902315a0ff9eca67941",
+    "host/inspection_reference/verify_rtl.py": "7b0de3a1acee2adc1c32408cbf4fed3de9086b0c697f07a669b11d6171699574",
+    "host/inspection_reference/tests/test_planning.py": "3a67ecbfb42fb39bd2bae99351ede4bf9d2b84322391637a6c0fa35117273b1e"
+  }
+}

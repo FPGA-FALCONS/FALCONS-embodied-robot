@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-26",
+  "scope": "design_contract_and_existing_synthetic_geometry_only",
+  "baseline_commit": "437b48d11365fd9943988fa33efa72856560578c",
+  "status": "PASS",
+  "contract_check": "PASS",
+  "tests_run": 9,
+  "failures": 0,
+  "errors": 0,
+  "hardware_tested": false,
+  "new_inspection_controller_tested": false,
+  "camera_calibration_measured": false,
+  "board_contacted": false,
+  "models_loaded": false,
+  "motion_commands_sent": 0,
+  "python_version": "3.14.0",
+  "source_sha256": {
+    "rtl/top/falcons_top.v": "69c79f03cc8f0d445fb77a66f46d8de5cb381116aba0e9520206abe1dd7c0eba",
+    "rtl/ai/ai_rc_control.v": "ae2dbff1edb12df9444ca1b5aff0a5fc33bd3bb0992eceb0805ac0431481af2e",
+    "rtl/ai/ai_display_link.v": "80147eb54680fbfd5ae6d370f1dacd0f68f807c03943fb835f6731680f4476e4",
+    "rtl/cam/cam_overlay.v": "13e51f19c689a665d5248ca7b517c5222716c2f38528bcfcee068839ebfba6c6",
+    "rtl/ui/nav_map_view.v": "8e95044a6c45b635b14cc11601e99a771d2b5326fcf1733dcc131977db79d08f",
+    "rtl/ai/ai_uart_tx.v": "a904af1f28b6de681f89701b2f193cbf426b5338db516dcc0d5431818d2af66b",
+    "host/ai_coordinator/ground_target.py": "179a87ca0048b3a7b769f3fa3dc21b8aa4aa425ebea1e43776bbcda8ea3c3165",
+    "host/ai_coordinator/navigation_goal.py": "4f5b12d1b45c384b1a60cf16598b535d348b5c45deb754f25fadb5bf7a97ee76",
+    "host/ai_coordinator/patrol.py": "a3e474ae5cdecc7fd015937c0a36c03ef46c27f178d6a7147664e69729747635",
+    "host/ai_coordinator/gateway.py": "90cfebb7aaa5d264809dd1a57e602b14f5f6a865c262715d3b0b85a0f5d183f9",
+    "host/ai_coordinator/frames.py": "5dc0208f4acdea596fa9d8f39ac536f448468108756bdb3ce8f0b3f5e1c9297d",
+    "host/ai_coordinator/schema.py": "5714229c8b8ed151618f16c60264726fca764bccd658054522a61283df21d31e",
+    "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_map.v": "42a10d185e42b69707bca346dd112b06583072b187dc2086592df6084e1d4fe8",
+    "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_top.v": "893ac23dde9d52ac922ea0586cd1121edc110e9fac7ebfaa9ab9a1803b5553d7",
+    "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_map_arb.v": "24b084f6c2a1654c78d2c1b683ea1555128cff23a2e5741f14cfdd34ebf39c85",
+    "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_planner.v": "0adffee64eef10671df072093cd45f3e199e8ec66019f01ca13796210511e7f1"
+  },
+  "design_sha256": {
+    "README.md": "92298d81426a8abe1ee005f303339a39e76de53502a60a71df258d6a59482510",
+    "接口草案.json": "2ca8a1042fc0139d9c56c76f384edfbda04cd4369758d768fd74282a6e9d78b8",
+    "verify_design.py": "c5c27ea362bb99b6a77550862cc685a1d7655509340007511c8068bf3f474337"
+  },
+  "test_log": "test_grid_edges_are_half_open_without_clamping (__main__.ExistingGeometryChecks.test_grid_edges_are_half_open_without_clamping) ... ok\ntest_ground_intersection_has_expected_metric_position (__main__.ExistingGeometryChecks.test_ground_intersection_has_expected_metric_position) ... ok\ntest_image_center_does_not_supply_ground_distance (__main__.ExistingGeometryChecks.test_image_center_does_not_supply_ground_distance) ... ok\ntest_localization_reset_invalidates_old_spatial_proposal (__main__.ExistingGeometryChecks.test_localization_reset_invalidates_old_spatial_proposal) ... ok\ntest_near_horizon_and_upward_rays_are_rejected (__main__.ExistingGeometryChecks.test_near_horizon_and_upward_rays_are_rejected) ... ok\ntest_outside_calibrated_range_is_rejected (__main__.ExistingGeometryChecks.test_outside_calibrated_range_is_rejected) ... ok\ntest_parking_proposal_is_not_an_obstacle_or_motion_authorization (__main__.ExistingGeometryChecks.test_parking_proposal_is_not_an_obstacle_or_motion_authorization) ... ok\ntest_pose_at_capture_rotates_point_in_navigation_frame (__main__.ExistingGeometryChecks.test_pose_at_capture_rotates_point_in_navigation_frame) ... ok\ntest_unverified_contact_pixel_is_rejected (__main__.ExistingGeometryChecks.test_unverified_contact_pixel_is_rejected) ... ok\n\n----------------------------------------------------------------------\nRan 9 tests in 0.000s\n\nOK\n"
+}
