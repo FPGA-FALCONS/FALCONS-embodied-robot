@@ -459,6 +459,8 @@ module falcons_top (
     wire [15:0] ai_flags;
     wire [7:0] ai_controls;
     wire [1:0] ai_mode,ai_selected;
+    wire ai_inspection_open,ai_inspection_close;
+    wire [1:0] ai_inspection_view;
     wire [7:0] ai_display_ack;
     wire ai_display_bank,ai_host_alive;
     wire nav_page_now = (page == PAGE_NAV_FREE);
@@ -1123,7 +1125,7 @@ module falcons_top (
     // wired to a fresh, explicitly confirmed waypoint task in this release.
     wire voice_nav_release_ready = 1'b0;
     // SWB on the existing CH6/J6.5 starts/stops recording. No extra PWM pins.
-    ai_rc_control #(.CLK_HZ(CLK_HZ)) u_ai_control(
+    ai_rc_control #(.CLK_HZ(CLK_HZ),.INSPECTION_ENABLE(1)) u_ai_control(
         .clk(i_clk_50m),.rst_n(sys_rst_n),
         .i_enter_confirm(rc_confirm && menu_sel==PAGE_AI && !nav_lock && !tune_lock && !ai_master),
         .i_ai_page(page==PAGE_AI),.i_back(rc_back | key1_press | count_clear_r | yaw_clear_r),
@@ -1133,6 +1135,8 @@ module falcons_top (
         .i_host_alive(ai_host_alive),
         .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | (planner_emergency_stop && !inspection_owned) | (|stall_vec)),
         .i_swb_pwm(i_rc_pwm[4]),
+        .i_inspection_close(ai_inspection_close || (rc_back && !inspection_owned)),
+        .o_inspection_open(ai_inspection_open),.o_inspection_view(ai_inspection_view),
         .o_master(ai_master),.o_chat(ai_chat),.o_record(ai_record),.o_vision(ai_vision),
         .o_mode(ai_mode),.o_selected(ai_selected),
         .o_flags(ai_flags),.o_controls(ai_controls));
@@ -1567,7 +1571,7 @@ module falcons_top (
     wire map_disp_valid, map_disp_occupied, map_disp_start, map_disp_done;
     reg [31:0] inspection_epoch;
     reg [15:0] inspection_user_token;
-    wire inspection_permission=ai_master && ai_mode==1 && page==PAGE_AI;
+    wire inspection_permission=ai_master && ai_mode==1 && ai_inspection_open && page==PAGE_AI;
     wire navigation_sensors_valid;
     always @(posedge i_clk_50m or negedge sys_rst_n)begin
         if(!sys_rst_n)begin inspection_epoch<=1;inspection_user_token<=0;end
@@ -1576,13 +1580,17 @@ module falcons_top (
             if(inspection_permission && !manual_drive && rc_confirm)inspection_user_token<=inspection_user_token+1'b1;
         end
     end
-    inspection_application #(.CLK_HZ(CLK_HZ)) u_inspection(
+    inspection_application #(.CLK_HZ(CLK_HZ),.UI_ENABLE(1)) u_inspection(
         .clk(i_clk_50m),.rst_n(sys_rst_n),.i_rx_data(motion_rx_data),.i_rx_valid(motion_rx_valid),
         .i_permission(inspection_permission),.i_manual(manual_drive),
         .i_safety(rc_signal_ok && voice_imu_healthy && navigation_pose_valid && navigation_sensors_valid &&
                   !estop_latch && !tof_estop && !(|stall_vec)),
         .i_link(ai_host_alive),.i_local_pause((rc_confirm || rc_back || ai_record) && (inspection_motion_enable || inspection_pending_motion)),
         .i_user_token(inspection_user_token),.i_epoch(inspection_epoch),
+        .i_ui_open(ai_inspection_open),.i_ui_master(ai_master),.i_ui_record(ai_record),.i_ui_rc_valid(rc_signal_ok),
+        .i_ui_confirm(rc_confirm),.i_ui_back(rc_back),.i_ui_view(ai_inspection_view),
+        .i_ui_steer(rc_steer),.i_ui_throttle(rc_throttle),.i_vehicle_width_mm(tune_p[431:416]),
+        .i_forward_check_cells(tune_p[391:384]),.o_ui_close(ai_inspection_close),
         .i_pose_tick(navigation_pose_tick),.i_pose_valid(navigation_pose_valid),
         .i_x_mm(navigation_x_mm),.i_y_mm(navigation_y_mm),.i_yaw_cdeg(navigation_yaw_cdeg),
         .i_ctrl_done(obs_ctrl_done),.i_command_idle(!planner_cmd_valid && !planner_emergency_stop && !obs_ctrl_done),
@@ -1626,7 +1634,7 @@ module falcons_top (
         .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
         .target_line_dir(planner_target_line_dir),
         .nav_state(planner_nav_state),.sensors_valid(navigation_sensors_valid),
-        .display_enable((page == PAGE_RADAR) || (page == PAGE_NAV_OBS)),
+        .display_enable((page == PAGE_RADAR) || (page == PAGE_NAV_OBS) || inspection_permission),
         .map_disp_valid(map_disp_valid), .map_disp_occupied(map_disp_occupied),
         .map_disp_frame_start(map_disp_start), .map_disp_frame_done(map_disp_done),
         .route_disp_valid(route_disp_valid), .route_disp_x_cell(route_disp_x),
@@ -1967,7 +1975,8 @@ module falcons_top (
     ai_display_link #(.CLK_HZ(CLK_HZ)) u_ai_display(
         .clk(i_clk_50m),.rst_n(sys_rst_n),.rx_data(motion_rx_data),.rx_valid(motion_rx_valid),
         .pixel_clk(pixel_clk),.pixel_rst_n(pixel_rst_n),.pixel_x(pixel_x),.pixel_y(pixel_y),
-        .selected(ai_selected),.o_glyph(ai_glyph),.o_connected(ai_connected),.o_local_region(ai_local_region),.o_highlight(ai_highlight),
+        .selected(ai_inspection_open?ai_inspection_view:ai_selected),.i_inspection(ai_inspection_open),
+        .o_glyph(ai_glyph),.o_connected(ai_connected),.o_local_region(ai_local_region),.o_highlight(ai_highlight),
         .o_display_ack(ai_display_ack),.o_display_bank(ai_display_bank),.o_host_alive(ai_host_alive));
     assign ui_rgb_raw=(page_ps2==PAGE_AI && pixel_x>=208 &&
         (ai_local_region || (ai_connected && pixel_y>=120 && pixel_y<540)))

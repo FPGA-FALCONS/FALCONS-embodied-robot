@@ -20,6 +20,8 @@ module inspection_dispatch #(
     output reg [31:0] o_flags,o_goal_x,o_goal_y,o_layer_speed,o_expected_crc,o_layer_word,
     output reg [12:0] o_word_index,
     output reg [15:0] o_layer_version,
+    output reg o_ui_close,
+    output reg [31:0] o_ui_revision,
     output reg o_error
 );
     localparam IDLE=0,READ=1,TAKE=2,DECODE=3,DATA_READ=4,DATA_TAKE=5,DATA_SEND=6,FINISH=7,COMMIT_WAIT=8;
@@ -43,11 +45,13 @@ module inspection_dispatch #(
             state<=IDLE;kind<=0;count<=0;index<=0;header_count<=0;data_offset<=0;
             upload_version<=0;upload_session<=0;upload_epoch<=0;upload_context<=0;
             upload_task<=0;upload_command<=0;timer<=0;
+            o_ui_close<=0;o_ui_revision<=0;
             o_hello<=0;o_control<=0;o_heartbeat<=0;o_begin<=0;o_commit<=0;o_word_valid<=0;o_error<=0;
             o_session<=0;o_task<=0;o_epoch<=0;o_command<=0;o_flags<=0;o_goal_x<=0;o_goal_y<=0;
             o_layer_speed<=0;o_expected_crc<=0;o_layer_word<=0;o_word_index<=0;o_layer_version<=0;
         end else begin
             o_hello<=0;o_control<=0;o_heartbeat<=0;o_begin<=0;o_commit<=0;o_word_valid<=0;o_error<=0;
+            o_ui_close<=0;
             if(state==IDLE || state==FINISH)timer<=0;
             else if(timer<TIMER_LIMIT)timer<=timer+1'b1;
             if(i_current_epoch!=upload_epoch || i_current_session!=upload_session)upload_context<=0;
@@ -72,6 +76,9 @@ module inspection_dispatch #(
                         if(header[5]>255 || header[6]>255 || header[7][31:24]!=0)begin
                             o_flags<={header[4][31:8],8'hff};o_error<=1;
                         end
+                    end else if(kind==7 && count==4 && header[0]==i_current_session &&
+                                header[1]==i_current_epoch && header[3]==1)begin
+                        o_ui_close<=1;o_ui_revision<=header[2];
                     end else if(kind==6 && count==4)begin
                         o_task<=header[1];o_epoch<=header[2];o_command<=header[3];o_heartbeat<=1;
                     end else if(kind==3 && count==6 && i_upload_allowed &&

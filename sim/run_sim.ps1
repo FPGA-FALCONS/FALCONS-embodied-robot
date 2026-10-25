@@ -220,8 +220,9 @@ $sources += @("$ProjectRoot\rtl\ai\inspection_packet_rx.v", "$PSScriptRoot\inspe
               "$PSScriptRoot\nav_visual_layer_tb.v", "$PSScriptRoot\visual_navigation_tb.v")
 $sources += @("$ProjectRoot\rtl\ai\inspection_nav_control.v", "$ProjectRoot\rtl\ai\inspection_dispatch.v",
               "$ProjectRoot\rtl\ai\inspection_packet_tx.v", "$ProjectRoot\rtl\ai\inspection_telemetry.v", "$ProjectRoot\rtl\ai\inspection_application.v",
-              "$PSScriptRoot\inspection_control_tb.v", "$PSScriptRoot\inspection_tx_tb.v", "$PSScriptRoot\inspection_dispatch_tb.v", "$PSScriptRoot\inspection_uart_tb.v", "$PSScriptRoot\inspection_application_tb.v")
+              "$PSScriptRoot\inspection_control_tb.v", "$PSScriptRoot\inspection_tx_tb.v", "$PSScriptRoot\inspection_dispatch_tb.v", "$PSScriptRoot\inspection_uart_tb.v", "$PSScriptRoot\inspection_application_tb.v", "$PSScriptRoot\inspection_ui_tb.v")
 $tests = @(
+    @{ Name = 'inspection_ui'; Top = 'inspection_ui_tb'; Desc = 'Nested AI task views / CH8 scope / manual preservation / child back' },
     @{ Name = 'inspection_application'; Top = 'inspection_application_tb'; Desc = 'Python transaction to production authority and actual-stop handshake' },
     @{ Name = 'inspection_dispatch'; Top = 'inspection_dispatch_tb'; Desc = 'Synchronous message RAM / authenticated layer stream / stopped commit' },
     @{ Name = 'inspection_uart'; Top = 'inspection_uart_tb'; Desc = 'Physical UART arbitration / whole CSV / indivisible inspection transaction' },

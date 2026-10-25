@@ -5,6 +5,8 @@ module ai_ui_preview_tb;
     reg [11:0] px=0,py=0;
     reg [1:0] selected=0;
     reg ai_active=0;
+    reg inspection=0;
+    integer task_preview=0;
     always #10 clk=~clk;always #10 pclk=~pclk;
     wire [23:0] base,rgb;
     wire glyph,connected,local_region,highlight;
@@ -21,16 +23,18 @@ module ai_ui_preview_tb;
         .i_pt_px(160'd0),.i_pt_py(160'd0),.i_pt_v(16'd0),.o_dyn_raddr(dyn_addr),
         .i_dyn_rdata(8'd0),.i_imu_fail(1'b0),.i_tune_sel(4'd0),.i_tune_active(1'b0));
     ai_display_link panel(.clk(clk),.rst_n(rst),.rx_data(rx_data),.rx_valid(rx_valid),
-        .pixel_clk(pclk),.pixel_rst_n(rst),.pixel_x(px),.pixel_y(py),.selected(selected),
+        .pixel_clk(pclk),.pixel_rst_n(rst),.pixel_x(px),.pixel_y(py),.selected(selected),.i_inspection(inspection),
         .o_glyph(glyph),.o_connected(connected),.o_local_region(local_region),.o_highlight(highlight));
     assign rgb=px>=208 && (local_region || (connected && py>=120 && py<540))
         ? (glyph?(highlight?24'hffe066:24'he8f0f8):(highlight?24'h1d4ed8:24'h101820)):base;
     initial begin
         if(!$value$plusargs("OUT=%s",output_dir)) output_dir="logs/ai_ui_preview";
+        if(!$value$plusargs("TASK=%d",task_preview))task_preview=0;
         $sformat(filename,"%0s/packet_counts.hex",output_dir);$readmemh(filename,packet_counts);
         #100;rst=1;#200;
         for(mode=0;mode<4;mode=mode+1)begin
             selected=mode%3;ai_active=mode<3;px=0;py=0;
+            inspection=task_preview!=0 && mode<3;
             if(mode==3)begin rst=0;#100;rst=1;#200;end
             if(mode<3)begin
             $sformat(filename,"%0s/packets_%0d.hex",output_dir,mode);

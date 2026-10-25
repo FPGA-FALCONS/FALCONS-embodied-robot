@@ -14,8 +14,10 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--modelsim',type=Path,default=Path('D:/Apps/modeltech64_10.6d/win64'))
     ap.add_argument('--out',type=Path,default=ROOT/'logs/ai_ui_preview')
+    ap.add_argument('--inspection',action='store_true')
     args=ap.parse_args();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     names=('语义导航','目标识别','聊天机器人');counts=[];atlas=font_rows()
+    if args.inspection:names=('摄像头','雷达地图','文字清单')
     for index,name in enumerate(names):
         lines=['仿真预览 AI模块 总开关:开启','CH8选择 SWA确认/返回 SWB录音/结束',
                '功能: '+name,'状态: 待命','当前指令:',
@@ -44,7 +46,7 @@ def main():
     # Old ModelSim's Windows argument parser mishandles an absolute ini path
     # containing spaces; a relative ini/fixture path preserves native argv.
     text=run([args.modelsim/'vsim.exe','-c','-modelsimini','modelsim.ini','preview_work.ai_ui_preview_tb',
-              '+OUT=.','-do','run -all; quit -f'],out)
+              '+OUT=.', '+TASK='+str(int(args.inspection)),'-do','run -all; quit -f'],out)
     if 'PASS: ai_ui_preview_tb 4 frames' not in text:raise RuntimeError('Preview did not complete')
     for index in range(4):
         im=Image.open(out/f'ai_mode_{index}.ppm').convert('RGB')

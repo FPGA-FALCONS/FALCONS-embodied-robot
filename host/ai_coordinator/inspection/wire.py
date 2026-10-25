@@ -12,6 +12,7 @@ from ..motion_reference.mot1 import Frame, crc16
 
 BEGIN, DATA, END = 0x60, 0x61, 0x62
 HELLO, CONTROL, LAYER_BEGIN, LAYER_DATA, LAYER_COMMIT, HEARTBEAT = range(1, 7)
+UI_CLOSE = 7
 CAPS, STATE, POSE, INPUT, MAP_DATA, MAP_BEGIN, MAP_END = range(0x80, 0x87)
 MAX_WORDS = 32
 OP_GOTO, OP_PAUSE, OP_CANCEL = 1, 2, 3
@@ -120,3 +121,19 @@ def status(words):
     return {'session_id': words[0], 'task_id': words[1], 'epoch': words[2], 'command_id': words[3],
             'kind': names[words[4]], 'layer_version': words[5], 'stopped': bool(words[6] & 1),
             'manual': bool(words[6] & 2), 'error_code': words[7]}
+
+
+def inputs(words):
+    if len(words) != 8 or words[3] & ~0x1f7 or (words[3] >> 4) & 3 == 3 or words[6] > 65535:
+        raise ValueError('Invalid inspection physical input snapshot')
+    def signed16(value):
+        return value-65536 if value & 0x8000 else value
+    steer, throttle = signed16(words[4] & 65535), signed16(words[4] >> 16)
+    if not -2048 <= steer <= 2047 or not -2048 <= throttle <= 2047:
+        raise ValueError('Joystick outside signed 12-bit range')
+    return dict(session_id=words[0], epoch=words[1], sequence=words[2],
+                open=bool(words[3] & 1), manual=bool(words[3] & 2), master=bool(words[3] & 4),
+                view=(words[3] >> 4) & 3, record=bool(words[3] & 64),
+                rc_valid=bool(words[3] & 128), permission=bool(words[3] & 256),
+                steer=steer, throttle=throttle, confirms=words[5] & 65535, backs=words[5] >> 16,
+                user_token=words[6], vehicle_width_mm=words[7] & 65535, forward_check_cells=words[7] >> 16)

@@ -6,7 +6,7 @@ module ai_display_link_tb;
     integer checks=0,errors=0;
     ai_display_link #(.CLK_HZ(1000)) dut(.clk(clk),.rst_n(rst),.rx_data(data),.rx_valid(valid),
         .pixel_clk(pclk),.pixel_rst_n(rst),.pixel_x(12'd0),.pixel_y(12'd0),
-        .selected(2'd0),.o_glyph(glyph),.o_connected(connected),.o_local_region(),
+        .selected(2'd0),.i_inspection(1'b0),.o_glyph(glyph),.o_connected(connected),.o_local_region(),
         .o_host_alive(host_alive),.o_display_ack(ack),.o_display_bank(bank));
     function [15:0] crc_byte;
         input [15:0] old;input [7:0] value;integer n;reg [15:0] c;

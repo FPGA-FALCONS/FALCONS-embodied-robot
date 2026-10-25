@@ -55,5 +55,14 @@ class InspectionWireTests(unittest.TestCase):
         self.assertEqual(event['kind'], 'arrived'); self.assertFalse(event['stopped'])
         self.assertTrue(wire.status([1, 2, 3, 4, 2, 7, 1, 0])['stopped'])
 
+    def test_physical_snapshot_signed_axes_counters_and_reserved_bits(self):
+        words = [5, 1, 9, 0x195, (800 << 16) | (-500 & 65535), (2 << 16) | 7, 10, (4 << 16) | 180]
+        event = wire.inputs(words)
+        self.assertEqual((event['steer'], event['throttle'], event['view']), (-500, 800, 1))
+        self.assertEqual((event['confirms'], event['backs'], event['user_token']), (7, 2, 10))
+        self.assertTrue(event['open'] and event['permission'])
+        for flags in (0x198, 0x1b5, 0x400):
+            with self.assertRaises(ValueError): wire.inputs([*words[:3], flags, *words[4:]])
+
 
 if __name__ == '__main__': unittest.main()
