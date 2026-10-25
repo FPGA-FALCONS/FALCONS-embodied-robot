@@ -6,4 +6,6 @@
 
 居中默认参数为 `L_MIN=4`、`PROBE_D=20`、`PROBE_STEP=4`。两侧间隙累计所有探针位置的最小值；位置从段起点按 4 格推进，包含两端点，尾部不足 4 格时补终点且不重复。每位置两侧各读取 20 格，6 位计数覆盖完整 40 次读取；首末段不平移、增长预算和最终完整线段复核保持原有规则。
 
-工程源文件见 [rtl/files.f](rtl/files.f)，共 14 个 RTL；不包含测量顶层、测试台和仿真脚本。完整接线与操作见 [交接文档](../radar_navigation/docs/delivery_handoff.md)。
+工程源文件见 [rtl/files.f](rtl/files.f)，共 15 个 RTL；不包含测量顶层、测试台和仿真脚本。完整接线与操作见 [交接文档](../radar_navigation/docs/delivery_handoff.md)。
+
+八方向改造分支新增独立 `nav_bfs` 搜索核心，第一步尚未接管整车路线。验证和后续接入见仓库 `doc/八方向导航改造记录_20261025.md`。
