@@ -7,12 +7,23 @@
 // 接线、坐标、启动和控制流程见 ../docs/delivery_handoff.md。
 // ============================================================================
 module radar_navigation #(
+    parameter integer AI_LAYER_ENABLE = 0,
     // 规划时障碍向横纵各预留的格数，同时用于停后局部接出和路线复核。
     parameter integer PLAN_INFLATE_CELLS  = 4
 ) (
     // 公共时钟与复位；除串口输入外，输入应已完整同步到此时钟域。
     input  wire               clk,
     input  wire               reset_n,
+
+    // Optional AI visual map transaction. Disabled builds retain the original
+    // map path; production enables it and supplies stopped/epoch explicitly.
+    input wire ai_enable,ai_begin,ai_abort,ai_commit,ai_word_valid,ai_stopped,
+    input wire [31:0] ai_epoch,ai_begin_epoch,ai_expected_crc,ai_word,
+    input wire [15:0] ai_begin_version,
+    input wire [12:0] ai_word_index,
+    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,
+    output wire [15:0] ai_layer_version,
+    output wire [3:0] ai_error_code,
 
     // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
     input  wire         [7:0] forward_check_cells,
@@ -69,10 +80,30 @@ module radar_navigation #(
     output wire        [15:0] cloud_distance_mm   // 毫米；0/FFFF 等值由显示端过滤。
 );
     nav_radar_adapter #(
-        .PLAN_INFLATE_CELLS  (PLAN_INFLATE_CELLS)
+        .PLAN_INFLATE_CELLS  (PLAN_INFLATE_CELLS),
+        .AI_LAYER_ENABLE (AI_LAYER_ENABLE)
     ) u_adapter (
         .clk                    (clk),
         .reset_n                (reset_n),
+
+        .ai_enable(ai_enable),
+        .ai_begin(ai_begin),
+        .ai_abort(ai_abort),
+        .ai_commit(ai_commit),
+        .ai_word_valid(ai_word_valid),
+        .ai_stopped(ai_stopped),
+        .ai_epoch(ai_epoch),
+        .ai_begin_epoch(ai_begin_epoch),
+        .ai_expected_crc(ai_expected_crc),
+        .ai_word(ai_word),
+        .ai_begin_version(ai_begin_version),
+        .ai_word_index(ai_word_index),
+        .ai_word_ready(ai_word_ready),
+        .ai_layer_valid(ai_layer_valid),
+        .ai_committed(ai_committed),
+        .ai_error(ai_error),
+        .ai_layer_version(ai_layer_version),
+        .ai_error_code(ai_error_code),
         .forward_check_cells    (forward_check_cells),
         .vehicle_width_mm       (vehicle_width_mm),
         .map_enable             (map_enable),

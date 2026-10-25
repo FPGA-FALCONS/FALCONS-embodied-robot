@@ -19,6 +19,7 @@
 //   - 不要让显示反压建图；不要等待 motion_stopped 才允许开始普通规划。
 // ============================================================================
 module nav_top #(
+    parameter integer AI_LAYER_ENABLE = 0,
     parameter integer        PLAN_INFLATE_CELLS  = 4,
     parameter integer        GRID_W              = 256,
     parameter integer        GRID_H              = 256,
@@ -30,6 +31,16 @@ module nav_top #(
 ) (
     input  wire               clk,
     input  wire               reset_n,
+
+    // Optional AI visual map transaction. Disabled builds retain the original
+    // map path; production enables it and supplies stopped/epoch explicitly.
+    input wire ai_enable,ai_begin,ai_abort,ai_commit,ai_word_valid,ai_stopped,
+    input wire [31:0] ai_epoch,ai_begin_epoch,ai_expected_crc,ai_word,
+    input wire [15:0] ai_begin_version,
+    input wire [12:0] ai_word_index,
+    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,
+    output wire [15:0] ai_layer_version,
+    output wire [3:0] ai_error_code,
 
     // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
     input  wire         [7:0] forward_check_cells,
@@ -112,6 +123,10 @@ module nav_top #(
     wire map_rd_valid, map_rd_ready;
     wire [15:0] map_rd_x, map_rd_y;
     wire map_rd_rsp_valid, map_rd_raw, map_rd_cost;
+    wire [15:0] radar_map_version;
+    wire visual_blocked,visual_changed;
+    wire effective_valid,effective_raw,effective_cost;
+    wire arb_timeout,arb_busy;
     wire map_idle;
     wire scan_wr_valid, scan_wr_ready, scan_wr_val;
     wire [15:0] scan_wr_x, scan_wr_y;
@@ -180,7 +195,7 @@ module nav_top #(
         .wr_val        (map_wr_val),
         .wr_x          (map_wr_x),
         .wr_y          (map_wr_y),
-        .rd_valid      (map_rd_valid),
+        .rd_valid      (map_rd_valid && !visual_blocked),
         .rd_ready      (map_rd_ready),
         .rd_x          (map_rd_x),
         .rd_y          (map_rd_y),
@@ -189,8 +204,59 @@ module nav_top #(
         .rd_cost       (map_rd_cost),
         .idle          (map_idle),
         .occupied_cells(st_occupied_cells),
-        .map_version   (st_map_version)
+        .map_version   (radar_map_version)
     );
+
+    generate if(AI_LAYER_ENABLE) begin: g_visual
+        wire visual_raw,visual_cost;
+        reg response_valid,response_raw,response_cost;
+        reg [15:0] version,last_radar_version;
+        reg enable_q;
+        nav_visual_layer layer(
+            .clk(clk),.reset_n(reset_n),.i_enable(ai_enable),.i_epoch(ai_epoch),
+            .i_begin(ai_begin),.i_abort(ai_abort),.i_commit(ai_commit),
+            .i_begin_epoch(ai_begin_epoch),.i_expected_crc(ai_expected_crc),.i_begin_version(ai_begin_version),
+            .i_stopped(ai_stopped && !motion_enable),.i_read_inflight(arb_busy),
+            .i_word_valid(ai_word_valid),.i_word_index(ai_word_index),.i_word(ai_word),
+            .o_word_ready(ai_word_ready),.o_layer_valid(ai_layer_valid),.o_version(ai_layer_version),
+            .o_committed(ai_committed),.o_error(ai_error),.o_error_code(ai_error_code),
+            .o_read_blocked(visual_blocked),
+            .i_read(map_rd_valid && map_rd_ready && !visual_blocked),
+            .i_read_address({map_rd_y[7:0],map_rd_x[7:0]}),.o_raw(visual_raw),.o_cost(visual_cost));
+        // Merge one-bit RAM results in a separate registered response stage;
+        // no read address or packet decode is on the response-to-client path.
+        always @(posedge clk) if(map_rd_rsp_valid) begin
+            response_raw<=map_rd_raw | visual_raw;
+            response_cost<=map_rd_cost | visual_cost;
+        end
+        always @(posedge clk or negedge reset_n) begin
+            if(!reset_n) begin response_valid<=0;version<=0;last_radar_version<=0;enable_q<=0;end
+            else begin
+                response_valid<=map_rd_rsp_valid;
+                enable_q<=ai_enable;
+                last_radar_version<=radar_map_version;
+                if(last_radar_version!=radar_map_version || visual_changed)version<=version+1'b1;
+            end
+        end
+        assign effective_valid=response_valid;
+        assign effective_raw=response_raw;
+        assign effective_cost=response_cost;
+        assign visual_changed=ai_committed || ai_enable!=enable_q;
+        assign st_map_version=version;
+    end else begin: g_no_visual
+        assign effective_valid=map_rd_rsp_valid;
+        assign effective_raw=map_rd_raw;
+        assign effective_cost=map_rd_cost;
+        assign visual_blocked=0;
+        assign visual_changed=0;
+        assign st_map_version=radar_map_version;
+        assign ai_word_ready=0;
+        assign ai_layer_valid=0;
+        assign ai_layer_version=0;
+        assign ai_committed=0;
+        assign ai_error=0;
+        assign ai_error_code=0;
+    end endgenerate
 
     reg [22:0] replan_count;
     reg        replan_due;
@@ -258,12 +324,12 @@ module nav_top #(
     reg [15:0] update_x, update_y, seen_version;
     reg [1:0] fetch_wait;
     wire verify_active = rstate >= R_FETCH && rstate <= R_PUB;
-    wire update_near =
+    wire update_near = visual_changed || (
         $signed({1'b0, update_x}) >= $signed({1'b0, box_xlo}) - PLAN_INFLATE_CELLS &&
         $signed({1'b0, update_x}) <= $signed({1'b0, box_xhi}) + PLAN_INFLATE_CELLS &&
         $signed({1'b0, update_y}) >= $signed({1'b0, box_ylo}) - PLAN_INFLATE_CELLS &&
-        $signed({1'b0, update_y}) <= $signed({1'b0, box_yhi}) + PLAN_INFLATE_CELLS;
-    wire version_changed = seen_version != st_map_version;
+        $signed({1'b0, update_y}) <= $signed({1'b0, box_yhi}) + PLAN_INFLATE_CELLS);
+    wire version_changed = seen_version != st_map_version || visual_changed;
     wire own_read_valid = rstate == R_CHECK && line_valid;
     wire own_read_ready, own_rsp;
     wire bfs_read_valid;
@@ -325,7 +391,6 @@ module nav_top #(
     wire [47:0] arb_req_x = {sweep_addr_x, pl_mrd_x, dv_mrd_x};
     wire [47:0] arb_req_y = {sweep_addr_y, pl_mrd_y, dv_mrd_y};
 
-    wire arb_timeout, arb_busy;
     wire rd_free = !arb_busy;
 
     nav_map_arb #(
@@ -344,10 +409,10 @@ module nav_top #(
         .map_valid    (map_rd_valid),
         .map_x        (map_rd_x),
         .map_y        (map_rd_y),
-        .map_ready    (map_rd_ready),
-        .map_rsp_valid(map_rd_rsp_valid),
-        .map_cost     (map_rd_cost),
-        .map_raw      (map_rd_raw),
+        .map_ready    (map_rd_ready && !visual_blocked),
+        .map_rsp_valid(effective_valid),
+        .map_cost     (effective_cost),
+        .map_raw      (effective_raw),
         .busy_o       (arb_busy),
         .err_timeout  (arb_timeout)
     );
@@ -528,7 +593,7 @@ module nav_top #(
         .busy           (segments_busy)
     );
     wire at_target, segment_blocked, forward_clear;
-    wire route_revoked = !motion_enable || !goal_valid || !st_sensors_valid ||
+    wire route_revoked = visual_changed || !motion_enable || !goal_valid || !st_sensors_valid ||
         (route_ready && !active_goal_match) || (emergency_stop && !motion_stopped) ||
         (advance && completed_index + 16'd1 >= st_route_length);
     always @(posedge clk or negedge reset_n)
@@ -670,7 +735,7 @@ module nav_top #(
 
     wire normal_origin = route_for_goal && motion_enable && !emergency_stop;
     wire normal_complete = cmd_valid && ctrl_done;
-    wire round_canceled = !goal_valid || goal_x != round_goal_x || goal_y != round_goal_y ||
+    wire round_canceled = visual_changed || !goal_valid || goal_x != round_goal_x || goal_y != round_goal_y ||
         !st_sensors_valid || motion_enable != round_motion || normal_complete ||
         (cmd_valid && ctrl_linear_active && !forward_clear) ||
         (candidate_commit && (!normal_origin || r_target_x != plan_x || r_target_y != plan_y ||
@@ -852,7 +917,7 @@ module nav_top #(
         $signed({1'b0, map_wr_x}) <= $signed({1'b0, box_xhi}) + PLAN_INFLATE_CELLS &&
         $signed({1'b0, map_wr_y}) >= $signed({1'b0, box_ylo}) - PLAN_INFLATE_CELLS &&
         $signed({1'b0, map_wr_y}) <= $signed({1'b0, box_yhi}) + PLAN_INFLATE_CELLS;
-    assign publish_ok = goal_valid && goal_x == round_goal_x && goal_y == round_goal_y &&
+    assign publish_ok = !visual_changed && !visual_blocked && goal_valid && goal_x == round_goal_x && goal_y == round_goal_y &&
         st_sensors_valid && !round_canceled && !validation_dirty &&
         !(version_changed && update_near) && map_idle &&
         !(map_wr_valid && map_wr_ready && write_near);

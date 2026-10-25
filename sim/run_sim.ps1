@@ -216,7 +216,12 @@ $sources += @("$ProjectRoot\rtl\ai\ai_rc_control.v", "$ProjectRoot\rtl\ai\ai_uar
               "$PSScriptRoot\manual_takeover_tb.v", "$PSScriptRoot\ai_rc_control_tb.v", "$PSScriptRoot\ai_uart_tx_tb.v", "$PSScriptRoot\ai_display_link_tb.v")
 $sources += @("$VendorRoot\yaw_integrate\rtl\yaw_integrate.v", "$PSScriptRoot\yaw_pipeline_tb.v")
 $sources += @("$VendorRoot\ov5640_capture\rtl\ov5640_init_table_rgb.v", "$PSScriptRoot\camera_rotation_tb.v")
+$sources += @("$ProjectRoot\rtl\ai\inspection_packet_rx.v", "$PSScriptRoot\inspection_packet_tb.v",
+              "$PSScriptRoot\nav_visual_layer_tb.v", "$PSScriptRoot\visual_navigation_tb.v")
 $tests = @(
+    @{ Name = 'visual_navigation'; Top = 'visual_navigation_tb'; Desc = 'Camera-only wall changes actual Dijkstra route; AI exit restores radar map' },
+    @{ Name = 'inspection_packet'; Top = 'inspection_packet_tb'; Desc = 'Python/RTL transaction CRC, synchronous RAM, corruption and timeout' },
+    @{ Name = 'nav_visual_layer'; Top = 'nav_visual_layer_tb'; Desc = 'Atomic visual raw/cost layer, stopped commit, CRC and epoch isolation' },
     @{ Name = 'camera_rotation'; Top = 'camera_rotation_tb'; Desc = 'Camera flip and mirror / all 253 initialization register entries' },
     @{ Name = 'nav_planner_limit'; Top = 'nav_planner_limit_tb'; Desc = 'Post-centering relays / capacity prefix / repeated request / same goal' },
     @{ Name = 'nav_center'; Top = 'nav_center_tb'; Desc = 'Eight-direction intersections / minimum gaps / budget / full-segment rejection' },
