@@ -17,7 +17,7 @@ from pathlib import Path
 HOST=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(HOST))
 from semantic_nav.mot1 import Frame, from_intent, heartbeat, STOP
-from ai_coordinator.motion_intents import inspect_motion
+from ai_coordinator.motion_intents import inspect_motion,speed_for_intent
 
 
 def prepare_frame(text,seq=1,speed=40,distance=None):
@@ -26,7 +26,7 @@ def prepare_frame(text,seq=1,speed=40,distance=None):
     decision=inspect_motion(text,distance=distance,speed_code=speed)
     if decision is None or not decision['valid']:raise ValueError('Not a single supported immediate motion command')
     if not decision.get('wire_preview'):raise ValueError(decision['reason'])
-    return decision['intent'],from_intent(decision['intent'],seq,speed)
+    return decision['intent'],from_intent(decision['intent'],seq,speed_for_intent(decision['intent'],speed))
 
 
 def write_frame(fd,wire):
@@ -73,7 +73,8 @@ def main(argv=None):
     parser.add_argument('text', nargs='+')
     parser.add_argument('--device')
     parser.add_argument('--dry-run', action='store_true')
-    parser.add_argument('--speed', type=int, default=10)
+    parser.add_argument('--speed', type=int, default=10,
+                        help='Turn/spin speed code; forward/backward are fixed at 30 on RK')
     parser.add_argument('--seq', type=int, default=1)
     parser.add_argument('--distance-speed', type=float)
     parser.add_argument('--distance-calibrated', action='store_true')

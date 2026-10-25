@@ -1,0 +1,14 @@
+{
+  "recorded_at": "2026-10-25T13:52:48.188304+08:00",
+  "rk_tests_passed": 176,
+  "rk_tests_skipped": 0,
+  "runtime_preview_commands_verified": 6,
+  "forward_backward_speed_code": 30,
+  "other_existing_config_preserved": true,
+  "fpga_build_inputs_unchanged": 109,
+  "fpga_rebuilt": false,
+  "fpga_programmed": false,
+  "real_drive_commands_sent": false,
+  "runtime_models_ready": true,
+  "active_release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/host_ea8d9394"
+}

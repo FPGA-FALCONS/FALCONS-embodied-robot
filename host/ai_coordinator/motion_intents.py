@@ -14,13 +14,19 @@ import unicodedata
 from .motion_reference.voice_nav import parse_motion,cn_number
 from .motion_reference.mot1 import from_intent
 
-VERSION='zh-motion-timed-estimate-2'
+VERSION='zh-motion-fixed-drive30-3'
 DEFAULT_SPEED_CODE=40
+DRIVE_SPEED_CODE=30
 HINT=re.compile(r'前进|后退|前行|倒退|向前|向后|往前|往后|左转|右转|向左转|向右转|顺时针|逆时针|巡航|巡逻')
 GUARD=re.compile(r'不要|别|不许|禁止|不用|不能|如果|假如|等到|找到|完成|然后|之后|以后|再|解释|什么意思|怎么|能不能|可以|是否|吗|[?，,;；:：“”"\n]')
 DIGITS='一二两三四五六七八九'
 CN_INTEGER=re.compile(rf'(?:[{DIGITS}]百(?:[{DIGITS}]十[{DIGITS}]?|[零〇][{DIGITS}])?|[{DIGITS}]?十[{DIGITS}]?|[零〇{DIGITS}])')
 TOKEN=re.compile(r'[0-9零〇一二两三四五六七八九十百半点.]+')
+
+
+def speed_for_intent(intent, configured_speed):
+    """RK-side policy: every forward/backward frame uses speed code 30."""
+    return DRIVE_SPEED_CODE if intent.get('cmd') in ('forward','backward') else configured_speed
 
 
 def normalize_number(token):
@@ -87,7 +93,7 @@ def _distance_result(intent,policy,speed_code):
         return {'valid':False,'reason':'distance_duration_too_short','intent':intent,
                 'execution_supported':False,'wire_preview':None}
     intent.update(duration_s=round(duration,3),estimated_speed_mps=speed)
-    frame=from_intent(intent,seq=0,speed=speed_code)
+    frame=from_intent(intent,seq=0,speed=speed_for_intent(intent,speed_code))
     if frame is None:raise ValueError('Reviewed distance intent has no MOT1 mapping')
     return {'valid':True,'intent':intent,'wire_preview':frame.encode().hex(),'protocol':'MOT1',
             'wire_preview_only':True,'execution_supported':True,
@@ -135,7 +141,7 @@ def inspect_motion(text,distance=None,speed_code=DEFAULT_SPEED_CODE):
     if 'angle_deg' in intent:
         angle=abs(float(intent['angle_deg']))
         if not 5<=angle<=360:return {'valid':False,'reason':'angle_out_of_range','intent':intent}
-    frame=from_intent(intent,seq=0,speed=speed_code)
+    frame=from_intent(intent,seq=0,speed=speed_for_intent(intent,speed_code))
     if frame is None:raise ValueError('Reviewed intent has no MOT1 mapping')
     return {'valid':True,'intent':intent,'wire_preview':frame.encode().hex(),'protocol':'MOT1',
             'wire_preview_only':True,'execution_supported':True,'reason':'mot1_frame_ready',

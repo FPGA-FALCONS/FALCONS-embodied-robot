@@ -1,0 +1,16 @@
+{
+  "archive": "rk_drive30_host_20261025.zip",
+  "sha256": "ea8d939498f03d28c075a331d4a433db0e5aaa86dff09aa709ed9693805c1c66",
+  "bytes": 582555,
+  "files": 197,
+  "base_source_sha256": "5279fd477071effb94335a4e670e752ec547d3bef272cd479896c9e1245cc47a",
+  "changed_runtime_and_test_files": [
+    "host/ai_coordinator/motion_intents.py",
+    "host/ai_coordinator/motion_backend.py",
+    "host/semantic_nav/send_motion.py",
+    "host/ai_coordinator/tests/test_motion_intents.py"
+  ],
+  "fpga_changed": false,
+  "deployed": true,
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/host_ea8d9394"
+}

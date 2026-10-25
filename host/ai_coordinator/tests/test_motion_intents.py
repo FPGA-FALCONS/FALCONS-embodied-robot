@@ -16,6 +16,22 @@ from ai_coordinator.tests import test_runtime as runtime_fixtures
 
 
 class MotionIntentTests(unittest.TestCase):
+    def test_all_drive_previews_use_30_regardless_of_turn_speed(self):
+        from semantic_nav.send_motion import prepare_frame
+        for speed in (1,10,30,40):
+            for text in ('前进','后退','向前走','向后走','往前走','倒退','前进2秒','后退半秒','前进一米','后退一米'):
+                with self.subTest(speed=speed,text=text):
+                    distance={'calibrated':True,'calibrated_speed_mps':.5}
+                    decision=inspect_motion(text,distance=distance,speed_code=speed)
+                    frames,rest,errors=decode_frames(bytes.fromhex(decision['wire_preview']))
+                    self.assertEqual((rest,errors),(b'',0))
+                    self.assertEqual(frames[0].speed,30)
+                    _,frame=prepare_frame(text,speed=speed,distance=distance)
+                    self.assertEqual(frame.speed,30)
+                    self.assertEqual(frame.encode()[8],30)
+            for text in ('左转','右转','原地顺时针转一圈'):
+                self.assertEqual(inspect_motion(text,speed_code=speed)['reference_frame']['speed'],speed)
+            self.assertEqual(inspect_motion('停止',speed_code=speed)['reference_frame']['speed'],0)
     def test_reference_snapshot_matches_collaborator_hashes(self):
         root=Path(__file__).resolve().parents[1]/'motion_reference'
         manifest=json.loads((root/'ORIGIN.json').read_text(encoding='utf-8'))
@@ -164,6 +180,30 @@ class MotionRuntimeTests(unittest.IsolatedAsyncioTestCase):
             'distance':{'calibrated':True,'calibrated_speed_mps':.5,'min_speed_mps':.05,
                         'max_speed_mps':.5,'max_distance_m':2.,'max_duration_s':5.}}
         self.runtime.gateway=FakeGateway();self.runtime.gateway.start()
+
+    async def test_actual_backend_queues_drive_speed_30_and_keeps_turn_speed(self):
+        self.live()
+        for speed in (10,40):
+            self.runtime.cfg['voice_motion']['speed']=speed
+            for text in ('前进','后退2秒','前进一米'):
+                with self.subTest(speed=speed,text=text):
+                    result=self.runtime.submit_text(text)
+                    self.assertTrue(result['accepted'])
+                    frames,_,errors=decode_frames(b''.join(self.runtime.gateway.transport.sent))
+                    self.assertEqual(errors,0)
+                    drive=[f for f in frames if f.cmd in (1,2)]
+                    self.assertTrue(drive)
+                    self.assertTrue(all(f.speed==30 for f in drive))
+                    self.runtime.stop('test_cleanup')
+            for text in ('左转','右转','原地顺时针转一圈'):
+                result=self.runtime.submit_text(text)
+                self.assertTrue(result['accepted'])
+                frames,_,errors=decode_frames(b''.join(self.runtime.gateway.transport.sent))
+                self.assertEqual(errors,0)
+                turns=[f for f in frames if f.cmd in (3,4,5)]
+                self.assertEqual(turns[-1].speed,speed)
+                self.runtime.stop('test_cleanup')
+            self.assertEqual(self.runtime.motion.settings()['drive_speed'],30)
 
     async def asyncTearDown(self):
         self.runtime.motion.closed=True  # teardown must not queue a second STOP

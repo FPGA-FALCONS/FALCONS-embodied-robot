@@ -1,0 +1,101 @@
+{
+  "at": "2026-10-25T13:51:20.029621+08:00",
+  "policy": "zh-motion-fixed-drive30-3",
+  "settings": {
+    "enabled": true,
+    "live_commissioned": true,
+    "backend": "mot1_shared_serial",
+    "speed": 30,
+    "drive_speed": 30,
+    "heartbeat_s": 0.2,
+    "turn_window_s": 8.5,
+    "drive_margin_s": 0.3
+  },
+  "startup": {
+    "enabled": true,
+    "ready": true,
+    "state": "ready",
+    "required_models": [
+      "asr",
+      "llm",
+      "chat",
+      "tts"
+    ],
+    "loaded": {
+      "asr": {
+        "load_s": 2.6811399600001096,
+        "ready_at_s": 1421.582336688
+      },
+      "llm": {
+        "load_s": 0.0005182830000194372,
+        "ready_at_s": 1426.494543986
+      },
+      "chat": {
+        "load_s": 2.0378800769999543,
+        "ready_at_s": 1428.640313032
+      },
+      "tts": {
+        "load_s": 3.1107349960000192,
+        "ready_at_s": 1431.83791517
+      },
+      "vision": {
+        "load_s": 0.3796829230000185,
+        "ready_at_s": 1432.377519849
+      }
+    },
+    "errors": {},
+    "ready_tone_played": true,
+    "ready_tone_error": null
+  },
+  "control_link_fresh": true,
+  "previews": [
+    {
+      "text": "前进",
+      "cmd": 1,
+      "speed": 30,
+      "wire_preview": "4d4f5431000103201e006e47",
+      "sent": false
+    },
+    {
+      "text": "后退",
+      "cmd": 2,
+      "speed": 30,
+      "wire_preview": "4d4f5431000203201e008095",
+      "sent": false
+    },
+    {
+      "text": "向前走",
+      "cmd": 1,
+      "speed": 30,
+      "wire_preview": "4d4f5431000103201e006e47",
+      "sent": false
+    },
+    {
+      "text": "向后走",
+      "cmd": 2,
+      "speed": 30,
+      "wire_preview": "4d4f5431000203201e008095",
+      "sent": false
+    },
+    {
+      "text": "前进2秒",
+      "cmd": 1,
+      "speed": 30,
+      "wire_preview": "4d4f5431000107d01e0047e4",
+      "sent": false
+    },
+    {
+      "text": "后退半秒",
+      "cmd": 2,
+      "speed": 30,
+      "wire_preview": "4d4f5431000201f41e00d4a9",
+      "sent": false
+    }
+  ],
+  "existing_config_preserved": true,
+  "motion_busy": false,
+  "fpga_programmed_for_this_change": false,
+  "live_drive_commands_sent": false,
+  "unit": "NRestarts=0\nMemoryCurrent=3092070400\nActiveState=active\n",
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/host_ea8d9394"
+}

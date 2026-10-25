@@ -18,6 +18,7 @@ import time
 import uuid
 from .motion_reference.mot1 import (BACKWARD,FORWARD,PATROL_START,PATROL_STOP,
                                      SPIN,STOP,TURN_LEFT,TURN_RIGHT,Frame,from_intent,heartbeat)
+from .motion_intents import DRIVE_SPEED_CODE,speed_for_intent
 
 VERSION='mot1-shared-serial-1'
 WATCHDOG_MS=500
@@ -80,6 +81,7 @@ class MotionBackend:
                 'live_commissioned':self._voice().get('live_commissioned') is True,
                 'backend':self._voice().get('backend','mot1_shared_serial'),
                 'speed':self._voice().get('speed',10),
+                'drive_speed':DRIVE_SPEED_CODE,
                 'heartbeat_s':self._voice().get('heartbeat_s',.2),
                 'turn_window_s':self._voice().get('turn_window_s',8.5),
                 'drive_margin_s':self._voice().get('drive_margin_s',.3)}
@@ -214,7 +216,8 @@ class MotionBackend:
             result['reason']=reason;return result
         transport=self.transport
         try:
-            frame=from_intent(decision['intent'],seq=self._next_seq(),speed=self._speed_code())
+            frame=from_intent(decision['intent'],seq=self._next_seq(),
+                              speed=speed_for_intent(decision['intent'],self._speed_code()))
             if frame is None:raise ValueError('Reviewed intent has no MOT1 mapping')
             if frame.cmd in (FORWARD,BACKWARD) and not 1<=frame.value<=5000:raise ValueError('drive duration outside 1..5000 ms')
             if frame.cmd in (TURN_LEFT,TURN_RIGHT,SPIN) and not 1<=abs(frame.value)<=360:raise ValueError('turn angle outside 1..360 degrees')
