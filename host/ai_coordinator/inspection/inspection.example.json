@@ -1,0 +1,27 @@
+{
+  "enabled": false,
+  "camera": {
+    "backend": "v4l2",
+    "selector": {"vid": 3034, "pid": 22614, "serial": "200901010001"},
+    "expected_size": [1280, 720],
+    "fourcc": "MJPG",
+    "fps": 30,
+    "warmup_frames": 5,
+    "storage": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/camera_frames"
+  },
+  "lens_description": {"focal_length_mm": 6, "approximate_fov_deg": 60, "low_distortion": true},
+  "calibration": {
+    "camera_serial": "200901010001", "image_size": [1280, 720],
+    "intrinsics_measured": false, "extrinsics_measured": false,
+    "ground_plane_verified": false, "timing_verified": false,
+    "K": null, "distortion": null, "T_base_camera": null,
+    "max_range_m": null, "xy_error_m": null
+  },
+  "vehicle_swept_radius_m": null,
+  "return_corridor_half_width_m": null,
+  "speed_code": 30,
+  "speed_mapping_verified": false,
+  "ground_anchor_policies": {},
+  "object_footprints_m": {},
+  "note": "Device identity survives USB socket changes. Lens catalogue values do not replace measured calibration."
+}

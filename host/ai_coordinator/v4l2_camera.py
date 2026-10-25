@@ -49,6 +49,8 @@ def validate_config(cfg):
 
 class Camera:
     def __init__(self,cfg):
+        from .device_roles import camera_config
+        cfg=camera_config(cfg)
         width,height,fps,fourcc,self.warmup=validate_config(cfg)
         self.selection=select_device(cfg.get('device'))
         import cv2
