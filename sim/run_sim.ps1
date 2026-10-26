@@ -229,6 +229,10 @@ $sources += @(
     "$ProjectRoot\rtl\ai\inspection_mailbox_rx.v",
     "$PSScriptRoot\inspection_mailbox_tb.v",
     "$PSScriptRoot\inspection_timebase_tb.v",
+    "$ProjectRoot\rtl\ai\inspection_epoch_tracker.v",
+    "$PSScriptRoot\inspection_epoch_tb.v",
+    "$ProjectRoot\rtl\ai\inspection_route_export.v",
+    "$PSScriptRoot\inspection_route_export_tb.v",
     "$ProjectRoot\rtl\ai\inspection_ddr_arb.v",
     "$ProjectRoot\rtl\ai\inspection_frame_tokens.v",
     "$ProjectRoot\rtl\ai\inspection_frame_writer.v",
@@ -241,6 +245,8 @@ $sources += @(
     "$PSScriptRoot\inspection_map_export_tb.v"
 )
 $tests = @(
+    @{ Name = 'inspection_epoch'; Top = 'inspection_epoch_tb'; Desc = 'Held IMU valid level / event-only epoch / origin clear / reboot handshake' },
+    @{ Name = 'inspection_route_export'; Top = 'inspection_route_export_tb'; Desc = 'Passive navigation prefix / bounded CRC / context and publication' },
     @{ Name = 'inspection_timebase'; Top = 'inspection_timebase_tb'; Desc = 'Device clock exchange / nonce and epoch isolation / no authority' },
     @{ Name = 'inspection_mailbox'; Top = 'inspection_mailbox_tb'; Desc = 'Validated layer-only USB mailbox / UART authority isolation' },
     @{ Name = 'inspection_ddr_arb'; Top = 'inspection_ddr_arb_tb'; Desc = 'Independent DDR AI display / passive map export' },

@@ -42,13 +42,15 @@ def validate_assets(directory):
 
 
 class ALSAPlayer:
-    def __init__(self,device):
-        if not isinstance(device,str) or not re.fullmatch(r'(?:plug)?hw:CARD=[A-Za-z0-9_]+,DEV=\d+',device):
+    def __init__(self,device,selector=None):
+        if selector is None and (not isinstance(device,str) or not re.fullmatch(r'(?:plug)?hw:CARD=[A-Za-z0-9_]+,DEV=\d+',device)):
             raise ValueError('Choose an explicit ALSA CARD name and DEV number')
-        self.device=device
+        self.device=device;self.selector=selector
 
     async def __call__(self,clip,event):
-        proc=await asyncio.create_subprocess_exec('aplay','-q','-D',self.device,str(clip['path']),
+        from .device_roles import audio_device
+        device=audio_device(self.selector,'speaker',self.device)
+        proc=await asyncio.create_subprocess_exec('aplay','-q','-D',device,str(clip['path']),
             stdout=asyncio.subprocess.DEVNULL,stderr=asyncio.subprocess.DEVNULL)
         try:
             code=await asyncio.wait_for(proc.wait(),clip['duration_s']+2)
@@ -68,7 +70,7 @@ class Announcements:
         if self.mode=='alsa':
             try:
                 self.clips=validate_assets(cfg['assets'])
-                self.player=player or ALSAPlayer(cfg.get('device'))
+                self.player=player or ALSAPlayer(cfg.get('device'),selector=cfg.get('selector'))
             except (OSError,ValueError,KeyError) as exc:
                 self.mode='log';self.last_error=type(exc).__name__+': '+str(exc)[:200]
                 self.audit({'type':'speech_unavailable','fallback':'log','error':self.last_error})

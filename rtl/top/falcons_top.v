@@ -1586,7 +1586,7 @@ module falcons_top (
         .pose_yaw_cdeg(navigation_yaw_cdeg)
     );
     wire map_disp_valid, map_disp_occupied, map_disp_start, map_disp_done;
-    wire [15:0] navigation_map_version;
+    wire [15:0] navigation_map_version,navigation_route_id;
     wire inspection_usb_valid,inspection_usb_release,inspection_usb_read;
     wire [8:0] inspection_usb_words;
     wire [7:0] inspection_usb_address;
@@ -1599,14 +1599,20 @@ module falcons_top (
     wire [15:0] inspection_map_data;
     wire [31:0] inspection_map_session,inspection_map_task,inspection_map_epoch,inspection_map_context,inspection_map_sequence,inspection_map_crc;
     wire [1:0] inspection_map_view;
-    reg [31:0] inspection_epoch;
+    wire inspection_route_valid,inspection_route_release,inspection_route_read;
+    wire [6:0] inspection_route_words,inspection_route_address;
+    wire [15:0] inspection_route_data;
+    wire [31:0] inspection_route_session,inspection_route_task,inspection_route_epoch,inspection_route_context,inspection_route_sequence,inspection_route_crc;
+    wire [1:0] inspection_route_view;
+    wire [31:0] inspection_epoch;
+    inspection_epoch_tracker u_inspection_epoch(.clk(i_clk_50m),.rst_n(sys_rst_n),
+        .i_origin_clear(count_clear_r || yaw_clear_r),.i_calib_done(imu_calib_done),.o_epoch(inspection_epoch));
     reg [15:0] inspection_user_token;
     wire inspection_permission=ai_master && ai_mode==3 && ai_inspection_open && page==PAGE_AI;
     wire navigation_sensors_valid;
     always @(posedge i_clk_50m or negedge sys_rst_n)begin
-        if(!sys_rst_n)begin inspection_epoch<=1;inspection_user_token<=0;end
+        if(!sys_rst_n)begin inspection_user_token<=0;end
         else begin
-            if(count_clear_r || yaw_clear_r || imu_calib_done)inspection_epoch<=inspection_epoch+1'b1;
             if(inspection_permission && !manual_drive && rc_confirm)inspection_user_token<=inspection_user_token+1'b1;
         end
     end
@@ -1651,6 +1657,10 @@ module falcons_top (
         .i_epoch(inspection_epoch),.i_context(inspection_context),.i_view(ai_inspection_view),
         .o_frame_begin(inspection_frame_begin),.o_frame_commit(inspection_frame_commit),.o_frame_abort(inspection_frame_abort),.o_frame_sequence(inspection_frame_sequence),
         .i_frame_ready(inspection_frame_ready),.o_frame_data(inspection_pixel),.o_frame_valid(inspection_pixel_valid),.i_frame_word_ready(inspection_pixel_ready),
+        .i_route_valid(inspection_route_valid),.o_route_release(inspection_route_release),
+        .i_route_session(inspection_route_session),.i_route_task(inspection_route_task),.i_route_epoch(inspection_route_epoch),.i_route_context(inspection_route_context),
+        .i_route_sequence(inspection_route_sequence),.i_route_crc(inspection_route_crc),.i_route_view(inspection_route_view),.i_route_words(inspection_route_words),
+        .o_route_read(inspection_route_read),.o_route_address(inspection_route_address),.i_route_data(inspection_route_data),
         .i_map_valid(inspection_map_valid),.o_map_release(inspection_map_release),
         .i_map_session(inspection_map_session),.i_map_task(inspection_map_task),.i_map_epoch(inspection_map_epoch),.i_map_context(inspection_map_context),
         .i_map_sequence(inspection_map_sequence),.i_map_crc(inspection_map_crc),.i_map_view(inspection_map_view),
@@ -1664,6 +1674,14 @@ module falcons_top (
         .o_valid(inspection_map_valid),.i_release(inspection_map_release),.o_session(inspection_map_session),.o_task(inspection_map_task),
         .o_epoch(inspection_map_epoch),.o_context(inspection_map_context),.o_sequence(inspection_map_sequence),.o_crc(inspection_map_crc),.o_view(inspection_map_view),
         .i_read(inspection_map_read),.i_address(inspection_map_address),.o_data(inspection_map_data),.o_error());
+    inspection_route_export u_inspection_route(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.i_enabled(inspection_permission && ai_host_alive),
+        .i_valid(route_disp_valid),.i_x(route_disp_x),.i_y(route_disp_y),.i_start(route_disp_start),.i_done(route_disp_done),
+        .i_route_id(navigation_route_id),.i_map_version(navigation_map_version),
+        .i_session(inspection_session),.i_task(inspection_task_id),.i_epoch(inspection_epoch),.i_context(inspection_context),.i_view(ai_inspection_view),
+        .o_valid(inspection_route_valid),.i_release(inspection_route_release),.o_session(inspection_route_session),.o_task(inspection_route_task),
+        .o_epoch(inspection_route_epoch),.o_context(inspection_route_context),.o_sequence(inspection_route_sequence),.o_crc(inspection_route_crc),.o_view(inspection_route_view),
+        .o_words(inspection_route_words),.i_read(inspection_route_read),.i_address(inspection_route_address),.o_data(inspection_route_data),.o_error());
     wire [7:0] route_disp_x, route_disp_y;
     reg navigation_motion_enable;
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
@@ -1692,7 +1710,7 @@ module falcons_top (
         .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
         .target_line_dir(planner_target_line_dir),
         .nav_state(planner_nav_state),.sensors_valid(navigation_sensors_valid),
-        .map_version(navigation_map_version),
+        .route_id(navigation_route_id),.map_version(navigation_map_version),
         .display_enable((page == PAGE_RADAR) || (page == PAGE_NAV_OBS) || inspection_permission),
         .map_disp_valid(map_disp_valid), .map_disp_occupied(map_disp_occupied),
         .map_disp_frame_start(map_disp_start), .map_disp_frame_done(map_disp_done),

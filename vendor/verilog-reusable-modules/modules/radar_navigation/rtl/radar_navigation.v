@@ -64,6 +64,7 @@ module radar_navigation #(
     // 同时控制地图和路线显示；点云输出不受此开关影响。
     input  wire               display_enable,
     // 全地图按 x 递增、再 y 递增输出；首尾标志均伴随有效格。
+    output wire [15:0]        route_id,
     output wire [15:0]        map_version, // UI export version; no new map reader
     output wire               map_disp_valid,
     output wire               map_disp_occupied,
@@ -151,7 +152,7 @@ module radar_navigation #(
         .st_plan_busy           (),
         .st_target_index        (),
         .st_route_length        (),
-        .st_route_id            (),
+        .st_route_id            (route_id),
         .st_map_version         (map_version),
         .st_map_dropped         (),
         .st_plan_rounds         (),

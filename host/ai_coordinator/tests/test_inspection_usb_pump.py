@@ -73,6 +73,13 @@ class PumpTests(unittest.TestCase):
         self.p.bind(1,2,3,5)
         self.assertEqual(self.p.status()['pending_control'],1)
         self.assertFalse(self.p.status()['pending_display'])
+
+    def test_map_consumer_does_not_discard_an_independently_arriving_route(self):
+        from ai_coordinator.inspection.stream import ROUTE
+        route=Container(ROUTE,1,2,3,4,1,256,256,2,0,b'\0\0')
+        self.p.routes.append(route)
+        self.assertEqual(self.p.drain_maps(),[])
+        self.assertEqual(self.p.drain_routes(),[route])
         self.p.drop_controls();self.assertEqual(self.p.status()['pending_control'],0)
     def test_only_verified_bound_maps_are_retained_and_receive_queue_is_bounded(self):
         self.verified()

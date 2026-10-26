@@ -27,6 +27,9 @@ def prepare_config(current,defaults,release):
     if camera.get('selector'):camera.pop('device',None)
     inspection['camera']=copy.deepcopy(camera)
     cfg['camera']=camera;cfg['inspection']=inspection
+    # Identities already recorded in the vehicle's 2026-10-24 USB inventory.
+    # Resolve ALSA card names afresh for each use, not by the current socket.
+    cfg.setdefault('audio_roles',{'microphone':{'vid':0x4c4a,'pid':0x4c55},'speaker':{'vid':0x0d8c,'pid':0x0012}})
     # Existing ASR/semantic/Qwen/Kokoro paths, motion settings and audio roles
     # are preserved byte-for-byte as JSON values; no model substitution.
     return cfg

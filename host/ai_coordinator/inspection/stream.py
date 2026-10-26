@@ -11,7 +11,7 @@ import zlib
 
 HEADER = struct.Struct('<4sBBHIIIIIIHHHHII')
 MAGIC = b'AIF1'
-DISPLAY, CONTROL, MAP, DIAGNOSTIC = 1, 2, 3, 4
+DISPLAY, CONTROL, MAP, DIAGNOSTIC, ROUTE = 1, 2, 3, 4, 5
 MAX_PAYLOAD = 816*420*2
 DIAGNOSTIC_SIGNATURE = 0x46504741
 
@@ -66,6 +66,8 @@ def validate(kind, size, width, height, stride, view):
     elif kind == MAP:
         if (width, height, stride, size) != (256, 256, 32, 8192):
             raise ValueError('Only complete 256x256 LSB-first radar maps are published')
+    elif kind==ROUTE:
+        if (width,height,stride)!=(256,256,2) or size>130:raise ValueError('Bounded64-point navigation prefix required')
     elif kind in (CONTROL, DIAGNOSTIC):
         if width or height or stride or size > (408 if kind == CONTROL else 512):
             raise ValueError('Invalid bounded control/diagnostic container')
@@ -117,3 +119,10 @@ class Reader:
                 del self.buffer[:size]
                 result.append(Container(h[2], *h[4:9], *h[10:14], payload))
         return result
+
+
+def route_points(frame):
+    if not isinstance(frame,Container) or frame.kind!=ROUTE:raise ValueError('Route container required')
+    count=int.from_bytes(frame.payload[:2],'little')
+    if count>64 or len(frame.payload)!=2+count*2:raise ValueError('Complete bounded route payload required')
+    return [[frame.payload[n]*.05-6.375,frame.payload[n+1]*.05-6.375] for n in range(2,len(frame.payload),2)]

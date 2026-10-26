@@ -61,7 +61,7 @@ class StartupModels:
         device = self.cfg.get('speaker_device') or self.rt.cfg.get('ai_module', {}).get('speaker_device')
         path = Path(self.rt.cfg['root']) / 'cues' / 'models_ready.wav'
         write_cue(path, ((1175, .20),), gain=.25)
-        await ALSAPlayer(device)({'path':path, 'duration_s':.20}, {'type':'models_ready'})
+        await ALSAPlayer(device,selector=self.rt.cfg.get('audio_roles',{}).get('speaker'))({'path':path, 'duration_s':.20}, {'type':'models_ready'})
 
     async def run(self):
         while True:

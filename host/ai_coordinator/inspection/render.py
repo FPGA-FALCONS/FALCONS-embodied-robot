@@ -74,6 +74,15 @@ def render(view, mission, objects, *, camera=None, detections=(), radar_raw=None
         trace = mission.get('trace_m', [])
         if len(trace) > 1:
             cv2.polylines(image, [np.array([map_pixel(p) for p in trace])], False, (230, 160, 40), 2)
+        returning=mission.get('return_trace_m',[])
+        if len(returning)>1:cv2.polylines(image,[np.array([map_pixel(p) for p in returning])],False,(80,220,80),2)
+        planned=mission.get('planned_route',[])
+        if len(planned)>1:cv2.polylines(image,[np.array([map_pixel(p) for p in planned])],False,(220,220,80),1)
+        pose=mission.get('pose')
+        if pose:
+            centre=map_pixel([pose['x_m'],pose['y_m']]);yaw=pose['yaw_rad']
+            end=(round(centre[0]+15*math.cos(yaw)),round(centre[1]-15*math.sin(yaw)))
+            cv2.arrowedLine(image,centre,end,(255,255,255),2,tipLength=.35)
         for obj in objects:
             if obj['confirmed']:
                 centre = map_pixel(obj['xy_m'])

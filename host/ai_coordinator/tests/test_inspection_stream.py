@@ -39,3 +39,13 @@ class StreamTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class RouteContainerTests(unittest.TestCase):
+    def test_complete_prefix_and_explicit_clear_are_distinct_from_maps(self):
+        from ai_coordinator.inspection.stream import ROUTE,route_points
+        frame=Container(ROUTE,1,2,3,4,5,256,256,2,1,bytes.fromhex('020080808a80'))
+        restored=Reader().feed(frame.encode())[0]
+        self.assertEqual(len(route_points(restored)),2)
+        self.assertEqual(route_points(Container(ROUTE,1,2,3,4,5,256,256,2,1,b'\0\0')),[])
+        with self.assertRaises(ValueError):route_points(Container(ROUTE,1,2,3,4,5,256,256,2,1,b'\x03\0'))

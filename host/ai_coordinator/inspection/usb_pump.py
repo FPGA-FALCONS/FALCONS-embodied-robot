@@ -8,7 +8,7 @@ from collections import deque
 import threading
 import time
 import secrets
-from .stream import Container, Reader, DISPLAY, CONTROL, MAP, DIAGNOSTIC, valid_diagnostic
+from .stream import Container, Reader, DISPLAY, CONTROL, MAP, DIAGNOSTIC, ROUTE, valid_diagnostic
 from .usb_link import USBLink,select
 from . import wire
 
@@ -20,9 +20,10 @@ class USBPump:
         self.firmware_loaded=set()
         self.factory=factory;self.clock=clock
         self.lock=threading.Lock();self.stop_event=threading.Event();self.thread=None
-        self.controls=deque();self.display=None;self.maps=deque(maxlen=2)
+        self.controls=deque();self.display=None;self.maps=deque(maxlen=2);self.routes=deque(maxlen=2)
         self.binding=None;self.link=None;self.active=None;self.offset=0
         self.reader=Reader();self.challenge=None;self.challenge_deadline=0
+        self.frequency_hz=None;self.last_diagnostic_s=None
         self.verified=False;self.reopen_at=0.;self.error='not_started';self.generation=0
 
     def start(self):
@@ -46,7 +47,7 @@ class USBPump:
                 same_task=self.binding is not None and self.binding[:3]==binding[:3]
                 self.binding=binding
                 if not same_task:self.controls.clear()
-                self.display=None;self.maps.clear()
+                self.display=None;self.maps.clear();self.routes.clear()
 
     def drop_controls(self):
         # An active partial container must finish; FPGA independently rejects
@@ -72,11 +73,14 @@ class USBPump:
 
     def status(self):
         with self.lock:
-            return {'verified':self.verified,'error':self.error,'generation':self.generation,
+            return {'verified':self.verified,'ifclk_hz':self.frequency_hz,'last_diagnostic_s':self.last_diagnostic_s,'error':self.error,'generation':self.generation,
                     'pending_control':len(self.controls),'pending_display':self.display is not None}
 
     def drain_maps(self):
         with self.lock:result=list(self.maps);self.maps.clear();return result
+
+    def drain_routes(self):
+        with self.lock:result=list(self.routes);self.routes.clear();return result
 
     def _disconnect(self, reason):
         if self.link:
@@ -85,8 +89,8 @@ class USBPump:
             finally:self.link=None
         self.active=None;self.offset=0;self.challenge=None;self.reader=Reader()
         with self.lock:
-            self.verified=False;self.error=str(reason)[:240]
-            self.controls.clear();self.display=None;self.maps.clear()
+            self.verified=False;self.frequency_hz=None;self.error=str(reason)[:240]
+            self.controls.clear();self.display=None;self.maps.clear();self.routes.clear()
         self.reopen_at=self.clock()+1.
 
     def _cycle(self):
@@ -119,11 +123,11 @@ class USBPump:
         for frame in self.reader.feed(self.link.read_once(timeout_ms=2),now=now):
             if self.challenge is not None and valid_diagnostic(self.challenge,frame):
                 self.challenge=None
-                with self.lock:self.verified=True;self.error=None;self.generation+=1
-            elif frame.kind==MAP:
+                with self.lock:self.verified=True;self.frequency_hz=frame.session;self.last_diagnostic_s=now;self.error=None;self.generation+=1
+            elif frame.kind in (MAP,ROUTE):
                 with self.lock:
                     if self.verified and (frame.session,frame.task,frame.epoch,frame.context)==self.binding:
-                        self.maps.append(frame)
+                        (self.maps if frame.kind==MAP else self.routes).append(frame)
         if self.challenge is not None and now>=self.challenge_deadline:
             raise OSError('No verified AIF1 diagnostic round trip')
 

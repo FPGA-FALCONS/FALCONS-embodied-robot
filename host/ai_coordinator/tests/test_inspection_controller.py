@@ -45,7 +45,8 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.c.confirm(1.1));self.c._actions(1.1)
         self.assertFalse(any(m['kind']==wire.CONTROL and m['words'][4]&255==wire.OP_GOTO for m in self.messages()))
     async def test_manual_retains_goal_and_requires_explicit_resume(self):
-        self.moving();self.controls(2,1.1,manual=True)
+        self.moving();self.c.last_camera=1.;self.c.camera={'old':True};self.controls(2,1.1,manual=True)
+        self.assertIsNone(self.c.last_camera);self.assertIsNone(self.c.camera)
         self.assertEqual(self.c.mission.state,'manual_paused');self.assertEqual(self.c.mission.goal,[1,0])
         self.input(2,0,0,1.2);self.controls(3,1.2)
         self.assertEqual(self.c.mission.state,'paused')
@@ -63,6 +64,42 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.c.back(1.2);self.assertEqual(self.c.mission.state,'cancelled')
         self.c.stopped=False;self.c.back(1.3);self.c._actions(1.3)
         self.assertFalse(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+    async def test_cancel_closes_child_only_after_matching_stopped_receipt(self):
+        self.moving();self.c.back(1.1);self.c.back(1.2);self.c.tick(1.21)
+        self.assertFalse(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+        expected=self.c.mission.expected
+        self.packet(wire.STATE,[self.session,expected['task_id'],1,expected['command_id'],2,0,1|4|8,0],1.22)
+        self.c.tick(1.23)
+        self.assertTrue(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+    async def test_manual_discards_a_pending_page_close(self):
+        self.moving();self.c.back(1.1);self.c.back(1.2);self.assertIsNotNone(self.c.want_close)
+        self.controls(2,1.21,manual=True);self.assertIsNone(self.c.want_close)
+
+    async def test_telemetry_timeout_rebinds_session_even_if_fpga_epoch_is_reused(self):
+        self.moving();old=self.c.mission.session_id;self.c.tick(1.6)
+        self.assertNotEqual(self.c.mission.session_id,old)
+        self.assertEqual(self.c.mission.state,'invalidated');self.assertIsNone(self.c.caps)
+        self.assertTrue(any(m['kind']==wire.HELLO and m['words'][0]==self.c.mission.session_id for m in self.messages()))
+        self.assertFalse(any(m['kind']==wire.CONTROL and m['words'][4]&255==wire.OP_GOTO for m in self.messages()))
+    async def test_initial_cursor_uses_actual_current_pose(self):
+        self.packet(wire.POSE,[1,1,1000000,200,300,0,1],1.1)
+        self.assertEqual(self.c.cursor,[.2,.3])
+
+    async def test_caps_without_state_still_retries_hello_after_fpga_reset(self):
+        self.c.actual=None;self.c.tick(2)
+        self.assertTrue(any(m['kind']==wire.HELLO for m in self.messages()))
+
+    async def test_localization_reset_archives_old_coordinates_before_discarding_pose(self):
+        import json
+        self.moving();self.c._epoch(2,1.1)
+        report=json.loads(Path(self.c.report_path).read_text(encoding='utf-8'))
+        self.assertEqual(report['mission']['epoch'],1)
+        self.assertEqual(report['mission']['start_m'],[0,0])
+        self.assertEqual(report['mission']['reason'],'localization_reset')
+        self.assertEqual(self.c.mission.state,'invalidated')
+        self.assertIsNone(self.c.mission.pose);self.assertIsNone(self.c.actual)
+        self.assertFalse(self.c.mission.drain())
+
     async def test_input_counter_gap_pauses_without_replaying_multiple_gestures(self):
         self.moving();self.input(2,3,0,1.1)
         self.assertEqual(self.c.mission.state,'paused');self.assertEqual(self.c.mission.reason,'input_gesture_gap')

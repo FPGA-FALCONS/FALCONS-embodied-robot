@@ -12,6 +12,7 @@ from .announcements import ALSAPlayer, NAMES
 from .motion_reference.mot1 import Frame
 from .processes import ModelServer, Worker
 from .switched_capture import capture
+from .device_roles import audio_device
 
 
 def wrapped(text, rows):
@@ -259,7 +260,7 @@ class AiModule:
             private.mkdir(mode=0o700, parents=True, exist_ok=True)
             path = private / (uuid.uuid4().hex + '.wav')
             mic = self.rt.cfg.get('microphone', {})
-            metadata = await capture(mic.get('device'), path, released,
+            metadata = await capture(audio_device(self.rt.cfg.get('audio_roles',{}).get('microphone'),'microphone',mic.get('device')), path, released,
                                      maximum_s=self.cfg.get('max_recording_s', 30))
             self.rt.announcements.end_capture()
             capturing = False
@@ -311,7 +312,7 @@ class AiModule:
             if not self._current(epoch, chat):
                 return
             self.state = 'speaking'
-            player = ALSAPlayer(self.cfg.get('speaker_device'))
+            player = ALSAPlayer(self.cfg.get('speaker_device'),selector=self.rt.cfg.get('audio_roles',{}).get('speaker'))
             await player(tts['result'], {})
             self.state = 'idle'
         except asyncio.CancelledError:

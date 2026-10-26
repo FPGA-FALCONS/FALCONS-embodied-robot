@@ -42,3 +42,30 @@ def camera_config(cfg, inventory=None):
         return dict(cfg)  # Existing explicit stable-link configurations remain valid.
     selected = choose(cfg['selector'], camera_inventory() if inventory is None else inventory, 'camera')
     return {**cfg, 'device': selected['device']}
+
+
+def audio_inventory(sys_root=Path('/sys'),proc_root=Path('/proc')):
+    import re
+    records=[];sound=sys_root/'class/sound'
+    for card in sound.glob('card[0-9]*'):
+        if not re.fullmatch(r'card[0-9]+',card.name):continue
+        device=(card/'device').resolve()
+        usb=next((p for p in [device,*device.parents] if (p/'idVendor').is_file() and (p/'idProduct').is_file()),None)
+        if usb is None:continue
+        identity=dict(vid=int((usb/'idVendor').read_text().strip(),16),pid=int((usb/'idProduct').read_text().strip(),16),
+                      serial=(usb/'serial').read_text().strip() if (usb/'serial').is_file() else '')
+        card_id=(proc_root/'asound'/card.name/'id').read_text().strip()
+        if not re.fullmatch(r'[A-Za-z0-9_]+',card_id):raise ValueError('Invalid ALSA card identity')
+        for node in sound.glob('pcmC'+card.name[4:]+'D*'):
+            match=re.fullmatch(r'pcmC[0-9]+D([0-9]+)([cp])',node.name)
+            if not match:continue
+            device_name='plughw:CARD=%s,DEV=%s'%(card_id,match[1])
+            records.append({**identity,'role':'microphone' if match[2]=='c' else 'speaker','device':device_name,
+                'aliases':[device_name,str(usb)]})
+    return records
+
+
+def audio_device(selector,role,legacy=None,inventory=None):
+    if selector is None:return legacy
+    if role not in ('microphone','speaker'):raise ValueError('Explicit audio role required')
+    return choose(selector,audio_inventory() if inventory is None else inventory,role)['device']

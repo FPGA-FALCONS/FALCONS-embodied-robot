@@ -25,7 +25,7 @@ class InspectionMission:
         self.state = 'edit'; self.phase = 'outbound'; self.view = 'map'
         self.goal = None; self.pose = None; self.epoch = None
         self.start_point = None
-        self.trace = []; self.return_points = []; self.return_index = 0
+        self.trace = []; self.return_trace=[];self.trace_truncated=False;self.return_yaw=None; self.return_points = []; self.return_index = 0
         self.actions = deque(); self.expected = None; self.pending_layer = None
         self.reason = None; self.manual = False; self.last_status = None
         self.trace_yaw = None
@@ -55,25 +55,30 @@ class InspectionMission:
             self.cancel(now, 'localization_reset')
             self.state = 'invalidated'
         self.epoch = pose['epoch']; self.pose = {**pose, 'at_s': now}
-        if self.state == 'outbound':
+        if self.start_point is not None and self.state in (ACTIVE | {'paused','manual_paused','fault'}):
             try:
                 self._trace()
             except ValueError:
+                self.trace_truncated=True
                 self.pause(now, 'trajectory_full')
 
     def _trace(self, force=False):
         if self.pose is None:
             return
+        returning=self.phase=='returning'
+        trace=self.return_trace if returning else self.trace
+        previous_yaw=self.return_yaw if returning else self.trace_yaw
         point = [self.pose['x_m'], self.pose['y_m']]
-        if self.trace:
-            distance = math.dist(point, self.trace[-1])
-            angle = abs((self.pose['yaw_rad']-self.trace_yaw+math.pi) % (2*math.pi)-math.pi)
-            if distance < .001 or (not force and distance < self.trace_step_m and angle < math.pi/12):
-                return
-        if len(self.trace) >= self.trace_limit:
+        if trace:
+            distance = math.dist(point, trace[-1])
+            angle = abs((self.pose['yaw_rad']-previous_yaw+math.pi) % (2*math.pi)-math.pi)
+            if distance < .001 or (not force and distance < self.trace_step_m and angle < math.pi/12):return
+        if len(trace) >= self.trace_limit:
+            self.trace_truncated=True
             raise ValueError('Actual trajectory capacity reached; pause required')
-        self.trace.append(point)
-        self.trace_yaw = self.pose['yaw_rad']
+        trace.append(point)
+        if returning:self.return_yaw=self.pose['yaw_rad']
+        else:self.trace_yaw=self.pose['yaw_rad']
 
     def select_goal(self, xy):
         if self.state not in ('edit', 'ready'):
@@ -85,6 +90,7 @@ class InspectionMission:
         errors = [key for key in REQUIRED if ready.get(key) is not True]
         if self.manual:
             errors.append('manual')
+        if self.trace_truncated:errors.append('trajectory_full')
         if self.pose is None or not finite(now) or not 0 <= now-self.pose['at_s'] <= .5:
             errors.append('pose_stale')
         return errors
@@ -95,7 +101,7 @@ class InspectionMission:
         problems = self._problems(ready, now)
         if problems:
             self.reason = 'not_ready:' + ','.join(problems); return False
-        self.task_id += 1; self.phase = 'outbound'; self.trace = []
+        self.task_id += 1; self.phase = 'outbound'; self.trace = [];self.return_trace=[];self.trace_truncated=False;self.return_yaw=None
         self.start_point = [self.pose['x_m'],self.pose['y_m']]
         self.return_points = []; self.return_index = 0; self.pending_layer = None
         self.reason = None; self._trace(force=True); self.last_status = now
@@ -155,7 +161,7 @@ class InspectionMission:
             raise ValueError('Stop or cancel the current task first')
         self.actions.clear(); self.expected = None; self.pending_layer = None
         self.state = 'edit'; self.phase = 'outbound'; self.goal = None
-        self.trace = []; self.return_points = []; self.reason = None
+        self.trace = []; self.return_trace=[];self.trace_truncated=False;self.return_yaw=None; self.return_points = []; self.reason = None
         self.start_point = None
 
     @staticmethod
@@ -216,10 +222,11 @@ class InspectionMission:
                 # or the first planned waypoint. Manual detours do not move it.
                 self.return_points = [deepcopy(self.start_point)]
                 self.return_index = 0
-                self.phase = 'returning'; self.state = 'await_return_layer'
+                self.phase = 'returning';self.return_trace=[[self.pose['x_m'],self.pose['y_m']]];self.return_yaw=self.pose['yaw_rad']; self.state = 'await_return_layer'
                 self._command('prepare_return_layer', now, return_goal_m=deepcopy(self.start_point),
                               return_policy='latest_map',trace=deepcopy(self.trace))
             else:
+                self._trace(force=True)
                 self.return_index += 1
                 if self.return_index == len(self.return_points):
                     self.state = 'completed'; self.expected = None
@@ -238,6 +245,7 @@ class InspectionMission:
         return {'session_id': self.session_id, 'task_id': self.task_id, 'epoch': self.epoch,
                 'state': self.state, 'phase': self.phase, 'view': self.view, 'reason': self.reason,
                 'goal_m': deepcopy(self.goal), 'trace_m': deepcopy(self.trace),
+                'return_trace_m':deepcopy(self.return_trace),'pose':deepcopy(self.pose),'trace_truncated':self.trace_truncated,
                 'start_m':deepcopy(self.start_point),'return_policy':'latest_map',
                 'return_index': self.return_index, 'return_count': len(self.return_points),
                 'layer_version': self.layer_version, 'manual': self.manual}

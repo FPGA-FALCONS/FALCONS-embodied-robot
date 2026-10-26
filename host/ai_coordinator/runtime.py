@@ -19,6 +19,7 @@ from .motion_backend import MotionBackend
 from .ai_module import AiModule
 from .startup import StartupModels
 from .inspection.controller import InspectionController
+from .device_roles import audio_device
 
 
 class Audit:
@@ -41,8 +42,8 @@ class Runtime:
         self.config=Path(config).resolve();self.cfg=loads(self.config.read_text(encoding='utf-8'))
         self.root=Path(self.cfg['root']).resolve();self.run_dir=self.root/'runs'/uuid.uuid4().hex
         self.audit=Audit(self.run_dir);self.core=PatrolMission(Policy(**self.cfg.get('policy',{})),self.cfg.get('mode','shadow'))
-        self.announcements=Announcements(self.cfg.get('announcements',{}),self.audit)
-        self.cue=RecordingCue(self.cfg.get('microphone',{}).get('cue',{}),self.audit,self.root)
+        self.announcements=Announcements({**self.cfg.get('announcements',{}),'selector':self.cfg.get('audio_roles',{}).get('speaker')},self.audit)
+        self.cue=RecordingCue({**self.cfg.get('microphone',{}).get('cue',{}),'selector':self.cfg.get('audio_roles',{}).get('speaker')},self.audit,self.root)
         if self.core.mode=='live' and self.cfg.get('gateway',{}).get('mode')!='serial':raise ValueError('live mode requires serial gateway')
         self.gateway=Gateway(self.cfg.get('gateway',{}),self.core.session_id,self.audit)
         # The lambda is deliberate: tests and deployment can replace the
@@ -52,7 +53,7 @@ class Runtime:
         self.model_server=ModelServer(self.cfg['models']['llm'],self.run_dir)
         self.generation=0;self.jobs=OrderedDict();self.tasks=set();self.parse_lock=asyncio.Lock();self.server_lock=asyncio.Lock()
         self.ticker=None;self.last_tick=None;self.max_tick_gap=0;self.latest_image=None;self.image_pump=None;self.lock_file=None
-        self.camera_task=None
+        self.camera_task=None;self.next_camera_retry=0.
         self.camera_time_verified=False
         self.last_motion=None
         self.camera_backend=self.cfg.get('camera',{}).get('backend','fx2')
@@ -96,6 +97,16 @@ class Runtime:
             self.audit({'type':'ai_uart_waiting','error':str(exc)[:200]})
             return False
 
+    def retry_camera(self,now):
+        if (not self.ai.vision or 'camera' not in self.workers or now<self.next_camera_retry
+                or (self.camera_task is not None and not self.camera_task.done())
+                or self.ai.vision_lock.locked() or any(not task.done() for task in self.ai.cleanup)):
+            return False
+        self.next_camera_retry=now+1.
+        self.camera_task=asyncio.create_task(self._camera())
+        self.audit({'type':'camera_identity_reprobe','tasks_resumed':False})
+        return True
+
     async def _tick(self):
         while True:
             now=time.monotonic()
@@ -118,6 +129,7 @@ class Runtime:
                 else:self.core.on_status(event,now)
                 self.audit({'type':'fpga_event','event':event})
             self.ai.tick(now)
+            self.retry_camera(now)
             self.inspection.tick(now)
             self.core.tick(now);self.dispatch()
             await asyncio.sleep(.02)
@@ -280,7 +292,8 @@ class Runtime:
         if self.ai.enabled and not self.ai.active:raise RuntimeError('AI master is off')
         payload={}
         if request.get('capture'):
-            cfg=self.cfg.get('microphone',{})
+            cfg=dict(self.cfg.get('microphone',{}))
+            cfg['device']=audio_device(self.cfg.get('audio_roles',{}).get('microphone'),'microphone',cfg.get('device'))
             if not cfg.get('device'):raise RuntimeError('USB microphone not configured / pending hardware arrival')
             if self.announcements.microphone_blocked:raise RuntimeError('Announcement playing; microphone temporarily paused')
             payload={'capture':dict(cfg)}
@@ -333,7 +346,7 @@ class Runtime:
                 event={**tag,**response['result'],'sequence':time.monotonic_ns()}
                 self.ai.observe_vision(event.get('detections',[]))
                 if tag.get('camera_metadata'):
-                    await self.inspection.observe(tag['camera_metadata'],response['result'],time.monotonic())
+                    await self.inspection.observe(tag['camera_metadata'],{**response['result'],'worker_elapsed_s':response.get('elapsed_s')},time.monotonic())
                 if tag.get('source_timestamp_verified') is True and tag.get('replay') is False:self.camera_time_verified=True
                 accepted=self.core.on_frame(event,time.monotonic());self.dispatch()
                 if not future.done():future.set_result({'frame':event,'admitted_to_mission':accepted,'elapsed_s':response['elapsed_s']})

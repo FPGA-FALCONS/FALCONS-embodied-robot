@@ -173,6 +173,16 @@ class InspectionMissionTests(unittest.TestCase):
         self.assertEqual(self.mission.state,'await_return_layer')
         self.assertEqual(self.mission.return_points,[[0,0]])
 
+    def test_return_and_manual_detour_traces_are_recorded_without_moving_start(self):
+        self.start();self.mission.set_manual(True,1.1)
+        self.mission.set_pose(pose(.4),1.12)
+        self.assertEqual(self.mission.trace[-1],[.4,0]);self.assertEqual(self.mission.start_point,[0,0])
+        self.mission.set_manual(False,1.13);self.mission.resume(self.ready,1.14);self.mission.drain()
+        self.ack('accepted',1.15);self.mission.set_pose(pose(1),1.16);self.ack('arrived',1.17,stopped=True)
+        self.mission.submit_layer(build([],.2),1.18);self.mission.drain();self.ack('layer_committed',1.19,layer_version=1)
+        self.ack('accepted',1.20);self.mission.set_pose(pose(.5),1.21)
+        self.assertEqual(self.mission.return_trace[-1],[.5,0]);self.assertEqual(self.mission.trace[-1],[1,0])
+
     def test_layer_commit_waits_for_actual_stop_and_matching_version(self):
         self.start(); layer = build([{**detection(), 'confirmed': True}], .2)
         self.mission.submit_layer(layer, 1.1)
