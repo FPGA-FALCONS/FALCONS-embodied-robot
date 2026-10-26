@@ -1571,7 +1571,7 @@ module falcons_top (
     wire map_disp_valid, map_disp_occupied, map_disp_start, map_disp_done;
     reg [31:0] inspection_epoch;
     reg [15:0] inspection_user_token;
-    wire inspection_permission=ai_master && ai_mode==1 && ai_inspection_open && page==PAGE_AI;
+    wire inspection_permission=ai_master && ai_mode==3 && ai_inspection_open && page==PAGE_AI;
     wire navigation_sensors_valid;
     always @(posedge i_clk_50m or negedge sys_rst_n)begin
         if(!sys_rst_n)begin inspection_epoch<=1;inspection_user_token<=0;end

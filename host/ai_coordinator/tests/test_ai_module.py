@@ -30,8 +30,8 @@ class LinkTests(unittest.TestCase):
         damaged = bytearray(frame);damaged[8] ^= 1
         self.assertEqual(reader.feed(damaged), [])
         self.assertEqual(reader.errors, 1)
-        self.assertEqual(reader.feed(Frame(0, 0x50, 19, 3).encode()), [])
-        self.assertEqual(reader.feed(Frame(0, 0x50, 19, 24).encode()), [])
+        self.assertEqual(reader.feed(Frame(0, 0x50, 19, 3).encode())[0]['mode'], 'visual_inspection')
+        self.assertEqual(reader.feed(Frame(0, 0x50, 19, 24).encode())[0]['selected'], 3)
         self.assertEqual(reader.feed(Frame(0, 1, 800, 30).encode()), [])
 
     def test_display_has_ordered_transaction_and_gb2312(self):
@@ -121,6 +121,15 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.controls(record=False)
         await asyncio.sleep(0)
         self.assertTrue(self.ai.released.is_set())
+
+    async def test_fourth_mode_does_not_record_or_drive_through_legacy_semantics(self):
+        self.controls(mode='visual_inspection',selected=3)
+        self.controls(mode='visual_inspection',selected=3,record=True)
+        await asyncio.sleep(.01)
+        self.assertEqual(self.starts, [])
+        self.assertFalse(self.ai.vision)
+        self.assertEqual(self.ai.rejection(), 'visual_inspection_mode_cannot_control_motion')
+        self.assertTrue(any('视觉巡检' in line for line in self.ai.lines()))
 
     async def test_mode_change_cancels_capture_and_cannot_publish_old_result(self):
         self.controls();self.controls(record=True)

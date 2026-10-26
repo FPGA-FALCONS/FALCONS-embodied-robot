@@ -173,29 +173,32 @@ module ai_display_link #(
     reg [5:0] menu_index;
     reg [4:0] menu_col;
     integer m,h;
-    // 216x44 boxes centered at x=340/580/820, y=86. Four/four/five
-    // 24px cells start at x=292/532/760 and y=74, independent of host text.
+    // Four independent root features, three child views. Local 24px glyphs
+    // reuse the same ROM; the fourth root label uses visual-inspection rows.
     always @* begin
         menu_hit=0;menu_index=13;menu_col=0;
         if(pixel_y>=74 && pixel_y<98)begin
             for(m=0;m<5;m=m+1)begin
-                if(m<(task_p2?3:4) && look_x>=(task_p2?304:292)+m*24 && look_x<(task_p2?328:316)+m*24)begin
-                    menu_hit=1;menu_index=m+(task_p2?14:0);menu_col=look_x-((task_p2?304:292)+m*24);
+                if(m<(task_p2?3:4) && look_x>=(task_p2?304:274)+m*24 && look_x<(task_p2?328:298)+m*24)begin
+                    menu_hit=1;menu_index=m+(task_p2?14:0);menu_col=look_x-((task_p2?304:274)+m*24);
                 end
-                if(m<4 && look_x>=532+m*24 && look_x<556+m*24)begin
-                    menu_hit=1;menu_index=m+(task_p2?17:4);menu_col=look_x-(532+m*24);
+                if(m<4 && look_x>=(task_p2?532:470)+m*24 && look_x<(task_p2?556:494)+m*24)begin
+                    menu_hit=1;menu_index=m+(task_p2?17:4);menu_col=look_x-((task_p2?532:470)+m*24);
                 end
-                if(m<(task_p2?4:5) && look_x>=(task_p2?772:760)+m*24 && look_x<(task_p2?796:784)+m*24)begin
-                    menu_hit=1;menu_index=m+(task_p2?21:8);menu_col=look_x-((task_p2?772:760)+m*24);
+                if(m<(task_p2?4:5) && look_x>=(task_p2?772:654)+m*24 && look_x<(task_p2?796:678)+m*24)begin
+                    menu_hit=1;menu_index=m+(task_p2?21:8);menu_col=look_x-((task_p2?772:654)+m*24);
+                end
+                if(!task_p2 && m<4 && look_x>=862+m*24 && look_x<886+m*24)begin
+                    menu_hit=1;menu_index=m+30;menu_col=look_x-(862+m*24);
                 end
             end
         end
         // Local breadcrumb identifies a recognition child page; the original
         // three feature labels remain on the AI overview. This needs no RK.
         if(task_p2 && pixel_y>=24 && pixel_y<48)begin
-            for(h=0;h<9;h=h+1)begin
-                if(look_x>=440+h*24 && look_x<464+h*24)begin
-                    menu_hit=1;menu_index=25+h;menu_col=look_x-(440+h*24);
+            for(h=0;h<5;h=h+1)begin
+                if(h<4 && look_x>=440+h*24 && look_x<464+h*24)begin
+                    menu_hit=1;menu_index=30+h;menu_col=look_x-(440+h*24);
                 end
                 if(h<5 && look_x>=832+h*24 && look_x<856+h*24)begin
                     menu_hit=1;menu_index=34+h;menu_col=look_x-(832+h*24);
@@ -217,8 +220,12 @@ module ai_display_link #(
     wire [23:0] menu_bits;
     wire [9:0] menu_addr={char_q[5:0],4'd0}+{1'b0,char_q[5:0],3'd0}+{5'd0,row_q};
     ai_menu_font font(.clk(pixel_clk),.addr(menu_addr),.bits(menu_bits));
-    wire [11:0] selected_left=12'd232+selected_p2*12'd240;
-    assign o_highlight=pixel_x>=selected_left && pixel_x<selected_left+216 && pixel_y>=64 && pixel_y<108;
+    reg [11:0] selected_left;
+    always @* begin
+        if(task_p2)case(selected_p2)0:selected_left=232;1:selected_left=472;default:selected_left=712;endcase
+        else case(selected_p2)0:selected_left=232;1:selected_left=428;2:selected_left=624;default:selected_left=820;endcase
+    end
+    assign o_highlight=pixel_x>=selected_left && pixel_x<selected_left+(task_p2?216:180) && pixel_y>=64 && pixel_y<108;
     assign o_local_region=(pixel_x>=208 && pixel_y>=60 && pixel_y<112) ||
         (task_p2 && pixel_x>=432 && pixel_x<976 && pixel_y>=16 && pixel_y<52);
     assign o_glyph=valid_d && (local_d?menu_bits[bit_d]:(o_connected && dynamic_bits[15-pixel_x[3:0]]));

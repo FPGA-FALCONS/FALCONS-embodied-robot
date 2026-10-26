@@ -129,6 +129,7 @@ class AiModule:
                   not event['manual'] and not event['estop'] and
                   (startup is None or startup.ready) and
                   self.rt.cfg.get('model_loads_enabled') is True)
+        previous_mode=self.mode
         self.mode, self.selected = event['mode'], event['selected']
         chat = event['chat']
         if paused:
@@ -137,7 +138,7 @@ class AiModule:
             self.vision_resume_required=False
         vision = bool(usable and not chat and event['vision'] and not self.vision_resume_required)
         changed = ((usable, chat, vision, paused) != (self.active, self.chat, self.vision, self.paused_manual)
-                   or (usable and confirmed))
+                   or (usable and (confirmed or previous_mode!=self.mode)))
         self.active, self.chat, self.vision = usable, chat, vision
         self.paused_manual=paused
         if changed:
@@ -154,6 +155,10 @@ class AiModule:
             elif not chat:
                 self._task(self._release_chat(self.work))
         if not usable:
+            return
+        if self.mode == 'visual_inspection':
+            # The deterministic inspection controller owns child gestures and
+            # recording. Do not interpret them as semantic drive requests.
             return
         if not event['record']:
             self.released.set()
@@ -336,7 +341,8 @@ class AiModule:
                   'no_speech':'未识别到语音','error':'功能暂不可用',
                   'semantic_navigation':'处理导航指令','object_recognition':'目标识别中',
                   'paused_manual':'手动接管，任务已暂停','waiting_next':'等待确认或新的录音任务'}
-        mode = {'semantic_navigation':'语义导航','object_recognition':'目标识别','chat':'聊天机器人 Qwen3.5-0.8B'}[self.mode]
+        mode = {'semantic_navigation':'语义导航','object_recognition':'目标识别','chat':'聊天机器人 Qwen3.5-0.8B',
+                'visual_inspection':'视觉巡检'}[self.mode]
         requested = self.controls and self.controls.get('enabled')
         state = labels.get(self.state,self.state)
         motion=getattr(self.rt,'motion',None)

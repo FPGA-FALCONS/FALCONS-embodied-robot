@@ -11,9 +11,9 @@ module ai_ui_preview_tb;
     wire [23:0] base,rgb;
     wire glyph,connected,local_region,highlight;
     wire [6:0] dyn_addr;
-    reg [7:0] packet_bytes[0:119999];reg [31:0] packet_counts[0:3];
+    reg [7:0] packet_bytes[0:119999];reg [31:0] packet_counts[0:4];
     reg [2047:0] output_dir;reg [4095:0] filename;
-    integer fd,mode,i,row,col;
+    integer fd,mode,i,row,col,root_count;
     ui_render ui(.i_pixel_clk(pclk),.i_reset_n(rst),.i_pixel_x(px),.i_pixel_y(py),
         .i_pixel_req(1'b1),.i_video_active(1'b1),.o_pixel_rgb888(base),
         .i_page(3'd6),.i_menu_sel(3'd6),.i_ui_mode(2'd1),.i_estop(1'b0),
@@ -30,13 +30,14 @@ module ai_ui_preview_tb;
     initial begin
         if(!$value$plusargs("OUT=%s",output_dir)) output_dir="logs/ai_ui_preview";
         if(!$value$plusargs("TASK=%d",task_preview))task_preview=0;
+        root_count=task_preview!=0?3:4;
         $sformat(filename,"%0s/packet_counts.hex",output_dir);$readmemh(filename,packet_counts);
         #100;rst=1;#200;
-        for(mode=0;mode<4;mode=mode+1)begin
-            selected=mode%3;ai_active=mode<3;px=0;py=0;
-            inspection=task_preview!=0 && mode<3;
-            if(mode==3)begin rst=0;#100;rst=1;#200;end
-            if(mode<3)begin
+        for(mode=0;mode<=root_count;mode=mode+1)begin
+            selected=mode%root_count;ai_active=mode<root_count;px=0;py=0;
+            inspection=task_preview!=0 && mode<root_count;
+            if(mode==root_count)begin rst=0;#100;rst=1;#200;end
+            if(mode<root_count)begin
             $sformat(filename,"%0s/packets_%0d.hex",output_dir,mode);
             $readmemh(filename,packet_bytes,0,packet_counts[mode]-1);
             for(i=0;i<packet_counts[mode];i=i+1)begin
@@ -58,6 +59,6 @@ module ai_ui_preview_tb;
             end
             $fclose(fd);
         end
-        $display("PASS: ai_ui_preview_tb 4 frames");$finish;
+        $display("PASS: ai_ui_preview_tb %0d frames",root_count+1);$finish;
     end
 endmodule

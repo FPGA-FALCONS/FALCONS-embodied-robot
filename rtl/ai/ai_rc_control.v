@@ -30,7 +30,7 @@ module ai_rc_control #(
     reg [1:0] mode_d;
     wire active=o_master && i_rc_valid && swb_ready && swb_valid && !i_manual && !i_estop;
     assign o_chat=o_mode==2;
-    assign o_vision=active && o_mode==1 && (INSPECTION_ENABLE==0 || o_inspection_open);
+    assign o_vision=active && o_mode==1;
     assign o_flags={11'd0,(swb_ready && swb_valid),i_estop,i_manual,i_rc_valid,o_master};
     // bit5翻转表示一次明确确认，允许暂停后重新启动同一个识别功能。
     assign o_controls={2'd0,confirm_toggle,o_selected,o_record,o_mode};
@@ -51,11 +51,11 @@ module ai_rc_control #(
                     // machine on RK. Closing requires a stationary receipt.
                     if(i_inspection_close)o_inspection_open<=0;
                 end else begin
-                    if(i_select_prev) o_selected<=o_selected==0?2:o_selected-1'b1;
-                    else if(i_select_next) o_selected<=o_selected==2?0:o_selected+1'b1;
+                    if(i_select_prev) o_selected<=o_selected==0?(INSPECTION_ENABLE!=0?3:2):o_selected-1'b1;
+                    else if(i_select_next) o_selected<=o_selected==(INSPECTION_ENABLE!=0?3:2)?0:o_selected+1'b1;
                     if(i_feature_confirm) begin
                         o_mode<=o_selected;confirm_toggle<=!confirm_toggle;
-                        if(INSPECTION_ENABLE!=0 && o_selected==1)begin o_inspection_open<=1;o_inspection_view<=1;end
+                        if(INSPECTION_ENABLE!=0 && o_selected==3)begin o_inspection_open<=1;o_inspection_view<=1;end
                     end
                 end
             end
