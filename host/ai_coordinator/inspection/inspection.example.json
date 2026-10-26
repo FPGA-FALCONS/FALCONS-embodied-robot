@@ -13,7 +13,7 @@
     "firmware": "acg720_volatile_30mhz"
   },
   "camera": {
-    "backend": "v4l2",
+    "backend": "v4l2_native",
     "selector": {
       "vid": 3034,
       "pid": 22614,
@@ -26,7 +26,9 @@
     "fourcc": "MJPG",
     "fps": 30,
     "warmup_frames": 5,
-    "storage": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/camera_frames"
+    "storage": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/camera_frames",
+    "native_helper": null,
+    "fixed_frame_rate": true
   },
   "lens_description": {
     "focal_length_mm": 6,
@@ -55,5 +57,29 @@
   "speed_mapping_verified": false,
   "ground_anchor_policies": {},
   "object_footprints_m": {},
-  "note": "Device identity survives USB socket changes. Lens catalogue values do not replace measured calibration."
+  "note": "Device identity survives USB socket changes. Lens catalogue values do not replace measured calibration.",
+  "vehicle_braking_verified": false,
+  "classes": [
+    "tape",
+    "screwdriver",
+    "ad_calcium_milk",
+    "nutri_express"
+  ],
+  "capture_timing": {
+    "measured": false,
+    "camera_serial": "200901010001",
+    "image_size": [
+      1280,
+      720
+    ],
+    "mode": {
+      "width": 1280,
+      "height": 720,
+      "fps": 30,
+      "fourcc": "MJPG"
+    },
+    "timestamp_source": "start_of_exposure",
+    "driver_to_exposure_s": null,
+    "error_bound_s": null
+  }
 }

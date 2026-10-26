@@ -136,7 +136,7 @@ class AiModule:
             self.vision_resume_required=True
         elif usable and (confirmed or event['mode']!='object_recognition'):
             self.vision_resume_required=False
-        vision = bool(usable and not chat and event['vision'] and not self.vision_resume_required)
+        vision = bool(usable and not chat and (event['vision'] or (self.mode=='visual_inspection' and self.rt.cfg.get('inspection',{}).get('enabled') is True)) and not self.vision_resume_required)
         changed = ((usable, chat, vision, paused) != (self.active, self.chat, self.vision, self.paused_manual)
                    or (usable and (confirmed or previous_mode!=self.mode)))
         self.active, self.chat, self.vision = usable, chat, vision
@@ -334,6 +334,8 @@ class AiModule:
                                for x in detections[:8] if self.target is None or x['class'] == self.target]
 
     def lines(self):
+        if self.mode=='visual_inspection' and getattr(self.rt,'inspection',None) and self.rt.inspection.enabled:
+            return self.rt.inspection.lines()
         found = ' '.join(NAMES.get(x['class'], x['class']) + ' %.0f%%' % (100*x['confidence'])
                          for x in self.detections)
         labels = {'off':'关闭','idle':'待命','recording':'录音中','recognizing':'语音识别中',

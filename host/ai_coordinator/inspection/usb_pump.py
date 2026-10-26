@@ -9,13 +9,16 @@ import threading
 import time
 import secrets
 from .stream import Container, Reader, DISPLAY, CONTROL, MAP, DIAGNOSTIC, valid_diagnostic
-from .usb_link import USBLink
+from .usb_link import USBLink,select
 from . import wire
 
 
 class USBPump:
     def __init__(self, cfg, *, factory=USBLink, clock=time.monotonic):
-        self.cfg=dict(cfg);self.factory=factory;self.clock=clock
+        self.cfg=dict(cfg)
+        if self.cfg.get('firmware') not in (None,'acg720_volatile_30mhz'):raise ValueError('Only the reviewed volatile firmware is supported')
+        self.firmware_loaded=set()
+        self.factory=factory;self.clock=clock
         self.lock=threading.Lock();self.stop_event=threading.Event();self.thread=None
         self.controls=deque();self.display=None;self.maps=deque(maxlen=2)
         self.binding=None;self.link=None;self.active=None;self.offset=0
@@ -40,7 +43,15 @@ class USBPump:
             raise ValueError('uint32 binding required')
         with self.lock:
             if binding!=self.binding:
-                self.binding=binding;self.controls.clear();self.display=None;self.maps.clear()
+                same_task=self.binding is not None and self.binding[:3]==binding[:3]
+                self.binding=binding
+                if not same_task:self.controls.clear()
+                self.display=None;self.maps.clear()
+
+    def drop_controls(self):
+        # An active partial container must finish; FPGA independently rejects
+        # a transaction whose upload permission was revoked in the meantime.
+        with self.lock:self.controls.clear()
 
     def offer(self, frame):
         if not isinstance(frame,Container) or frame.kind not in (DISPLAY,CONTROL):
@@ -82,6 +93,13 @@ class USBPump:
         now=self.clock()
         if self.link is None:
             if now<self.reopen_at:return
+            if self.cfg.get('firmware')=='acg720_volatile_30mhz':
+                identity=select(self.cfg);key=(identity['bus_number'],identity['device_address'])
+                if key not in self.firmware_loaded:
+                    from .fx2_firmware import load_volatile
+                    load_volatile(self.cfg) # Exact SHA image, RAM only; diagnostic still required.
+                    if len(self.firmware_loaded)>=16:self.firmware_loaded.clear()
+                    self.firmware_loaded.add(key)
             self.link=self.factory(self.cfg);self.reader=Reader()
             sequence=secrets.randbits(32)
             self.challenge=Container(DIAGNOSTIC,0,0,0,0,sequence,payload=secrets.token_bytes(32))

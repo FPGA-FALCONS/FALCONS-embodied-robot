@@ -154,6 +154,25 @@ class InspectionMissionTests(unittest.TestCase):
         self.assertTrue(self.mission.resume(self.ready, 1.31))
         self.assertEqual(self.mission.drain()[0]['goal_mm'], [1000, 0])
 
+    def test_manual_resume_refreshes_layer_before_any_new_goto(self):
+        self.start();self.mission.set_manual(True,1.1);self.mission.drain()
+        self.mission.set_manual(False,1.2);self.mission.set_pose(pose(.3),1.2)
+        layer=build([{**detection(),'confirmed':True}],.2)
+        self.assertTrue(self.mission.resume({**self.ready,'layer':False},1.21,layer=layer))
+        actions=self.mission.drain();self.assertEqual([a['kind'] for a in actions],['pause'])
+        self.assertTrue(self.ack('stopped',1.22,stopped=True))
+        self.assertEqual(self.mission.state,'await_layer')
+        self.assertEqual(self.mission.drain()[0]['kind'],'commit_layer')
+        self.assertTrue(self.ack('layer_committed',1.23,layer_version=1))
+        self.assertEqual(self.mission.drain()[0]['kind'],'goto')
+
+    def test_immediate_stopped_arrival_is_sufficient_without_intermediate_accepted_report(self):
+        self.assertTrue(self.mission.start(self.ready,1));self.mission.drain()
+        self.mission.set_pose(pose(1),1.1)
+        self.assertTrue(self.ack('arrived',1.11,stopped=True))
+        self.assertEqual(self.mission.state,'await_return_layer')
+        self.assertEqual(self.mission.return_points,[[0,0]])
+
     def test_layer_commit_waits_for_actual_stop_and_matching_version(self):
         self.start(); layer = build([{**detection(), 'confirmed': True}], .2)
         self.mission.submit_layer(layer, 1.1)

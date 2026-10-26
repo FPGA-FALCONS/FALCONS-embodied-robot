@@ -24,7 +24,10 @@ module inspection_frame_store #(
     output wire [23:0] o_rgb,
     output wire o_rgb_valid,o_fault
 );
-    reg fresh;
+    reg fresh,read_enable;
+    always @(posedge clk or negedge rst_n)begin
+        if(!rst_n)read_enable<=0;else read_enable<=i_show && fresh;
+    end
     wire reset_all_n=rst_n && i_ddr_initialized;
     reg [2:0] sys_reset,ddr_reset,pixel_reset;
     always @(posedge clk or negedge reset_all_n)
@@ -59,7 +62,7 @@ module inspection_frame_store #(
     wire [31:0] free;
     wire [15:0] colour;
     wire data_reset_n=read_fifo_reset && pixel_reset[2];
-    inspection_frame_reader reader(.clk(ddr_clk),.rst_n(ddr_reset[2]),.i_enable(i_show && fresh),.i_pixel_tick(tick),.i_pixel_publish_ack(publish_ack),
+    inspection_frame_reader reader(.clk(ddr_clk),.rst_n(ddr_reset[2]),.i_enable(read_enable),.i_pixel_tick(tick),.i_pixel_publish_ack(publish_ack),
         .i_publish_toggle(publish_toggle),.i_publish_bank(publish_bank),.o_publish_done(publish_done),
         .o_read_valid(o_read_valid),.o_read_address(o_read_address),.i_read_ready(i_read_ready),
         .i_response_valid(i_response_valid),.i_response_data(i_response_data),.i_fifo_free(free),

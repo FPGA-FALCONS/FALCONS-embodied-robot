@@ -105,8 +105,10 @@ def render(view, mission, objects, *, camera=None, detections=(), radar_raw=None
     else:
         raise ValueError('Unknown inspection view')
     cv2.rectangle(image, (0, 0), (WIDTH-1, 31), (32, 24, 16), -1)
-    caption = STATES.get(mission['state'], mission['state'])
+    caption = {'recording':'录音中，上拨结束','recognizing':'正在识别语音'}.get(mission.get('recording_phase'),STATES.get(mission['state'], mission['state']))
     text(image, caption, 12, 8)
+    if mission.get('instruction'):
+        text(image,str(mission['instruction'])[:48],12,HEIGHT-18,(0,220,255))
     if not calibration_ready:
         text(image, '未标定：仅观察，不授权运动', 352, 8, (20, 170, 255))
     return image

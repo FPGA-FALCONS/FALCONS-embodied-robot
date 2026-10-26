@@ -57,7 +57,7 @@ module inspection_dispatch #(
             o_clock_request<=0;o_ui_close<=0;
             if(state==IDLE || state==FINISH)timer<=0;
             else if(timer<TIMER_LIMIT)timer<=timer+1'b1;
-            if(i_current_epoch!=upload_epoch || i_current_session!=upload_session)upload_context<=0;
+            if(!i_upload_allowed || i_current_epoch!=upload_epoch || i_current_session!=upload_session)upload_context<=0;
             case(state)
                 IDLE: if(i_valid)begin
                     kind<=i_kind;count<=i_count;index<=0;header_count<=i_kind==4?4:i_count;
@@ -106,12 +106,14 @@ module inspection_dispatch #(
                 end
                 DATA_READ:state<=DATA_TAKE;
                 DATA_TAKE:begin o_layer_word<=i_word;o_word_index<=data_offset;state<=DATA_SEND;end
-                DATA_SEND:if(i_layer_ready)begin
+                DATA_SEND:if(!i_upload_allowed)begin state<=FINISH;o_error<=1;upload_context<=0;end
+                else if(i_layer_ready)begin
                     o_word_valid<=1;data_offset<=data_offset+1'b1;
                     if(index+1==count)state<=FINISH;
                     else begin index<=index+1'b1;state<=DATA_READ;end
                 end
-                COMMIT_WAIT:if(!i_layer_busy)begin o_commit<=1;upload_context<=0;state<=FINISH;end
+                COMMIT_WAIT:if(!i_upload_allowed)begin state<=FINISH;o_error<=1;upload_context<=0;end
+                else if(!i_layer_busy)begin o_commit<=1;upload_context<=0;state<=FINISH;end
                 FINISH:state<=IDLE;
                 default:state<=IDLE;
             endcase

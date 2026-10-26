@@ -55,6 +55,14 @@ module ddr3_ctrl_2port #(parameter integer AI_DISPLAY_ENABLE=0)(
 );
     wire    ui_clk;
     wire    ui_clk_sync_rst;
+    // The legacy adapter previously deasserted a sys-domain reset through
+    // FIFO address/CE logic. Release it locally before sharing DDR clients.
+    wire ui_reset_input_n=sys_rst_n && init_calib_complete;
+    reg [2:0] ui_reset;
+    always @(posedge ui_clk or negedge ui_reset_input_n)begin
+        if(!ui_reset_input_n)ui_reset<=0;else ui_reset<={ui_reset[1:0],1'b1};
+    end
+    wire ui_reset_n=ui_reset[2];
     wire    app_rdy;
     wire    app_wdf_rdy;
     wire    app_rd_data_valid;
@@ -74,7 +82,7 @@ module ddr3_ctrl_2port #(parameter integer AI_DISPLAY_ENABLE=0)(
     wire [2:0] legacy_app_cmd;
     assign ai_ddr_clk=ui_clk;
     generate if(AI_DISPLAY_ENABLE)begin:g_ai_arb
-        inspection_ddr_arb arb(.clk(ui_clk),.rst_n(sys_rst_n),.i_initialized(init_calib_complete),
+        inspection_ddr_arb arb(.clk(ui_clk),.rst_n(ui_reset_n),.i_initialized(init_calib_complete),
             .i_legacy_want(legacy_request),.i_legacy_en(legacy_app_en),.i_legacy_cmd(legacy_app_cmd),
             .i_legacy_address(legacy_app_addr),.i_legacy_write_data(legacy_app_wdf_data),
             .o_legacy_ready(legacy_app_rdy),.o_legacy_write_ready(legacy_app_wdf_rdy),
@@ -95,7 +103,7 @@ module ddr3_ctrl_2port #(parameter integer AI_DISPLAY_ENABLE=0)(
     fifo_ddr3_adapter fifo_ddr3_adapter(
        .o_request(legacy_request),
        .ui_clk(ui_clk)              ,    //DDR用户时钟信号
-       .rst_n(sys_rst_n)               ,    //外部按键复位信号
+       .rst_n(ui_reset_n)               ,    //外部按键复位信号
        .init_calib_complete(init_calib_complete) ,   //DDR初始化完成信号
        .app_rdy(legacy_app_rdy)             ,   //DDR IP核空闲
        .app_wdf_rdy(legacy_app_wdf_rdy)         ,   //DDR IP写空闲

@@ -117,20 +117,27 @@ class InspectionMission:
             self.reason = reason
 
     def set_manual(self, enabled, now):
-        if enabled:
+        if enabled and not self.manual:
             self.pause(now, 'manual_takeover', manual=True)
-        else:
+        elif not enabled:
             self.manual = False
             if self.state == 'manual_paused':
                 self.state = 'paused'  # No _goto and no automatic resumption.
 
-    def resume(self, ready, now):
+    def resume(self, ready, now, *, layer=None):
         if self.state not in ('paused', 'fault'):
             return False
+        if layer is not None:
+            self._check_layer(layer)
+            if self.layer_version==65535:raise ValueError('Layer version exhausted')
+            # The replacement is staged while stopped; no GOTO is emitted
+            # until the FPGA has acknowledged this exact layer version.
+            ready={**ready,'layer':True}
         problems = self._problems(ready, now)
         if problems:
             self.reason = 'not_ready:' + ','.join(problems); return False
         self.reason = None; self.last_status = now
+        if layer is not None:self.pending_layer={**layer,'version':self.layer_version+1}
         if self.pending_layer is not None:
             self.state = 'await_stop'; self._command('pause', now, reason='layer_update')
         else:
@@ -151,13 +158,17 @@ class InspectionMission:
         self.trace = []; self.return_points = []; self.reason = None
         self.start_point = None
 
-    def submit_layer(self, layer, now):
+    @staticmethod
+    def _check_layer(layer):
         raw, cost = layer.get('raw'), layer.get('cost')
         if (not isinstance(raw, bytes) or not isinstance(cost, bytes) or
                 len(raw) != PLANE_BYTES or len(cost) != PLANE_BYTES or
                 zlib.crc32(raw+cost) & 0xffffffff != layer.get('crc32') or
                 any(a & ~b for a, b in zip(raw, cost))):
             raise ValueError('Layer must be complete, CRC-valid and cost must contain raw')
+
+    def submit_layer(self, layer, now):
+        self._check_layer(layer)
         if self.state not in ('outbound', 'returning', 'no_path', 'await_return_layer'):
             raise ValueError('Layer update requires a running task or stopped return preparation')
         if self.layer_version == 65535:
@@ -194,7 +205,7 @@ class InspectionMission:
         elif kind == 'layer_committed' and self.state == 'await_layer' and event.get('layer_version') == self.pending_layer['version']:
             self.layer_version = self.pending_layer['version']; self.pending_layer = None
             self._goto(now)
-        elif kind == 'arrived' and self.state in ('outbound', 'returning', 'no_path') and event.get('stopped') is True:
+        elif kind == 'arrived' and self.state in ('await_start', 'outbound', 'returning', 'no_path') and event.get('stopped') is True:
             if self.pose is None or not 0 <= now-self.pose['at_s'] <= .5:
                 self.pause(now, 'arrival_pose_stale'); return True
             if self.phase == 'outbound':

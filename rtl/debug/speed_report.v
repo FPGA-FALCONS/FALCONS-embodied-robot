@@ -93,7 +93,8 @@ module speed_report #(
                      S_PREP  = 3'd1,
                      S_DIGIT = 3'd2,
                      S_SEP   = 3'd3,
-                     S_END   = 3'd4;
+                     S_END   = 3'd4,
+                     S_CAPTURE = 3'd5;
 
     reg [2:0]  state;
     reg [3:0]  field;                  // 4 位：支持最多 16 个字段（当前 12 个）
@@ -177,6 +178,7 @@ module speed_report #(
     end
 
     reg signed [31:0] field_val;
+    reg signed [31:0] field_snapshot;
     always @(*) begin
         case (field)
             4'd0:    field_val = i_tgt;
@@ -199,6 +201,7 @@ module speed_report #(
     //---------------------------------------------------------------
     always @(posedge i_clock or negedge i_reset_n) begin
         if (!i_reset_n) begin
+            field_snapshot<=32'sd0;
             state       <= S_IDLE;
             field       <= 4'd0;
             cur_val     <= 32'd0;
@@ -215,17 +218,21 @@ module speed_report #(
                 S_IDLE: begin
                     if (report_tick || i_force) begin
                         field <= 4'd0;
-                        state <= S_PREP;
+                        state <= S_CAPTURE;
                     end
                 end
+                // Break live status / field mux -> sign -> 32-bit negate.
+                // Capture on the same available-channel edge as before;
+                // formatting consumes the stable snapshot one clock later.
+                S_CAPTURE:if(!ch_pending)begin field_snapshot<=field_val;state<=S_PREP;end
                 S_PREP: begin
                     if (!ch_pending) begin
-                        if (field_val[31]) begin
-                            cur_val  <= (~field_val) + 32'd1;
+                        if (field_snapshot[31]) begin
+                            cur_val  <= (~field_snapshot) + 32'd1;
                             ch_byte  <= 8'h2D;              // '-'
                             ch_start <= 1'b1;
                         end else begin
-                            cur_val  <= field_val;
+                            cur_val  <= field_snapshot;
                         end
                         widx        <= 3'd0;
                         dcount      <= 4'd0;
@@ -262,7 +269,7 @@ module speed_report #(
                             ch_byte  <= 8'h2C;              // ','
                             ch_start <= 1'b1;
                             field    <= field + 4'd1;
-                            state    <= S_PREP;
+                            state    <= S_CAPTURE;
                         end
                     end
                 end

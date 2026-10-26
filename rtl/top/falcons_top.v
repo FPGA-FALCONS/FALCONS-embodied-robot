@@ -1681,7 +1681,7 @@ module falcons_top (
         .pose_yaw_cdeg(navigation_yaw_cdeg),
         .goal_valid(inspection_owned?inspection_goal_valid:obs_goal_valid),
         .goal_x_cell(inspection_owned?inspection_goal_x:obs_goal_x),.goal_y_cell(inspection_owned?inspection_goal_y:obs_goal_y),
-        .ai_enable(inspection_owned),.ai_begin(inspection_begin),.ai_abort(1'b0),.ai_commit(inspection_commit),
+        .ai_enable(inspection_owned),.ai_begin(inspection_begin),.ai_abort(!inspection_permission || manual_drive || !ai_host_alive),.ai_commit(inspection_commit),
         .ai_word_valid(inspection_word_valid),.ai_stopped(inspection_stopped),.ai_epoch(inspection_epoch),
         .ai_begin_epoch(inspection_layer_epoch),.ai_expected_crc(inspection_layer_crc),.ai_word(inspection_layer_word),
         .ai_begin_version(inspection_begin_version),.ai_word_index(inspection_word_index),

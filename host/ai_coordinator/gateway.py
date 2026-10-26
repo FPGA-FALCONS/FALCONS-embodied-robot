@@ -10,6 +10,7 @@ from collections import deque
 import os
 from .schema import PacketReader,packet
 from .ai_link import ControlReader
+from .inspection.wire import Reader as InspectionReader
 
 CAPABILITIES={'start_search':'search_v1','target_found':'target_accept_v1','return_home':'return_home_v1','cancel':'cancel_v1'}
 CAPABILITIES.update({'goto_waypoint':'waypoint_v1','pause_patrol':'pause_patrol_v1',
@@ -128,6 +129,7 @@ class Gateway:
         self.transport=transport or SerialPort(cfg.get('device',''))
         self.reader=PacketReader()
         self.ai_reader=ControlReader()
+        self.inspection_reader=InspectionReader()
         self.capabilities=set();self.peer_boot=None;self.last_rx=None;self.rx_seq=-1;self.tx_seq=0
         self.last_heartbeat=0
         self.state='shadow' if cfg.get('mode','shadow')=='shadow' else 'disconnected'
@@ -144,7 +146,7 @@ class Gateway:
         # No DTR toggle, reset, firmware upload or competing serial owner.
         try:self.transport.open()
         except BaseException:self.transport.close();raise
-        self.reader=PacketReader();self.ai_reader=ControlReader()
+        self.reader=PacketReader();self.ai_reader=ControlReader();self.inspection_reader=InspectionReader()
         self.capabilities=set();self.peer_boot=None;self.last_rx=None;self.rx_seq=-1
         self.last_heartbeat=0
         self.state='awaiting_firmware_hello'
@@ -174,6 +176,8 @@ class Gateway:
                 except BlockingIOError:break
                 if not data:break
                 events.extend(self.ai_reader.feed(data))
+                events.extend({'kind':'inspection_packet','message':message,'received_at_s':now}
+                              for message in self.inspection_reader.feed(data,now))
                 for event in self.reader.feed(data):
                     if event.get('v')!=1:continue
                     seq=event.get('sequence')

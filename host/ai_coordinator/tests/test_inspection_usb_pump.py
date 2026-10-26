@@ -68,6 +68,12 @@ class PumpTests(unittest.TestCase):
         self.cycle(10);self.assertFalse(self.p.status()['verified'])
         self.now+=4
         with self.assertRaisesRegex(OSError,'diagnostic'):self.cycle()
+    def test_view_change_keeps_layer_queue_and_explicit_pause_discards_it(self):
+        self.p.offer(self.control(1));self.p.offer(self.display(2))
+        self.p.bind(1,2,3,5)
+        self.assertEqual(self.p.status()['pending_control'],1)
+        self.assertFalse(self.p.status()['pending_display'])
+        self.p.drop_controls();self.assertEqual(self.p.status()['pending_control'],0)
     def test_only_verified_bound_maps_are_retained_and_receive_queue_is_bounded(self):
         self.verified()
         for n in range(5):
