@@ -1610,7 +1610,7 @@ module falcons_top (
             if(inspection_permission && !manual_drive && rc_confirm)inspection_user_token<=inspection_user_token+1'b1;
         end
     end
-    inspection_application #(.CLK_HZ(CLK_HZ),.UI_ENABLE(1),.HIGHSPEED_ENABLE(1)) u_inspection(
+    inspection_application #(.CLK_HZ(CLK_HZ),.UI_ENABLE(1),.HIGHSPEED_ENABLE(1),.CLOCK_ENABLE(1)) u_inspection(
         .clk(i_clk_50m),.rst_n(sys_rst_n),.i_rx_data(motion_rx_data),.i_rx_valid(motion_rx_valid),
         .i_usb_valid(inspection_usb_valid),.i_usb_words(inspection_usb_words),.o_usb_release(inspection_usb_release),
         .o_usb_read(inspection_usb_read),.o_usb_address(inspection_usb_address),.i_usb_data(inspection_usb_data),

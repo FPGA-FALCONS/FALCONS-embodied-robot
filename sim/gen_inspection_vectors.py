@@ -28,3 +28,6 @@ mailboxes = (encode(3, [1,2,3,4,5,6], 9), encode(1, [7], 10),
 for index, data in enumerate(mailboxes):
     out.joinpath(f'inspection_mailbox_{index}.hex').write_text(
         ''.join(f'{int.from_bytes(data[i:i+2], "little"):04x}\n' for i in range(0,len(data),2)), encoding='ascii')
+
+out.joinpath('inspection_clock_requests.hex').write_text(''.join(f'{b:02x}\n' for b in
+    encode(HELLO,[5],1)+encode(8,[5,1,123],2)+encode(8,[99,1,124],3)+encode(8,[5,2,125],4)),encoding='ascii')

@@ -3,6 +3,7 @@
 // All ports are in clk; the optional high-speed adapter must cross clocks first.
 module inspection_application #(
     parameter integer CLK_HZ=50_000_000,
+    parameter integer CLOCK_ENABLE=0,
     parameter integer HIGHSPEED_ENABLE=0,
     parameter integer UI_ENABLE=0
 )(
@@ -81,7 +82,8 @@ module inspection_application #(
         assign usb_valid=0,usb_kind=0,usb_sequence=0,usb_count=0,usb_word=0;
         assign o_usb_release=0,o_usb_read=0,o_usb_address=0;
     end endgenerate
-    wire hello,control,heartbeat,upload_allowed,caps_request;
+    wire hello,control,heartbeat,upload_allowed,caps_request,clock_request;
+    wire [31:0] clock_nonce;
     wire [31:0] request_session,request_task,request_epoch,request_command;
     wire [31:0] flags,goal_x,goal_y,layer_speed;
     wire [31:0] session,task_id,command;
@@ -97,6 +99,7 @@ module inspection_application #(
         .o_word_valid(o_layer_word_valid),.o_session(request_session),.o_task(request_task),.o_epoch(request_epoch),.o_command(request_command),
         .o_flags(flags),.o_goal_x(goal_x),.o_goal_y(goal_y),.o_layer_speed(layer_speed),
         .o_expected_crc(o_layer_crc),.o_layer_word(o_layer_word),.o_word_index(o_layer_word_index),.o_layer_version(o_layer_version),
+        .o_clock_request(clock_request),.o_clock_nonce(clock_nonce),
         .o_ui_close(ui_close_request),.o_ui_revision(ui_revision),.o_error());
     assign o_layer_epoch=request_epoch;
     inspection_nav_control #(.CLK_HZ(CLK_HZ)) authority(
@@ -160,12 +163,13 @@ module inspection_application #(
             end
         end
     end
-    inspection_telemetry #(.REPORT_CYCLES(CLK_HZ/10),.INPUT_ENABLE(UI_ENABLE)) telemetry(
+    inspection_telemetry #(.REPORT_CYCLES(CLK_HZ/10),.INPUT_ENABLE(UI_ENABLE),.CLOCK_ENABLE(CLOCK_ENABLE)) telemetry(
         .clk(clk),.rst_n(rst_n),.i_enabled(i_link && session!=0),.i_caps_request(caps_request),
         .i_session(session),.i_task(task_id),.i_epoch(i_epoch),.i_command(command),.i_status(o_status),.i_error(error_code),
         .i_layer_version(i_layer_version),.i_flags(status_flags),.i_pose_sequence(pose_sequence),.i_pose_time_us(pose_time_us),
         .i_x_mm(i_x_mm),.i_y_mm(i_y_mm),.i_yaw_cdeg(i_yaw_cdeg),.i_pose_valid(i_pose_valid),
         .i_input_words(input_words),.i_input_sequence(input_sequence),.i_input_flags(input_flags),
+        .i_clock_request(clock_request),.i_clock_nonce(clock_nonce),.i_time_us(time_us),
         .i_tx_busy(tx_busy),.o_start(tx_start),.o_kind(tx_kind),.o_count(tx_count),.o_words(tx_words));
     inspection_packet_tx transmitter(.clk(clk),.rst_n(rst_n),.i_start(tx_start),.i_kind(tx_kind),.i_count(tx_count),.i_words(tx_words),
         .o_busy(tx_busy),.o_data(o_tx_data),.o_valid(o_tx_valid),.o_last(o_tx_last),.i_ready(i_tx_ready));

@@ -228,6 +228,7 @@ $sources += @("$ProjectRoot\rtl\ai\inspection_fx2_phy.v", "$ProjectRoot\rtl\ai\i
 $sources += @(
     "$ProjectRoot\rtl\ai\inspection_mailbox_rx.v",
     "$PSScriptRoot\inspection_mailbox_tb.v",
+    "$PSScriptRoot\inspection_timebase_tb.v",
     "$ProjectRoot\rtl\ai\inspection_ddr_arb.v",
     "$ProjectRoot\rtl\ai\inspection_frame_tokens.v",
     "$ProjectRoot\rtl\ai\inspection_frame_writer.v",
@@ -240,6 +241,7 @@ $sources += @(
     "$PSScriptRoot\inspection_map_export_tb.v"
 )
 $tests = @(
+    @{ Name = 'inspection_timebase'; Top = 'inspection_timebase_tb'; Desc = 'Device clock exchange / nonce and epoch isolation / no authority' },
     @{ Name = 'inspection_mailbox'; Top = 'inspection_mailbox_tb'; Desc = 'Validated layer-only USB mailbox / UART authority isolation' },
     @{ Name = 'inspection_ddr_arb'; Top = 'inspection_ddr_arb_tb'; Desc = 'Independent DDR AI display / passive map export' },
     @{ Name = 'inspection_frame'; Top = 'inspection_frame_tb'; Desc = 'Independent DDR AI display / passive map export' },
