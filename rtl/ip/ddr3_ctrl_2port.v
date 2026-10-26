@@ -1,4 +1,4 @@
-module ddr3_ctrl_2port(
+module ddr3_ctrl_2port #(parameter integer AI_DISPLAY_ENABLE=0)(
     input           clk                 ,      //50M时钟信号
     input           pll_lock            ,
     input           clk_200m            ,      //DDR3参考时钟信号
@@ -25,6 +25,17 @@ module ddr3_ctrl_2port(
     output  [15:0]  rfifo_dout          , //rd_fifo读出的数据信号 
     
 
+    // Optional independent AI frame clients share this existing controller.
+    output wire ai_ddr_clk,
+    input wire ai_write_valid,
+    input wire [27:0] ai_write_address,
+    input wire [127:0] ai_write_data,
+    output wire ai_write_ready,
+    input wire ai_read_valid,
+    input wire [27:0] ai_read_address,
+    output wire ai_read_ready,ai_response_valid,
+    output wire [127:0] ai_response_data,
+    output wire ai_protocol_fault,
     //DDR3   
     inout   [15:0]     ddr3_dq             ,   //DDR3 数据
     inout   [1:0]      ddr3_dqs_n          ,   //DDR3 dqs负
@@ -56,20 +67,46 @@ module ddr3_ctrl_2port(
     wire [127:0] app_wdf_data;
     wire pll_stop;
 
+    wire legacy_request,legacy_app_rdy,legacy_app_wdf_rdy,legacy_app_rd_data_valid;
+    wire legacy_app_en,legacy_app_wdf_wren,legacy_app_wdf_end;
+    wire [127:0] legacy_app_rd_data,legacy_app_wdf_data;
+    wire [27:0] legacy_app_addr;
+    wire [2:0] legacy_app_cmd;
+    assign ai_ddr_clk=ui_clk;
+    generate if(AI_DISPLAY_ENABLE)begin:g_ai_arb
+        inspection_ddr_arb arb(.clk(ui_clk),.rst_n(sys_rst_n),.i_initialized(init_calib_complete),
+            .i_legacy_want(legacy_request),.i_legacy_en(legacy_app_en),.i_legacy_cmd(legacy_app_cmd),
+            .i_legacy_address(legacy_app_addr),.i_legacy_write_data(legacy_app_wdf_data),
+            .o_legacy_ready(legacy_app_rdy),.o_legacy_write_ready(legacy_app_wdf_rdy),
+            .o_legacy_read_valid(legacy_app_rd_data_valid),.o_legacy_read_data(legacy_app_rd_data),
+            .i_write_valid(ai_write_valid),.i_write_address(ai_write_address),.i_write_data(ai_write_data),.o_write_ready(ai_write_ready),
+            .i_read_valid(ai_read_valid),.i_read_address(ai_read_address),.o_read_ready(ai_read_ready),
+            .o_read_valid(ai_response_valid),.o_read_data(ai_response_data),
+            .i_memory_ready(app_rdy),.i_memory_write_ready(app_wdf_rdy),.i_memory_read_valid(app_rd_data_valid),.i_memory_read_data(app_rd_data),
+            .o_memory_en(app_en),.o_memory_write_en(app_wdf_wren),.o_memory_write_end(app_wdf_end),
+            .o_memory_cmd(app_cmd),.o_memory_address(app_addr),.o_memory_write_data(app_wdf_data),.o_protocol_fault(ai_protocol_fault));
+    end else begin:g_original_camera
+        assign legacy_app_rdy=app_rdy,legacy_app_wdf_rdy=app_wdf_rdy;
+        assign legacy_app_rd_data_valid=app_rd_data_valid,legacy_app_rd_data=app_rd_data;
+        assign app_addr=legacy_app_addr,app_cmd=legacy_app_cmd,app_en=legacy_app_en;
+        assign app_wdf_data=legacy_app_wdf_data,app_wdf_wren=legacy_app_wdf_wren,app_wdf_end=legacy_app_wdf_end;
+        assign ai_write_ready=0,ai_read_ready=0,ai_response_valid=0,ai_response_data=0,ai_protocol_fault=0;
+    end endgenerate
     fifo_ddr3_adapter fifo_ddr3_adapter(
+       .o_request(legacy_request),
        .ui_clk(ui_clk)              ,    //DDR用户时钟信号
        .rst_n(sys_rst_n)               ,    //外部按键复位信号
        .init_calib_complete(init_calib_complete) ,   //DDR初始化完成信号
-       .app_rdy(app_rdy)             ,   //DDR IP核空闲
-       .app_wdf_rdy(app_wdf_rdy)         ,   //DDR IP写空闲
-       .app_rd_data_valid(app_rd_data_valid)   ,   //DDR读数据有效信号
-       .app_rd_data(app_rd_data)         ,
-       .app_addr(app_addr)            ,   //DDR3地址信号
-       .app_en(app_en)              ,   //DDR3命令和数据使能信号
-       .app_wdf_wren(app_wdf_wren)        ,   //DDR3用户写使能信号
-       .app_wdf_end(app_wdf_end)         ,   //DDR3写数据结束信号
-       .app_cmd(app_cmd)             ,   //DDR3命令信号：0：写；1：读
-       .app_wdf_data(app_wdf_data)        ,   //写入进DDR的数据
+       .app_rdy(legacy_app_rdy)             ,   //DDR IP核空闲
+       .app_wdf_rdy(legacy_app_wdf_rdy)         ,   //DDR IP写空闲
+       .app_rd_data_valid(legacy_app_rd_data_valid)   ,   //DDR读数据有效信号
+       .app_rd_data(legacy_app_rd_data)         ,
+       .app_addr(legacy_app_addr)            ,   //DDR3地址信号
+       .app_en(legacy_app_en)              ,   //DDR3命令和数据使能信号
+       .app_wdf_wren(legacy_app_wdf_wren)        ,   //DDR3用户写使能信号
+       .app_wdf_end(legacy_app_wdf_end)         ,   //DDR3写数据结束信号
+       .app_cmd(legacy_app_cmd)             ,   //DDR3命令信号：0：写；1：读
+       .app_wdf_data(legacy_app_wdf_data)        ,   //写入进DDR的数据
        .rd_load(rd_load)             ,   //输出源更新信号
        .wr_load(wr_load)             ,   //输入源更新信号
        .app_addr_rd_min(app_addr_rd_min)     ,   //读DDR3的起始地址

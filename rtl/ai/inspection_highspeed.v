@@ -23,6 +23,13 @@ module inspection_highspeed #(
     input wire i_control_ready,i_control_read,
     input wire [7:0] i_control_address,
     output wire [15:0] o_control_data,
+    input wire i_map_valid,
+    output reg o_map_release,
+    input wire [31:0] i_map_session,i_map_task,i_map_epoch,i_map_context,i_map_sequence,i_map_crc,
+    input wire [1:0] i_map_view,
+    output wire o_map_read,
+    output wire [11:0] o_map_address,
+    input wire [15:0] i_map_data,
     output reg [31:0] o_diagnostics
 );
     wire clock_alive;
@@ -36,8 +43,9 @@ module inspection_highspeed #(
     end
     wire [31:0] measured_hz;
     wire frequency_valid;
+    reg measure_start,diagnostic_wait;
     generate if(CLOCK_PROBE_ENABLE)begin:g_clock_probe
-        inspection_fx2_clock #(.CLK_HZ(CLK_HZ)) probe(.clk(clk),.rst_n(rst_n),.fx2_clk(fx2_clk),.o_hz(measured_hz),.o_valid(frequency_valid),.o_alive(clock_alive));
+        inspection_fx2_clock #(.CLK_HZ(CLK_HZ)) probe(.clk(clk),.rst_n(rst_n),.fx2_clk(fx2_clk),.i_measure(measure_start),.o_hz(measured_hz),.o_valid(frequency_valid),.o_alive(clock_alive));
     end else begin:g_fixed_test_clock
         assign measured_hz=30_000_000;
         assign frequency_valid=1'b1;
@@ -79,25 +87,39 @@ module inspection_highspeed #(
     assign o_control_data=message_data;
     wire tx_busy,tx_read;
     wire [11:0] tx_address;
-    reg diagnostic_active,tx_start,diagnostic_ack;
+    reg diagnostic_active,map_active,tx_start,diagnostic_ack;
+    assign o_map_read=map_active && tx_read;
+    assign o_map_address=tx_address;
     assign message_read=diagnostic_active?tx_read:i_control_read;
     assign message_address=diagnostic_active?tx_address[7:0]:i_control_address;
     assign message_ready=diagnostic_ack || (o_control_valid && i_control_ready);
     always @(posedge clk or negedge rst_n)begin
-        if(!rst_n)begin diagnostic_active<=0;tx_start<=0;diagnostic_ack<=0;o_diagnostics<=0;end
+        if(!rst_n)begin measure_start<=0;diagnostic_wait<=0;diagnostic_active<=0;map_active<=0;o_map_release<=0;tx_start<=0;diagnostic_ack<=0;o_diagnostics<=0;end
         else begin
-            tx_start<=0;diagnostic_ack<=0;
-            if(message_valid && message_kind==4 && frequency_valid && !diagnostic_active && !tx_busy && !diagnostic_ack)begin
-                tx_start<=1;diagnostic_active<=1;
+            measure_start<=0;tx_start<=0;diagnostic_ack<=0;o_map_release<=0;
+            if(message_valid && message_kind==4 && !diagnostic_wait && !diagnostic_active && !tx_busy && !map_active && !diagnostic_ack && !o_map_release)begin
+                measure_start<=1;diagnostic_wait<=1;
+            end else if(i_map_valid && !diagnostic_wait && !map_active && !diagnostic_active && !tx_busy && !diagnostic_ack && !o_map_release)begin
+                tx_start<=1;map_active<=1;
+            end
+            if(diagnostic_wait && !measure_start && frequency_valid && clock_alive && !tx_busy && !map_active)begin
+                diagnostic_wait<=0;tx_start<=1;diagnostic_active<=1;
             end
             if(diagnostic_active && tx_valid && tx_ready && tx_last)begin
                 diagnostic_ack<=1;diagnostic_active<=0;o_diagnostics<=o_diagnostics+1'b1;
             end
+            if(map_active && tx_valid && tx_ready && tx_last)begin
+                o_map_release<=1;map_active<=0;
+            end
         end
     end
-    inspection_stream_tx transmitter(.clk(clk),.rst_n(rst_n),.i_start(tx_start),.i_kind(8'd4),
-        .i_session(measured_hz),.i_task(message_task),.i_epoch(message_epoch),.i_context(message_context),.i_sequence(message_sequence ^ 32'h46504741),
-        .i_bytes({22'd0,message_words,1'b0}),.i_crc(message_crc),.i_width(16'd0),.i_height(16'd0),.i_stride(16'd0),.i_view(message_view),
-        .o_busy(tx_busy),.o_payload_read(tx_read),.o_payload_address(tx_address),.i_payload_data(message_data),
+    inspection_stream_tx transmitter(.clk(clk),.rst_n(rst_n),.i_start(tx_start),.i_kind(map_active?8'd3:8'd4),
+        .i_session(map_active?i_map_session:measured_hz),.i_task(map_active?i_map_task:message_task),
+        .i_epoch(map_active?i_map_epoch:message_epoch),.i_context(map_active?i_map_context:message_context),
+        .i_sequence(map_active?i_map_sequence:(message_sequence ^ 32'h46504741)),
+        .i_bytes(map_active?32'd8192:{22'd0,message_words,1'b0}),.i_crc(map_active?i_map_crc:message_crc),
+        .i_width(map_active?16'd256:16'd0),.i_height(map_active?16'd256:16'd0),.i_stride(map_active?16'd32:16'd0),
+        .i_view(map_active?{14'd0,i_map_view}:message_view),
+        .o_busy(tx_busy),.o_payload_read(tx_read),.o_payload_address(tx_address),.i_payload_data(map_active?i_map_data:message_data),
         .o_data(tx_data),.o_valid(tx_valid),.o_last(tx_last),.i_ready(tx_ready));
 endmodule

@@ -11,6 +11,7 @@ module fifo_ddr3_adapter(
     input           app_rd_data_valid   ,   //DDR读数据有效信号
     input   [127:0] app_rd_data         ,
     output  [27:0]  app_addr            ,   //DDR3地址信号
+    output          o_request, // Request independent of arbitration grant
     output          app_en              ,   //DDR3命令和数据使能信号
     output          app_wdf_wren        ,   //DDR3用户写使能信号
     output          app_wdf_end         ,   //DDR3写数据结束信号
@@ -88,6 +89,7 @@ module fifo_ddr3_adapter(
     reg    [10:0] raddr_rst_h_cnt;      //输出源的帧复位脉冲进行计数 
 
     //在写状态且写有效,或者在读状态，此时使能信号为高，其他情况为低
+    assign o_request = state == WRITE || state == READ;
     assign app_en = ((state == WRITE && (app_rdy && app_wdf_rdy))
                     ||(state == READ && app_rdy)) ? 1'b1:1'b0;
 

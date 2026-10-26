@@ -86,7 +86,7 @@ class USBPump:
             sequence=secrets.randbits(32)
             self.challenge=Container(DIAGNOSTIC,0,0,0,0,sequence,payload=secrets.token_bytes(32))
             self.active=(self.challenge,self.challenge.encode());self.offset=0
-            self.challenge_deadline=now+2.
+            self.challenge_deadline=now+3.5
         if self.active is None:
             with self.lock:
                 if self.verified:

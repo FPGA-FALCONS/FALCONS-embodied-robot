@@ -138,7 +138,7 @@ def main():
         print(json.dumps({'identity':identity,'operation':'descriptor_probe_only','firmware_changed':False}));return 0
     sequence=time.monotonic_ns()&0xffffffff
     frame=Container(DIAGNOSTIC,0,0,0,0,sequence,payload=b'FALCONS-AIF1-DIAG\0'+bytes(range(32)))
-    wire=frame.encode();reader=Reader();deadline=time.monotonic()+2.;offset=0
+    wire=frame.encode();reader=Reader();deadline=time.monotonic()+3.5;offset=0
     with USBLink(cfg) as link:
         while time.monotonic()<deadline:
             if offset<len(wire):offset=link.write_once(wire,offset)

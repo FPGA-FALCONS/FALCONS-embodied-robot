@@ -66,7 +66,7 @@ class PumpTests(unittest.TestCase):
         self.cycle();self.links[0].incoming.clear()
         self.links[0].incoming.extend(self.links[0].frames[0].encode())
         self.cycle(10);self.assertFalse(self.p.status()['verified'])
-        self.now+=3
+        self.now+=4
         with self.assertRaisesRegex(OSError,'diagnostic'):self.cycle()
     def test_only_verified_bound_maps_are_retained_and_receive_queue_is_bounded(self):
         self.verified()

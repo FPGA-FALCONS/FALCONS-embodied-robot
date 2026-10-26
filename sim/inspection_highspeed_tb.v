@@ -2,6 +2,15 @@
 module inspection_highspeed_tb;
     reg clk=0,fclk=0,rst=0;
     reg [15:0] vectors[0:135],reply_words[0:39];
+    reg [15:0] map_words[0:4119];
+    reg map_valid=0;
+    wire map_release,map_read;
+    wire [11:0] map_address;
+    reg [15:0] map_data;
+    always @(posedge clk)begin
+        if(map_read)map_data<={4'd0,map_address}^16'h5a5a;
+        if(map_release)map_valid<=0;
+    end
     wire [15:0] fd;
     wire [1:0] address;
     wire rd_n,wr_n,oe_n,end_n,cs_n;
@@ -16,11 +25,14 @@ module inspection_highspeed_tb;
         .i_display_enabled(1'b0),.i_session(32'd0),.i_task(32'd0),.i_epoch(32'd1),.i_context(32'd0),.i_view(2'd0),
         .o_frame_begin(),.o_frame_commit(),.o_frame_abort(),.o_frame_sequence(),.i_frame_ready(1'b0),
         .o_frame_data(),.o_frame_valid(),.i_frame_word_ready(1'b0),.o_control_valid(),.o_control_words(),
+        .i_map_valid(map_valid),.o_map_release(map_release),.i_map_session(32'd1),.i_map_task(32'd2),
+        .i_map_epoch(32'd3),.i_map_context(32'd7),.i_map_sequence(32'h00050006),.i_map_crc(32'he23affd8),
+        .i_map_view(2'd1),.o_map_read(map_read),.o_map_address(map_address),.i_map_data(map_data),
         .i_control_ready(1'b1),.i_control_read(1'b0),.i_control_address(8'd0),.o_control_data(),.o_diagnostics(diagnostics));
     always @(posedge fclk)begin
         if(!rd_n)out_index<=out_index+1;
         if(!wr_n)begin
-            if(in_index>=80 || fd!==reply_words[in_index%40])begin errors=errors+1;$display("FAIL: physical diagnostic reply word %0d value %h",in_index,fd);end
+            if((in_index<80 && fd!==reply_words[in_index%40]) || (in_index>=80 && (in_index>=4200 || fd!==map_words[in_index-80])))begin errors=errors+1;$display("FAIL: physical diagnostic reply word %0d value %h",in_index,fd);end
             in_index<=in_index+1;
         end
         if(!end_n)flushes<=flushes+1;
@@ -33,10 +45,13 @@ module inspection_highspeed_tb;
     initial begin
         $readmemh("vectors/inspection_stream.hex",vectors);
         $readmemh("vectors/inspection_diagnostic_reply.hex",reply_words);
+        $readmemh("vectors/inspection_map_stream.hex",map_words);
         #100;rst=1;
         wait(in_index==80);repeat(30)@(negedge fclk);
         check(out_index==80 && in_index==80 && !errors,"back-to-back host containers survive PHY and both asynchronous FIFOs");
         check(diagnostics==2 && flushes==2,"exactly two diagnostics and short packet flushes without AI or motor authority");
+        map_valid=1;wait(in_index==4200);repeat(30)@(negedge fclk);
+        check(!map_valid && !errors && diagnostics==2 && flushes==3,"full 8192-byte map matches host CRC/header and releases held source only after TX");
         $display("CHECKS: %0d",checks);
         if(!errors)$display("PASS: inspection_highspeed %0d checks",checks);else $display("FAIL: inspection_highspeed %0d",errors);
         $finish;

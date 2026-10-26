@@ -25,7 +25,7 @@ def diagnostic_reply(challenge,frequency_hz=30_000_000):
 
 
 def valid_diagnostic(challenge,reply):
-    return isinstance(reply,Container) and 29_400_000<=reply.session<=30_600_000 and reply==diagnostic_reply(challenge,reply.session)
+    return isinstance(reply,Container) and 29_970_000<=reply.session<=30_030_000 and reply==diagnostic_reply(challenge,reply.session)
 
 
 @dataclass(frozen=True)

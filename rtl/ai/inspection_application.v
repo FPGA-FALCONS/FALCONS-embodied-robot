@@ -3,6 +3,7 @@
 // All ports are in clk; the optional high-speed adapter must cross clocks first.
 module inspection_application #(
     parameter integer CLK_HZ=50_000_000,
+    parameter integer HIGHSPEED_ENABLE=0,
     parameter integer UI_ENABLE=0
 )(
     input wire clk,rst_n,
@@ -36,17 +37,50 @@ module inspection_application #(
     output wire [7:0] o_status,
     output wire [7:0] o_tx_data,
     output wire o_tx_valid,o_tx_last,
-    input wire i_tx_ready
+    input wire i_tx_ready,
+    input wire i_usb_valid,
+    input wire [8:0] i_usb_words,
+    output wire o_usb_release,o_usb_read,
+    output wire [7:0] o_usb_address,
+    input wire [15:0] i_usb_data
 );
     wire message_valid,message_ready,word_read;
     wire [7:0] kind,sequence;
     wire [5:0] count;
     wire [4:0] word_index;
     wire [31:0] read_word;
+    wire uart_valid,uart_ready,usb_valid,usb_ready;
+    wire [7:0] uart_kind,uart_sequence,usb_kind,usb_sequence;
+    wire [5:0] uart_count,usb_count;
+    wire [31:0] uart_word,usb_word;
+    reg [1:0] owner;
+    always @(posedge clk or negedge rst_n)begin
+        if(!rst_n)owner<=0;
+        else if(owner==0)begin
+            if(uart_valid)owner<=1;else if(usb_valid)owner<=2;
+        end else if(message_ready)owner<=0;
+    end
+    assign message_valid=owner==1?uart_valid:owner==2?usb_valid:1'b0;
+    assign kind=owner==2?usb_kind:uart_kind;
+    assign sequence=owner==2?usb_sequence:uart_sequence;
+    assign count=owner==2?usb_count:uart_count;
+    assign read_word=owner==2?usb_word:uart_word;
+    assign uart_ready=owner==1 && message_ready;
+    assign usb_ready=owner==2 && message_ready;
     inspection_packet_rx #(.CLK_HZ(CLK_HZ)) receiver(
         .clk(clk),.rst_n(rst_n),.i_data(i_rx_data),.i_valid(i_rx_valid),.o_ready(o_rx_ready),
-        .o_message_valid(message_valid),.i_message_ready(message_ready),.o_kind(kind),.o_sequence(sequence),.o_count(count),
-        .i_word_read(word_read),.i_word_index(word_index),.o_word(read_word),.o_error());
+        .o_message_valid(uart_valid),.i_message_ready(uart_ready),.o_kind(uart_kind),.o_sequence(uart_sequence),.o_count(uart_count),
+        .i_word_read(word_read && owner==1),.i_word_index(word_index),.o_word(uart_word),.o_error());
+    generate if(HIGHSPEED_ENABLE)begin:g_usb_mailbox
+        inspection_mailbox_rx #(.CLK_HZ(CLK_HZ)) mailbox(
+            .clk(clk),.rst_n(rst_n),.i_valid(i_usb_valid),.i_words(i_usb_words),.o_release(o_usb_release),
+            .o_read(o_usb_read),.o_address(o_usb_address),.i_data(i_usb_data),
+            .o_valid(usb_valid),.i_ready(usb_ready),.o_kind(usb_kind),.o_sequence(usb_sequence),.o_count(usb_count),
+            .i_word_read(word_read && owner==2),.i_word_index(word_index),.o_word(usb_word),.o_error());
+    end else begin:g_uart_only
+        assign usb_valid=0,usb_kind=0,usb_sequence=0,usb_count=0,usb_word=0;
+        assign o_usb_release=0,o_usb_read=0,o_usb_address=0;
+    end endgenerate
     wire hello,control,heartbeat,upload_allowed,caps_request;
     wire [31:0] request_session,request_task,request_epoch,request_command;
     wire [31:0] flags,goal_x,goal_y,layer_speed;

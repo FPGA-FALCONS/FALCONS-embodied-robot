@@ -5,7 +5,7 @@
 module inspection_fx2_clock #(
     parameter integer CLK_HZ=50_000_000
 )(
-    input wire clk,rst_n,fx2_clk,
+    input wire clk,rst_n,fx2_clk,i_measure,
     output reg [31:0] o_hz,
     output reg o_valid,o_alive
 );
@@ -35,7 +35,10 @@ module inspection_fx2_clock #(
             previous_gray<=gray_2;
             if(gray_2!=previous_gray)begin quiet<=0;o_alive<=1;end
             else if(quiet<LOSS_CYCLES)quiet<=quiet+1'b1;else o_alive<=0;
-            if(window==CLK_HZ-1)begin window<=0;o_hz<=binary-last;last<=binary;o_valid<=1;end
+            // Every challenge starts a full fresh measurement. A previous
+            // successful frequency cannot survive stop/restart or reconfigure.
+            if(i_measure || !o_alive)begin window<=0;last<=binary;o_hz<=0;o_valid<=0;end
+            else if(window==CLK_HZ-1)begin window<=0;o_hz<=binary-last;last<=binary;o_valid<=1;end
             else window<=window+1'b1;
         end
     end

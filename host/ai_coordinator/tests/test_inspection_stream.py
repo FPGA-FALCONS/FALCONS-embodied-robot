@@ -7,6 +7,7 @@ class StreamTests(unittest.TestCase):
         challenge=Container(DIAGNOSTIC,0,0,0,0,42,payload=b'challenge!')
         self.assertFalse(valid_diagnostic(challenge,challenge))
         self.assertFalse(valid_diagnostic(challenge,diagnostic_reply(challenge,48_000_000)))
+        self.assertFalse(valid_diagnostic(challenge,diagnostic_reply(challenge,30_100_000)))
         self.assertFalse(valid_diagnostic(challenge,diagnostic_reply(challenge,0)))
         self.assertTrue(valid_diagnostic(challenge,diagnostic_reply(challenge,30_000_017)))
     def test_full_display_fragmentation_and_metadata(self):

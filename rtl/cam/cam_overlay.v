@@ -18,6 +18,7 @@
 //       （这正是库文档强调的「必须用异步 FIFO 或 DDR 帧缓存」）。
 // ============================================================================
 module cam_overlay #(
+    parameter integer AI_DISPLAY_ENABLE=0,
     parameter integer IMAGE_WIDTH  = 1024,
     parameter integer IMAGE_HEIGHT = 600,
     parameter integer MENU_W       = 208,      // 与 ui_render 的菜单宽度一致
@@ -58,11 +59,18 @@ module cam_overlay #(
     input  wire        pixel_clk,
     input  wire        pixel_req,
     input  wire [11:0] pixel_x,
+    input  wire [11:0] pixel_y,
     input  wire        frame_sync,       // 显示帧同步（每帧一次）
     input  wire        show_cam,         // 当前页 = 摄像头页
     input  wire [23:0] ui_rgb,           // ui_render 生成的像素
     output wire [23:0] o_rgb,            // 最终送给 hdmi_1024x600 的像素
 
+    // AI input is an independent RK stream, never the FPGA camera source.
+    input wire ai_begin,ai_commit,ai_abort,ai_pixel_valid,ai_show,
+    input wire [15:0] ai_pixel,
+    input wire [31:0] ai_session,ai_task,ai_epoch,ai_context,ai_sequence,
+    input wire [1:0] ai_view,
+    output wire ai_frame_ready,ai_pixel_ready,ai_fault,
     // ---- 状态（可接 LED）----
     output wire        cam_init_done,
     output wire        ddr_init_done,
@@ -130,7 +138,31 @@ module cam_overlay #(
     //   写侧：摄像头 PCLK 域，按 camera_frame_sync 对齐帧首
     //   读侧：显示 pixel_clk 域，按 frame_sync 对齐帧首，rden 绑 pixel_req
     // ---------------------------------------------------------------
-    ddr3_ctrl_2port u_frame_buffer (
+    wire ai_ddr_clk,ai_write_valid,ai_write_ready,ai_read_valid,ai_read_ready,ai_response_valid,ai_arb_fault;
+    wire [27:0] ai_write_address,ai_read_address;
+    wire [127:0] ai_write_data,ai_response_data;
+    wire [23:0] ai_rgb;
+    wire ai_rgb_valid,ai_store_fault;
+    generate if(AI_DISPLAY_ENABLE)begin:g_ai_store
+        inspection_frame_store #(.CLK_HZ(SYS_CLOCK)) store(
+            .clk(sys_clk),.rst_n(sys_rst_n),.ddr_clk(ai_ddr_clk),.i_ddr_initialized(ddr_init_done),.pixel_clk(pixel_clk),
+            .i_begin(ai_begin),.i_commit(ai_commit),.i_abort(ai_abort),.i_session(ai_session),.i_task(ai_task),.i_epoch(ai_epoch),
+            .i_context(ai_context),.i_sequence(ai_sequence),.i_view(ai_view),.o_frame_ready(ai_frame_ready),
+            .i_pixel(ai_pixel),.i_pixel_valid(ai_pixel_valid),.o_pixel_ready(ai_pixel_ready),
+            .o_write_valid(ai_write_valid),.o_write_address(ai_write_address),.o_write_data(ai_write_data),.i_write_ready(ai_write_ready),
+            .o_read_valid(ai_read_valid),.o_read_address(ai_read_address),.i_read_ready(ai_read_ready),
+            .i_response_valid(ai_response_valid),.i_response_data(ai_response_data),
+            .i_frame_sync(frame_sync),.i_pixel_req(pixel_req),.i_show(ai_show && !ai_arb_fault),.i_x(pixel_x),.i_y(pixel_y),
+            .o_rgb(ai_rgb),.o_rgb_valid(ai_rgb_valid),.o_fault(ai_store_fault));
+    end else begin:g_no_ai_store
+        assign ai_frame_ready=0,ai_pixel_ready=0,ai_write_valid=0,ai_write_address=0,ai_write_data=0;
+        assign ai_read_valid=0,ai_read_address=0,ai_rgb=0,ai_rgb_valid=0,ai_store_fault=0;
+    end endgenerate
+    assign ai_fault=ai_arb_fault || ai_store_fault;
+    ddr3_ctrl_2port #(.AI_DISPLAY_ENABLE(AI_DISPLAY_ENABLE)) u_frame_buffer (
+        .ai_ddr_clk(ai_ddr_clk),.ai_write_valid(ai_write_valid),.ai_write_address(ai_write_address),.ai_write_data(ai_write_data),
+        .ai_write_ready(ai_write_ready),.ai_read_valid(ai_read_valid),.ai_read_address(ai_read_address),.ai_read_ready(ai_read_ready),
+        .ai_response_valid(ai_response_valid),.ai_response_data(ai_response_data),.ai_protocol_fault(ai_arb_fault),
         .clk                 (clk_50m_pll),
         .pll_lock            (pll_lock),
         .clk_200m            (clk_200m),
@@ -183,6 +215,6 @@ module cam_overlay #(
     // 输出二选一：摄像头页且落在菜单右侧 → 摄像头画面；否则 → UI
     // ---------------------------------------------------------------
     wire cam_region = show_cam && (pixel_x >= MENU_W);
-    assign o_rgb = cam_region ? cam_rgb888 : ui_rgb;
+    assign o_rgb = cam_region ? cam_rgb888 : ai_rgb_valid ? ai_rgb : ui_rgb;
 
 endmodule

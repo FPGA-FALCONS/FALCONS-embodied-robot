@@ -225,7 +225,26 @@ $sources += @("$ProjectRoot\rtl\ai\inspection_fx2_phy.v", "$ProjectRoot\rtl\ai\i
               "$ProjectRoot\rtl\ai\inspection_stream_tx.v", "$ProjectRoot\rtl\common\stream_async_fifo.v",
               "$VendorRoot\camera_fx2_direct\rtl\acg_async_fifo.v", "$PSScriptRoot\inspection_fx2_tb.v",
               "$PSScriptRoot\inspection_stream_tb.v", "$PSScriptRoot\stream_async_fifo_tb.v", "$PSScriptRoot\inspection_highspeed_tb.v", "$PSScriptRoot\nav_map_arb_tb.v", "$PSScriptRoot\stall_monitor_tb.v", "$PSScriptRoot\inspection_fx2_clock_tb.v")
+$sources += @(
+    "$ProjectRoot\rtl\ai\inspection_mailbox_rx.v",
+    "$PSScriptRoot\inspection_mailbox_tb.v",
+    "$ProjectRoot\rtl\ai\inspection_ddr_arb.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_tokens.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_writer.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_reader.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_pixels.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_store.v",
+    "$ProjectRoot\rtl\ai\inspection_map_export.v",
+    "$PSScriptRoot\inspection_ddr_arb_tb.v",
+    "$PSScriptRoot\inspection_frame_tb.v",
+    "$PSScriptRoot\inspection_map_export_tb.v"
+)
 $tests = @(
+    @{ Name = 'inspection_mailbox'; Top = 'inspection_mailbox_tb'; Desc = 'Validated layer-only USB mailbox / UART authority isolation' },
+    @{ Name = 'inspection_ddr_arb'; Top = 'inspection_ddr_arb_tb'; Desc = 'Independent DDR AI display / passive map export' },
+    @{ Name = 'inspection_frame'; Top = 'inspection_frame_tb'; Desc = 'Independent DDR AI display / passive map export' },
+    @{ Name = 'inspection_map_export'; Top = 'inspection_map_export_tb'; Desc = 'Independent DDR AI display / passive map export' },
+
     @{ Name = 'inspection_fx2_clock'; Top = 'inspection_fx2_clock_tb'; Desc = 'Independent Gray frequency measurement / wrong clock / loss and return' },
     @{ Name = 'nav_map_arb'; Top = 'nav_map_arb_tb'; Desc = 'Registered selection / cancellation / stable owner / timeout' },
     @{ Name = 'stall_monitor'; Top = 'stall_monitor_tb'; Desc = 'Coherent monitor pipeline / live PWM inhibit / explicit clear' },

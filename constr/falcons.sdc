@@ -148,13 +148,25 @@ create_generated_clock -name clk_cam50 -source [get_ports {i_clk_50m}] -multiply
 create_generated_clock -name clk_ddrf -source [get_pins {u_cam/u_system_pll/PLL_inst/CLKOUT0}] -divide_by 4 [get_pins {u_cam/u_frame_buffer/DDR3_Memory_Interface_Top/gw3_top/u_ddr_phy_top/fclkdiv/CLKOUT}]
 
 // ---- 四组异步 ----
-set_clock_groups -asynchronous -group [get_clocks {i_clk_50m}] -group [get_clocks {camera_pclk}] -group [get_clocks {clk_pixel clk_serial}] -group [get_clocks {clk_cam200 clk_cam50 clk_ddrf}]
+// New AI FIFO Gray crossings must retain a physical propagation bound.
+// Clock groups override max_delay in Gowin, so DDR is no longer grouped
+// away from sys/pixel. Those CDCs use <=10ns propagation and no phase hold.
+set_clock_groups -asynchronous -group [get_clocks {i_clk_50m}] -group [get_clocks {camera_pclk}] -group [get_clocks {clk_pixel clk_serial}]
+set_clock_groups -asynchronous -group [get_clocks {camera_pclk}] -group [get_clocks {clk_cam200 clk_cam50 clk_ddrf}]
+set_max_delay -from [get_clocks {i_clk_50m}] -to [get_clocks {clk_cam200 clk_cam50 clk_ddrf}] 10.000
+set_max_delay -from [get_clocks {clk_cam200 clk_cam50 clk_ddrf}] -to [get_clocks {i_clk_50m}] 10.000
+set_max_delay -from [get_clocks {clk_pixel clk_serial}] -to [get_clocks {clk_cam200 clk_cam50 clk_ddrf}] 10.000
+set_max_delay -from [get_clocks {clk_cam200 clk_cam50 clk_ddrf}] -to [get_clocks {clk_pixel clk_serial}] 10.000
+set_false_path -hold -from [get_clocks {i_clk_50m}] -to [get_clocks {clk_cam200 clk_cam50 clk_ddrf}]
+set_false_path -hold -from [get_clocks {clk_cam200 clk_cam50 clk_ddrf}] -to [get_clocks {i_clk_50m}]
+set_false_path -hold -from [get_clocks {clk_pixel clk_serial}] -to [get_clocks {clk_cam200 clk_cam50 clk_ddrf}]
+set_false_path -hold -from [get_clocks {clk_cam200 clk_cam50 clk_ddrf}] -to [get_clocks {clk_pixel clk_serial}]
 
 // ---- AI inspection FX2 interface (2026-10-26) ----
 // Reviewed volatile vendor firmware sets IFCONFIG=A3: internal 30MHz IFCLK.
 // USB high-speed 480Mbps is independent of this clock. Runtime diagnostics
 // measure and require 30MHz before admitting any high-speed business data.
-create_clock -name clk_fx2 -period 33.333 [get_ports {i_fx2_ifclk}]
+create_clock -name clk_fx2 -period 33.300 [get_ports {i_fx2_ifclk}]
 // Infineon 38-08032 Rev.AD tables20/23/26/31; add 1.5ns board margin.
 // Keep the conservative 15ns input budget; unknown minimum chip delay is
 // modeled as zero with -1.5ns board skew. Falling-edge input registers avoid
