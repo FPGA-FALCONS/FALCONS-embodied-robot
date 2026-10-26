@@ -44,6 +44,7 @@ module nav_polar (
     output wire signed [31:0] out_origin_y_mm,
     output reg  signed [31:0] out_ray_dx_q16,
     output reg  signed [31:0] out_ray_dy_q16,
+    output wire        [13:0] out_range_mm,
     output reg                out_rejected
 );
     localparam integer MAP_MM = 12800;  // 256 个单元格 x 50 mm
@@ -207,6 +208,7 @@ module nav_polar (
     assign out_hit_x       = hit_x;
     assign out_hit_y       = hit_y;
     assign out_origin_x_mm = $signed({17'd0, latched_pose_x_map_mm}) - 32'sd6400;
+    assign out_range_mm = latched_distance_mm[13:0];
     assign out_origin_y_mm = $signed({17'd0, latched_pose_y_map_mm}) - 32'sd6400;
 
     // 地图内判定结果与端点一起锁存，这样即使下游停顿（stall），out_hit 也保持稳定。

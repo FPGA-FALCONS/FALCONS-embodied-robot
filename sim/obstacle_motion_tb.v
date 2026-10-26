@@ -75,6 +75,7 @@ module obstacle_motion_tb;
         .obs_grid_x(hit_x), .obs_grid_y(hit_y), .obs_grid_valid(hit),
         .obs_origin_x_mm(origin_x), .obs_origin_y_mm(origin_y),
         .obs_ray_dx_q16(ray_x), .obs_ray_dy_q16(32'sd0),
+        .obs_range_mm(hit ? 14'd200 : 14'd1000),
         .scan_valid(1'b1), .stream_error(1'b0), .cmd_valid(request), .emergency_stop(estop),
         .target_x_mm(tx), .target_y_mm(ty), .nav_state(nav_state), .st_plan_rounds(rounds)
     );

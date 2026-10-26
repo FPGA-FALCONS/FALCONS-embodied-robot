@@ -3,7 +3,7 @@
 module nav_scan_accumulator_tb;
     reg clk = 0, reset_n = 0;
     always #10 clk = ~clk;
-    reg scan_begin = 0, in_valid = 0, in_value = 0, allow_map = 1;
+    reg scan_begin = 0, in_valid = 0, in_value = 0, in_shadow = 0, allow_map = 1;
     reg [15:0] in_x = 0, in_y = 0;
     wire scan_ready, in_ready, wr_valid, wr_ready, wr_value, map_ready;
     wire [15:0] wr_x, wr_y;
@@ -13,7 +13,7 @@ module nav_scan_accumulator_tb;
 
     nav_scan_accumulator #(.GRID_W(16), .GRID_H(16)) dut (
         .clk(clk), .reset_n(reset_n), .scan_begin(scan_begin), .scan_ready(scan_ready),
-        .in_valid(in_valid), .in_ready(in_ready), .in_value(in_value), .in_x(in_x), .in_y(in_y),
+        .in_valid(in_valid), .in_ready(in_ready), .in_value(in_value), .in_shadow(in_shadow), .in_x(in_x), .in_y(in_y),
         .wr_valid(wr_valid), .wr_ready(wr_ready), .wr_value(wr_value), .wr_x(wr_x), .wr_y(wr_y)
     );
     assign wr_ready = map_ready && allow_map;
@@ -29,7 +29,7 @@ module nav_scan_accumulator_tb;
     integer full_start, full_merge_cycles, full_init_cycles;
     nav_scan_accumulator full_map (
         .clk(clk), .reset_n(reset_n), .scan_begin(full_begin), .scan_ready(full_ready),
-        .in_valid(1'b0), .in_ready(), .in_value(1'b0), .in_x(16'd0), .in_y(16'd0),
+        .in_valid(1'b0), .in_ready(), .in_value(1'b0), .in_shadow(1'b0), .in_x(16'd0), .in_y(16'd0),
         .wr_valid(), .wr_ready(1'b1), .wr_value(), .wr_x(), .wr_y()
     );
     initial begin
@@ -77,6 +77,14 @@ module nav_scan_accumulator_tb;
             scan_begin = 1;
             @(negedge clk);
             scan_begin = 0;
+        end
+    endtask
+    task protect;
+        input [15:0] x, y;
+        begin
+            in_shadow = 1;
+            observation(0, x, y);
+            in_shadow = 0;
         end
     endtask
     task settled;
@@ -145,6 +153,54 @@ module nav_scan_accumulator_tb;
         check(!scan_ready && map.raw[255], "new hit is accepted while previous circle merges");
         settled;
         check(!map.raw[136] && map.raw[255], "subsequent clear works after bank reuse");
+
+        observation(1, 9, 9);
+        observation(1, 10, 9);
+        rotate; settled;
+        observation(0, 9, 9);
+        protect(9, 9);
+        protect(10, 9);
+        observation(0, 10, 9);
+        protect(11, 9);
+        rotate; settled;
+        check(map.raw[153] && map.raw[154], "shadow veto wins before or after free in one circle");
+        check(!map.raw[155], "shadow protection never creates a raw obstacle");
+        observation(0, 9, 9);
+        observation(0, 10, 9);
+        rotate; settled;
+        check(!map.raw[153] && !map.raw[154], "unshadowed free circle removes historical obstacles");
+
+        observation(1, 12, 9);
+        rotate; settled;
+        observation(0, 12, 9);
+        allow_map = 0;
+        rotate;
+        wait (dut.state == 4 && wr_x == 12 && wr_y == 9);
+        @(negedge clk);
+        in_valid = 1; in_value = 0; in_shadow = 1; in_x = 12; in_y = 9;
+        #1;
+        check(in_ready && !wr_valid, "shadow accepts without raw ready and preempts pending clear");
+        @(negedge clk);
+        in_valid = 0; in_shadow = 0; allow_map = 1;
+        #1;
+        check(!wr_valid, "write-after-read guard covers the cycle after shadow acceptance");
+        settled;
+        check(map.raw[156], "new-circle shadow survives an older clear without raw PROBE");
+
+        observation(1, 0, 0);
+        rotate; settled;
+        observation(0, 0, 0);
+        rotate;
+        wait (dut.state == 4 && wr_x == 0 && wr_y == 0);
+        @(negedge clk);
+        in_valid = 1; in_value = 0; in_x = 4; in_y = 0;
+        repeat (128) @(negedge clk);
+        check(map.raw[0] && !wr_valid, "continuous observations defer expensive raw clearing");
+        in_valid = 0;
+        repeat (10) @(negedge clk);
+        check(map.raw[0], "short observation gaps do not start a background clear");
+        settled;
+        check(!map.raw[0], "background clear resumes when the observation burst ends");
 
         wait (full_done);
         check(full_init_cycles == 65536, "full 256x256 circle buffers initialize in 65536 clocks");
