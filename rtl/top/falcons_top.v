@@ -98,6 +98,13 @@ module falcons_top (
     input  wire        camera_href,        // B2 （HREF 行有效）
     input  wire        camera_vsync,       // M20（VSYNC 场同步）
 
+    // ACG720 J5 high-speed USB FIFO; RK camera images only, no DVP upload.
+    input wire i_fx2_ifclk,i_fx2_flagb,i_fx2_flagc,
+    inout wire [15:0] io_fx2_fd,
+    output wire [1:0] o_fx2_faddr,
+    output wire o_fx2_slrd_n,o_fx2_slwr_n,o_fx2_sloe_n,o_fx2_pktend_n,o_fx2_slcs_n,
+    output wire o_fx2_pa0,
+
     // ---- DDR3 帧缓存（SSTL15 / BANK_VCCIO=1.5；与官方管脚表逐针一致）----
     output wire [13:0] O_ddr_addr,
     output wire [2:0]  O_ddr_ba,
@@ -410,6 +417,7 @@ module falcons_top (
     wire [3:0] inspection_error_code;
     wire [7:0] inspection_tx_data;
     wire inspection_tx_valid,inspection_tx_last,inspection_tx_ready;
+    wire [31:0] inspection_session,inspection_task_id,inspection_context;
     reg inspection_auto_valid;
     reg signed [31:0] inspection_auto_center,inspection_auto_diff;
     wire obs_owns_control = planner_cmd_valid || planner_emergency_stop;
@@ -1147,13 +1155,22 @@ module falcons_top (
     wire ai_local_release=!ai_master && nav_run && !legacy_nav_run_d &&
         (page==PAGE_NAV_FREE || page==PAGE_NAV_OBS) && rc_signal_ok && !manual_drive &&
         !(estop_latch | key4_press | tof_estop | planner_emergency_stop | (|stall_vec));
+    // Separate the multiplier's registered DSP output from voice turn-state
+    // comparisons. Keep sample and angle coherent; live health still revokes
+    // immediately, independently of this one-clock measurement pipeline.
+    reg signed [31:0] voice_yaw_r /* synthesis syn_preserve=1 */;
+    reg voice_yaw_valid_r,voice_yaw_sample_r;
+    always @(posedge i_clk_50m or negedge sys_rst_n)begin
+        if(!sys_rst_n)begin voice_yaw_r<=0;voice_yaw_valid_r<=0;voice_yaw_sample_r<=0;end
+        else begin voice_yaw_r<=yaw_deg;voice_yaw_valid_r<=yaw_valid;voice_yaw_sample_r<=imu_degree_sample;end
+    end
     voice_motion_bridge #(.CLK_HZ(CLK_HZ), .YAW_SIGN(1),.LOCAL_RELEASE_EN(1)) u_voice_motion (
         .clk(i_clk_50m), .rst_n(sys_rst_n),
         .i_rx_data(motion_rx_data), .i_rx_valid(motion_rx_valid),
         .i_enable(cursor_mode && rc_signal_ok && ai_master && ai_mode==0 && !ai_record),
         .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | planner_emergency_stop | (|stall_vec)),
-        .i_manual(manual_drive), .i_yaw_deg(yaw_deg), .i_yaw_valid(yaw_valid),
-        .i_imu_sample_valid(imu_degree_sample), .i_imu_healthy(voice_imu_healthy),
+        .i_manual(manual_drive), .i_yaw_deg(voice_yaw_r), .i_yaw_valid(yaw_valid && voice_yaw_valid_r),
+        .i_imu_sample_valid(voice_yaw_sample_r), .i_imu_healthy(voice_imu_healthy),
         .i_nav_release_ready(voice_nav_release_ready),
         .i_local_release(ai_local_release),
         .o_owned(voice_owned), .o_auto_valid(voice_auto_valid),
@@ -1591,6 +1608,7 @@ module falcons_top (
         .i_ui_confirm(rc_confirm),.i_ui_back(rc_back),.i_ui_view(ai_inspection_view),
         .i_ui_steer(rc_steer),.i_ui_throttle(rc_throttle),.i_vehicle_width_mm(tune_p[431:416]),
         .i_forward_check_cells(tune_p[391:384]),.o_ui_close(ai_inspection_close),
+        .o_session(inspection_session),.o_task(inspection_task_id),.o_context(inspection_context),
         .i_pose_tick(navigation_pose_tick),.i_pose_valid(navigation_pose_valid),
         .i_x_mm(navigation_x_mm),.i_y_mm(navigation_y_mm),.i_yaw_cdeg(navigation_yaw_cdeg),
         .i_ctrl_done(obs_ctrl_done),.i_command_idle(!planner_cmd_valid && !planner_emergency_stop && !obs_ctrl_done),
@@ -1605,7 +1623,21 @@ module falcons_top (
         .i_layer_error(inspection_error),.i_layer_busy(inspection_layer_busy),.i_layer_version(inspection_layer_version),
         .i_layer_error_code(inspection_error_code),.o_stopped(inspection_stopped),.o_status(inspection_status),
         .o_tx_data(inspection_tx_data),.o_tx_valid(inspection_tx_valid),.o_tx_last(inspection_tx_last),.i_tx_ready(inspection_tx_ready));
+    // ACG720 L13 is FX2 PA0, not USB_RESET. Vendor firmware polls PA0 and
+    // clears EP6 while it is high; match the vendor Slave FIFO example.
+    assign o_fx2_pa0=1'b0;
     wire route_disp_valid, route_disp_start, route_disp_done;
+    inspection_highspeed #(.CLK_HZ(CLK_HZ),.CLOCK_PROBE_ENABLE(1)) u_inspection_usb(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.fx2_clk(i_fx2_ifclk),.fx2_fd(io_fx2_fd),
+        .fx2_flagb(i_fx2_flagb),.fx2_flagc(i_fx2_flagc),.fx2_address(o_fx2_faddr),
+        .fx2_slrd_n(o_fx2_slrd_n),.fx2_slwr_n(o_fx2_slwr_n),.fx2_sloe_n(o_fx2_sloe_n),
+        .fx2_pktend_n(o_fx2_pktend_n),.fx2_slcs_n(o_fx2_slcs_n),
+        .i_display_enabled(inspection_permission),.i_session(inspection_session),.i_task(inspection_task_id),
+        .i_epoch(inspection_epoch),.i_context(inspection_context),.i_view(ai_inspection_view),
+        .o_frame_begin(),.o_frame_commit(),.o_frame_abort(),.o_frame_sequence(),
+        .i_frame_ready(1'b0),.o_frame_data(),.o_frame_valid(),.i_frame_word_ready(1'b0),
+        .o_control_valid(),.o_control_words(),.i_control_ready(1'b1),.i_control_read(1'b0),
+        .i_control_address(8'd0),.o_control_data(),.o_diagnostics());
     wire [7:0] route_disp_x, route_disp_y;
     reg navigation_motion_enable;
     always @(posedge i_clk_50m or negedge sys_rst_n) begin

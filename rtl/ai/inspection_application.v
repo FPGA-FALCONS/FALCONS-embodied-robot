@@ -17,6 +17,7 @@ module inspection_application #(
     input wire [15:0] i_vehicle_width_mm,
     input wire [7:0] i_forward_check_cells,
     output reg o_ui_close,
+    output wire [31:0] o_session,o_task,o_context,
     input wire [31:0] i_epoch,
     input wire i_pose_tick,i_pose_valid,
     input wire signed [31:0] i_x_mm,i_y_mm,i_yaw_cdeg,
@@ -97,6 +98,9 @@ module inspection_application #(
     wire [31:0] status_flags={25'd0,i_pose_valid,o_owned,i_layer_valid,i_safety,i_permission,i_manual,o_stopped};
     reg [31:0] input_sequence,last_ui_revision,ui_session,ui_epoch,previous_input_flags;
     reg [15:0] confirms,backs;
+    assign o_session=session;
+    assign o_task=task_id;
+    assign o_context=input_sequence;
     wire [31:0] input_flags={23'd0,i_permission,i_ui_rc_valid,i_ui_record,i_ui_view,1'b0,i_ui_master,i_manual,i_ui_open};
     wire [31:0] input_axes={{4{i_ui_throttle[11]}},i_ui_throttle,{4{i_ui_steer[11]}},i_ui_steer};
     wire [255:0] input_words={{8'd0,i_forward_check_cells,i_vehicle_width_mm},{16'd0,i_user_token},

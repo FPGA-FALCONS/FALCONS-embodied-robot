@@ -221,7 +221,18 @@ $sources += @("$ProjectRoot\rtl\ai\inspection_packet_rx.v", "$PSScriptRoot\inspe
 $sources += @("$ProjectRoot\rtl\ai\inspection_nav_control.v", "$ProjectRoot\rtl\ai\inspection_dispatch.v",
               "$ProjectRoot\rtl\ai\inspection_packet_tx.v", "$ProjectRoot\rtl\ai\inspection_telemetry.v", "$ProjectRoot\rtl\ai\inspection_application.v",
               "$PSScriptRoot\inspection_control_tb.v", "$PSScriptRoot\inspection_tx_tb.v", "$PSScriptRoot\inspection_dispatch_tb.v", "$PSScriptRoot\inspection_uart_tb.v", "$PSScriptRoot\inspection_application_tb.v", "$PSScriptRoot\inspection_ui_tb.v")
+$sources += @("$ProjectRoot\rtl\ai\inspection_fx2_phy.v", "$ProjectRoot\rtl\ai\inspection_stream_rx.v", "$ProjectRoot\rtl\ai\inspection_highspeed.v", "$ProjectRoot\rtl\ai\inspection_fx2_clock.v",
+              "$ProjectRoot\rtl\ai\inspection_stream_tx.v", "$ProjectRoot\rtl\common\stream_async_fifo.v",
+              "$VendorRoot\camera_fx2_direct\rtl\acg_async_fifo.v", "$PSScriptRoot\inspection_fx2_tb.v",
+              "$PSScriptRoot\inspection_stream_tb.v", "$PSScriptRoot\stream_async_fifo_tb.v", "$PSScriptRoot\inspection_highspeed_tb.v", "$PSScriptRoot\nav_map_arb_tb.v", "$PSScriptRoot\stall_monitor_tb.v", "$PSScriptRoot\inspection_fx2_clock_tb.v")
 $tests = @(
+    @{ Name = 'inspection_fx2_clock'; Top = 'inspection_fx2_clock_tb'; Desc = 'Independent Gray frequency measurement / wrong clock / loss and return' },
+    @{ Name = 'nav_map_arb'; Top = 'nav_map_arb_tb'; Desc = 'Registered selection / cancellation / stable owner / timeout' },
+    @{ Name = 'stall_monitor'; Top = 'stall_monitor_tb'; Desc = 'Coherent monitor pipeline / live PWM inhibit / explicit clear' },
+    @{ Name = 'inspection_highspeed'; Top = 'inspection_highspeed_tb'; Desc = 'Whole diagnostic / physical bus / two independent clocks / small FIFO backpressure' },
+    @{ Name = 'inspection_stream'; Top = 'inspection_stream_tb'; Desc = 'Host AIF1 vectors / full 816x420 CRC / stale view / bounded mailboxes / transmit backpressure' },
+    @{ Name = 'inspection_fx2'; Top = 'inspection_fx2_tb'; Desc = 'Bidirectional Slave FIFO / direction turnaround / short-packet flush / fairness' },
+    @{ Name = 'stream_async_fifo'; Top = 'stream_async_fifo_tb'; Desc = 'Independent clocks / full FIFO / tagged stream / backpressure' },
     @{ Name = 'inspection_ui'; Top = 'inspection_ui_tb'; Desc = 'Nested AI task views / CH8 scope / manual preservation / child back' },
     @{ Name = 'inspection_application'; Top = 'inspection_application_tb'; Desc = 'Python transaction to production authority and actual-stop handshake' },
     @{ Name = 'inspection_dispatch'; Top = 'inspection_dispatch_tb'; Desc = 'Synchronous message RAM / authenticated layer stream / stopped commit' },

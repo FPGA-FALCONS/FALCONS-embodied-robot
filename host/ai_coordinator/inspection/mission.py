@@ -24,6 +24,7 @@ class InspectionMission:
         self.task_id = 0; self.command_id = 0; self.layer_version = 0
         self.state = 'edit'; self.phase = 'outbound'; self.view = 'map'
         self.goal = None; self.pose = None; self.epoch = None
+        self.start_point = None
         self.trace = []; self.return_points = []; self.return_index = 0
         self.actions = deque(); self.expected = None; self.pending_layer = None
         self.reason = None; self.manual = False; self.last_status = None
@@ -95,6 +96,7 @@ class InspectionMission:
         if problems:
             self.reason = 'not_ready:' + ','.join(problems); return False
         self.task_id += 1; self.phase = 'outbound'; self.trace = []
+        self.start_point = [self.pose['x_m'],self.pose['y_m']]
         self.return_points = []; self.return_index = 0; self.pending_layer = None
         self.reason = None; self._trace(force=True); self.last_status = now
         self._goto(now)
@@ -126,8 +128,6 @@ class InspectionMission:
         if self.state not in ('paused', 'fault'):
             return False
         problems = self._problems(ready, now)
-        if self.phase == 'returning' and ready.get('return_connection') is not True:
-            problems.append('return_connection_unverified')
         if problems:
             self.reason = 'not_ready:' + ','.join(problems); return False
         self.reason = None; self.last_status = now
@@ -149,6 +149,7 @@ class InspectionMission:
         self.actions.clear(); self.expected = None; self.pending_layer = None
         self.state = 'edit'; self.phase = 'outbound'; self.goal = None
         self.trace = []; self.return_points = []; self.reason = None
+        self.start_point = None
 
     def submit_layer(self, layer, now):
         raw, cost = layer.get('raw'), layer.get('cost')
@@ -198,12 +199,15 @@ class InspectionMission:
                 self.pause(now, 'arrival_pose_stale'); return True
             if self.phase == 'outbound':
                 self._trace(force=True)
-                self.return_points = deepcopy(list(reversed(self.trace[:-1])))
-                if not self.return_points:
-                    self.state = 'completed'; self.expected = None
-                else:
-                    self.phase = 'returning'; self.state = 'await_return_layer'
-                    self._command('prepare_return_layer', now, trace=deepcopy(self.trace))
+                # The outbound trace is evidence, not a return corridor. The
+                # existing FPGA planner may reroute on the latest merged map.
+                # Freeze the actual task start rather than the editor's pose
+                # or the first planned waypoint. Manual detours do not move it.
+                self.return_points = [deepcopy(self.start_point)]
+                self.return_index = 0
+                self.phase = 'returning'; self.state = 'await_return_layer'
+                self._command('prepare_return_layer', now, return_goal_m=deepcopy(self.start_point),
+                              return_policy='latest_map',trace=deepcopy(self.trace))
             else:
                 self.return_index += 1
                 if self.return_index == len(self.return_points):
@@ -223,5 +227,6 @@ class InspectionMission:
         return {'session_id': self.session_id, 'task_id': self.task_id, 'epoch': self.epoch,
                 'state': self.state, 'phase': self.phase, 'view': self.view, 'reason': self.reason,
                 'goal_m': deepcopy(self.goal), 'trace_m': deepcopy(self.trace),
+                'start_m':deepcopy(self.start_point),'return_policy':'latest_map',
                 'return_index': self.return_index, 'return_count': len(self.return_points),
                 'layer_version': self.layer_version, 'manual': self.manual}

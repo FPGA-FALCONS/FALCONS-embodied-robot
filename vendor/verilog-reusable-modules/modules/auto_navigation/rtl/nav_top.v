@@ -120,6 +120,26 @@ module nav_top #(
     wire arb_rsp_cost, arb_rsp_raw;
     wire map_wr_valid, map_wr_ready, map_wr_val;
     wire [15:0] map_wr_x, map_wr_y;
+    wire scan_map_valid,scan_map_ready,scan_map_value;
+    wire [15:0] scan_map_x,scan_map_y;
+    reg write_valid,write_value;
+    reg [15:0] write_x,write_y;
+    // One-entry elastic stage isolates scan geometry/accumulator selection
+    // from route publication and map-control paths. Never drop an update.
+    assign scan_map_ready=!write_valid || map_wr_ready;
+    assign map_wr_valid=write_valid;
+    assign map_wr_val=write_value;
+    assign map_wr_x=write_x;
+    assign map_wr_y=write_y;
+    always @(posedge clk or negedge reset_n)begin
+        if(!reset_n)begin write_valid<=0;write_value<=0;write_x<=0;write_y<=0;end
+        else if(scan_map_ready)begin
+            write_valid<=scan_map_valid;
+            if(scan_map_valid)begin
+                write_value<=scan_map_value;write_x<=scan_map_x;write_y<=scan_map_y;
+            end
+        end
+    end
     wire map_rd_valid, map_rd_ready;
     wire [15:0] map_rd_x, map_rd_y;
     wire map_rd_rsp_valid, map_rd_raw, map_rd_cost;
@@ -177,11 +197,11 @@ module nav_top #(
         .in_value  (scan_wr_val),
         .in_x      (scan_wr_x),
         .in_y      (scan_wr_y),
-        .wr_valid  (map_wr_valid),
-        .wr_ready  (map_wr_ready),
-        .wr_value  (map_wr_val),
-        .wr_x      (map_wr_x),
-        .wr_y      (map_wr_y)
+        .wr_valid  (scan_map_valid),
+        .wr_ready  (scan_map_ready),
+        .wr_value  (scan_map_value),
+        .wr_x      (scan_map_x),
+        .wr_y      (scan_map_y)
     );
 
     nav_map #(
@@ -798,7 +818,13 @@ module nav_top #(
             if (!goal_valid || goal_x != round_goal_x || goal_y != round_goal_y ||
                 motion_enable != round_motion || (route_ready && route_revoked)) replan_due <= 1;
             case (rstate)
-                R_IDLE:
+                R_IDLE:begin
+                // Continuously snapshot the candidate data while idle. The
+                // long admission predicate drives only control, not the wide
+                // coordinate register clock enables. Launch still samples
+                // exactly the same target/pose on its acceptance edge.
+                plan_x <= r_target_x;plan_y <= r_target_y;plan_dir <= r_target_dir;
+                start_x_mm <= pose_x_mm;start_y_mm <= pose_y_mm;
                 if (driving && !arrived && !normal_complete &&
                     !(route_ready && route_revoked) &&
                     (!motion_enable || motion_stopped || normal_origin) &&
@@ -812,16 +838,9 @@ module nav_top #(
                     candidate_commit <= normal_origin;
                     round_motion <= motion_enable;
                     validation_dirty <= 0;
-                    plan_dir <= r_target_dir;
-                    if (normal_origin) begin
-                        plan_x <= r_target_x;
-                        plan_y <= r_target_y;
-                    end else begin
-                        start_x_mm <= pose_x_mm;
-                        start_y_mm <= pose_y_mm;
-                    end
                     load_inject <= 0;
                     rstate <= R_BEGIN;
+                end
                 end
                 R_BEGIN: begin
                     if (!candidate_commit) begin

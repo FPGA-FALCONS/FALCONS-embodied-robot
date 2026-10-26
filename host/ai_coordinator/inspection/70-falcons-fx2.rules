@@ -1,0 +1,2 @@
+# Only the verified board identity; no generic USB access or driver detach.
+SUBSYSTEM=="usb", ATTR{idVendor}=="04b4", ATTR{idProduct}=="00f1", MODE="0660", GROUP="plugdev"

@@ -107,11 +107,13 @@ class ObjectAndGridTests(unittest.TestCase):
         self.assertEqual(cell((-6.4, -6.4)), (0, 0))
         with self.assertRaises(ValueError): cell((6.4, 0))
 
-    def test_return_corridor_prevents_diagonal_shortcut_without_faking_physical_obstacle(self):
-        layer = build([], .1, corridor=[[0, 0], [0, 2], [2, 2]], corridor_half_width_m=.4)
+    def test_latest_map_return_does_not_block_off_trace_alternative_roads(self):
+        layer = build([], .1)
         self.assertFalse(bit(layer['cost'], *cell((0, 1))))
-        self.assertTrue(bit(layer['cost'], *cell((1, 1))))
+        self.assertFalse(bit(layer['cost'], *cell((1, 1))))
+        self.assertFalse(bit(layer['cost'], *cell((-2, 3))))
         self.assertFalse(any(layer['raw']))
+        self.assertFalse(any(layer['cost']))
 
 
 class InspectionMissionTests(unittest.TestCase):
@@ -164,21 +166,45 @@ class InspectionMissionTests(unittest.TestCase):
         self.assertEqual(self.mission.expected['layer_version'], 1)
         with self.assertRaises(ValueError): self.mission.submit_layer({**layer, 'crc32': 0}, 1.2)
 
-    def test_actual_outbound_trace_is_reversed_only_after_stopped_arrival(self):
+    def test_latest_map_return_targets_actual_start_after_stopped_arrival(self):
         self.start()
         for index in range(1, 5): self.mission.set_pose(pose(index*.25), 1+index*.05)
         self.assertFalse(self.ack('arrived', 1.21, stopped=False))
         self.assertTrue(self.ack('arrived', 1.22, stopped=True))
         self.assertEqual(self.mission.state, 'await_return_layer')
-        self.assertEqual(self.mission.return_points, [[.75, 0], [.5, 0], [.25, 0], [0, 0]])
-        self.mission.submit_layer(build([], .1, corridor=self.mission.trace, corridor_half_width_m=.4), 1.23)
+        self.assertEqual(self.mission.return_points, [[0, 0]])
+        self.assertEqual(self.mission.expected['return_policy'],'latest_map')
+        self.assertEqual(self.mission.expected['return_goal_m'],[0,0])
+        self.mission.submit_layer(build([], .1), 1.23)
         self.ack('layer_committed', 1.24, layer_version=1)
-        for index in range(4):
-            self.ack('accepted', 1.25+index*.02)
-            self.ack('arrived', 1.26+index*.02, stopped=True)
+        self.assertEqual(self.mission.expected['goal_mm'],[0,0])
+        self.ack('accepted', 1.25)
+        self.ack('arrived', 1.26, stopped=True)
         self.assertEqual(self.mission.state, 'completed')
         with self.assertRaises(ValueError): self.mission.select_goal([2, 0])
         self.mission.new_task(); self.assertEqual(self.mission.state, 'edit')
+        self.assertIsNone(self.mission.start_point)
+
+    def test_return_origin_survives_manual_detour_and_latest_map_no_path(self):
+        self.mission.set_pose(pose(.4,.2),1)
+        self.start()
+        self.mission.set_pose(pose(1,0),1.2)
+        self.ack('arrived',1.21,stopped=True)
+        # No outbound corridor is added to this refreshed visual layer.
+        self.mission.submit_layer(build([], .1),1.22)
+        self.ack('layer_committed',1.23,layer_version=1)
+        self.ack('accepted',1.24);self.ack('no_path',1.25)
+        self.assertEqual(self.mission.state,'no_path')
+        self.assertEqual(self.mission.expected['goal_mm'],[400,200])
+        self.ack('running',1.26)
+        self.assertEqual(self.mission.state,'returning')
+        self.mission.set_manual(True,1.27);self.mission.drain()
+        self.mission.set_pose(pose(.7,.8),1.28)
+        self.mission.set_manual(False,1.29)
+        self.assertEqual(self.mission.drain(),[])
+        self.assertTrue(self.mission.resume(self.ready,1.3))
+        self.assertEqual(self.mission.drain()[-1]['goal_mm'],[400,200])
+        self.assertEqual(self.mission.snapshot()['start_m'],[.4,.2])
 
     def test_localization_reset_and_link_timeout_never_finish_task(self):
         self.start(); self.mission.tick(1.6)

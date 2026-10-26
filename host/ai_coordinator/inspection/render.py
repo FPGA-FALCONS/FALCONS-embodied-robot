@@ -10,9 +10,9 @@ WIDTH, HEIGHT = 816, 420
 NAMES = {'tape': '胶带', 'screwdriver': '螺丝刀', 'scissors': '剪刀',
          'ad_calcium_milk': 'AD钙奶', 'nutri_express': '营养快线'}
 STATES = {'edit': '移动准心选点', 'ready': '确认开始巡检', 'await_start': '等待导航受理',
-          'outbound': '去程巡检', 'returning': '沿原路返航', 'no_path': '无路，等待或暂停',
+          'outbound': '去程巡检', 'returning': '最新地图返航', 'no_path': '无路，等待或暂停',
           'await_stop': '停车复核物体', 'await_layer': '提交视觉障碍',
-          'await_return_layer': '准备返程通道', 'paused': '已暂停，确认继续',
+          'await_return_layer': '更新返航障碍', 'paused': '已暂停，确认继续',
           'manual_paused': '手动接管，任务暂停', 'completed': '巡检完成，返回可新建',
           'fault': '控制故障', 'invalidated': '定位重置，任务失效', 'cancelled': '任务已取消'}
 
@@ -83,11 +83,14 @@ def render(view, mission, objects, *, camera=None, detections=(), radar_raw=None
                 text(image, obj['id'], centre[0]+6, centre[1]-8, (40, 70, 255))
         if mission.get('goal_m') is not None:
             cv2.drawMarker(image, map_pixel(mission['goal_m']), (0, 220, 255), cv2.MARKER_DIAMOND, 14, 2)
+        if mission.get('start_m') is not None:
+            cv2.drawMarker(image,map_pixel(mission['start_m']),(80,220,80),cv2.MARKER_SQUARE,12,2)
         if cursor is not None and mission['state'] in ('edit', 'ready'):
             cv2.drawMarker(image, map_pixel(cursor), (255, 255, 255), cv2.MARKER_CROSS, 16, 1)
         text(image, '红点：已定位目标', 440, 64)
         text(image, '黄点：巡检终点', 440, 92)
         text(image, '蓝线：实际去程轨迹', 440, 120)
+        text(image, '绿点：返航起点，可换路', 440, 144)
         text(image, '坐标：起始车头向前为X', 440, 172)
         text(image, '地图范围：12.8米', 440, 200)
     elif view == 'list':

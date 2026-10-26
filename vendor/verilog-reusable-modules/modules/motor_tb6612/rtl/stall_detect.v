@@ -77,7 +77,8 @@ module stall_detect #(
     parameter integer STARTUP_WINDOWS = 30,
     parameter integer STALL_WINDOWS   = 20,
     parameter integer DUTY_TH         = 200,
-    parameter integer MOVE_TH         = 300
+    parameter integer MOVE_TH         = 300,
+    parameter integer PIPE_MONITOR_INPUT = 0
 )(
     input  wire               i_clock,
     input  wire               i_reset_n,
@@ -121,8 +122,32 @@ module stall_detect #(
     //---------------------------------------------------------------
     wire driving = (i_duty >= DUTY_TH[15:0]);        // 有驱动意图
 
+    // Production option: monitor a coherent input snapshot one clock later.
+    // The final PWM inhibit still uses live i_enable; stop is never delayed.
+    wire monitor_driving, monitor_valid;
+    wire signed [31:0] monitor_delta;
+    generate if (PIPE_MONITOR_INPUT) begin : g_pipe
+        reg driving_r, valid_r;
+        reg signed [31:0] delta_r;
+        always @(posedge i_clock or negedge i_reset_n) begin
+            if (!i_reset_n) begin driving_r<=0;valid_r<=0;delta_r<=0;end
+            else begin
+                driving_r<=i_enable && driving;
+                valid_r<=i_delta_valid && !i_stall_clear;
+                delta_r<=i_delta;
+            end
+        end
+        assign monitor_driving=driving_r;
+        assign monitor_valid=valid_r;
+        assign monitor_delta=delta_r;
+    end else begin : g_direct
+        assign monitor_driving=i_enable && driving;
+        assign monitor_valid=i_delta_valid;
+        assign monitor_delta=i_delta;
+    end endgenerate
+
     // ★ 净位移累加器（跨窗口累加，振动会互相抵消）
-    wire signed [31:0] accum_next = pos_accum + i_delta;
+    wire signed [31:0] accum_next = pos_accum + monitor_delta;
     wire               moved      = (accum_next >= MTH) || (accum_next <= -MTH);
 
     //---------------------------------------------------------------
@@ -140,19 +165,19 @@ module stall_detect #(
             win_cnt   <= 16'd0;
             still_win <= 16'd0;
             pos_accum <= 32'sd0;
-        end else if (i_delta_valid) begin
+        end else if (monitor_valid) begin
             case (state)
                 //-----------------------------------------------
                 S_IDLE: begin
                     win_cnt   <= START_LOAD;
                     still_win <= 16'd0;
                     pos_accum <= 32'sd0;
-                    if (i_enable && driving) state <= S_START;
+                    if (monitor_driving) state <= S_START;
                 end
                 //-----------------------------------------------
                 // 启动宽限期：不计入判定，但一旦净位移够大就提前转正
                 S_START: begin
-                    if (!i_enable || !driving) begin
+                    if (!monitor_driving) begin
                         state     <= S_IDLE;
                         win_cnt   <= 16'd0;
                         pos_accum <= 32'sd0;
@@ -172,7 +197,7 @@ module stall_detect #(
                 //-----------------------------------------------
                 // 正常监测：净位移够大 → 判定周期重置；连续 N 窗口不够 → 堵转
                 S_MON: begin
-                    if (!i_enable || !driving) begin
+                    if (!monitor_driving) begin
                         state     <= S_IDLE;
                         still_win <= 16'd0;
                         pos_accum <= 32'sd0;

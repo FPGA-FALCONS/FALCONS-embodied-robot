@@ -125,16 +125,12 @@ module chassis_ctrl_tb;
     task fb_window;
         input signed [31:0] a, b, c, d;
         begin
-            i_delta0 = a; i_delta1 = b; i_delta2 = c; i_delta3 = d;
-            @(posedge clk);
-            i_delta_valid = 1'b1;
-            @(posedge clk);
-            i_delta_valid = 1'b0;
-            @(posedge clk);
-            // ★ 2026-10-19：speed_pid 加了一级误差锁存（err_lim_r / fb_valid_d1），
-            //   o_u 由“fb_valid 当拍更新”变成“下一拍更新”，duty 再比 o_u 晚一拍。
-            //   所以这里多等一拍，让 duty 在本轮窗口内稳定后再检查。
-            @(posedge clk);
+            // Drive away from the sampling edge. One coherent input snapshot
+            // precedes the existing PID error/compute/duty pipeline.
+            @(negedge clk);
+            i_delta0=a;i_delta1=b;i_delta2=c;i_delta3=d;i_delta_valid=1;
+            @(negedge clk);i_delta_valid=0;
+            repeat(4)@(negedge clk);
         end
     endtask
 
@@ -257,6 +253,11 @@ module chassis_ctrl_tb;
 
         // ---------------- 汇总 ----------------
         $display("======== 结果 ========");
+        // Live physical inhibit must not wait for the new compute pipeline.
+        @(negedge clk);i_enable=0;#1;
+        check_int("live_disable_enable",o_enable,0,0);
+        check_int("live_disable_duty",o_duty,0,0);
+
         if (errors == 0) $display("PASS: chassis_ctrl 全部检查通过");
         else             $display("FAIL: %0d 项检查未通过", errors);
         $finish;
