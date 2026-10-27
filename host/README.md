@@ -10,6 +10,7 @@
 | 视觉与原观察协议 | vision_bridge/ | 目标观测、显示适配、串口导出与回放；保留最新上游版本 |
 | FX2相机 | fx2_camera/ | FIMG v1/v2解析、设备选择、离线回放与真实USB吞吐工具 |
 | USB相机 | usb_camera_v4l2/ | UVC模式探测和独立取帧；协调器适配位于ai_coordinator/v4l2_camera.py |
+| USB相机(Windows) | usb_camera_win/ | 本机 DirectShow 固定焦距/曝光 + 9×6 棋盘格针孔标定；MSMF 后端不生效 |
 | 视觉训练研究 | vision_training/ | 语义蒸馏、检测头/P3候选与对照评估；未通过候选不替换v17 |
 | 语音任务研究 | voice_task_demo/ | ASR与领域训练、评估、任务图和演示；正式入口为协调器 |
 

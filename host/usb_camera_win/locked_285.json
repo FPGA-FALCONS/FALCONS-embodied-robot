@@ -1,0 +1,35 @@
+{
+  "camera_index": 1,
+  "backend": "dshow",
+  "state": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30.0,
+    "autofocus_raw": 2.0,
+    "autofocus_state": "manual",
+    "focus_raw": 285.0
+  },
+  "lock": {
+    "set_autofocus_ret": true,
+    "autofocus_raw": 2.0,
+    "autofocus_state": "manual",
+    "set_focus_ret": true,
+    "focus_requested": 285,
+    "focus_readback": 285.0,
+    "focus_matches": true
+  },
+  "image": {
+    "path": "locked_285.png",
+    "sharpness": 234.12
+  },
+  "verify": {
+    "frames": 60,
+    "focus_track_min": 285.0,
+    "focus_track_max": 285.0,
+    "focus_stable": true,
+    "sharpness_mean": 147.89,
+    "sharpness_std": 101.51,
+    "scene_motion": 8.18,
+    "note": "focus_stable is the direct proof; sharpness_std also moves with scene motion, not only with focus drift"
+  }
+}

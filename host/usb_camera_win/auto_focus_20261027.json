@@ -1,0 +1,312 @@
+{
+  "camera_index": 1,
+  "backend": "dshow",
+  "state": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30.0,
+    "autofocus_raw": 2.0,
+    "autofocus_state": "manual",
+    "focus_raw": 285.0
+  },
+  "auto_focus": {
+    "coarse": {
+      "from": 0,
+      "to": 1000,
+      "step": 50,
+      "rows": [
+        {
+          "focus": 0,
+          "readback": 0.0,
+          "matches": true,
+          "sharpness": 10.33
+        },
+        {
+          "focus": 50,
+          "readback": 50.0,
+          "matches": true,
+          "sharpness": 10.54
+        },
+        {
+          "focus": 100,
+          "readback": 100.0,
+          "matches": true,
+          "sharpness": 11.53
+        },
+        {
+          "focus": 150,
+          "readback": 150.0,
+          "matches": true,
+          "sharpness": 14.75
+        },
+        {
+          "focus": 200,
+          "readback": 200.0,
+          "matches": true,
+          "sharpness": 69.9
+        },
+        {
+          "focus": 250,
+          "readback": 250.0,
+          "matches": true,
+          "sharpness": 543.4
+        },
+        {
+          "focus": 300,
+          "readback": 300.0,
+          "matches": true,
+          "sharpness": 121.41
+        },
+        {
+          "focus": 350,
+          "readback": 350.0,
+          "matches": true,
+          "sharpness": 17.92
+        },
+        {
+          "focus": 400,
+          "readback": 400.0,
+          "matches": true,
+          "sharpness": 9.07
+        },
+        {
+          "focus": 450,
+          "readback": 450.0,
+          "matches": true,
+          "sharpness": 7.8
+        },
+        {
+          "focus": 500,
+          "readback": 500.0,
+          "matches": true,
+          "sharpness": 7.43
+        },
+        {
+          "focus": 550,
+          "readback": 550.0,
+          "matches": true,
+          "sharpness": 7.26
+        },
+        {
+          "focus": 600,
+          "readback": 600.0,
+          "matches": true,
+          "sharpness": 7.19
+        },
+        {
+          "focus": 650,
+          "readback": 650.0,
+          "matches": true,
+          "sharpness": 7.15
+        },
+        {
+          "focus": 700,
+          "readback": 700.0,
+          "matches": true,
+          "sharpness": 7.14
+        },
+        {
+          "focus": 750,
+          "readback": 750.0,
+          "matches": true,
+          "sharpness": 7.14
+        },
+        {
+          "focus": 800,
+          "readback": 800.0,
+          "matches": true,
+          "sharpness": 7.15
+        },
+        {
+          "focus": 850,
+          "readback": 850.0,
+          "matches": true,
+          "sharpness": 7.15
+        },
+        {
+          "focus": 900,
+          "readback": 900.0,
+          "matches": true,
+          "sharpness": 7.14
+        },
+        {
+          "focus": 950,
+          "readback": 950.0,
+          "matches": true,
+          "sharpness": 7.15
+        },
+        {
+          "focus": 1000,
+          "readback": 1000.0,
+          "matches": true,
+          "sharpness": 7.14
+        }
+      ]
+    },
+    "fine": {
+      "from": 200,
+      "to": 300,
+      "step": 5,
+      "rows": [
+        {
+          "focus": 200,
+          "readback": 200.0,
+          "matches": true,
+          "sharpness": 62.19
+        },
+        {
+          "focus": 205,
+          "readback": 205.0,
+          "matches": true,
+          "sharpness": 70.99
+        },
+        {
+          "focus": 210,
+          "readback": 210.0,
+          "matches": true,
+          "sharpness": 80.43
+        },
+        {
+          "focus": 215,
+          "readback": 215.0,
+          "matches": true,
+          "sharpness": 93.91
+        },
+        {
+          "focus": 220,
+          "readback": 220.0,
+          "matches": true,
+          "sharpness": 113.27
+        },
+        {
+          "focus": 225,
+          "readback": 225.0,
+          "matches": true,
+          "sharpness": 142.38
+        },
+        {
+          "focus": 230,
+          "readback": 230.0,
+          "matches": true,
+          "sharpness": 182.23
+        },
+        {
+          "focus": 235,
+          "readback": 235.0,
+          "matches": true,
+          "sharpness": 240.11
+        },
+        {
+          "focus": 240,
+          "readback": 240.0,
+          "matches": true,
+          "sharpness": 314.23
+        },
+        {
+          "focus": 245,
+          "readback": 245.0,
+          "matches": true,
+          "sharpness": 397.56
+        },
+        {
+          "focus": 250,
+          "readback": 250.0,
+          "matches": true,
+          "sharpness": 473.0
+        },
+        {
+          "focus": 255,
+          "readback": 255.0,
+          "matches": true,
+          "sharpness": 526.76
+        },
+        {
+          "focus": 260,
+          "readback": 260.0,
+          "matches": true,
+          "sharpness": 540.39
+        },
+        {
+          "focus": 265,
+          "readback": 265.0,
+          "matches": true,
+          "sharpness": 513.07
+        },
+        {
+          "focus": 270,
+          "readback": 270.0,
+          "matches": true,
+          "sharpness": 472.75
+        },
+        {
+          "focus": 275,
+          "readback": 275.0,
+          "matches": true,
+          "sharpness": 307.22
+        },
+        {
+          "focus": 280,
+          "readback": 280.0,
+          "matches": true,
+          "sharpness": 198.04
+        },
+        {
+          "focus": 285,
+          "readback": 285.0,
+          "matches": true,
+          "sharpness": 108.38
+        },
+        {
+          "focus": 290,
+          "readback": 290.0,
+          "matches": true,
+          "sharpness": 173.76
+        },
+        {
+          "focus": 295,
+          "readback": 295.0,
+          "matches": true,
+          "sharpness": 219.06
+        },
+        {
+          "focus": 300,
+          "readback": 300.0,
+          "matches": true,
+          "sharpness": 178.14
+        }
+      ]
+    },
+    "best": {
+      "focus": 260,
+      "sharpness": 540.39
+    },
+    "lock": {
+      "set_autofocus_ret": true,
+      "autofocus_raw": 2.0,
+      "autofocus_state": "manual",
+      "set_focus_ret": true,
+      "focus_requested": 260,
+      "focus_readback": 260.0,
+      "focus_matches": true
+    },
+    "locked_sharpness": 556.35
+  },
+  "best": {
+    "focus": 260,
+    "sharpness": 540.39
+  },
+  "image": {
+    "path": "focus_locked.png",
+    "sharpness": 554.95
+  },
+  "verify": {
+    "frames": 30,
+    "focus_track_min": 260.0,
+    "focus_track_max": 260.0,
+    "focus_stable": true,
+    "sharpness_mean": 557.49,
+    "sharpness_std": 0.54,
+    "scene_motion": 1.55,
+    "note": "focus_stable is the direct proof; sharpness_std also moves with scene motion, not only with focus drift"
+  }
+}

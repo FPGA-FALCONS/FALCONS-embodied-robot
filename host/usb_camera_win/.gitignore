@@ -1,0 +1,6 @@
+# Raw captures and focus sweep images remain local measurement evidence.
+/calib_images/
+/scan_*/
+/focus_locked.png
+/locked_*.png
+/calib_out/undistort_check.png
