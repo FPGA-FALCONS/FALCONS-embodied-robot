@@ -91,5 +91,9 @@
     "timestamp_source": "start_of_exposure",
     "driver_to_exposure_s": null,
     "error_bound_s": null
+  },
+  "discovery_speech": {
+    "enabled": true,
+    "names": {}
   }
 }

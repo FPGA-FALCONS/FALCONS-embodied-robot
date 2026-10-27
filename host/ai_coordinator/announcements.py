@@ -66,7 +66,7 @@ class Announcements:
     def __init__(self,cfg,audit,player=None):
         self.cfg=cfg;self.audit=audit;self.mode=cfg.get('mode','log')
         if self.mode not in ('off','log','alsa'):raise ValueError('Invalid announcements mode')
-        self.clips={};self.player=player;self.last_error=None
+        self.clips={};self.player=player;self.prepared_player=None;self.last_error=None
         if self.mode=='alsa':
             try:
                 self.clips=validate_assets(cfg['assets'])
@@ -88,12 +88,27 @@ class Announcements:
         if self.closed or self.mode=='off':return
         key=('sim_' if event['simulated'] else '')+event['code']
         if key not in catalog():raise ValueError('Unknown speech phrase')
+        self._enqueue(event,key,catalog()[key])
+
+    def emit_clip(self,event,clip,text):
+        # AI-owned synthesized clips share cancellation and microphone arbitration
+        # without changing the legacy fixed-phrase catalog or its log/off policy.
+        if self.closed:return
+        if self.prepared_player is None:
+            self.prepared_player=ALSAPlayer(self.cfg.get('ai_speaker_device') or self.cfg.get('device'),selector=self.cfg.get('selector'))
+        self._enqueue(event,'inspection_found',text,prepared_clip={
+            'path':str(clip['path']),'duration_s':clip['duration_s']})
+
+    def cancel_task(self,task_id,reason):
+        if self.task_id==task_id:self._clear(reason)
+
+    def _enqueue(self,event,key,text,**extra):
         if event['id'] in self.seen:return
         self.seen.append(event['id'])
         if event['task_id']!=self.task_id:
             self._clear('task_replaced');self.task_id=event['task_id']
         if event['code'] in ('stop_requested','timed_out','not_found','failed'):self._clear('terminal_status')
-        item={**event,'clip':key,'text':catalog()[key],'queued_at_s':time.monotonic(),'epoch':self.epoch}
+        item={**event,'clip':key,'text':text,'queued_at_s':time.monotonic(),'epoch':self.epoch,**extra}
         self.audit({'type':'speech_queued','event':item})
         if len(self.queue)>=8:self.audit({'type':'speech_dropped','reason':'queue_full','event':self.queue.popleft()})
         self.queue.append(item);self.changed.set()
@@ -101,7 +116,7 @@ class Announcements:
 
     @property
     def microphone_blocked(self):
-        return self.mode=='alsa' and (self.playing is not None or time.monotonic()<self.quiet_until)
+        return self.playing is not None or time.monotonic()<self.quiet_until
 
     def begin_capture(self):
         if self.microphone_blocked or self.capture_active:raise RuntimeError('Speech output or microphone busy; retry after the short announcement')
@@ -115,14 +130,16 @@ class Announcements:
                 self.changed.clear()
                 await self.changed.wait();continue
             item=self.queue.popleft()
-            if item['epoch']!=self.epoch or time.monotonic()-item['queued_at_s']>10:
+            if item['epoch']!=self.epoch or time.monotonic()-item.get('discovered_at_s',item['queued_at_s'])>10:
                 self.audit({'type':'speech_dropped','reason':'stale','event':item});continue
-            if self.mode=='log':
+            if self.mode=='log' and 'prepared_clip' not in item:
                 self.audit({'type':'speech_would_play','event':item});continue
             self.current=item
             try:
                 self.audit({'type':'speech_started','event':item})
-                self.playing=asyncio.create_task(self.player(self.clips[item['clip']],item))
+                clip=item.get('prepared_clip',self.clips.get(item['clip']))
+                player=self.prepared_player if 'prepared_clip' in item else self.player
+                self.playing=asyncio.create_task(player(clip,item))
                 await self.playing
                 self.audit({'type':'speech_finished','event':item})
             except asyncio.CancelledError:

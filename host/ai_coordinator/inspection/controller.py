@@ -21,6 +21,7 @@ from .stream import Container,DISPLAY,CONTROL,route_points
 from .usb_pump import USBPump
 from .timebase import ClockSync,PoseBuffer,capture_time
 from .recording import Recording,recover
+from .discovery_speech import DiscoverySpeech
 
 
 class InspectionController:
@@ -54,6 +55,11 @@ class InspectionController:
         self.video_root=Path(rt.cfg.get('root',rt.run_dir))/'inspection_recordings'
         self.generation=0;self.active=False;self.stopped=False;self.closed=False
         self.recognition_display=False
+        self.discovery_speech=DiscoverySpeech(rt,self._speech_allowed)
+    def _speech_allowed(self,binding):
+        return bool(self.active and not self.closed and self.mission.task_id and
+            binding==(self.mission.session_id,self.mission.task_id,self.epoch) and
+            not self.mission.manual and self.mission.state in ACTIVE)
     def start(self):
         if self.usb:self.usb.start()
         if self.enabled:
@@ -133,6 +139,7 @@ class InspectionController:
         if self.record_job and not self.record_job.done():self.record_job.cancel()
     def link_lost(self,reason,now):
         if not self.enabled:return
+        self.discovery_speech.cancel(reason)
         self.generation+=1;self._stop_recording();self.want_close=None
         if self.mission.state in ACTIVE or self.mission.state in ('paused','manual_paused','fault'):
             self.mission.pause(now,reason);self.mission.state='invalidated';self.mission.reason=reason
@@ -173,7 +180,8 @@ class InspectionController:
             self.mission.pause(now,'ai_mode_or_permission_changed')
         # Leaving the fourth entry pauses its task; it cannot own any of the
         # original three modes. A fresh local confirmation is required on return.
-        if not usable:return
+        if not usable:
+            self.discovery_speech.cancel('inspection_not_active');return
         if not event.get('record'):
             if self.released:self.released.set()
             self.record_armed=True
@@ -242,6 +250,7 @@ class InspectionController:
             self.error=str(exc)[:160];self.pause(now,'invalid_device_telemetry')
     def _epoch(self,epoch,now):
         if type(epoch) is not int or not 0<epoch<=0xffffffff:raise ValueError('Invalid localization epoch')
+        self.discovery_speech.cancel('localization_reset')
         if self.epoch is not None:
             self.mission.cancel(now,'localization_reset');self.mission.state='invalidated'
             self._save_report()  # Save old coordinates before replacing their frame.
@@ -295,6 +304,7 @@ class InspectionController:
             self.mission.new_task();self.cursor=[self.mission.pose['x_m'],self.mission.pose['y_m']] if self.mission.pose else [0,0];self.report_path=None;self.notice='新任务：选点后确认';return True
         return False
     def pause(self,now,reason='operator_pause'):
+        self.discovery_speech.cancel(reason)
         if not (self.mission.state in ('paused','manual_paused') and self.mission.reason==reason):
             self.mission.pause(now,reason)
         self.upload=None;self.upload_info=None;self.upload_pending=None
@@ -341,6 +351,9 @@ class InspectionController:
                     epoch=self.epoch,captured_at=captured,pose_at=captured,now=now,source_timestamp_verified=True)
                 located.append({**location,'class':d['class'],'radius_m':radius})
             confirmed=self.objects.observe(located,frame['sequence'],self.epoch,now)
+            # Use confirmed object identities, not detections/classes per frame.
+            self.discovery_speech.notify((self.mission.session_id,self.mission.task_id,self.epoch),
+                [obj for obj in self.objects.snapshot() if obj['confirmed'] and obj['sequence']==frame['sequence']])
             if confirmed:
                 data=await asyncio.to_thread(Path(frame['image']).read_bytes)
                 if generation!=self.generation:return
@@ -433,6 +446,8 @@ class InspectionController:
     def tick(self,now):
         if not self.enabled or self.closed:return
         self._video_tick(now)
+        if self.mission.state in ('completed','cancelled','invalidated','fault'):
+            self.discovery_speech.cancel('inspection_terminal')
         if self.video_required and (self.last_state is None or now-self.last_state>.5):
             self.link_lost('inspection_telemetry_timeout',now)
         if self.rt.gateway.transport.fd is None:return
@@ -510,6 +525,7 @@ class InspectionController:
         path=self.rt.run_dir/'inspection_audio'/(uuid.uuid4().hex+'.wav');path.parent.mkdir(parents=True,exist_ok=True)
         capturing=False
         try:
+            self.discovery_speech.cancel('inspection_recording')
             self.rt.announcements._clear('inspection_recording')
             for _ in range(20):
                 if not getattr(self.rt.announcements,'microphone_blocked',False):break
@@ -555,6 +571,7 @@ class InspectionController:
         profile=json.dumps(self.cfg.get('calibration',{}),sort_keys=True,ensure_ascii=False).encode()
         return dict(version=1,world_frame='FPGA navigation map; x forward at origin, y left; metres',
             mission=self.mission.snapshot(),objects=self.objects.snapshot(),calibration_sha256=hashlib.sha256(profile).hexdigest(),
+            discovery_speech=self.discovery_speech.snapshot(),
             return_policy='latest_map',fpga_route_history=self.route_history,evidence=[entry for entry in self.evidence_files if entry.get('epoch')==self.epoch],device_state=self.actual,
             recording=self.video.status() if self.video else None,
             motion_completion_source='authenticated FPGA stopped-arrival receipt' if self.mission.state=='completed' else 'task not completed; inspect device_state')
@@ -562,7 +579,7 @@ class InspectionController:
         return dict(enabled=self.enabled,active=self.active,mission=self.mission.snapshot(),readiness=self.readiness(time.monotonic()),
             notice=self.notice,error=self.error,report=self.report_path,usb=self.usb.status() if self.usb else None,
             actual=self.actual,objects=self.objects.snapshot(),recording=self.video.status() if self.video else None,
-            recognition_display=self.recognition_display,
+            recognition_display=self.recognition_display,discovery_speech=self.discovery_speech.snapshot(),
             archive=dict(root=str(self.video_root),url='http://127.0.0.1:%d'%self.archive_server.server_port if self.archive_server else None,error=self.playback_error),
             serial_owner='coordinator',capture_timing_commissioned=self.readiness(time.monotonic())['timing'])
     def lines(self):
@@ -576,6 +593,7 @@ class InspectionController:
             '已定位物体：'+str(sum(x['confirmed'] for x in self.objects.items)),
             '指令：'+self.instruction,'待就绪：'+'、'.join(labels.get(k,k) for k in missing),'请先完成标定后启用自动巡检' if missing else '设备已就绪']
     async def close(self):
+        await self.discovery_speech.close()
         if self.enabled and self.actual:
             try:
                 self.pause(time.monotonic(),'service_shutdown');self._actions(time.monotonic());self.rt.gateway.transport.flush()

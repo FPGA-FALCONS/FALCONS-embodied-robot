@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock,patch
+from unittest.mock import AsyncMock,Mock,patch
 from ai_coordinator.inspection.controller import InspectionController
 from ai_coordinator.inspection import wire
 from ai_coordinator.inspection.grid import PLANE_BYTES
@@ -228,6 +228,28 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.mission.state,'completed')
         report=json.loads(Path(self.c.report_path).read_text(encoding='utf-8'))
         self.assertEqual(report['mission']['start_m'],[.2,0]);self.assertEqual(report['return_policy'],'latest_map')
+
+    async def test_only_confirmed_located_objects_reach_speech_during_patrol(self):
+        import cv2,numpy as np
+        self.moving();self.c.cfg['ground_anchor_policies']={'tape':{'measured':True,'anchor':'bottom_center'}}
+        self.c.cfg['object_footprints_m']={'tape':.1}
+        pose=dict(x_m=0,y_m=0,yaw_rad=0)
+        self.c.clock=SimpleNamespace(estimate=lambda now:{})
+        self.c.poses=SimpleNamespace(at=lambda *args:(pose,0),items=[])
+        self.c.calibration.locate=Mock(return_value=dict(xy_m=[1,0],xy_error_m=.02))
+        self.c._record_evidence=Mock(return_value=True);self.c.discovery_speech.notify=Mock()
+        path=Path(self.tmp.name)/'camera.jpg';cv2.imwrite(str(path),np.zeros((72,128,3),np.uint8))
+        with patch('ai_coordinator.inspection.controller.capture_time',return_value=(1,0)):
+            for seq in range(1,4):
+                await self.c.observe(dict(image=str(path),width=128,height=72,sequence=seq),
+                    {'detections':[{'class':'tape','confidence':.9,'bbox':[10,10,30,30]}]},1+seq*.1)
+                binding,objects=self.c.discovery_speech.notify.call_args.args
+                self.assertEqual(len(objects),int(seq==3));self.assertTrue(self.c._speech_allowed(binding))
+        self.assertEqual(objects[0]['id'],1)
+        self.c.mission.state='paused';self.assertFalse(self.c._speech_allowed(binding))
+        self.controls(2,1.4,manual=True);self.assertFalse(self.c._speech_allowed(binding))
+        self.c.active=True;self.c.mission.manual=False;self.c.mission.state='completed'
+        self.assertFalse(self.c._speech_allowed(binding))
 
     async def test_camera_preview_without_calibration_never_publishes_coordinates(self):
         import cv2

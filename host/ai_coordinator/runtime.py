@@ -42,7 +42,8 @@ class Runtime:
         self.config=Path(config).resolve();self.cfg=loads(self.config.read_text(encoding='utf-8'))
         self.root=Path(self.cfg['root']).resolve();self.run_dir=self.root/'runs'/uuid.uuid4().hex
         self.audit=Audit(self.run_dir);self.core=PatrolMission(Policy(**self.cfg.get('policy',{})),self.cfg.get('mode','shadow'))
-        self.announcements=Announcements({**self.cfg.get('announcements',{}),'selector':self.cfg.get('audio_roles',{}).get('speaker')},self.audit)
+        self.announcements=Announcements({**self.cfg.get('announcements',{}),'selector':self.cfg.get('audio_roles',{}).get('speaker'),
+            'ai_speaker_device':self.cfg.get('ai_module',{}).get('speaker_device')},self.audit)
         self.cue=RecordingCue({**self.cfg.get('microphone',{}).get('cue',{}),'selector':self.cfg.get('audio_roles',{}).get('speaker')},self.audit,self.root)
         if self.core.mode=='live' and self.cfg.get('gateway',{}).get('mode')!='serial':raise ValueError('live mode requires serial gateway')
         self.gateway=Gateway(self.cfg.get('gateway',{}),self.core.session_id,self.audit)
