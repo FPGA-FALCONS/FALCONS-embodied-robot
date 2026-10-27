@@ -211,6 +211,7 @@ $sources += @("$VendorRoot\voice_motion_bridge\rtl\voice_motion_bridge.v",
               "$VendorRoot\voice_motion_bridge\sim\tb_voice_motion_bridge.sv",
               "$PSScriptRoot\tb_uart_command_router.sv", "$PSScriptRoot\voice_motion_integration_tb.sv")
 
+$sources += @("$ProjectRoot\rtl\ai\ai_video_gate.v", "$PSScriptRoot\ai_video_gate_tb.v")
 $sources += @("$ProjectRoot\rtl\ai\ai_rc_control.v", "$ProjectRoot\rtl\ai\ai_uart_tx.v",
               "$ProjectRoot\rtl\ai\ai_display_link.v", "$ProjectRoot\rtl\common\ai_menu_font.v",
               "$PSScriptRoot\manual_takeover_tb.v", "$PSScriptRoot\ai_rc_control_tb.v", "$PSScriptRoot\ai_uart_tx_tb.v", "$PSScriptRoot\ai_display_link_tb.v")
@@ -279,6 +280,7 @@ $tests = @(
     @{ Name = 'nav_dijkstra'; Top = 'nav_dijkstra_tb'; Desc = 'Four buckets / 2-3 cost / straight first / no corner cuts / heap reference' },
     @{ Name = 'yaw_pipeline'; Top = 'yaw_pipeline_tb'; Desc = '20000 cycle equivalence for optional yaw sum/wrap pipeline' },
     @{ Name = 'manual_takeover'; Top = 'manual_takeover_tb'; Desc = 'SWC stop before local stick takeover, fresh encoder feedback' },
+    @{ Name = 'ai_video_gate'; Top = 'ai_video_gate_tb'; Desc = 'Shared display gate without inspection navigation authority' },
     @{ Name = 'ai_rc_control'; Top = 'ai_rc_control_tb'; Desc = 'AI master/submenu/SWB recording/failsafe' },
     @{ Name = 'ai_uart_tx'; Top = 'ai_uart_tx_tb'; Desc = 'AI control CRC and whole-line CSV UART arbitration' },
     @{ Name = 'ai_display_link'; Top = 'ai_display_link_tb'; Desc = 'Atomic display commit, CRC, stale host and transaction isolation' },

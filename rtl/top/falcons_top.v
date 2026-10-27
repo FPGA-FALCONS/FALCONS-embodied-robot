@@ -1247,6 +1247,7 @@ module falcons_top (
     // ==================================================================
     wire        pixel_clk, pixel_req, frame_start, frame_sync, video_active, pll_lock;
     wire [11:0] pixel_x, pixel_y;
+    wire [11:0] pixel_x_ui, pixel_y_ui, pixel_x_ai, pixel_y_ai;
     wire [23:0] ui_rgb_raw;     // ui_render 生成的 UI 像素
     wire [23:0] ui_rgb;         // 经 cam_overlay 二选一后的最终像素（送 u_hdmi）
 
@@ -1313,6 +1314,8 @@ module falcons_top (
         .pixel_req     (pixel_req),
         .pixel_x       (pixel_x),
         .pixel_y       (pixel_y),
+        .pixel_x_ui    (pixel_x_ui), .pixel_y_ui(pixel_y_ui),
+        .pixel_x_ai    (pixel_x_ai), .pixel_y_ai(pixel_y_ai),
         .frame_start   (frame_start),
         .frame_sync    (frame_sync),
         .video_active  (video_active),
@@ -1609,6 +1612,12 @@ module falcons_top (
         .i_origin_clear(count_clear_r || yaw_clear_r),.i_calib_done(imu_calib_done),.o_epoch(inspection_epoch));
     reg [15:0] inspection_user_token;
     wire inspection_permission=ai_master && ai_mode==3 && ai_inspection_open && page==PAGE_AI;
+    wire ai_video_enabled;
+    wire [1:0] ai_video_view;
+    ai_video_gate u_ai_video_gate(.clk(i_clk_50m),.rst_n(sys_rst_n),
+        .i_ai_page(page==PAGE_AI),.i_master(ai_master),.i_link(ai_host_alive),.i_manual(manual_drive),
+        .i_mode(ai_mode),.i_inspection_open(ai_inspection_open),.i_inspection_view(ai_inspection_view),
+        .o_enabled(ai_video_enabled),.o_view(ai_video_view));
     wire navigation_sensors_valid;
     always @(posedge i_clk_50m or negedge sys_rst_n)begin
         if(!sys_rst_n)begin inspection_user_token<=0;end
@@ -1626,7 +1635,7 @@ module falcons_top (
         .i_link(ai_host_alive),.i_local_pause((rc_confirm || rc_back || ai_record) && (inspection_motion_enable || inspection_pending_motion)),
         .i_user_token(inspection_user_token),.i_epoch(inspection_epoch),
         .i_ui_open(ai_inspection_open),.i_ui_master(ai_master),.i_ui_record(ai_record),.i_ui_rc_valid(rc_signal_ok),
-        .i_ui_confirm(rc_confirm),.i_ui_back(rc_back),.i_ui_view(ai_inspection_view),
+        .i_ui_confirm(rc_confirm),.i_ui_back(rc_back),.i_ui_view(ai_video_view),
         .i_ui_steer(rc_steer),.i_ui_throttle(rc_throttle),.i_vehicle_width_mm(tune_p[431:416]),
         .i_forward_check_cells(tune_p[391:384]),.o_ui_close(ai_inspection_close),
         .o_session(inspection_session),.o_task(inspection_task_id),.o_context(inspection_context),
@@ -1653,8 +1662,8 @@ module falcons_top (
         .fx2_flagb(i_fx2_flagb),.fx2_flagc(i_fx2_flagc),.fx2_address(o_fx2_faddr),
         .fx2_slrd_n(o_fx2_slrd_n),.fx2_slwr_n(o_fx2_slwr_n),.fx2_sloe_n(o_fx2_sloe_n),
         .fx2_pktend_n(o_fx2_pktend_n),.fx2_slcs_n(o_fx2_slcs_n),
-        .i_display_enabled(inspection_permission),.i_session(inspection_session),.i_task(inspection_task_id),
-        .i_epoch(inspection_epoch),.i_context(inspection_context),.i_view(ai_inspection_view),
+        .i_display_enabled(ai_video_enabled),.i_session(inspection_session),.i_task(inspection_task_id),
+        .i_epoch(inspection_epoch),.i_context(inspection_context),.i_view(ai_video_view),
         .o_frame_begin(inspection_frame_begin),.o_frame_commit(inspection_frame_commit),.o_frame_abort(inspection_frame_abort),.o_frame_sequence(inspection_frame_sequence),
         .i_frame_ready(inspection_frame_ready),.o_frame_data(inspection_pixel),.o_frame_valid(inspection_pixel_valid),.i_frame_word_ready(inspection_pixel_ready),
         .i_route_valid(inspection_route_valid),.o_route_release(inspection_route_release),
@@ -2051,7 +2060,7 @@ module falcons_top (
     wire ai_glyph,ai_connected,ai_local_region,ai_highlight;
     ai_display_link #(.CLK_HZ(CLK_HZ)) u_ai_display(
         .clk(i_clk_50m),.rst_n(sys_rst_n),.rx_data(motion_rx_data),.rx_valid(motion_rx_valid),
-        .pixel_clk(pixel_clk),.pixel_rst_n(pixel_rst_n),.pixel_x(pixel_x),.pixel_y(pixel_y),
+        .pixel_clk(pixel_clk),.pixel_rst_n(pixel_rst_n),.pixel_x(pixel_x_ai),.pixel_y(pixel_y_ai),
         .selected(ai_inspection_open?ai_inspection_view:ai_selected),.i_inspection(ai_inspection_open),
         .o_glyph(ai_glyph),.o_connected(ai_connected),.o_local_region(ai_local_region),.o_highlight(ai_highlight),
         .o_display_ack(ai_display_ack),.o_display_bank(ai_display_bank),.o_host_alive(ai_host_alive));
@@ -2062,8 +2071,8 @@ module falcons_top (
         .i_map_pixel(map_pixel), .i_route_pixel(route_pixel), .i_obstacle_state(obstacle_state_ps2),
         .i_pixel_clk    (pixel_clk),
         .i_reset_n      (pixel_rst_n),
-        .i_pixel_x      (pixel_x),
-        .i_pixel_y      (pixel_y),
+        .i_pixel_x      (pixel_x_ui),
+        .i_pixel_y      (pixel_y_ui),
         .i_pixel_req    (pixel_req),
         .i_video_active (video_active),
         .o_pixel_rgb888 (ui_rgb_base),
@@ -2129,9 +2138,9 @@ module falcons_top (
         .sys_rst_n    (sys_rst_n),
         .ai_begin(inspection_frame_begin),.ai_commit(inspection_frame_commit),.ai_abort(inspection_frame_abort),
         .ai_session(inspection_session),.ai_task(inspection_task_id),.ai_epoch(inspection_epoch),.ai_context(inspection_context),
-        .ai_sequence(inspection_frame_sequence),.ai_view(ai_inspection_view),.ai_frame_ready(inspection_frame_ready),
+        .ai_sequence(inspection_frame_sequence),.ai_view(ai_video_view),.ai_frame_ready(inspection_frame_ready),
         .ai_pixel(inspection_pixel),.ai_pixel_valid(inspection_pixel_valid),.ai_pixel_ready(inspection_pixel_ready),
-        .ai_show(inspection_permission && ai_host_alive && !manual_drive),.ai_fault(),
+        .ai_show(ai_video_enabled && ai_host_alive && !manual_drive),.ai_fault(),
 
         // 摄像头物理引脚（直通到顶层）
         .camera_pwdn  (camera_pwdn),

@@ -47,6 +47,7 @@ module disp_driver_tb;
     reg  [23:0] Data;
     wire        DataReq;
     wire [11:0] H_Addr, V_Addr;
+    wire [11:0] H_Addr_UI, V_Addr_UI, H_Addr_AI, V_Addr_AI;
     wire        Disp_HS, Disp_VS;
     wire [7:0]  Disp_Red, Disp_Green, Disp_Blue;
     wire        Frame_Begin;
@@ -88,6 +89,8 @@ module disp_driver_tb;
         .DataReq     (DataReq),
         .H_Addr      (H_Addr),
         .V_Addr      (V_Addr),
+        .H_Addr_UI(H_Addr_UI), .V_Addr_UI(V_Addr_UI),
+        .H_Addr_AI(H_Addr_AI), .V_Addr_AI(V_Addr_AI),
         .Disp_HS     (Disp_HS),
         .Disp_VS     (Disp_VS),
         .Disp_Red    (Disp_Red),
@@ -171,7 +174,11 @@ module disp_driver_tb;
             de_d1   <= Disp_DE;
             data_d1 <= Data;
             step;
-            checks=checks+2;
+            checks=checks+3;
+            if ({H_Addr_UI,V_Addr_UI,H_Addr_AI,V_Addr_AI} !==
+                {H_Addr,V_Addr,H_Addr,V_Addr}) begin
+                errors=errors+1;$display("FAIL: coordinate replicas changed pixel alignment");
+            end
             if(H_Addr !== (Disp_DE ? (dut.hcount_r-HDAT_BEGIN-1) : 12'd0))begin
                 errors=errors+1;$display("FAIL: registered H address changed active or blanking alignment");
             end

@@ -85,6 +85,29 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.c.video_required)
     async def test_idle_preview_never_creates_video(self):
         self.c.tick(1.1);self.assertIsNone(self.c.video)
+    async def test_standalone_recognition_emits_only_camera_display_without_inspection_authority(self):
+        import time,numpy as np
+        class USB:
+            def __init__(self):self.frames=[]
+            def status(self):return {'verified':True}
+            def bind(self,*args):pass
+            def drain_maps(self):return []
+            def drop_controls(self):pass
+            def offer(self,frame):self.frames.append(frame);return True
+            def close(self):pass
+        self.c.usb=USB();self.rt.ai.vision=True;self.rt.ai.target=None
+        self.input(2,0,0,1.1,flags=4|128) # Camera view; neither child-open nor permission.
+        self.controls(2,1.1,mode='object_recognition')
+        self.c.camera={'bgr':np.zeros((72,128,3),np.uint8),'sequence':1};self.c.last_camera=time.monotonic()
+        self.c.detections=[{'class':'tape','confidence':.9,'bbox':[10,10,30,30],'frame_sequence':1}]
+        self.c.tick(1.12);await self.c.render_job
+        self.assertTrue(self.c.recognition_display);self.assertFalse(self.c.active)
+        self.assertEqual(len(self.c.usb.frames),1);self.assertEqual(self.c.usb.frames[0].view,0)
+        self.assertEqual(len(self.c.usb.frames[0].payload),685440)
+        self.assertIsNone(self.c.video);self.assertIsNone(self.c.layer)
+        self.assertFalse(any(m['kind']==wire.CONTROL and m['words'][4]&255==wire.OP_GOTO for m in self.messages()))
+        self.controls(3,1.2,manual=True,mode='object_recognition')
+        self.assertFalse(self.c.recognition_display)
     async def test_repeated_timeout_does_not_flood_pause_commands(self):
         self.moving();self.c.pause(1.1,'camera_timeout');command=self.c.mission.command_id
         for n in range(20):self.c.pause(1.2+n*.02,'camera_timeout')

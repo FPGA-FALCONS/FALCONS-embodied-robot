@@ -12,6 +12,7 @@ NAV_OBSTACLE_BGR = (0x46, 0x79, 0xE8)
 NAMES = {'tape': '胶带', 'screwdriver': '螺丝刀', 'scissors': '剪刀',
          'ad_calcium_milk': 'AD钙奶', 'nutri_express': '营养快线'}
 STATES = {'edit': '移动准心选点', 'ready': '确认开始巡检', 'await_start': '等待导航受理',
+          'object_recognition':'目标识别',
           'outbound': '去程巡检', 'returning': '最新地图返航', 'no_path': '无路，等待或暂停',
           'await_stop': '停车复核物体', 'await_layer': '提交视觉障碍',
           'await_return_layer': '更新返航障碍', 'paused': '已暂停，确认继续',
@@ -124,6 +125,13 @@ def render(view, mission, objects, *, camera=None, detections=(), radar_raw=None
     if not calibration_ready:
         text(image, '未标定：仅观察，不授权运动', 352, 8, (20, 170, 255))
     return image
+
+
+def render_recognition(camera,detections,*,instruction='',recording_phase=None):
+    # Reuse the same annotated pixels; standalone recognition has no metric
+    # localization requirement and must not show inspection calibration text.
+    return render('camera',dict(state='object_recognition',instruction=instruction,recording_phase=recording_phase),
+                  [],camera=camera,detections=detections,calibration_ready=True)
 
 
 def rgb565(image):

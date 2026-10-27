@@ -24,6 +24,8 @@ module disp_driver(
 	
 	H_Addr,
 	V_Addr,
+    H_Addr_UI, V_Addr_UI,
+    H_Addr_AI, V_Addr_AI,
 	
 	Disp_HS,
 	Disp_VS,
@@ -42,6 +44,12 @@ module disp_driver(
 	
 	output reg [11:0] H_Addr;
 	output reg [11:0] V_Addr;
+    // Same-cycle register replicas separate the base/UI/AI coordinate fanout.
+    // Preserve the replicas; adding an ordinary delayed copy would shift pixels.
+    output reg [11:0] H_Addr_UI /* synthesis syn_preserve=1 */;
+    output reg [11:0] V_Addr_UI /* synthesis syn_preserve=1 */;
+    output reg [11:0] H_Addr_AI /* synthesis syn_preserve=1 */;
+    output reg [11:0] V_Addr_AI /* synthesis syn_preserve=1 */;
 	
 	output reg Disp_HS;
 	output reg Disp_VS;
@@ -80,10 +88,17 @@ module disp_driver(
     wire active_now=((hcount_r>=hdat_begin)&&(hcount_r<hdat_end)) &&
                     ((vcount_r>=vdat_begin)&&(vcount_r<vdat_end));
     always @(posedge ClkDisp or negedge Rst_n)begin
-        if(!Rst_n)begin H_Addr<=0;V_Addr<=0;end
+        if(!Rst_n)begin
+            H_Addr<=0;V_Addr<=0;
+            H_Addr_UI<=0;V_Addr_UI<=0;H_Addr_AI<=0;V_Addr_AI<=0;
+        end
         else begin
             H_Addr<=active_now?(hcount_r-hdat_begin):12'd0;
             V_Addr<=active_now?(vcount_r-vdat_begin):12'd0;
+            H_Addr_UI<=active_now?(hcount_r-hdat_begin):12'd0;
+            V_Addr_UI<=active_now?(vcount_r-vdat_begin):12'd0;
+            H_Addr_AI<=active_now?(hcount_r-hdat_begin):12'd0;
+            V_Addr_AI<=active_now?(vcount_r-vdat_begin):12'd0;
         end
     end
 

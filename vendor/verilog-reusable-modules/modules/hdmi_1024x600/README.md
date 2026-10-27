@@ -10,6 +10,7 @@
 | `pixel_req` | 输出 | `pixel_clk` | 为高时模块正在请求有效 RGB888 像素 |
 | `pixel_rgb888` | 输入 | `pixel_clk` | 24 位 `{R,G,B}` 像素数据 |
 | `pixel_x/y` | 输出 | `pixel_clk` | 当前有效区坐标，有效区外输出 0 |
+| `pixel_x_ui/y_ui`、`pixel_x_ai/y_ai` | 输出 | `pixel_clk` | 与原坐标同拍的独立寄存副本，供多渲染器分摊扇出；不使用时可不连接 |
 | `frame_start` | 输出 | `pixel_clk` | 每帧一个周期的起始脉冲 |
 | `frame_sync` | 输出 | `pixel_clk` | 原始显示 VS 电平，完整示例用它同步 DDR 读帧 |
 | `video_active` | 输出 | `pixel_clk` | 有效显示区电平，与 `pixel_req`一致 |

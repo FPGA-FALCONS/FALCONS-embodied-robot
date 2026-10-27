@@ -53,6 +53,7 @@ class InspectionController:
         self.archive_server=None;self.archive_thread=None;self.playback_error=None
         self.video_root=Path(rt.cfg.get('root',rt.run_dir))/'inspection_recordings'
         self.generation=0;self.active=False;self.stopped=False;self.closed=False
+        self.recognition_display=False
     def start(self):
         if self.usb:self.usb.start()
         if self.enabled:
@@ -143,7 +144,7 @@ class InspectionController:
         # session and discard geometry, rather than assume localization survived.
         self.mission.actions.clear();self.mission.expected=None;self.mission.pose=None
         self.mission.session_id=(uuid.uuid4().int&0xffffffff) or 1
-        self.active=False;self.caps=None;self.actual=None;self.input=None;self.clock=None;self.epoch=None
+        self.active=False;self.recognition_display=False;self.caps=None;self.actual=None;self.input=None;self.clock=None;self.epoch=None
         self.radar=None;self.camera=None;self.detections=[];self.objects=Objects();self.layer=None;self.layer_crc=None
         self.upload=None;self.upload_info=None;self.upload_pending=None;self.last_input=self.last_state=None
         self.ai_sequence=None;self.next_hello=now;self.rt.gateway.transport.drop('inspection')
@@ -155,6 +156,11 @@ class InspectionController:
         if self.ai_sequence is not None and not 0<((seq-self.ai_sequence)&255)<128:return
         self.ai_sequence=seq;self.latest_ai=event
         mode=event.get('mode')=='visual_inspection'
+        recognition=bool(event.get('mode')=='object_recognition' and self.rt.ai.active and
+                         getattr(self.rt.ai,'vision',False) and event.get('enabled') and
+                         not event.get('manual') and not event.get('estop'))
+        if recognition!=self.recognition_display:self.generation+=1
+        self.recognition_display=recognition
         usable=bool(mode and self.input and self.input['open'] and self.input['permission'] and self.rt.ai.active and event.get('enabled') and not event.get('manual') and not event.get('estop'))
         was=self.active;self.active=usable
         if self.video_required and (not mode or not event.get('enabled') or event.get('estop')):
@@ -406,16 +412,23 @@ class InspectionController:
             elif kind=='prepare_return_layer':
                 if self.layer:self.mission.submit_layer(self.layer,now)
                 else:self.pause(now,'return_layer_unavailable')
-    async def _render(self,generation,binding):
+    async def _render(self,generation,binding,recognition=False):
         try:
-            from .render import render,rgb565
+            from .render import render,render_recognition,rgb565
             mission={**self.mission.snapshot(),'recording_phase':self.recording_phase,'instruction':self.instruction,'planned_route':self.planned_route};objects=self.objects.snapshot();camera=self.camera if self.last_camera is not None and time.monotonic()-self.last_camera<=.5 else None;detections=list(self.detections)
-            image=await asyncio.to_thread(render,self.mission.view,mission,objects,camera=camera,detections=detections,
-                radar_raw=self.radar,cursor=self.cursor,scroll=self.scroll,calibration_ready=all(self.readiness(time.monotonic()).values()))
+            if recognition:
+                target=getattr(self.rt.ai,'target',None)
+                if target:detections=[d for d in detections if d['class']==target]
+                phase=getattr(self.rt.ai,'state',None)
+                image=await asyncio.to_thread(render_recognition,camera,detections,
+                    instruction=getattr(self.rt.ai,'instruction',''),recording_phase=phase)
+            else:
+                image=await asyncio.to_thread(render,self.mission.view,mission,objects,camera=camera,detections=detections,
+                    radar_raw=self.radar,cursor=self.cursor,scroll=self.scroll,calibration_ready=all(self.readiness(time.monotonic()).values()))
             payload=await asyncio.to_thread(rgb565,image)
-            if generation==self.generation and self.usb and binding==(self.mission.session_id,self.actual['task_id'],self.epoch,self.context):
+            if generation==self.generation and self.usb and self.actual and recognition==self.recognition_display and binding==(self.mission.session_id,self.actual['task_id'],self.epoch,self.context):
                 self.usb.offer(Container(DISPLAY,*binding,sequence=time.monotonic_ns()&0xffffffff,width=816,height=420,stride=1632,
-                    view=self.input['view'],payload=payload))
+                    view=0 if recognition else self.input['view'],payload=payload))
         except Exception as exc:self.error=str(exc)[:160]
     def tick(self,now):
         if not self.enabled or self.closed:return
@@ -460,6 +473,10 @@ class InspectionController:
                 if self.input and frame.view==self.input['view']:
                     self.radar=frame.payload;self.last_map=now
         if not self.active:
+            if (self.recognition_display and self.usb and self.usb.status()['verified'] and self.input and self.input['view']==0
+                    and self.actual and now>=self.next_render and (not self.render_job or self.render_job.done())):
+                binding=(self.mission.session_id,self.actual['task_id'],self.epoch,self.context)
+                self.render_job=asyncio.create_task(self._render(self.generation,binding,recognition=True));self.next_render=now+self.render_interval
             self._actions(now);return
         if self.input and now>=self.next_stick:
             if self.mission.state=='edit' and self.input['view']==1:
@@ -545,6 +562,7 @@ class InspectionController:
         return dict(enabled=self.enabled,active=self.active,mission=self.mission.snapshot(),readiness=self.readiness(time.monotonic()),
             notice=self.notice,error=self.error,report=self.report_path,usb=self.usb.status() if self.usb else None,
             actual=self.actual,objects=self.objects.snapshot(),recording=self.video.status() if self.video else None,
+            recognition_display=self.recognition_display,
             archive=dict(root=str(self.video_root),url='http://127.0.0.1:%d'%self.archive_server.server_port if self.archive_server else None,error=self.playback_error),
             serial_owner='coordinator',capture_timing_commissioned=self.readiness(time.monotonic())['timing'])
     def lines(self):
