@@ -5,6 +5,7 @@ import sys
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from ai_coordinator.runtime import Runtime
@@ -57,6 +58,16 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         answer=self.runtime.stop();self.assertEqual(answer['status'],'stopped')
         gate.set();job=await self.done(pending)
         self.assertEqual(job['status'],'cancelled');self.assertEqual(self.runtime.core.state,'stopped')
+
+    async def test_pause_preserves_inspection_image_pump_but_cancels_other_jobs(self):
+        pump=asyncio.create_task(asyncio.sleep(60));other=asyncio.create_task(asyncio.sleep(60))
+        self.runtime.tasks.update([pump,other]);self.runtime.image_pump=pump
+        self.runtime.inspection.video=SimpleNamespace(capturing=True)
+        try:
+            self.runtime.stop('ai_manual_pause');await asyncio.sleep(0)
+            self.assertFalse(pump.cancelled());self.assertTrue(other.cancelled())
+        finally:
+            self.runtime.inspection.video=None;pump.cancel();await asyncio.gather(pump,other,return_exceptions=True)
 
     async def test_delayed_model_result_cannot_override_new_request(self):
         gate=asyncio.Event();self.runtime.workers['llm'].gate=gate

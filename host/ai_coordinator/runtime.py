@@ -98,7 +98,7 @@ class Runtime:
             return False
 
     def retry_camera(self,now):
-        if (not self.ai.vision or 'camera' not in self.workers or now<self.next_camera_retry
+        if (not (self.ai.vision or getattr(getattr(self,'inspection',None),'video_required',False)) or 'camera' not in self.workers or now<self.next_camera_retry
                 or (self.camera_task is not None and not self.camera_task.done())
                 or self.ai.vision_lock.locked() or any(not task.done() for task in self.ai.cleanup)):
             return False
@@ -396,6 +396,7 @@ class Runtime:
         try:current=asyncio.current_task()
         except RuntimeError:current=None
         for pending in list(self.tasks):
+            if pending is self.image_pump and self.inspection.video_required:continue
             if pending is not current:pending.cancel()
         async def cleanup():
             if not self.startup.enabled:

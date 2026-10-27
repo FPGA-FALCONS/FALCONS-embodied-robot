@@ -192,6 +192,10 @@ class AiModule:
     async def _change_vision(self, enabled):
         if enabled != self.vision:
             return
+        # A running inspection recording owns an independent camera/inference
+        # lease through manual takeover and pauses. AI exits end that lease.
+        if not enabled and getattr(getattr(self.rt,'inspection',None),'video_required',False):
+            return
         if self.rt.camera_task:
             self.rt.camera_task.cancel()
             await asyncio.gather(self.rt.camera_task, return_exceptions=True)

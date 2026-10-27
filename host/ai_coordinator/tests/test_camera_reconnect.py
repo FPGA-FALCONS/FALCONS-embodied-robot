@@ -20,5 +20,11 @@ class CameraReconnectTests(unittest.IsolatedAsyncioTestCase):
         rt.camera_task=None;rt.next_camera_retry=0;rt.audit=lambda event:None;rt._camera=AsyncMock()
         self.assertFalse(rt.retry_camera(1));lock.release()
         self.assertTrue(rt.retry_camera(2));await rt.camera_task
+    async def test_inspection_video_keeps_camera_owner_during_manual_pause(self):
+        rt=Runtime.__new__(Runtime);rt.ai=SimpleNamespace(vision=False,vision_lock=asyncio.Lock(),cleanup=set())
+        rt.inspection=SimpleNamespace(video_required=True);rt.workers={'camera':object()}
+        rt.camera_task=None;rt.next_camera_retry=0;rt.audit=lambda e:None;rt._camera=AsyncMock()
+        self.assertTrue(rt.retry_camera(1));await rt.camera_task
+        rt.inspection.video_required=False;self.assertFalse(rt.retry_camera(3))
 
 if __name__=='__main__':unittest.main()

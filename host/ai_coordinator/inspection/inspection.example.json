@@ -1,5 +1,15 @@
 {
   "enabled": false,
+  "recording": {
+    "ffmpeg": "ffmpeg",
+    "segment_seconds": 60,
+    "max_task_bytes": 4294967296,
+    "max_archive_bytes": 17179869184,
+    "min_free_bytes": 2147483648,
+    "max_duration_s": 7200,
+    "source_timeout_s": 5,
+    "playback_port": 18766
+  },
   "highspeed": {
     "enabled": true,
     "selector": {

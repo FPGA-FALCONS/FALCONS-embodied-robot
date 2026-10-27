@@ -7,6 +7,15 @@ from unittest.mock import AsyncMock,patch
 from ai_coordinator.inspection.controller import InspectionController
 from ai_coordinator.inspection import wire
 from ai_coordinator.inspection.grid import PLANE_BYTES
+import threading
+
+class Video:
+    def __init__(self,*args):
+        self.ready=True;self.capturing=True;self.done=threading.Event();self.error=None;self.started=0;self.reason=None
+    def offer(self,snapshot,report=None):self.latest=snapshot
+    def finish(self,reason,report):self.reason=reason;self.capturing=False;self.done.set()
+    def status(self):return {'ready':self.ready,'capturing':self.capturing,'end_reason':self.reason}
+    def wait(self,*args):pass
 
 class Port:
     fd=1
@@ -21,7 +30,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.rt=SimpleNamespace(cfg={'inspection':{'enabled':True}},gateway=SimpleNamespace(transport=self.port),
             ai=SimpleNamespace(active=True),run_dir=Path(self.tmp.name),workers={},cue=SimpleNamespace(play=AsyncMock()),
             announcements=SimpleNamespace(_clear=lambda x:None,begin_capture=lambda:None,end_capture=lambda:None))
-        self.c=InspectionController(self.rt);self.session=self.c.mission.session_id
+        self.c=InspectionController(self.rt,recording_factory=Video);self.session=self.c.mission.session_id
         self.packet(wire.CAPS,[self.session,1,1,0,15,0],1)
         self.input(1,0,0,1)
         self.packet(wire.STATE,[self.session,0,1,0,2,0,1|4|8,0],1)
@@ -51,6 +60,31 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.input(2,0,0,1.2);self.controls(3,1.2)
         self.assertEqual(self.c.mission.state,'paused')
         self.assertFalse(any(a['kind']=='goto' for a in self.c.mission.drain()))
+    async def test_manual_and_page_switch_keep_video_but_ai_exit_finishes_it(self):
+        self.moving();self.c._begin_video(1)
+        self.controls(2,1.1,manual=True);self.assertTrue(self.c.video_required)
+        self.input(2,0,0,1.2);self.controls(3,1.2);self.assertTrue(self.c.video_required)
+        self.controls(4,1.3,mode='chatbot')
+        self.assertFalse(self.c.video_required);self.assertEqual(self.c.video.reason,'ai_module_exit')
+        self.assertEqual(self.c.mission.state,'cancelled')
+    async def test_missing_video_readiness_defers_goto_and_encoder_error_cancels(self):
+        self.moving();self.c.mission.actions.append(dict(self.c.mission.expected,at_s=1,goal_mm=[1000,0],layer_version=1,speed_code=30))
+        self.c._begin_video(1);self.c.video.ready=False;self.c._actions(1.01)
+        self.assertFalse(any(m['kind']==wire.CONTROL and m['words'][4]&255==wire.OP_GOTO for m in self.messages()))
+        self.c.video.error='disk full';self.c._video_tick(1.02);self.c._actions(1.02)
+        self.assertEqual(self.c.mission.state,'cancelled')
+        self.assertFalse(any(m['kind']==wire.CONTROL and m['words'][4]&255==wire.OP_GOTO for m in self.messages()))
+    async def test_link_loss_closes_video_before_discarding_task_coordinates(self):
+        self.moving();self.c._begin_video(1);self.c.link_lost('link_lost',1.1)
+        self.assertEqual(self.c.video.reason,'link_lost');self.assertFalse(self.c.video_required)
+    async def test_encoder_failure_between_tick_and_dispatch_still_finalizes_report(self):
+        self.moving();self.c._begin_video(1);self.c.video.ready=False;self.c.video.error='encoder died'
+        self.c.mission.actions.append(dict(self.c.mission.expected,at_s=1,goal_mm=[1000,0],layer_version=1,speed_code=30))
+        self.c._actions(1.01)
+        self.assertEqual(self.c.mission.state,'cancelled');self.assertIsNotNone(self.c.report_path)
+        self.assertFalse(self.c.video_required)
+    async def test_idle_preview_never_creates_video(self):
+        self.c.tick(1.1);self.assertIsNone(self.c.video)
     async def test_repeated_timeout_does_not_flood_pause_commands(self):
         self.moving();self.c.pause(1.1,'camera_timeout');command=self.c.mission.command_id
         for n in range(20):self.c.pause(1.2+n*.02,'camera_timeout')

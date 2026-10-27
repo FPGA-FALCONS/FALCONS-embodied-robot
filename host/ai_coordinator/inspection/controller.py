@@ -20,12 +20,17 @@ from .grid import build,cell,bit
 from .stream import Container,DISPLAY,CONTROL,route_points
 from .usb_pump import USBPump
 from .timebase import ClockSync,PoseBuffer,capture_time
+from .recording import Recording,recover
 
 
 class InspectionController:
-    def __init__(self,rt,*,usb_factory=USBPump):
+    def __init__(self,rt,*,usb_factory=USBPump,recording_factory=Recording):
         self.rt=rt;self.cfg=rt.cfg.get('inspection',{})
         self.enabled=self.cfg.get('enabled') is True
+        source_timeout=self.cfg.get('recording',{}).get('source_timeout_s',5)
+        if not finite(source_timeout) or not 1<=source_timeout<=60:raise ValueError('Video source timeout must be1..60 seconds')
+        playback_port=self.cfg.get('recording',{}).get('playback_port',18766)
+        if type(playback_port) is not int or (playback_port!=0 and not 1024<=playback_port<=65535):raise ValueError('Playback port must be0 or1024..65535')
         fps=self.cfg.get('highspeed',{}).get('display_fps',10)
         if not finite(fps) or not 1<=fps<=10:raise ValueError('Display fps must be1..10')
         self.render_interval=1/fps
@@ -42,9 +47,79 @@ class InspectionController:
         self.usb_was_verified=False
         self.evidence=Evidence(rt.run_dir/'inspection_evidence');self.evidence_jobs=set();self.evidence_error=None;self.evidence_files=[]
         self.want_close=None;self.next_close=0.
+        self.video=None;self.recording_factory=recording_factory;self.video_next_report=0.;self.video_recovery=None
+        self.video_camera_lease=False
+        self.video_usb_lost_since=None
+        self.archive_server=None;self.archive_thread=None;self.playback_error=None
+        self.video_root=Path(rt.cfg.get('root',rt.run_dir))/'inspection_recordings'
         self.generation=0;self.active=False;self.stopped=False;self.closed=False
     def start(self):
         if self.usb:self.usb.start()
+        if self.enabled:
+            from http.server import ThreadingHTTPServer
+            import threading
+            from .recording_cli import handler
+            port=self.cfg.get('recording',{}).get('playback_port',18766)
+            if port:
+                try:
+                    self.archive_server=ThreadingHTTPServer(('127.0.0.1',port),handler(self.video_root))
+                    self.archive_thread=threading.Thread(target=self.archive_server.serve_forever,name='inspection-playback',daemon=True)
+                    self.archive_thread.start()
+                except OSError as exc:self.playback_error=str(exc)[:160]
+            async def restore():
+                try:
+                    for delay in (0,2,4):
+                        if delay:await asyncio.sleep(delay)
+                        await asyncio.to_thread(recover,self.video_root)
+                except OSError as exc:self.evidence_error='Recording recovery failed: '+str(exc)[:100]
+            self.video_recovery=asyncio.create_task(restore())
+    @property
+    def video_required(self):return bool(self.video and self.video.capturing)
+    def _video_snapshot(self,now):
+        return dict(mission={**self.mission.snapshot(),'instruction':self.instruction,'recording_phase':self.recording_phase,
+                             'planned_route':list(self.planned_route)},objects=self.objects.snapshot(),
+                    camera=self.camera if self.last_camera is not None and now-self.last_camera<=.5 else None,
+                    detections=list(self.detections),radar=self.radar,cursor=list(self.cursor),
+                    calibration_ready=all(self.readiness(now).values()),
+                    sources=dict(camera_age_s=None if self.last_camera is None else now-self.last_camera,
+                                 map_age_s=None if self.last_map is None else now-self.last_map,
+                                 camera_sequence=self.camera.get('sequence') if self.camera else None,
+                                 pose=self.mission.pose,view=self.mission.view))
+    def _begin_video(self,now):
+        if self.video and not self.video.done.is_set():return
+        try:
+            self.video=self.recording_factory(self.video_root,self.cfg.get('recording',{}),self._video_snapshot(now),self._report())
+            self.video_camera_lease=True
+        except Exception as exc:
+            self.evidence_error='Recording start failed: '+str(exc)[:120];self.mission.cancel(now,'recording_failed')
+    def _finish_video(self,reason):
+        if self.video and self.video.capturing:
+            self.video.finish(reason,self._report())
+        self._release_video_camera()
+    def _release_video_camera(self):
+        if self.video_camera_lease and not self.video_required:
+            self.video_camera_lease=False
+            if not getattr(self.rt.ai,'vision',False) and hasattr(self.rt.ai,'_task'):self.rt.ai._task(self.rt.ai._set_vision(False))
+    def _video_tick(self,now):
+        if not self.video:return
+        if self.video.error and self.mission.state in ACTIVE|{'paused','manual_paused','fault'}:
+            self.mission.cancel(now,'recording_failed');self.notice='录像异常，任务已取消，请检查存储'
+            self._save_report()
+        if self.video_required:
+            if self.usb and self.usb.status()['verified']:self.video_usb_lost_since=None
+            elif self.video_usb_lost_since is None:self.video_usb_lost_since=now
+            timeout=self.cfg.get('recording',{}).get('source_timeout_s',5)
+            last_camera=self.last_camera if self.last_camera is not None else self.video.started
+            last_map=self.last_map if self.last_map is not None else self.video.started
+            if self.mission.state in ACTIVE|{'paused','manual_paused','fault'} and (
+                    now-last_camera>timeout or now-last_map>timeout or
+                    (self.video_usb_lost_since is not None and now-self.video_usb_lost_since>timeout)):
+                self.mission.cancel(now,'recording_source_lost')
+            report=self._report() if now>=self.video_next_report else None
+            self.video.offer(self._video_snapshot(now),report);self.video_next_report=now+1 if report else self.video_next_report
+            if self.mission.state in ('completed','cancelled','invalidated'):
+                self._save_report();self._finish_video(self.mission.reason or self.mission.state)
+        self._release_video_camera()
     def send(self,kind,words,*,priority=False):
         port=self.rt.gateway.transport
         if port.fd is None:return False
@@ -63,6 +138,7 @@ class InspectionController:
             if self.epoch is not None:self._save_report()
         elif self.mission.state in ('edit','ready'):
             self.mission.state='edit';self.mission.goal=None
+        self._finish_video(reason)
         # A reboot can reuse the FPGA's numeric epoch. Establish a fresh host
         # session and discard geometry, rather than assume localization survived.
         self.mission.actions.clear();self.mission.expected=None;self.mission.pose=None
@@ -81,6 +157,8 @@ class InspectionController:
         mode=event.get('mode')=='visual_inspection'
         usable=bool(mode and self.input and self.input['open'] and self.input['permission'] and self.rt.ai.active and event.get('enabled') and not event.get('manual') and not event.get('estop'))
         was=self.active;self.active=usable
+        if self.video_required and (not mode or not event.get('enabled') or event.get('estop')):
+            self.mission.cancel(now,'ai_module_exit');self._save_report();self._finish_video('ai_module_exit')
         if event.get('manual'):
             self.want_close=None;self.last_camera=None;self.camera=None;self.mission.set_manual(True,now);self._stop_recording();self.notice='手动接管，保留任务；回光标后确认继续'
         elif self.mission.manual:self.mission.set_manual(False,now)
@@ -119,6 +197,8 @@ class InspectionController:
                 if old and (event['sequence']-old['sequence'])&0xffffffff>=0x80000000:return
                 if self.active and (not event['open'] or not event['permission'] or event['manual'] or not event['rc_valid']):
                     self.pause(now,'inspection_page_closed');self.active=False;self.generation+=1;self._stop_recording()
+                if self.video_required and (not event['open'] or not event['permission'] or not event['rc_valid']):
+                    self.mission.cancel(now,'inspection_page_exit');self._save_report();self._finish_video('inspection_page_exit')
                 self.input=event;self.context=event['sequence'];self.last_input=now
                 self.mission.set_view(event['view'])
                 if self.usb:self.usb.bind(self.mission.session_id,self.actual['task_id'] if self.actual else 0,self.epoch,self.context)
@@ -142,6 +222,7 @@ class InspectionController:
                 receipt={**state,'kind':'running'} if state['kind']=='accepted' and self.mission.state=='no_path' else state
                 self.mission.on_status(receipt,now)
                 if self.mission.state=='completed' and self.report_path is None:self._save_report()
+                if self.mission.state=='completed':self._finish_video('completed')
                 if self.mission.state in ('edit','ready','paused','manual_paused','fault'):self.mission.layer_version=state['layer_version']
             elif kind==wire.POSE:
                 if self.poses and self.poses.add(words):
@@ -158,6 +239,7 @@ class InspectionController:
         if self.epoch is not None:
             self.mission.cancel(now,'localization_reset');self.mission.state='invalidated'
             self._save_report()  # Save old coordinates before replacing their frame.
+            self._finish_video('localization_reset')
         self.mission.actions.clear();self.mission.expected=None;self.mission.pose=None;self.mission.epoch=epoch
         self.actual=None;self.last_state=None;self.want_close=None;self.cursor_initialized=False
         self._stop_recording()
@@ -194,7 +276,11 @@ class InspectionController:
             self.mission.select_goal(self.cursor);self.notice='再次确认开始巡检';return True
         if state=='ready':
             if self.evidence_error:self.notice='数据记录未就绪，请检查存储';return False
-            accepted=self.mission.start(self.readiness(now),now);self.notice='已提交任务' if accepted else '等待标定或设备条件';return accepted
+            if self.video_recovery and not self.video_recovery.done():self.notice='正在检查上次中断录像，请稍候';return False
+            if self.video and not self.video.done.is_set():self.notice='上一段录像正在收尾';return False
+            accepted=self.mission.start(self.readiness(now),now)
+            if accepted:self._begin_video(now)
+            self.notice='正在准备双路录像，随后开始任务' if accepted else '等待标定或设备条件';return accepted
         if state in ('paused','manual_paused','fault'):
             accepted=self.mission.resume(self.readiness(now),now,layer=self.layer);self.notice='请求继续' if accepted else '尚不满足恢复条件';return accepted
         if state in ACTIVE:self.pause(now,'operator_pause');return True
@@ -301,10 +387,20 @@ class InspectionController:
             kind=action['kind']
             if kind in ('goto','pause','cancel'):
                 if not self.active and kind=='goto':continue
+                if kind=='goto':
+                    if self.video is None:self._begin_video(now)
+                    if self.video is None:continue
+                    if not self.video.ready:
+                        if self.video.error:
+                            self.mission.cancel(now,'recording_failed');self._save_report();self._finish_video('recording_failed')
+                        else:self.mission.actions.append(action)
+                        continue
                 commissioned=all(self.readiness(now).values()) if kind=='goto' else self.cfg.get('speed_mapping_verified') is True
+                if kind=='goto':commissioned=commissioned and self.mission.pose is not None and 0<=now-self.mission.pose['at_s']<=.5
                 if kind=='goto' and not commissioned:
                     self.mission.pause(now,'conditions_changed_before_goto');continue
                 self.send(wire.CONTROL,wire.control(action,user_token=self.input['user_token'] if self.input else 0,commissioned=commissioned),priority=kind!='goto')
+                if kind=='goto':self.mission.last_status=now
             elif kind=='commit_layer':
                 self._begin_upload(self.mission.pending_layer,action['layer_version'],action['task_id'],action['command_id'])
             elif kind=='prepare_return_layer':
@@ -323,6 +419,9 @@ class InspectionController:
         except Exception as exc:self.error=str(exc)[:160]
     def tick(self,now):
         if not self.enabled or self.closed:return
+        self._video_tick(now)
+        if self.video_required and (self.last_state is None or now-self.last_state>.5):
+            self.link_lost('inspection_telemetry_timeout',now)
         if self.rt.gateway.transport.fd is None:return
         if self.last_state is not None and now-self.last_state>.5:
             self.link_lost('inspection_telemetry_timeout',now)
@@ -341,7 +440,8 @@ class InspectionController:
             self.pause(now,'highspeed_link_lost');self.layer_crc=None
         self.usb_was_verified=verified
         if self.evidence_error:self.pause(now,'evidence_recording_failed');self.notice='数据记录失败，任务暂停，请检查存储'
-        self.mission.tick(now)
+        preparing=self.video_required and not self.video.ready and now-self.video.started<3
+        if not preparing:self.mission.tick(now)
         if self.active and self.mission.state in ACTIVE:
             ready=self.readiness(now)
             missing=[key for key in ('calibration','timing','camera','fpga','speed_mapping','vehicle') if not ready[key]]
@@ -418,19 +518,35 @@ class InspectionController:
             if capturing:self.rt.announcements.end_capture()
             path.unlink(missing_ok=True)
     def _save_report(self):
-        directory=self.rt.run_dir/'inspection_reports';directory.mkdir(parents=True,exist_ok=True)
+        report=self._report()
+        if self.video:
+            self.video.offer(self._video_snapshot(time.monotonic()),report)
+            if (self.video.done.is_set() or self.video.error) and hasattr(self.video,'save_final_report'):
+                video=self.video
+                async def update_video_report():
+                    try:await asyncio.to_thread(video.save_final_report,report)
+                    except (OSError,RuntimeError) as exc:self.evidence_error='Video report write failed: '+str(exc)[:100]
+                job=asyncio.create_task(update_video_report());self.evidence_jobs.add(job);job.add_done_callback(self.evidence_jobs.discard)
+        directory=self.rt.run_dir/'inspection_reports'
+        path=directory/('task-%d-epoch-%d.json'%(self.mission.task_id,self.epoch))
+        try:
+            directory.mkdir(parents=True,exist_ok=True)
+            temporary=path.with_suffix('.tmp');temporary.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');temporary.replace(path)
+            self.report_path=str(path)
+        except OSError as exc:self.evidence_error='Report write failed: '+str(exc)[:120]
+    def _report(self):
         profile=json.dumps(self.cfg.get('calibration',{}),sort_keys=True,ensure_ascii=False).encode()
-        report=dict(version=1,world_frame='FPGA navigation map; x forward at origin, y left; metres',
+        return dict(version=1,world_frame='FPGA navigation map; x forward at origin, y left; metres',
             mission=self.mission.snapshot(),objects=self.objects.snapshot(),calibration_sha256=hashlib.sha256(profile).hexdigest(),
             return_policy='latest_map',fpga_route_history=self.route_history,evidence=[entry for entry in self.evidence_files if entry.get('epoch')==self.epoch],device_state=self.actual,
+            recording=self.video.status() if self.video else None,
             motion_completion_source='authenticated FPGA stopped-arrival receipt' if self.mission.state=='completed' else 'task not completed; inspect device_state')
-        path=directory/('task-%d-epoch-%d.json'%(self.mission.task_id,self.epoch))
-        temporary=path.with_suffix('.tmp');temporary.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');temporary.replace(path)
-        self.report_path=str(path)
     def snapshot(self):
         return dict(enabled=self.enabled,active=self.active,mission=self.mission.snapshot(),readiness=self.readiness(time.monotonic()),
             notice=self.notice,error=self.error,report=self.report_path,usb=self.usb.status() if self.usb else None,
-            actual=self.actual,objects=self.objects.snapshot(),serial_owner='coordinator',capture_timing_commissioned=self.readiness(time.monotonic())['timing'])
+            actual=self.actual,objects=self.objects.snapshot(),recording=self.video.status() if self.video else None,
+            archive=dict(root=str(self.video_root),url='http://127.0.0.1:%d'%self.archive_server.server_port if self.archive_server else None,error=self.playback_error),
+            serial_owner='coordinator',capture_timing_commissioned=self.readiness(time.monotonic())['timing'])
     def lines(self):
         from .render import STATES
         labels=dict(calibration='相机和地面标定',timing='拍摄及位姿对时',camera='相机',fpga='接口和回执',map='雷达地图',
@@ -446,6 +562,14 @@ class InspectionController:
             try:
                 self.pause(time.monotonic(),'service_shutdown');self._actions(time.monotonic());self.rt.gateway.transport.flush()
             except (OSError,RuntimeError):pass
+        if self.video_required:
+            self.mission.cancel(time.monotonic(),'service_shutdown');self._finish_video('service_shutdown')
+        if self.video:
+            try:await asyncio.to_thread(self.video.wait)
+            except RuntimeError as exc:self.evidence_error=str(exc)
+        if self.video_recovery:await self.video_recovery
+        if self.archive_server:
+            await asyncio.to_thread(self.archive_server.shutdown);self.archive_server.server_close();self.archive_thread.join(timeout=1)
         self.closed=True;self._stop_recording()
         jobs=[j for j in (self.record_job,self.render_job,self.layer_job) if j]
         for job in jobs:job.cancel()
