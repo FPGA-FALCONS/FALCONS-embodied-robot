@@ -260,4 +260,27 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.c.detections),1);self.assertFalse(self.c.objects.items)
         self.assertFalse(self.c.readiness(1.1)['calibration'])
 
+    async def test_one_out_of_region_object_does_not_discard_other_locations(self):
+        import cv2
+        import numpy as np
+        self.moving();self.c.active=True
+        self.c.cfg['ground_anchor_policies']={'tape':dict(measured=True,anchor='bottom_center')}
+        self.c.cfg['object_footprints_m']={'tape':.03}
+        self.c.clock=SimpleNamespace(estimate=lambda *args:(0,0))
+        self.c.poses=SimpleNamespace(at=lambda *args:({'epoch':1,'x_m':0,'y_m':0,'yaw_rad':0},0),items=[])
+        self.c.calibration.locate=Mock(side_effect=[ValueError('Outside measured homography ground region'),
+                                                   dict(xy_m=[1,0],xy_error_m=.02)])
+        self.c.discovery_speech.notify=Mock()
+        path=Path(self.tmp.name)/'two_objects.jpg';cv2.imwrite(str(path),np.zeros((72,128,3),np.uint8))
+        frame=dict(image=str(path),width=128,height=72,sequence=1,focus_value=260)
+        detections=[dict(class_='tape',confidence=.9,bbox=[10,10,30,30]),
+                    dict(class_='tape',confidence=.9,bbox=[40,20,60,50])]
+        for d in detections:d['class']=d.pop('class_')
+        with patch('ai_coordinator.inspection.controller.capture_time',return_value=(1,0)):
+            await self.c.observe(frame,{'detections':detections},1.1)
+        self.assertEqual(self.c.calibration.locate.call_count,2)
+        self.assertEqual(len(self.c.objects.items),1)
+        self.assertTrue(self.c.layer_dirty)
+        self.assertIs(self.c.calibration.locate.call_args.kwargs['camera_metadata'],frame)
+
 if __name__=='__main__':unittest.main()

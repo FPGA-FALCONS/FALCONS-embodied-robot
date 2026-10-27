@@ -1,0 +1,254 @@
+{
+  "axes": "right_forward_cm",
+  "origin": "ground projection of lidar center",
+  "image_size": [
+    1280,
+    720
+  ],
+  "camera_serial": "200901010001",
+  "focus": 260,
+  "autofocus": false,
+  "captured_at": "2026-10-28T00:52:40+08:00",
+  "source_images": [
+    {
+      "file": "frame_00.jpg",
+      "source_age_s": 0.021826505661010742,
+      "sha256": "fbf82410229c52ec17c95afcf72869d71ad19476f1d22f4e63396847ebac4514"
+    },
+    {
+      "file": "frame_01.jpg",
+      "source_age_s": 0.030758380889892578,
+      "sha256": "0d626020b33a1f38df0d5109d57c897bcc319067201d74dc1d1f9f669d69bff0"
+    },
+    {
+      "file": "frame_02.jpg",
+      "source_age_s": 0.006348609924316406,
+      "sha256": "8851626af66cd44ceacfc876facd6147b2e3c504d5bdbb07aefaef8f4b9dd6f1"
+    }
+  ],
+  "point_selection": "Manually reviewed ROIs; median visible battery base midpoint across 3 raw JPEGs using dark-body threshold100. No H-based optimization of point selection. Gold rim and shadow remain approximate 1-3 pixel selection uncertainty, not a certified bound.",
+  "selection_rois": [
+    [
+      598,
+      265,
+      638,
+      360
+    ],
+    [
+      277,
+      265,
+      316,
+      358
+    ],
+    [
+      958,
+      195,
+      999,
+      273
+    ],
+    [
+      496,
+      160,
+      524,
+      224
+    ],
+    [
+      732,
+      136,
+      755,
+      195
+    ],
+    [
+      1022,
+      123,
+      1054,
+      184
+    ],
+    [
+      379,
+      108,
+      405,
+      162
+    ]
+  ],
+  "per_frame_selection": [
+    {
+      "frame": "frame_00.jpg",
+      "points_uv": [
+        [
+          615.0,
+          349
+        ],
+        [
+          296.0,
+          348
+        ],
+        [
+          977.5,
+          262
+        ],
+        [
+          510.5,
+          210
+        ],
+        [
+          743.0,
+          184
+        ],
+        [
+          1036.0,
+          173
+        ],
+        [
+          392.5,
+          151
+        ]
+      ]
+    },
+    {
+      "frame": "frame_01.jpg",
+      "points_uv": [
+        [
+          615.0,
+          349
+        ],
+        [
+          298.5,
+          344
+        ],
+        [
+          977.5,
+          262
+        ],
+        [
+          510.5,
+          213
+        ],
+        [
+          743.0,
+          184
+        ],
+        [
+          1035.0,
+          173
+        ],
+        [
+          392.0,
+          152
+        ]
+      ]
+    },
+    {
+      "frame": "frame_02.jpg",
+      "points_uv": [
+        [
+          615.0,
+          349
+        ],
+        [
+          296.0,
+          348
+        ],
+        [
+          977.5,
+          262
+        ],
+        [
+          510.5,
+          213
+        ],
+        [
+          743.0,
+          184
+        ],
+        [
+          1036.0,
+          173
+        ],
+        [
+          392.0,
+          152
+        ]
+      ]
+    }
+  ],
+  "points": [
+    {
+      "id": 1,
+      "ground_cm": [
+        0.0,
+        70.0
+      ],
+      "pixel_uv": [
+        615.0,
+        349.0
+      ]
+    },
+    {
+      "id": 2,
+      "ground_cm": [
+        -20.0,
+        70.0
+      ],
+      "pixel_uv": [
+        296.0,
+        348.0
+      ]
+    },
+    {
+      "id": 3,
+      "ground_cm": [
+        30.0,
+        90.0
+      ],
+      "pixel_uv": [
+        977.5,
+        262.0
+      ]
+    },
+    {
+      "id": 4,
+      "ground_cm": [
+        -10.0,
+        110.0
+      ],
+      "pixel_uv": [
+        510.5,
+        213.0
+      ]
+    },
+    {
+      "id": 5,
+      "ground_cm": [
+        15.0,
+        125.0
+      ],
+      "pixel_uv": [
+        743.0,
+        184.0
+      ]
+    },
+    {
+      "id": 6,
+      "ground_cm": [
+        50.0,
+        130.0
+      ],
+      "pixel_uv": [
+        1036.0,
+        173.0
+      ]
+    },
+    {
+      "id": 7,
+      "ground_cm": [
+        -30.0,
+        150.0
+      ],
+      "pixel_uv": [
+        392.0,
+        152.0
+      ]
+    }
+  ]
+}

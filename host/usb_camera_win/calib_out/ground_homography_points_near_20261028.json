@@ -1,0 +1,196 @@
+{
+  "axes": "right_forward_cm",
+  "origin": "ground projection of lidar center",
+  "image_size": [
+    1280,
+    720
+  ],
+  "camera_serial": "200901010001",
+  "focus": 260,
+  "autofocus": false,
+  "captured_at": "2026-10-28T01:13:29+08:00",
+  "source_images": [
+    {
+      "file": "frame_00.jpg",
+      "source_age_s": 0.025822162628173828,
+      "sha256": "e54c66d2e8345195e0d3969a8113ea0228425e484fb487e72b9cb3c51b69d95d"
+    },
+    {
+      "file": "frame_01.jpg",
+      "source_age_s": 0.00543975830078125,
+      "sha256": "3ce3d85ab69ee218053a6a20aff769d4ab215d6168611bbe7b4f7a2fc91f3a9e"
+    },
+    {
+      "file": "frame_02.jpg",
+      "source_age_s": 0.025705337524414062,
+      "sha256": "20c8c0240854e873b91d7064c79aadb55199e818e04ae54b6e90c0921bb1eef7"
+    }
+  ],
+  "per_frame_selection": [
+    {
+      "frame": "frame_00.jpg",
+      "pixel_uv": [
+        [
+          615.5,
+          634
+        ],
+        [
+          1187.5,
+          630
+        ],
+        [
+          30.5,
+          638
+        ],
+        [
+          389.5,
+          499
+        ],
+        [
+          726.5,
+          452
+        ]
+      ]
+    },
+    {
+      "frame": "frame_01.jpg",
+      "pixel_uv": [
+        [
+          615.5,
+          634
+        ],
+        [
+          1186.0,
+          630
+        ],
+        [
+          30.5,
+          638
+        ],
+        [
+          389.5,
+          499
+        ],
+        [
+          726.5,
+          452
+        ]
+      ]
+    },
+    {
+      "frame": "frame_02.jpg",
+      "pixel_uv": [
+        [
+          615.5,
+          634
+        ],
+        [
+          1185.5,
+          630
+        ],
+        [
+          30.5,
+          638
+        ],
+        [
+          389.5,
+          499
+        ],
+        [
+          727.0,
+          452
+        ]
+      ]
+    }
+  ],
+  "selection_rois": [
+    [
+      586,
+      485,
+      654,
+      665
+    ],
+    [
+      1138,
+      479,
+      1240,
+      652
+    ],
+    [
+      0,
+      488,
+      81,
+      658
+    ],
+    [
+      358,
+      378,
+      421,
+      516
+    ],
+    [
+      700,
+      339,
+      756,
+      468
+    ]
+  ],
+  "point_selection": "Manually reviewed bottom contacts, 3-frame median; dark body plus saturated gold base ring; minimum bottom row width8 excludes tile seam/shadow tails. Leftmost battery upper body is cropped but its bottom contact is visible. Approximate pixel/physical-footprint selection only, not a certified measurement bound.",
+  "points": [
+    {
+      "id": 1,
+      "ground_cm": [
+        0.0,
+        40.0
+      ],
+      "pixel_uv": [
+        615.5,
+        634.0
+      ]
+    },
+    {
+      "id": 2,
+      "ground_cm": [
+        20.0,
+        40.0
+      ],
+      "pixel_uv": [
+        1186.0,
+        630.0
+      ]
+    },
+    {
+      "id": 3,
+      "ground_cm": [
+        -20.0,
+        40.0
+      ],
+      "pixel_uv": [
+        30.5,
+        638.0
+      ]
+    },
+    {
+      "id": 4,
+      "ground_cm": [
+        -10.0,
+        50.0
+      ],
+      "pixel_uv": [
+        389.5,
+        499.0
+      ]
+    },
+    {
+      "id": 5,
+      "ground_cm": [
+        5.0,
+        55.0
+      ],
+      "pixel_uv": [
+        726.5,
+        452.0
+      ]
+    }
+  ]
+}

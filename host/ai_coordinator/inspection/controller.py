@@ -347,8 +347,14 @@ class InspectionController:
                     if not isinstance(fractions,list) or len(fractions)!=2 or not all(finite(x) and 0<=x<=1 for x in fractions):continue
                     u,v=box[0]+(box[2]-box[0])*fractions[0],box[1]+(box[3]-box[1])*fractions[1]
                 else:continue
-                location=self.calibration.locate(dict(u=u,v=v,ground_verified=True),[frame['width'],frame['height']],serial,pose,
-                    epoch=self.epoch,captured_at=captured,pose_at=captured,now=now,source_timestamp_verified=True)
+                try:
+                    location=self.calibration.locate(dict(u=u,v=v,ground_verified=True),[frame['width'],frame['height']],serial,pose,
+                        epoch=self.epoch,captured_at=captured,pose_at=captured,now=now,source_timestamp_verified=True,camera_metadata=frame)
+                except ValueError as exc:
+                    # A point outside the measured H region must not discard
+                    # other valid objects from this same frame.
+                    self.error='Target projection skipped: '+str(exc)[:130]
+                    continue
                 located.append({**location,'class':d['class'],'radius_m':radius})
             confirmed=self.objects.observe(located,frame['sequence'],self.epoch,now)
             # Use confirmed object identities, not detections/classes per frame.
@@ -576,11 +582,20 @@ class InspectionController:
             recording=self.video.status() if self.video else None,
             motion_completion_source='authenticated FPGA stopped-arrival receipt' if self.mission.state=='completed' else 'task not completed; inspect device_state')
     def snapshot(self):
+        camera=self.cfg.get('camera',self.rt.cfg.get('camera',{}))
+        serial=camera.get('selector',{}).get('serial')
+        size=camera.get('expected_size',[])
+        profile=self.calibration.profile
         return dict(enabled=self.enabled,active=self.active,mission=self.mission.snapshot(),readiness=self.readiness(time.monotonic()),
             notice=self.notice,error=self.error,report=self.report_path,usb=self.usb.status() if self.usb else None,
             actual=self.actual,objects=self.objects.snapshot(),recording=self.video.status() if self.video else None,
             recognition_display=self.recognition_display,discovery_speech=self.discovery_speech.snapshot(),
             archive=dict(root=str(self.video_root),url='http://127.0.0.1:%d'%self.archive_server.server_port if self.archive_server else None,error=self.playback_error),
+            calibration_model=dict(projection_model=profile.get('projection_model','pinhole_ground'),
+                static_geometry_config_ready=not self.calibration.geometry_problems(size,serial),
+                pending=self.calibration.problems(size,serial),
+                pixel_domain=profile.get('homography',{}).get('pixel_domain'),focus=profile.get('focus'),
+                max_range_m=profile.get('max_range_m'),ground_hull_cm=profile.get('homography',{}).get('ground_hull_cm')),
             serial_owner='coordinator',capture_timing_commissioned=self.readiness(time.monotonic())['timing'])
     def lines(self):
         from .render import STATES

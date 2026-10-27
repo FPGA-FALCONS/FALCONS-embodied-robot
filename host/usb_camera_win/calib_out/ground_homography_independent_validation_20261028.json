@@ -1,0 +1,270 @@
+{
+  "version": 1,
+  "status": "independent_control_point_validation_not_operational_commissioning",
+  "fixed_model_file": "ground_homography_20261028.json",
+  "fixed_model_sha256": "45d9cb2b645c339744d99df74180ee19b9cf2a84ea7b8182e8dfc691429bad8d",
+  "new_points_file": "ground_homography_points_validation_20261028.json",
+  "new_points_sha256": "e3a11a205a427bd059c30c25a2e19f77fb84b0e3aaeb8ed37aa4c3a5128446e3",
+  "same_installation_confirmed_by_user": true,
+  "axes": "right_forward_cm",
+  "image_size": [
+    1280,
+    720
+  ],
+  "control_points": [
+    {
+      "id": 1,
+      "ground_cm": [
+        0.0,
+        90.0
+      ],
+      "pixel_uv": [
+        613.5,
+        265.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 2,
+      "ground_cm": [
+        0.0,
+        150.0
+      ],
+      "pixel_uv": [
+        612.5,
+        151.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 3,
+      "ground_cm": [
+        0.0,
+        210.0
+      ],
+      "pixel_uv": [
+        611.0,
+        104.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 4,
+      "ground_cm": [
+        30.0,
+        60.0
+      ],
+      "pixel_uv": [
+        1174.0,
+        405.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 5,
+      "ground_cm": [
+        -30.0,
+        60.0
+      ],
+      "pixel_uv": [
+        53.0,
+        410.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 6,
+      "ground_cm": [
+        30.0,
+        120.0
+      ],
+      "pixel_uv": [
+        885.5,
+        191.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 7,
+      "ground_cm": [
+        -30.0,
+        120.0
+      ],
+      "pixel_uv": [
+        336.5,
+        194.0
+      ],
+      "capture_set": "independent_003903"
+    }
+  ],
+  "validation": {
+    "raw_pixel_approximation": {
+      "model_refit": false,
+      "predicted_ground_cm": [
+        [
+          0.4929538397965893,
+          89.10944628951266
+        ],
+        [
+          0.46425562346511334,
+          148.75935760524717
+        ],
+        [
+          0.23050624048606266,
+          207.97318381186852
+        ],
+        [
+          29.22923969335656,
+          60.62936245395684
+        ],
+        [
+          -28.68299021307039,
+          59.99046976068154
+        ],
+        [
+          29.35716424936326,
+          119.42057553060685
+        ],
+        [
+          -29.061763269649166,
+          119.15956825614859
+        ]
+      ],
+      "error_vectors_cm": [
+        [
+          0.4929538397965893,
+          -0.8905537104873389
+        ],
+        [
+          0.46425562346511334,
+          -1.2406423947528253
+        ],
+        [
+          0.23050624048606266,
+          -2.026816188131477
+        ],
+        [
+          -0.7707603066434388,
+          0.629362453956837
+        ],
+        [
+          1.31700978692961,
+          -0.0095302393184582
+        ],
+        [
+          -0.6428357506367384,
+          -0.5794244693931461
+        ],
+        [
+          0.9382367303508339,
+          -0.8404317438514113
+        ]
+      ],
+      "euclidean_errors_cm": [
+        1.0178847672663978,
+        1.324661026669467,
+        2.039881611117378,
+        0.995072132434458,
+        1.3170442681739456,
+        0.8654308279858234,
+        1.2596085416717957
+      ],
+      "rms_cm": 1.309977730003894,
+      "max_cm": 2.039881611117378,
+      "inside_old_control_hull": [
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true
+      ]
+    },
+    "undistorted_pixel_recommended": {
+      "model_refit": false,
+      "predicted_ground_cm": [
+        [
+          0.4843089038231889,
+          88.84124757691393
+        ],
+        [
+          0.463654545975166,
+          148.70799606768298
+        ],
+        [
+          0.23537882365228682,
+          208.76160581779527
+        ],
+        [
+          29.002098283076037,
+          60.96777450925443
+        ],
+        [
+          -28.4667688773757,
+          60.32511416723821
+        ],
+        [
+          29.3582116720419,
+          119.08027920409998
+        ],
+        [
+          -29.08256191253167,
+          118.83514173498716
+        ]
+      ],
+      "error_vectors_cm": [
+        [
+          0.4843089038231889,
+          -1.1587524230860708
+        ],
+        [
+          0.463654545975166,
+          -1.2920039323170158
+        ],
+        [
+          0.23537882365228682,
+          -1.238394182204729
+        ],
+        [
+          -0.9979017169239626,
+          0.9677745092544328
+        ],
+        [
+          1.5332311226243007,
+          0.32511416723821185
+        ],
+        [
+          -0.6417883279580998,
+          -0.9197207959000195
+        ],
+        [
+          0.9174380874683301,
+          -1.164858265012839
+        ]
+      ],
+      "euclidean_errors_cm": [
+        1.255891035213748,
+        1.372679751116796,
+        1.2605646913754383,
+        1.3901062324162317,
+        1.567321567873922,
+        1.1215072894610265,
+        1.482763440979804
+      ],
+      "rms_cm": 1.357297398159008,
+      "max_cm": 1.567321567873922,
+      "inside_old_control_hull": [
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true
+      ]
+    }
+  },
+  "note": "All new points excluded from the fixed model fit. Source point selection uncertainty is not a certified error bound; 210cm is beyond original 180cm coverage. No motion/anchor/timing commissioning.",
+  "live_config_changed": false
+}

@@ -1,0 +1,231 @@
+{
+  "axes": "right_forward_cm",
+  "origin": "ground projection of lidar center",
+  "image_size": [
+    1280,
+    720
+  ],
+  "camera_serial": "200901010001",
+  "focus": 260,
+  "autofocus": false,
+  "captured_at": [
+    "2026-10-28T00:23:53+08:00",
+    "2026-10-28T00:39:03+08:00"
+  ],
+  "source_images": [
+    {
+      "file": "frame_00.jpg",
+      "source_age_s": 0.012906074523925781,
+      "sha256": "253b01c042a56a52ed6df7c61b058d662654d4a5424d35534940e0f541d3bf9b",
+      "capture_set": "initial_002353"
+    },
+    {
+      "file": "frame_01.jpg",
+      "source_age_s": 0.028975248336791992,
+      "sha256": "9ecf0441f3dbe3795837fb3371f25dc29345b041af5ccc9b4f59cda77abb263a",
+      "capture_set": "initial_002353"
+    },
+    {
+      "file": "frame_02.jpg",
+      "source_age_s": 0.01651597023010254,
+      "sha256": "964b4e4cf0188d250d8cbb390817cb7146c8af7cbb2ae397c9ec61cc2f008cff",
+      "capture_set": "initial_002353"
+    },
+    {
+      "file": "frame_00.jpg",
+      "source_age_s": 0.0015819072723388672,
+      "sha256": "cec3fd968012fbc32b9983c4e9cc5f5bd1518babaed14290bf880601a81591df",
+      "capture_set": "independent_003903"
+    },
+    {
+      "file": "frame_01.jpg",
+      "source_age_s": 0.011311531066894531,
+      "sha256": "a016f26dd167b738e8061e47d753bc662752738acc635e7704a33e7e9d34abdd",
+      "capture_set": "independent_003903"
+    },
+    {
+      "file": "frame_02.jpg",
+      "source_age_s": 0.03259634971618652,
+      "sha256": "557b7a851a59e9c2b7a99fdd60e1e981dc836ee3f16684bfaf8522096311ef20",
+      "capture_set": "independent_003903"
+    }
+  ],
+  "point_selection": "Both documented capture sets; 14 controls. New points are no longer independent validation of the combined fit.",
+  "points": [
+    {
+      "id": 1,
+      "ground_cm": [
+        0,
+        60
+      ],
+      "pixel_uv": [
+        614,
+        411
+      ],
+      "label": "[0, 60]",
+      "capture_set": "initial_002353"
+    },
+    {
+      "id": 2,
+      "ground_cm": [
+        0,
+        120
+      ],
+      "pixel_uv": [
+        610,
+        193
+      ],
+      "label": "[0, 120]",
+      "capture_set": "initial_002353"
+    },
+    {
+      "id": 3,
+      "ground_cm": [
+        0,
+        180
+      ],
+      "pixel_uv": [
+        610,
+        124
+      ],
+      "label": "[0, 180]",
+      "capture_set": "initial_002353"
+    },
+    {
+      "id": 4,
+      "ground_cm": [
+        60,
+        120
+      ],
+      "pixel_uv": [
+        1167,
+        188
+      ],
+      "label": "[60, 120]",
+      "capture_set": "initial_002353"
+    },
+    {
+      "id": 5,
+      "ground_cm": [
+        60,
+        180
+      ],
+      "pixel_uv": [
+        980,
+        119
+      ],
+      "label": "[60, 180]",
+      "capture_set": "initial_002353"
+    },
+    {
+      "id": 6,
+      "ground_cm": [
+        -60,
+        120
+      ],
+      "pixel_uv": [
+        55.5,
+        192
+      ],
+      "label": "[-60, 120]",
+      "capture_set": "initial_002353"
+    },
+    {
+      "id": 7,
+      "ground_cm": [
+        -60,
+        180
+      ],
+      "pixel_uv": [
+        245.5,
+        124
+      ],
+      "label": "[-60, 180]",
+      "capture_set": "initial_002353"
+    },
+    {
+      "id": 8,
+      "ground_cm": [
+        0.0,
+        90.0
+      ],
+      "pixel_uv": [
+        613.5,
+        265.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 9,
+      "ground_cm": [
+        0.0,
+        150.0
+      ],
+      "pixel_uv": [
+        612.5,
+        151.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 10,
+      "ground_cm": [
+        0.0,
+        210.0
+      ],
+      "pixel_uv": [
+        611.0,
+        104.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 11,
+      "ground_cm": [
+        30.0,
+        60.0
+      ],
+      "pixel_uv": [
+        1174.0,
+        405.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 12,
+      "ground_cm": [
+        -30.0,
+        60.0
+      ],
+      "pixel_uv": [
+        53.0,
+        410.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 13,
+      "ground_cm": [
+        30.0,
+        120.0
+      ],
+      "pixel_uv": [
+        885.5,
+        191.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 14,
+      "ground_cm": [
+        -30.0,
+        120.0
+      ],
+      "pixel_uv": [
+        336.5,
+        194.0
+      ],
+      "capture_set": "independent_003903"
+    }
+  ]
+}

@@ -208,7 +208,7 @@ v4l2-ctl -d /dev/v4l/by-id/usb-<相机>-video-index0 --list-ctrls   # 看可用�
 对应1280×720、focus=260、9×6内角点、标称25mm方格，拟合RMS约0.6723px。
 这些是内参拟合记录，尚不代表独立验证、车体外参、地面投影或时间对齐验收通过；
 RK曾部署同晚22:25:38的上一版720p参数（45视图、RMS约0.7179px），
-23:30:22的新参数仅用于本地重算，尚未替换RK运行配置，也未授权巡检运动。
+23:30:22的新参数最初仅用于本地重算，现已随后述14点去畸变H方案一起部署到RK；未授权巡检运动。
 文件夹模式的focus字段来自命令行参数，
 该字段本身不能证明历史每张照片均已锁焦。
 
@@ -222,3 +222,40 @@ RK曾部署同晚22:25:38的上一版720p参数（45视图、RMS约0.7179px）�
 `calib_out/ground_validation_20261027.json`保存最新内参下60/120/180cm红点计算和拟合诊断；
 原图SHA用于关联本机原始证据，拟合结果未部署。
 详细链路、实际部署状态及未完成项见[标定与地面投影核对](../../doc/相机标定与地面投影核对_20261028.md)。
+
+## 七点地面单应性拟合
+
+`fit_ground_homography.py`离线读取原图像素与实测地面点，拟合两组独立H：原始像素近似版，
+以及先用`undistortPoints(...,P=K)`去畸变后使用的版本。两者不可混用或重复去畸变。
+用户坐标为右/前、单位cm，原点为雷达中心的地面投影；输出也提供前/左、单位m的车体系转换。
+
+```powershell
+python fit_ground_homography.py --input calib_out/ground_homography_points_20261028.json --intrinsics calib_out/pinhole_calib.json --out ground_homography_candidate.json
+```
+
+输出文件已存在时拒绝覆盖。`calib_out/ground_homography_20261028.json`保存本轮七个电池底部接地点的
+H、控制点回代和逐点留一误差。它不依赖初始20.6cm高度/20°俯角，但仍与相机安装、分辨率、
+锁焦、地面平面及像素输入约定绑定。控制点范围外不作精度承诺，不修改RK运行配置或巡检运动门禁。
+原图保留在本机`build/camera_calibration_20261028/homography/ground_homography_20261028_002353/`，
+点位和图像SHA写入轻量JSON；完整数值与使用约定见[七点地面单应性](../../doc/七点地面单应性标定_20261028.md)。
+
+第二组独立七点使用`ground_homography_points_validation_20261028.json`，原H的独立验证结果在
+`ground_homography_independent_validation_20261028.json`。原H未被覆盖。
+合并后的14点输入和候选分别在`ground_homography_points_combined_20261028.json`和
+`ground_homography_combined_20261028.json`；候选的训练误差与原H的独立验证误差分别记录，未部署。
+
+第三组非规则七点保留为独立测试集：`ground_homography_points_validation3_20261028.json`及
+`ground_homography_independent_validation3_20261028.json`。同时比较原七点和14点H，不重新拟合，
+不将新点并入训练；报告中的误差是静态可见电池底部取点结果，不是运行误差保证。
+
+用户随后选择14点去畸变H，已部署为RK标定方案；上述候选JSON的“未部署”标记保留其生成时状态。
+实际采用的配置为`host/ai_coordinator/profiles/inspection_ground_homography_20261028.json`，
+详细发布与备份记录见[地面单应性部署](../../doc/七点地面单应性标定_20261028.md)。
+静态标定有效，时序、运行XY误差界限和其他巡检验收仍分别保留，不自动启动巡检。
+
+40–55cm新增五点另存`ground_homography_points_near_20261028.json`和
+`ground_homography_near_validation_20261028.json`。离线几何外推误差较小，未重新拟合；
+五点在当前运行凸包外，生产定位仍拒绝，未自动扩大RK有效区域。
+
+用户随后明确批准40cm起的有效区域，已仅更新RK区域配置，H未重拟合；上述拒绝记录保留扩展前的历史状态。
+当前profile边界在前向40cm处为左右±20cm，并按原远处边界组成凸包，详见地面单应性部署记录。

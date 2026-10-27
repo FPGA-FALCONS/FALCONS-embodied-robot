@@ -37,6 +37,22 @@ def prepare_config(current,defaults,release):
     return cfg
 
 
+def apply_ground_homography(current, profile):
+    """Explicit opt-in only; existing deployments never switch geometry implicitly."""
+    from .inspection.calibration import Calibration
+    cfg=copy.deepcopy(current);camera=cfg.get('camera',{})
+    serial=camera.get('selector',{}).get('serial');size=camera.get('expected_size',[])
+    if profile.get('projection_model')!='undistorted_homography':
+        raise ValueError('Explicit undistorted homography calibration profile required')
+    if (camera.get('focus')!=profile.get('focus') or camera.get('autofocus') is not False
+            or profile.get('autofocus') is not False):
+        raise ValueError('Camera and homography manual focus must match')
+    problems=Calibration(profile).geometry_problems(size,serial)
+    if problems:raise ValueError('Invalid homography geometry: '+','.join(problems))
+    cfg['inspection']['calibration']=copy.deepcopy(profile)
+    return cfg
+
+
 def stage(bundle,config,release):
     current=json.loads(config.read_text(encoding='utf-8'))
     if config.resolve().parent!=Path(current['root']).resolve():raise ValueError('Existing deployment config/root mismatch')
@@ -100,11 +116,16 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bundle',type=Path);parser.add_argument('--config',type=Path,required=True)
     parser.add_argument('--release',type=Path,required=True);parser.add_argument('--activate',action='store_true')
+    parser.add_argument('--calibration-profile',type=Path,
+                        help='Explicit installed undistorted-H profile; preserves all other settings')
     args=parser.parse_args()
     if args.bundle:
         cfg=stage(args.bundle,args.config,args.release)
         print(json.dumps({'staged':str(args.release),'existing_service_changed':False}),flush=True)
     else:cfg=json.loads((args.release/'config.staged.json').read_text(encoding='utf-8'))
+    if args.calibration_profile:
+        cfg=apply_ground_homography(cfg,json.loads(args.calibration_profile.read_text(encoding='utf-8')))
+        (args.release/'config.staged.json').write_text(json.dumps(cfg,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     if args.activate:print(json.dumps(activate(args.config,args.release,cfg)),flush=True)
 
 if __name__=='__main__':main()

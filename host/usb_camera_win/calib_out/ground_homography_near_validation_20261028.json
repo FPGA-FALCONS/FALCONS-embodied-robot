@@ -1,0 +1,250 @@
+{
+  "status": "near_ground_extrapolation_diagnostic_not_runtime_accepted",
+  "points_file": "ground_homography_points_near_20261028.json",
+  "points_sha256": "b8bdb45f07cdfebce9d84491cff9fb18e649790ea17398276fc1b713a5ca4997",
+  "control_points": [
+    {
+      "id": 1,
+      "ground_cm": [
+        0.0,
+        40.0
+      ],
+      "pixel_uv": [
+        615.5,
+        634.0
+      ]
+    },
+    {
+      "id": 2,
+      "ground_cm": [
+        20.0,
+        40.0
+      ],
+      "pixel_uv": [
+        1186.0,
+        630.0
+      ]
+    },
+    {
+      "id": 3,
+      "ground_cm": [
+        -20.0,
+        40.0
+      ],
+      "pixel_uv": [
+        30.5,
+        638.0
+      ]
+    },
+    {
+      "id": 4,
+      "ground_cm": [
+        -10.0,
+        50.0
+      ],
+      "pixel_uv": [
+        389.5,
+        499.0
+      ]
+    },
+    {
+      "id": 5,
+      "ground_cm": [
+        5.0,
+        55.0
+      ],
+      "pixel_uv": [
+        726.5,
+        452.0
+      ]
+    }
+  ],
+  "models": {
+    "ground_homography_combined_20261028.json": {
+      "sha256": "bc235f8be2454f74a56847331c35b35132107ef57bdd2e288c4e0ad60b5ef705",
+      "point_count": 14,
+      "refitted": false,
+      "metrics": {
+        "raw_pixel_approximation": {
+          "predicted_ground_cm": [
+            [
+              0.21902143878653857,
+              40.287431325603656
+            ],
+            [
+              19.53542166390824,
+              40.51974526417936
+            ],
+            [
+              -19.61074408711695,
+              40.05472816580258
+            ],
+            [
+              -9.453442460742773,
+              50.02425801187215
+            ],
+            [
+              5.503609325598899,
+              54.675477428994874
+            ]
+          ],
+          "errors_cm": [
+            0.36136845128815587,
+            0.6971141728602731,
+            0.3930843902351406,
+            0.5470955993781205,
+            0.5991137220277589
+          ],
+          "rms_cm": 0.5346627932101606,
+          "max_cm": 0.6971141728602731,
+          "inside_old_control_hull": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        "undistorted_pixel_recommended": {
+          "predicted_ground_cm": [
+            [
+              0.20996604036925323,
+              40.17323982490833
+            ],
+            [
+              19.538043392096274,
+              40.73652520527945
+            ],
+            [
+              -19.623286898318806,
+              40.28335377097817
+            ],
+            [
+              -9.49091271030742,
+              49.87721843365887
+            ],
+            [
+              5.520480954978574,
+              54.4516400538637
+            ]
+          ],
+          "errors_cm": [
+            0.2722090649530455,
+            0.8694097340137453,
+            0.47138319921886557,
+            0.5236842384106275,
+            0.7560417019067238
+          ],
+          "rms_cm": 0.6161196990403748,
+          "max_cm": 0.8694097340137453,
+          "inside_old_control_hull": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        }
+      }
+    },
+    "ground_homography_20261028.json": {
+      "sha256": "45d9cb2b645c339744d99df74180ee19b9cf2a84ea7b8182e8dfc691429bad8d",
+      "point_count": 7,
+      "refitted": false,
+      "metrics": {
+        "raw_pixel_approximation": {
+          "predicted_ground_cm": [
+            [
+              0.4747864661003794,
+              40.74899389472192
+            ],
+            [
+              19.557086333639674,
+              41.116197085862346
+            ],
+            [
+              -19.15897962941698,
+              40.37688325122949
+            ],
+            [
+              -9.105459184385756,
+              50.27993520709535
+            ],
+            [
+              5.697142351597843,
+              54.964538736433695
+            ]
+          ],
+          "errors_cm": [
+            0.8867998887701766,
+            1.2008615450318743,
+            0.9216052564915821,
+            0.937319044387402,
+            0.6980436659730458
+          ],
+          "rms_cm": 0.9427269692152075,
+          "max_cm": 1.2008615450318743,
+          "inside_old_control_hull": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        "undistorted_pixel_recommended": {
+          "predicted_ground_cm": [
+            [
+              0.46020664264881816,
+              41.03622733015206
+            ],
+            [
+              19.38247686888199,
+              41.723198435556014
+            ],
+            [
+              -19.00140988286879,
+              40.99904973459809
+            ],
+            [
+              -9.068804956273922,
+              50.41140757470057
+            ],
+            [
+              5.667961073210455,
+              54.969335268078936
+            ]
+          ],
+          "errors_cm": [
+            1.1338241634804582,
+            1.8305047571007527,
+            1.4125447229141588,
+            1.0180277019713242,
+            0.6686645804199988
+          ],
+          "rms_cm": 1.2739764689178958,
+          "max_cm": 1.8305047571007527,
+          "inside_old_control_hull": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        }
+      }
+    }
+  },
+  "runtime_projection_rejections": [
+    "Outside measured homography ground region",
+    "Outside measured homography ground region",
+    "Outside measured homography ground region",
+    "Outside measured homography ground region",
+    "Outside measured homography ground region"
+  ],
+  "refit_performed": false,
+  "reason_not_refitted": "Current 14-point undistorted H extrapolation errors are all below 0.9cm, no material deterioration relative to previous held-out points; preserve these points as independent evidence.",
+  "live_region_extended": false,
+  "live_config_changed": false,
+  "note": "All five points are outside the deployed minimum-forward60cm control hull. Small offline extrapolation errors do not automatically authorize range expansion or dynamic operation."
+}
