@@ -21,7 +21,9 @@ import zipfile
 def prepare_config(current,defaults,release):
     cfg=copy.deepcopy(current);inspection={**copy.deepcopy(defaults),**copy.deepcopy(cfg.get('inspection',{}))}
     inspection['enabled']=True
-    camera={**inspection['camera'],**cfg.get('camera',{})}
+    # Older deployments carry a complete inspection.camera dictionary. Merge
+    # new camera defaults below it, rather than losing newly introduced fields.
+    camera={**copy.deepcopy(defaults.get('camera',{})),**inspection['camera'],**cfg.get('camera',{})}
     camera.update(enabled=True,backend='v4l2_native',native_helper=str(release/'host/usb_camera_v4l2/native/falcons-uvc-capture'),
                   storage=str(Path(cfg['root'])/'camera_frames'))
     if camera.get('selector'):camera.pop('device',None)

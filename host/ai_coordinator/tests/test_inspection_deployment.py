@@ -18,6 +18,14 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(cfg['camera']['backend'],'v4l2_native')
         self.assertFalse(cfg['inspection']['calibration']['intrinsics_measured'])
         self.assertNotIn('device',cfg['camera'])
+    def test_focus_defaults_and_existing_measured_focus_are_preserved(self):
+        defaults={'camera':{'focus':260,'autofocus':False}}
+        for old,expected in (({},260),({'focus':285,'autofocus':False},285)):
+            cfg=prepare_config({'root':'/deploy','camera':old,'inspection':{'camera':{'expected_size':[1280,720]}}},defaults,Path('/new'))
+            self.assertEqual(cfg['camera']['focus'],expected)
+            self.assertIs(cfg['camera']['autofocus'],False)
+            self.assertEqual(cfg['inspection']['camera'],cfg['camera'])
+
     def test_previously_measured_profile_is_retained_when_updating_source(self):
         cfg=prepare_config({'root':'/deploy','inspection':{'calibration':{'measured_marker':'retain'},'camera':{'selector':{'serial':'my-camera'}}}},
                            {'camera':{},'calibration':{'intrinsics_measured':False}},Path('/new'))

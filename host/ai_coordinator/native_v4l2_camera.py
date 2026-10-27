@@ -11,7 +11,7 @@ import subprocess
 import threading
 import time
 import uuid
-from .v4l2_camera import select_device, validate_config
+from .v4l2_camera import select_device, validate_config, configured_focus
 
 HEADER=struct.Struct('<4s7I2Q')
 MJPG=int.from_bytes(b'MJPG','little')
@@ -48,6 +48,7 @@ class Camera:
     def __init__(self,cfg):
         from .device_roles import camera_config
         cfg=camera_config(cfg)
+        self.focus=configured_focus(cfg)
         width,height,fps,fourcc,self.warmup=validate_config(cfg)
         if fourcc!='MJPG' or fps!=int(fps):raise ValueError('Native capture requires probed MJPG and integer FPS')
         helper=Path(cfg.get('native_helper',''))
@@ -57,9 +58,12 @@ class Camera:
         self.proc=None;self.thread=None;self.condition=threading.Condition();self.stop=threading.Event()
         self.latest=None;self.error=None;self.sequence=0;self.delivered=0;self.started=time.monotonic()
         self.negotiated={'width':width,'height':height,'fps':fps,'fourcc':fourcc}
+        if self.focus is not None:self.negotiated.update(focus=self.focus,autofocus=False)
         try:
-            self.proc=subprocess.Popen([str(helper),self.selection['device'],str(width),str(height),str(int(fps)),
-                '1' if cfg.get('fixed_frame_rate') is True else '0'],stdout=subprocess.PIPE,bufsize=0)
+            command=[str(helper),self.selection['device'],str(width),str(height),str(int(fps)),
+                     '1' if cfg.get('fixed_frame_rate') is True else '0']
+            if self.focus is not None:command.append(str(self.focus))
+            self.proc=subprocess.Popen(command,stdout=subprocess.PIPE,bufsize=0)
             if select_device(cfg['device'])!=self.selection:raise RuntimeError('Camera identity changed during open')
             self.thread=threading.Thread(target=self._drain,name='uvc-mmap-latest',daemon=True);self.thread.start()
         except BaseException:self.close();raise
@@ -73,7 +77,9 @@ class Camera:
                 with self.condition:
                     self.sequence+=1;self.latest=(self.sequence,payload,metadata);self.condition.notify_all()
         except Exception as exc:
-            with self.condition:self.error=str(exc);self.condition.notify_all()
+            with self.condition:
+                self.error=(('Camera unavailable with manual focus=%d: '%self.focus) if self.focus is not None else '')+str(exc)
+                self.condition.notify_all()
 
     def run(self,request):
         with self.condition:
@@ -91,6 +97,9 @@ class Camera:
         # An immutable per-request lease is retained until its consumer finishes.
         # Native capture drains into one in-memory latest slot, never disk backlog.
         path=self.storage/(uuid.uuid4().hex+'.jpg');path.write_bytes(payload)
+        if self.focus is not None:
+            metadata.update(focus_value=self.focus,focus_locked=True,autofocus=False,
+                            focus_verification='v4l2_control_readback_each_frame')
         return {'status':'frame','image':str(path),'format':'image','byteorder':None,**metadata,
                 'sequence':sequence,'backend':'v4l2_native','device':self.selection['device'],
                 'negotiated':self.negotiated,'sequence_origin':'v4l2_buffer_sequence',

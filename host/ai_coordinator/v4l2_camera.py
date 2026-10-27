@@ -47,10 +47,24 @@ def validate_config(cfg):
     return size[0],size[1],float(fps),fourcc,warmup
 
 
+def configured_focus(cfg):
+    value=cfg.get('focus')
+    if value is None:
+        if cfg.get('autofocus') is False:raise ValueError('Manual focus requires an explicit focus position')
+        return None
+    if type(value) is not int or not 0<=value<=2147483647:
+        raise ValueError('Focus must be a nonnegative integer in the camera native range')
+    if cfg.get('autofocus',False) is not False:
+        raise ValueError('A fixed focus position requires autofocus=false')
+    return value
+
+
 class Camera:
     def __init__(self,cfg):
         from .device_roles import camera_config
         cfg=camera_config(cfg)
+        if configured_focus(cfg) is not None:
+            raise ValueError('Verified manual focus requires the v4l2_native backend')
         width,height,fps,fourcc,self.warmup=validate_config(cfg)
         self.selection=select_device(cfg.get('device'))
         import cv2

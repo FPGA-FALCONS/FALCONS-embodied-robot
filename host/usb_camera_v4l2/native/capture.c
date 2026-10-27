@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/videodev2.h>
+#include <limits.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdint.h>
@@ -25,12 +26,35 @@ static void le32(uint8_t *p,uint32_t x){for(int i=0;i<4;i++)p[i]=(uint8_t)(x>>(8
 static void le64(uint8_t *p,uint64_t x){for(int i=0;i<8;i++)p[i]=(uint8_t)(x>>(8*i));}
 static int send_all(const void *buffer,size_t length){const uint8_t *p=buffer;while(length&&!stopped){ssize_t n=write(STDOUT_FILENO,p,length);if(n<0&&errno==EINTR)continue;if(n<=0)return -1;p+=n;length-=(size_t)n;}return length?-1:0;}
 static unsigned number(const char *s,unsigned max){char *end;errno=0;unsigned long x=strtoul(s,&end,10);if(errno||*end||x<1||x>max)return 0;return (unsigned)x;}
+static int focus_number(const char *s,int *value){
+ char *end;errno=0;long x=strtol(s,&end,10);
+ if(errno||end==s||*end||x<0||x>INT_MAX)return -1;
+ *value=(int)x;return 0;
+}
+static int verify_focus(int fd,int value){
+ struct v4l2_control automatic={.id=V4L2_CID_FOCUS_AUTO},position={.id=V4L2_CID_FOCUS_ABSOLUTE};
+ if(call(fd,VIDIOC_G_CTRL,&automatic)<0||call(fd,VIDIOC_G_CTRL,&position)<0)return -1;
+ if(automatic.value!=0||position.value!=value){errno=EPROTO;return -1;}
+ return 0;
+}
+static int lock_focus(int fd,int value){
+ struct v4l2_queryctrl automatic={.id=V4L2_CID_FOCUS_AUTO},position={.id=V4L2_CID_FOCUS_ABSOLUTE};
+ if(call(fd,VIDIOC_QUERYCTRL,&automatic)<0||call(fd,VIDIOC_QUERYCTRL,&position)<0)return -1;
+ if((automatic.flags|position.flags)&(V4L2_CTRL_FLAG_DISABLED|V4L2_CTRL_FLAG_READ_ONLY)){
+  errno=ENOTSUP;return -1;
+ }
+ if(automatic.minimum>0||automatic.maximum<0||position.step<=0||value<position.minimum||value>position.maximum||
+    ((int64_t)value-position.minimum)%position.step){errno=ERANGE;return -1;}
+ struct v4l2_control off={.id=V4L2_CID_FOCUS_AUTO,.value=0},focus={.id=V4L2_CID_FOCUS_ABSOLUTE,.value=value};
+ if(call(fd,VIDIOC_S_CTRL,&off)<0||call(fd,VIDIOC_S_CTRL,&focus)<0)return -1;
+ return verify_focus(fd,value);
+}
 struct mapping {void *data;size_t length;};
 int main(int argc,char **argv){
  int fd=-1,result=1,streaming=0,changed=0,old_priority=0;
- struct mapping maps[8]={{0}};unsigned count=0,width,height,fps;int fixed;
+ struct mapping maps[8]={{0}};unsigned count=0,width,height,fps;int fixed,focus=0,has_focus=argc==7;
  enum v4l2_buf_type type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
- if(argc!=6 || !(width=number(argv[2],8192)) || !(height=number(argv[3],8192)) || !(fps=number(argv[4],120)) || (strcmp(argv[5],"0")&&strcmp(argv[5],"1")) || (uint64_t)width*height>16777216){fprintf(stderr,"usage: capture DEVICE WIDTH HEIGHT INTEGER_FPS FIXED_0_OR_1\n");return 2;}
+ if((argc!=6&&argc!=7) || !(width=number(argv[2],8192)) || !(height=number(argv[3],8192)) || !(fps=number(argv[4],120)) || (strcmp(argv[5],"0")&&strcmp(argv[5],"1")) || (uint64_t)width*height>16777216 || (has_focus&&focus_number(argv[6],&focus)<0)){fprintf(stderr,"usage: capture DEVICE WIDTH HEIGHT INTEGER_FPS FIXED_0_OR_1 [MANUAL_FOCUS]\n");return 2;}
  fixed=argv[5][0]=='1';
  if(prctl(PR_SET_PDEATHSIG,SIGTERM)<0||getppid()==1)return 1;
  struct sigaction action={0};action.sa_handler=halt;sigemptyset(&action.sa_mask);sigaction(SIGTERM,&action,0);sigaction(SIGINT,&action,0);signal(SIGPIPE,SIG_IGN);
@@ -49,6 +73,13 @@ int main(int argc,char **argv){
   struct v4l2_control ctrl={.id=V4L2_CID_EXPOSURE_AUTO_PRIORITY};if(call(fd,VIDIOC_G_CTRL,&ctrl)<0)goto cleanup;
   old_priority=ctrl.value;ctrl.value=0;if(call(fd,VIDIOC_S_CTRL,&ctrl)<0)goto cleanup;changed=1;
   if(call(fd,VIDIOC_G_CTRL,&ctrl)<0||ctrl.value!=0){errno=EPROTO;goto cleanup;}
+ }
+ if(has_focus){
+  if(lock_focus(fd,focus)<0){perror("manual focus lock/readback");goto cleanup;}
+  // Settle the lens before STREAMON; the Python camera also discards warmup frames.
+  struct timespec delay={.tv_sec=1};
+  while(nanosleep(&delay,&delay)<0&&errno==EINTR&&!stopped){}
+  if(stopped)goto cleanup;
  }
  struct v4l2_requestbuffers req={0};req.count=4;req.type=type;req.memory=V4L2_MEMORY_MMAP;
  if(call(fd,VIDIOC_REQBUFS,&req)<0)goto cleanup;
@@ -73,6 +104,8 @@ int main(int argc,char **argv){
   struct timespec received;if(clock_gettime(CLOCK_MONOTONIC,&received)<0)goto cleanup;
   if(b.index>=count||!b.bytesused||b.bytesused>maps[b.index].length||b.timestamp.tv_sec<0||b.timestamp.tv_usec<0||b.timestamp.tv_usec>=1000000){errno=EPROTO;goto cleanup;}
   if(!(b.flags&V4L2_BUF_FLAG_ERROR)){
+   // A physical button or another application must not silently change calibration.
+   if(has_focus&&verify_focus(fd,focus)<0){perror("manual focus changed/readback failed");goto cleanup;}
    uint8_t header[48]={0};memcpy(header,"FVC1",4);le32(header+4,48);le32(header+8,width);le32(header+12,height);le32(header+16,b.sequence);le32(header+20,b.flags);le32(header+24,b.bytesused);le32(header+28,V4L2_PIX_FMT_MJPEG);
    le64(header+32,(uint64_t)b.timestamp.tv_sec*1000000+(uint64_t)b.timestamp.tv_usec);
    le64(header+40,(uint64_t)received.tv_sec*1000000+(uint64_t)received.tv_nsec/1000);

@@ -38,7 +38,9 @@
     "warmup_frames": 5,
     "storage": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/camera_frames",
     "native_helper": null,
-    "fixed_frame_rate": true
+    "fixed_frame_rate": true,
+    "focus": 260,
+    "autofocus": false
   },
   "lens_description": {
     "focal_length_mm": 6,
