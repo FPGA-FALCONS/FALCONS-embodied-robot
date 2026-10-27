@@ -5,6 +5,7 @@ import struct
 import zlib
 
 TARGETS=('tape','screwdriver','ad_calcium_milk','nutri_express')
+DETECTION_CONFIDENCE_THRESHOLD = .60
 
 
 def loads(data):
@@ -40,7 +41,7 @@ def task(obj):
 def number(value):return type(value) in (int,float) and math.isfinite(value)
 
 
-def detection(obj,width,height,threshold=.3):
+def detection(obj,width,height,threshold=DETECTION_CONFIDENCE_THRESHOLD):
     if not isinstance(obj,dict) or obj.get('class') not in TARGETS:return False
     if not number(obj.get('confidence')) or not threshold<=obj['confidence']<=1:return False
     b=obj.get('bbox')

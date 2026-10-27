@@ -2,9 +2,19 @@
 import unittest
 import numpy as np
 from ai_coordinator.worker import decode_outputs
+from ai_coordinator.schema import detection
 
 
 class VisionContractTests(unittest.TestCase):
+    def test_sixty_percent_boundary_applies_to_inference_and_frame_admission(self):
+        output=np.zeros((1,8,3),dtype=np.float32)
+        output[0,:4]=[[100,200,300],[100,100,100],[20,20,20],[20,20,20]]
+        output[0,4]=[.599,.600,.601]
+        found=decode_outputs([output],1,0,0,640,640)
+        self.assertEqual([d['bbox'][0] for d in found],[290,190]) # score order after NMS
+        for score,accepted in ((.599,False),(.600,True),(.601,True)):
+            self.assertEqual(detection({'class':'tape','confidence':score,'bbox':[1,1,20,20]},640,640),accepted)
+
     def test_original_graph_letterbox_best_class_and_nms(self):
         # Two duplicate tape boxes and one screwdriver box. Second class score
         # on a tape box must not create a spurious screwdriver observation.

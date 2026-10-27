@@ -7,6 +7,8 @@ from ..ai_link import font_rows, glyph
 from .grid import SIZE, cell
 
 WIDTH, HEIGHT = 816, 420
+# Match rtl/ui/ui_render.v layer_color[4] (occupied navigation cells), RGB E87946.
+NAV_OBSTACLE_BGR = (0x46, 0x79, 0xE8)
 NAMES = {'tape': '胶带', 'screwdriver': '螺丝刀', 'scissors': '剪刀',
          'ad_calcium_milk': 'AD钙奶', 'nutri_express': '营养快线'}
 STATES = {'edit': '移动准心选点', 'ready': '确认开始巡检', 'await_start': '等待导航受理',
@@ -69,7 +71,7 @@ def render(view, mission, objects, *, camera=None, detections=(), radar_raw=None
                 raise ValueError('Only a complete radar map may be displayed')
             occupancy = np.unpackbits(np.frombuffer(radar_raw, np.uint8), bitorder='little').reshape(SIZE, SIZE)
             bitmap = np.zeros((SIZE, SIZE, 3), np.uint8)
-            bitmap[:] = (45, 39, 30); bitmap[occupancy.astype(bool)] = (185, 190, 195)
+            bitmap[:] = (45, 39, 30); bitmap[occupancy.astype(bool)] = NAV_OBSTACLE_BGR
             image[:, :HEIGHT] = cv2.resize(bitmap[::-1], (HEIGHT, HEIGHT), interpolation=cv2.INTER_NEAREST)
         trace = mission.get('trace_m', [])
         if len(trace) > 1:
@@ -96,6 +98,7 @@ def render(view, mission, objects, *, camera=None, detections=(), radar_raw=None
             cv2.drawMarker(image,map_pixel(mission['start_m']),(80,220,80),cv2.MARKER_SQUARE,12,2)
         if cursor is not None and mission['state'] in ('edit', 'ready'):
             cv2.drawMarker(image, map_pixel(cursor), (255, 255, 255), cv2.MARKER_CROSS, 16, 1)
+        text(image, '橙格：导航障碍', 440, 40)
         text(image, '红点：已定位目标', 440, 64)
         text(image, '黄点：巡检终点', 440, 92)
         text(image, '蓝线：实际去程轨迹', 440, 120)

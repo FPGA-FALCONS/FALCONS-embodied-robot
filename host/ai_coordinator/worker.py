@@ -9,6 +9,7 @@ import urllib.request
 
 HOST=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(HOST))
+from ai_coordinator.schema import DETECTION_CONFIDENCE_THRESHOLD
 PREFIX='FALCONS_RPC '
 
 
@@ -53,7 +54,7 @@ def nms(boxes,scores,threshold):
     return keep
 
 
-def decode_outputs(outputs,scale,px,py,width,height,threshold=.3,contract='original'):
+def decode_outputs(outputs,scale,px,py,width,height,threshold=DETECTION_CONFIDENCE_THRESHOLD,contract='original'):
     import numpy as np
     from ai_coordinator.schema import TARGETS
     if contract=='original':
@@ -125,6 +126,7 @@ class Vision:
         else:outputs=self.rec.inference(inputs=[canvas[None,...]],data_format='nhwc')
         inference=time.monotonic()-start
         return {'detections':decode_outputs(outputs,scale,px,py,width,height,contract=self.contract),'width':width,'height':height,
+                'confidence_threshold':DETECTION_CONFIDENCE_THRESHOLD,
                 'inference_s':inference,'output_shapes':[list(a.shape) for a in outputs],
                 'contract':self.contract,'engine':'v17 ONNX FP32' if self.provider=='onnx_cpu' else 'RKNN v17 FP16',
                 'provider':'onnx_cpu' if self.provider=='onnx_cpu' else 'rknpu_core0'}
