@@ -422,12 +422,12 @@ def run_capture(args, cap, camera_index, lock_info):
 def do_calibrate(args, objpoints, imgpoints, pattern, lock_info, camera_index, robust=False):
     img_size = (lock_info["width"], lock_info["height"])
     if not robust:
-        rms, K, D, rvecs, tvecs = calibrate(objpoints, imgpoints, img_size)
+        rms, K, D, rvecs, tvecs = calibrate(objpoints, imgpoints, img_size, args.fix_k3)
         errors = per_view_errors(objpoints, imgpoints, K, D, rvecs, tvecs)
         dropped, used = [], list(range(len(objpoints)))
     else:
         rms, K, D, rvecs, tvecs, errors, dropped, used = calibrate_robust(
-            objpoints, imgpoints, img_size, args.outlier_px)
+            objpoints, imgpoints, img_size, args.outlier_px, args.fix_k3)
 
     info = {
         "camera_index": camera_index,
@@ -499,7 +499,7 @@ def calibrate_from_folder(args, pattern, objp):
         return None
 
     rms, K, D, rvecs, tvecs, errors, dropped, keep = calibrate_robust(
-        objpoints, imgpoints, img_size, args.outlier_px)
+        objpoints, imgpoints, img_size, args.outlier_px, args.fix_k3)
     info = {"camera_index": None, "backend": "folder", "width": img_size[0],
             "height": img_size[1], "fps": None,
             "focus": float(args.focus) if args.focus is not None else None,
@@ -528,11 +528,13 @@ def build_parser():
     p.add_argument("--size", type=float, default=25.0, help="方格边长 mm（默认 25）")
     p.add_argument("--index", type=int, default=None, help="相机索引；默认自动挑支持对焦的")
     p.add_argument("--max-index", type=int, default=5)
-    p.add_argument("--width", type=int, default=1920)
-    p.add_argument("--height", type=int, default=1080)
+    p.add_argument("--width", type=int, default=1280)
+    p.add_argument("--height", type=int, default=720)
     p.add_argument("--fps", type=int, default=30)
     p.add_argument("--fourcc", default="MJPG")
     p.add_argument("--focus", type=int, default=260, help="锁定对焦位置（默认 260；早期扫描为 285，使用对应标定）")
+    p.add_argument("--fix-k3", action=argparse.BooleanOptionalAction, default=True,
+                   help="固定 k3=0，估计 k1/k2/p1/p2（默认开启；--no-fix-k3 同时估计 k3）")
     p.add_argument("--exposure", type=float, default=None, help="锁定曝光值（DirectShow log2 秒）")
     p.add_argument("--settle", type=float, default=1.0, help="写入焦距后等待镜头到位")
     p.add_argument("--min-coverage", type=float, default=0.10, help="棋盘格外接框占比下限")

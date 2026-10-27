@@ -247,8 +247,8 @@ def build_parser():
                    help="camera index; default auto-pick the one with focus control")
     p.add_argument("--max-index", type=int, default=5)
     p.add_argument("--backend", choices=sorted(BACKENDS), default="dshow")
-    p.add_argument("--width", type=int, default=1920)
-    p.add_argument("--height", type=int, default=1080)
+    p.add_argument("--width", type=int, default=1280)
+    p.add_argument("--height", type=int, default=720)
     p.add_argument("--fps", type=int, default=30)
     p.add_argument("--fourcc", default="MJPG", help="MJPG recommended for USB2.0")
     p.add_argument("--focus", type=int, default=None,

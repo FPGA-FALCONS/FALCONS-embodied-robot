@@ -14,7 +14,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from calib_pinhole import board_points, calibrate_robust, detect_corners
+from calib_pinhole import board_points, build_parser, calibrate_robust, detect_corners, do_calibrate
+from lock_focus import build_parser as focus_parser
 
 W, H = 1920, 1080
 COLS, ROWS, SQ_MM = 9, 6, 25.0
@@ -113,6 +114,23 @@ def main():
         "cy 偏差 < 6px": cy_err < 6.0,
         "k1 偏差 < 0.02": k1_err < 0.02,
     }
+    defaults = build_parser().parse_args([])
+    focus_defaults = focus_parser().parse_args([])
+    checks["两个采集入口默认720p，标定默认focus260并固定k3"] = (
+        (defaults.width, defaults.height, defaults.focus, defaults.fix_k3) == (1280, 720, 260, True)
+        and (focus_defaults.width, focus_defaults.height) == (1280, 720))
+    # Exercise actual calibration/output entry points: the non-robust entry
+    # previously ignored the CLI fix_k3 option while the robust entry used it.
+    for fixed in (False, True):
+        for robust in (False, True):
+            args = build_parser().parse_args([] if fixed else ["--no-fix-k3"])
+            args.out_dir = str(tmp / f"entry_fixed{fixed}_robust{robust}")
+            args.save_dir = str(tmp / "no_preview_samples")
+            info = dict(width=W, height=H, fps=30, focus=260, exposure=None)
+            result = do_calibrate(args, objs, imgs, (COLS, ROWS), info, 0, robust=robust)
+            checks[f"普通/稳健入口固定k3选项 fixed={fixed} robust={robust}"] = (
+                (result['distortion'][4] == 0 if fixed else abs(result['distortion'][4]) > 1e-6)
+                and result['camera']['width'] == W and result['camera']['height'] == H)
     for name, ok in checks.items():
         print(f"  [{'PASS' if ok else 'FAIL'}] {name}")
     return 0 if all(checks.values()) else 1
