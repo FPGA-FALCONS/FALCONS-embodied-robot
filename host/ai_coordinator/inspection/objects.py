@@ -35,11 +35,11 @@ class Objects:
                           and math.dist(x['xy_m'], d['xy_m']) <= self.merge_m]
             if candidates:
                 item = min(candidates, key=lambda x: math.dist(x['xy_m'], d['xy_m']))
-                consecutive = item['sequence'] == previous_sequence and 0 <= now-item['last_seen'] <= 1
+                consecutive = item['sequence'] == previous_sequence
                 item['hits'] = item['hits'] + 1 if consecutive else 1
                 # A confirmed footprint never shrinks on one noisy observation.
                 if not item['confirmed']:
-                    item['xy_m'] = [(a+b)/2 for a, b in zip(item['xy_m'], d['xy_m'])]
+                    item['xy_m'] = [(a*(item['hits']-1)+b)/item['hits'] for a, b in zip(item['xy_m'], d['xy_m'])]
                 item['radius_m'] = max(item['radius_m'], d['radius_m'] + math.dist(item['xy_m'], d['xy_m']))
                 item['xy_error_m'] = max(item['xy_error_m'], d['xy_error_m'])
             else:

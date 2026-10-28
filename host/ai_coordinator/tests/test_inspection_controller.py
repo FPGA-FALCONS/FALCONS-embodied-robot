@@ -229,27 +229,41 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         report=json.loads(Path(self.c.report_path).read_text(encoding='utf-8'))
         self.assertEqual(report['mission']['start_m'],[.2,0]);self.assertEqual(report['return_policy'],'latest_map')
 
-    async def test_only_confirmed_located_objects_reach_speech_during_patrol(self):
+    def demo_frame(self,sequence=1,round_id=0):
         import cv2,numpy as np
-        self.moving();self.c.cfg['ground_anchor_policies']={'tape':{'measured':True,'anchor':'bottom_center'}}
-        self.c.cfg['object_footprints_m']={'tape':.1}
-        pose=dict(x_m=0,y_m=0,yaw_rad=0)
-        self.c.clock=SimpleNamespace(estimate=lambda now:{})
-        self.c.poses=SimpleNamespace(at=lambda *args:(pose,0),items=[])
-        self.c.calibration.locate=Mock(return_value=dict(xy_m=[1,0],xy_error_m=.02))
-        self.c._record_evidence=Mock(return_value=True);self.c.discovery_speech.notify=Mock()
         path=Path(self.tmp.name)/'camera.jpg';cv2.imwrite(str(path),np.zeros((72,128,3),np.uint8))
-        with patch('ai_coordinator.inspection.controller.capture_time',return_value=(1,0)):
-            for seq in range(1,4):
-                await self.c.observe(dict(image=str(path),width=128,height=72,sequence=seq),
-                    {'detections':[{'class':'tape','confidence':.9,'bbox':[10,10,30,30]}]},1+seq*.1)
-                binding,objects=self.c.discovery_speech.notify.call_args.args
-                self.assertEqual(len(objects),int(seq==3));self.assertTrue(self.c._speech_allowed(binding))
-        self.assertEqual(objects[0]['id'],1)
-        self.c.mission.state='paused';self.assertFalse(self.c._speech_allowed(binding))
-        self.controls(2,1.4,manual=True);self.assertFalse(self.c._speech_allowed(binding))
-        self.c.active=True;self.c.mission.manual=False;self.c.mission.state='completed'
-        self.assertFalse(self.c._speech_allowed(binding))
+        self.c.cfg['camera']={'selector':{'serial':'camera-1'}}
+        return dict(image=str(path),width=128,height=72,sequence=sequence,inspection_round=round_id)
+    def demo_result(self):return {'detections':[{'class':'tape','confidence':.9,'bbox':[10,10,30,30]}]}
+    async def test_stop_wait_new_capture_round_then_locate_and_speak(self):
+        self.moving();self.c._begin_video(1);frame=self.demo_frame();self.c.discovery_speech.notify=Mock()
+        self.c.calibration.locate_stopped=Mock(side_effect=[dict(xy_m=[x,0],xy_error_m=.03) for x in (1,1.03,1.06)])
+        self.c.readiness=lambda now:{key:True for key in ('calibration','camera','fpga','map','layer')}
+        await self.c.observe(frame,self.demo_result(),1.1)
+        self.assertEqual(self.c.mission.state,'observe_stop');self.assertEqual(self.c.objects.items,[])
+        expected=self.c.mission.expected
+        self.packet(wire.STATE,[self.session,1,1,expected['command_id'],2,0,1|4|8,0],1.2)
+        self.c.mission.tick(1.69);self.assertEqual(self.c.mission.state,'observe_wait')
+        self.packet(wire.STATE,[self.session,1,1,expected['command_id'],2,0,1|4|8,0],1.7)
+        self.c.tick(1.7);self.assertEqual(self.c.mission.state,'observing')
+        await self.c.observe(frame,self.demo_result(),1.71)
+        self.c.calibration.locate_stopped.assert_not_called()  # In-flight result from before the wait.
+        frame=self.demo_frame(2,self.c.observation_round)
+        await self.c.observe(frame,self.demo_result(),1.72)
+        self.assertFalse(self.c.objects.items)
+        await self.c.observe(self.demo_frame(3,self.c.observation_round),self.demo_result(),1.725)
+        self.assertFalse(self.c.objects.items)
+        await self.c.observe(self.demo_frame(4,self.c.observation_round),self.demo_result(),1.73)
+        self.assertEqual(self.c.calibration.locate_stopped.call_count,3)
+        self.assertTrue(self.c.objects.items[0]['confirmed']);self.assertEqual(self.c.mission.state,'await_layer')
+        self.assertAlmostEqual(self.c.objects.items[0]['xy_m'][0],1.03);self.assertTrue(self.c.video_required)
+        binding,objects=self.c.discovery_speech.notify.call_args.args
+        self.assertEqual(objects[0]['class'],'tape');self.assertTrue(self.c._speech_allowed(binding))
+        self.assertFalse(any(x['kind']=='goto' for x in self.c.mission.actions))
+        expected=self.c.mission.expected
+        self.packet(wire.STATE,[self.session,1,1,expected['command_id'],6,self.c.mission.pending_layer['version'],1|4|8|16,0],1.73)
+        self.assertEqual(self.c.mission.state,'await_start')
+        self.assertEqual(self.c.mission.actions[-1]['goal_mm'],[1000,0])
 
     async def test_camera_preview_without_calibration_never_publishes_coordinates(self):
         import cv2
@@ -260,27 +274,28 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.c.detections),1);self.assertFalse(self.c.objects.items)
         self.assertFalse(self.c.readiness(1.1)['calibration'])
 
-    async def test_one_out_of_region_object_does_not_discard_other_locations(self):
-        import cv2
-        import numpy as np
-        self.moving();self.c.active=True
-        self.c.cfg['ground_anchor_policies']={'tape':dict(measured=True,anchor='bottom_center')}
-        self.c.cfg['object_footprints_m']={'tape':.03}
-        self.c.clock=SimpleNamespace(estimate=lambda *args:(0,0))
-        self.c.poses=SimpleNamespace(at=lambda *args:({'epoch':1,'x_m':0,'y_m':0,'yaw_rad':0},0),items=[])
-        self.c.calibration.locate=Mock(side_effect=[ValueError('Outside measured homography ground region'),
-                                                   dict(xy_m=[1,0],xy_error_m=.02)])
+    async def test_latest_pose_is_used_without_timestamp_alignment(self):
+        self.moving();self.c.mission.state='observing';frame=self.demo_frame(round_id=self.c.observation_round)
+        self.c.observation_pose=dict(epoch=1,x_m=2,y_m=1,yaw_rad=0,at_s=-1000)
+        from copy import deepcopy
+        self.c.observation_objects=deepcopy(self.c.objects)
+        self.c.calibration.locate_stopped=Mock(return_value=dict(xy_m=[3,1],xy_error_m=.03))
         self.c.discovery_speech.notify=Mock()
-        path=Path(self.tmp.name)/'two_objects.jpg';cv2.imwrite(str(path),np.zeros((72,128,3),np.uint8))
-        frame=dict(image=str(path),width=128,height=72,sequence=1,focus_value=260)
-        detections=[dict(class_='tape',confidence=.9,bbox=[10,10,30,30]),
-                    dict(class_='tape',confidence=.9,bbox=[40,20,60,50])]
-        for d in detections:d['class']=d.pop('class_')
-        with patch('ai_coordinator.inspection.controller.capture_time',return_value=(1,0)):
-            await self.c.observe(frame,{'detections':detections},1.1)
-        self.assertEqual(self.c.calibration.locate.call_count,2)
-        self.assertEqual(len(self.c.objects.items),1)
-        self.assertTrue(self.c.layer_dirty)
-        self.assertIs(self.c.calibration.locate.call_args.kwargs['camera_metadata'],frame)
+        for _ in range(3):await self.c.observe(frame,self.demo_result(),20)
+        args=self.c.calibration.locate_stopped.call_args
+        self.assertIs(args.args[3],self.c.observation_pose)
+        self.assertEqual(self.c.objects.items[0]['xy_m'],[3,1])
+    async def test_manual_during_settle_keeps_task_without_automatic_resume(self):
+        self.moving();self.c.mission.request_observation(1.1)
+        expected=self.c.mission.expected
+        self.packet(wire.STATE,[self.session,1,1,expected['command_id'],2,0,1|4|8,0],1.2)
+        self.controls(2,1.3,manual=True);self.controls(3,1.4)
+        self.c.mission.tick(20)
+        self.assertEqual(self.c.mission.state,'paused');self.assertFalse(self.c.objects.items)
+        self.assertFalse(any(x['kind']=='goto' for x in self.c.mission.actions))
+    async def test_observed_box_does_not_repeat_stop_while_following_route(self):
+        self.moving();self.c.observed_boxes=self.demo_result()['detections']
+        await self.c.observe(self.demo_frame(),self.demo_result(),1.1)
+        self.assertEqual(self.c.mission.state,'outbound');self.assertFalse(self.c.mission.actions)
 
 if __name__=='__main__':unittest.main()

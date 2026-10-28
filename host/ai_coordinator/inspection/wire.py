@@ -105,7 +105,7 @@ def control(command, *, user_token=0, commissioned=False):
         raise ValueError('Unsupported inspection action/token')
     op = operations[command['kind']]
     flags = op | (0x100 if commissioned is True else 0) | (user_token << 16)
-    if command.get('reason') == 'layer_update' and commissioned is True:
+    if command.get('reason') in ('layer_update','observation') and commissioned is True:
         flags |= 0x200
     goal = cell([v/1000 for v in command['goal_mm']]) if op == OP_GOTO else (0, 0)
     return [command[k] for k in ('session_id', 'task_id', 'epoch', 'command_id')] + [

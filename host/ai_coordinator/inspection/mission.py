@@ -13,8 +13,10 @@ import zlib
 from .calibration import finite
 from .grid import cell, PLANE_BYTES
 
-REQUIRED = ('calibration', 'timing', 'camera', 'fpga', 'map', 'layer', 'speed_mapping', 'vehicle')
-ACTIVE = {'await_start', 'outbound', 'returning', 'no_path', 'await_stop', 'await_layer', 'await_return_layer'}
+REQUIRED = ('calibration', 'camera', 'fpga', 'map', 'layer')
+ACTIVE = {'await_start', 'outbound', 'returning', 'no_path', 'await_stop', 'await_layer', 'await_return_layer',
+          'observe_stop', 'observe_wait', 'observing'}
+SETTLE_SECONDS = .5  # Camera delay <=.3s, plus .2s for the demo chassis to settle.
 
 
 class InspectionMission:
@@ -29,6 +31,7 @@ class InspectionMission:
         self.actions = deque(); self.expected = None; self.pending_layer = None
         self.reason = None; self.manual = False; self.last_status = None
         self.trace_yaw = None
+        self.observe_after = None
 
     def _command(self, kind, now, **fields):
         self.command_id += 1
@@ -91,8 +94,7 @@ class InspectionMission:
         if self.manual:
             errors.append('manual')
         if self.trace_truncated:errors.append('trajectory_full')
-        if self.pose is None or not finite(now) or not 0 <= now-self.pose['at_s'] <= .5:
-            errors.append('pose_stale')
+        if self.pose is None:errors.append('pose')
         return errors
 
     def start(self, ready, now):
@@ -191,6 +193,14 @@ class InspectionMission:
         self._command('commit_layer', now, layer_version=self.pending_layer['version'],
                       crc32=self.pending_layer['crc32'])
 
+    def request_observation(self, now):
+        self.state = 'observe_stop'; self.actions.clear()
+        self._command('pause', now, reason='observation')
+
+    def finish_observation(self, layer, now):
+        self.pending_layer = {**layer, 'version':self.layer_version+1}
+        self._commit_layer(now)
+
     def on_status(self, event, now):
         if not self.expected or any(event.get(k) != self.expected[k] for k in
                                     ('session_id', 'task_id', 'epoch', 'command_id')):
@@ -208,12 +218,12 @@ class InspectionMission:
             self.state = self.phase
         elif kind == 'stopped' and self.state == 'await_stop' and event.get('stopped') is True:
             self._commit_layer(now)
+        elif kind == 'stopped' and self.state == 'observe_stop' and event.get('stopped') is True:
+            self.state = 'observe_wait'; self.observe_after = now+SETTLE_SECONDS
         elif kind == 'layer_committed' and self.state == 'await_layer' and event.get('layer_version') == self.pending_layer['version']:
             self.layer_version = self.pending_layer['version']; self.pending_layer = None
             self._goto(now)
         elif kind == 'arrived' and self.state in ('await_start', 'outbound', 'returning', 'no_path') and event.get('stopped') is True:
-            if self.pose is None or not 0 <= now-self.pose['at_s'] <= .5:
-                self.pause(now, 'arrival_pose_stale'); return True
             if self.phase == 'outbound':
                 self._trace(force=True)
                 # The outbound trace is evidence, not a return corridor. The
@@ -237,9 +247,7 @@ class InspectionMission:
         return True
 
     def tick(self, now):
-        if self.state in ACTIVE and (self.last_status is None or now-self.last_status > .5 or
-                                    self.pose is None or now-self.pose['at_s'] > .5):
-            self.pause(now, 'control_or_pose_timeout')
+        if self.state == 'observe_wait' and now >= self.observe_after:self.state = 'observing'
 
     def snapshot(self):
         return {'session_id': self.session_id, 'task_id': self.task_id, 'epoch': self.epoch,

@@ -63,6 +63,12 @@ class DeviceAndGeometryTests(unittest.TestCase):
         np.testing.assert_allclose(point['xy_m'], [2, 2], atol=1e-8)
         self.assertEqual(point['xy_error_m'], .05)
 
+    def test_demo_stopped_projection_uses_h_and_pose_without_timing_acceptance(self):
+        p=profile();p['timing_verified']=False;p['xy_error_m']=None
+        point=Calibration(p).locate_stopped(dict(u=640,v=660,ground_verified=True),[1280,720],'camera-1',
+            {**pose(2,1,yaw=math.pi/2),'at_s':-1000},camera_metadata={})
+        np.testing.assert_allclose(point['xy_m'],[2,2],atol=1e-8)
+
     def test_unmeasured_misaligned_or_horizon_observations_rejected(self):
         for change in ({'source_timestamp_verified': False}, {'pose_at': 1.1}, {'now': 2},
                        {'epoch': 2}, {'camera_serial': 'other'}, {'image_size': (640, 480)},
@@ -135,11 +141,11 @@ class InspectionMissionTests(unittest.TestCase):
                  'kind': kind, **extra}
         return self.mission.on_status(event, now)
 
-    def test_every_commissioning_gate_and_stale_pose_blocks_motion(self):
+    def test_required_devices_block_start_but_pose_age_is_not_checked(self):
         for key in REQUIRED:
             self.assertFalse(self.mission.start({**self.ready, key: False}, 1))
             self.assertEqual(self.mission.drain(), [])
-        self.assertFalse(self.mission.start(self.ready, 2))
+        self.assertTrue(self.mission.start(self.ready, 2))
 
     def test_manual_preserves_view_and_progress_and_cursor_never_resumes(self):
         old = self.start(); self.mission.set_view(2)
@@ -235,10 +241,9 @@ class InspectionMissionTests(unittest.TestCase):
         self.assertEqual(self.mission.drain()[-1]['goal_mm'],[400,200])
         self.assertEqual(self.mission.snapshot()['start_m'],[.4,.2])
 
-    def test_localization_reset_and_link_timeout_never_finish_task(self):
+    def test_pose_age_does_not_pause_and_localization_reset_invalidates_task(self):
         self.start(); self.mission.tick(1.6)
-        self.assertEqual(self.mission.state, 'paused')
-        self.assertEqual(self.mission.reason, 'control_or_pose_timeout')
+        self.assertEqual(self.mission.state, 'outbound')
         self.mission.set_pose(pose(epoch=2), 1.7)
         self.assertEqual(self.mission.state, 'invalidated')
 

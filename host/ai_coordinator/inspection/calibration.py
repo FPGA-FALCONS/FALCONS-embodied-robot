@@ -168,3 +168,9 @@ class Calibration:
         return {'xy_m': mapped[:2], 'xy_error_m': p['xy_error_m'],
                 'epoch': epoch, 'captured_at': captured_at,
                 'method': 'measured_ground_homography' if p.get('projection_model') == 'undistorted_homography' else 'measured_ground_projection'}
+
+    def locate_stopped(self, anchor, image_size, camera_serial, pose, *, camera_metadata):
+        """Demo: use the stationary frame and latest FPGA pose directly."""
+        point = self.project(anchor, image_size, camera_serial, camera_metadata=camera_metadata)
+        mapped = base_to_map(point['point_base_m'], (pose['x_m'], pose['y_m'], pose['yaw_rad']))
+        return dict(xy_m=mapped[:2], xy_error_m=.03, epoch=pose['epoch'], method='stopped_ground_projection')

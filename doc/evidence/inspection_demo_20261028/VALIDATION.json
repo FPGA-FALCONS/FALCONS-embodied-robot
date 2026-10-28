@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-28",
+  "scope": "demo RK stop/wait0.5s/three-frame localization; FPGA baseline rebuilt without RTL changes",
+  "bundle": {
+    "tag": "181e908cdf40",
+    "sha256": "ee5f587f7f7f0361e0d4c3dee27f45615164dd609ec03620e9ceb6135f8a15a5",
+    "source_files": 245,
+    "bytes": 700425
+  },
+  "tests": {
+    "windows_coordinator": {
+      "total": 326,
+      "skipped": 11,
+      "passed": true
+    },
+    "rk_coordinator": {
+      "total": 326,
+      "skipped": 0,
+      "passed": true
+    },
+    "rk_fx2_tools": 36,
+    "rk_semantic": 12,
+    "fpga_application_benches": 76
+  },
+  "fpga": {
+    "fs_sha256": "60dff332625c951233e8e2b4152c172da3753c183b0884866206dc04f10bd87c",
+    "load": "SRAM only",
+    "status": "0x00026230",
+    "seconds": 7.97,
+    "source_constraint_header_files": 135,
+    "logic": 54307,
+    "registers": 27007,
+    "fmax_mhz": {
+      "system": 50.039,
+      "pixel": 50.942,
+      "fx2": 36.908
+    },
+    "same_clock_zero_tns_rows": 16,
+    "global_setup_violated_endpoints": 58,
+    "global_hold_violated_endpoints": 18,
+    "all_paths_closed": false
+  },
+  "physical": {
+    "uvc_three_frames": true,
+    "manual_focus": 260,
+    "autofocus": false,
+    "fx2_reconnected": false,
+    "speaker_connected": false,
+    "whole_vehicle_patrol_tested": false,
+    "motion_command_sent": false
+  },
+  "limitations": [
+    "User deferred FX2 reconnection; high-speed display and whole-vehicle patrol not tested",
+    "Speaker absent; no discovery speech hardware test",
+    "Existing DDR/HDMI clock-crossing violations remain; no claim of all-path timing closure"
+  ]
+}

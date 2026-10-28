@@ -91,7 +91,6 @@ class Camera:
                 if time.monotonic()-self.started>10:raise RuntimeError('Camera first frame timeout')
                 return {'status':'no_complete_frame'}
             sequence,payload,metadata=self.latest
-            if not 0<=time.monotonic()-metadata['received_at_s']<=1:raise RuntimeError('Camera frame stale')
             if sequence<=self.delivered:return {'status':'no_complete_frame'}
             self.delivered=sequence
         # An immutable per-request lease is retained until its consumer finishes.

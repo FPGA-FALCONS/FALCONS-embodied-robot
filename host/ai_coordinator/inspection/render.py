@@ -15,6 +15,7 @@ STATES = {'edit': '移动准心选点', 'ready': '确认开始巡检', 'await_st
           'object_recognition':'目标识别',
           'outbound': '去程巡检', 'returning': '最新地图返航', 'no_path': '无路，等待或暂停',
           'await_stop': '停车复核物体', 'await_layer': '提交视觉障碍',
+          'observe_stop':'识别目标，等待停车', 'observe_wait':'停车后等待0.5秒', 'observing':'停稳后定位（3帧）',
           'await_return_layer': '更新返航障碍', 'paused': '已暂停，确认继续',
           'manual_paused': '手动接管，任务暂停', 'completed': '巡检完成，返回可新建',
           'fault': '控制故障', 'invalidated': '定位重置，任务失效', 'cancelled': '任务已取消'}

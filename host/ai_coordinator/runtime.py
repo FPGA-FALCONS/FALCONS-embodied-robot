@@ -372,6 +372,7 @@ class Runtime:
                 response=await self.workers['camera'].call({'op':'next_frame'},timeout=5);frame=response['result']
                 if frame.get('status')=='frame':
                     self.camera_state='streaming'
+                    frame['inspection_round']=self.inspection.observation_round
                     payload={k:frame[k] for k in ('image','format','width','height','byteorder')};payload['_temporary']=True
                     tag={'task_id':self.core.task_id,'goal_id':self.core.goal_id,'captured_at_s':frame['received_at_s'],
                          'replay':False,'source_timestamp_verified':False,'timestamp_origin':'host_receipt_only',
