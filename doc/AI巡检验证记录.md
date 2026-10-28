@@ -9,7 +9,8 @@
 | 四个AI入口、原功能独立 | 已实现；语义导航、聊天和手动暂停留页曾由用户现场确认 |
 | 巡检三视图及非运动接管 | 2026-10-27用户确认实时相机、地图、文字正常；SWC后保留总开关/页面，回光标不自启动 |
 | 独立目标识别带框画面 | 2026-10-27用户确认屏幕显示成功 |
-| AI高速画面连续性 | 2026-10-28用户反馈目标识别、巡检画面与文字页每秒多次交替闪烁，尚未修复；RK相机与FX2稳定，后续继续排查FPGA画面有效及切换路径，见[诊断记录](evidence/ai_display_flicker_20261028/DIAGNOSIS.json) |
+| AI高速画面连续性 | DDR写反压阻塞AI显示读请求的修复已通过4组仿真21项检查、同钟域时序检查，并加载SRAM。2026-10-28用户确认：保持FPGA直插摄像头连接时，目标识别和视觉巡检均不再闪烁，原独立摄像头页正常。Flash未改。见[初始诊断](evidence/ai_display_flicker_20261028/DIAGNOSIS.json)与[修复验证](evidence/ai_display_flicker_fix_20261028/VALIDATION.json) |
+| 内容区绿色竖纹 | 已确认HDMI垂直同步极性不符：MPI7002实时EDID要求H负/V正，原HDMI发送V负。同一诊断位流中，切V正消失、切V负重现、再切V正消失。正式修复仅在DVI的VS输入端反相，79项应用回归及同钟域时序检查通过，已加载SRAM；2026-10-28用户确认原屏绿纹全部消失，AI选择/文字/巡检地图、独立摄像头/雷达页及菜单均正常。无效复位候选已撤回。见[绿纹验证](evidence/hdmi_green_stripes_20261028/DIAGNOSIS.json) |
 | 巡检进入、退出和切页 | 已删除重复自锁门槛；354项主机测试及相关RTL通过。2026-10-28用户确认进入巡检、打开菜单、添加路径点、返回AI功能页及再次进入全部正常 |
 | 雷达绘制方向 | 用户确认由雷达安装方向导致，调整安装后已解决；本轮没有修改坐标或箭头逻辑 |
 | 原生UVC与focus260 | 2026-10-28真实取得三帧1280×720 MJPG，序号6/7/8；自动对焦关闭，每帧读回260 |
@@ -46,17 +47,22 @@
 
 ## 最近FPGA构建、加载与固化
 
-同一正式`falcons_top`位流完成SRAM加载、Flash擦除/写入/校验，并再次加载SRAM恢复正式运行。编码器诊断仅为仿真，没有加入板端逻辑。实际输入见[136项源/约束/头文件指纹](evidence/inspection_rk_speed_20261028/fpga_inputs.json)，构建与固化见[本轮证据](evidence/inspection_rk_speed_20261028/VALIDATION.json)。
+当前正式SRAM包含DDR仲裁及HDMI垂直正同步修复，SHA256为`82164f871f3ebd76b9a3cc4fcaaa780f999a141b29ccd02536f4b93ab3e99a8d`，初次加载7.95秒，最新重载7.93秒、状态0x00026230。诊断按键和电机禁能覆盖已移除，恢复正式控制逻辑；本轮未发送运动指令。内部帧同步继续供DDR使用，RGB内容和配色未改；用户已确认原屏绿纹全部消失、各页正常，完成本轮显示验收。
+
+136项源/约束/头文件指纹一致；系统50/51.186MHz、像素49/58.320MHz、FX2 30.030/36.908MHz；16行同钟域setup/hold TNS为0。既有跨域setup58、hold18个违例端点仍在，不宣称所有路径闭合。Logic54080、寄存器26947，79项应用回归通过。见[当前输入指纹](evidence/hdmi_green_stripes_20261028/fpga_inputs.json)、[构建结果](evidence/hdmi_green_stripes_20261028/fpga_validation.json)及[加载记录](evidence/hdmi_green_stripes_20261028/sram_result.txt)。复位候选和诊断过程仅保留证据，不属于当前代码。该位流已于2026-10-28 22:49写入配置Flash（ID 0xC22018，擦除、写入、校验成功，119.32秒，结束地址0x04EB900），冷启动待现场确认。
+
+下表保留上一版编码器正式位流（`b04faaee…`）的历史记录：该版曾完成擦除/写入/校验及SRAM恢复。编码器诊断仅为仿真，没有加入板端逻辑。其输入见[136项源/约束/头文件指纹](evidence/inspection_rk_speed_20261028/fpga_inputs.json)，固化见[历史证据](evidence/inspection_rk_speed_20261028/VALIDATION.json)。
 
 | 项目 | 最近记录 |
 | --- | --- |
-| SRAM/Flash位流SHA256 | `b04faaee1f77302926a5297ef05fa4f26495dd06ac105aed2b2449f6e59ecb00` |
-| SRAM加载 | 7.99秒，状态0x00026230 |
-| Flash | ID 0xC22018，擦除、写入和校验成功，118.98秒；冷启动待现场确认 |
-| Fmax（要求/实际） | 系统50/51.328MHz、像素49/50.991MHz、FX2 30.030/35.691MHz |
+| Flash位流SHA256 | `82164f871f3ebd76b9a3cc4fcaaa780f999a141b29ccd02536f4b93ab3e99a8d`（当前）；上一版 `b04faaee1f77302926a5297ef05fa4f26495dd06ac105aed2b2449f6e59ecb00` |
+| Flash写入 | ID 0xC22018，擦除、写入和校验成功，119.32秒，结束地址0x04EB900；冷启动待现场确认 |
+| 当前SRAM加载 | 首次7.95秒、最新重载7.93秒，状态0x00026230 |
+| 上一版历史SRAM加载 | 7.99秒，状态0x00026230 |
+| Fmax（要求/实际） | 系统50/51.186MHz、像素49/58.320MHz、FX2 30.030/36.908MHz |
 | 同钟域 | 16行setup/hold TNS为0 |
 | 全局 | 仍有既有DDR/HDMI跨域setup58、hold18个违例端点，不能宣称所有路径闭合 |
-| 资源 | Logic54200、寄存器26945 |
+| 资源 | Logic54080、寄存器26947 |
 
 本轮未写FX2 EEPROM。RK与FPGA需使用配套的16位mm/s巡检协议；脱机测试只拔电脑侧JTAG，保留RK到FPGA J5高速线和控制串口。之前[50%阈值/手转/固化](evidence/encoder_cruise_confidence_20261028/VALIDATION.json)与[简化入口验收](evidence/ai_entry_simple_20261028/VALIDATION.json)保留原始记录，不当作当前位流的巡检运动验收。
 

@@ -1,0 +1,86 @@
+================ 汇总 ================
+
+测试                     结果 检查数 说明
+----                     ---- ------ ----
+inspection_epoch         PASS      5 pass=5 / CHECKS=5
+inspection_route_export  PASS     10 pass=10 / CHECKS=10
+inspection_timebase      PASS      4 pass=4 / CHECKS=4
+inspection_mailbox       PASS      7 pass=7 / CHECKS=7
+inspection_ddr_arb       PASS      3 pass=3 / CHECKS=3
+inspection_frame         PASS      7 pass=7 / CHECKS=7
+inspection_ddr_deadline  PASS      2 pass=2 / CHECKS=2
+inspection_map_export    PASS      6 pass=6 / CHECKS=6
+inspection_fx2_clock     PASS      8 pass=8 / CHECKS=8
+nav_map_arb              PASS      9 pass=9 / CHECKS=9
+stall_monitor            PASS      7 pass=7 / CHECKS=7
+inspection_highspeed     PASS      4 pass=4 / CHECKS=4
+inspection_stream        PASS      9 pass=9 / CHECKS=9
+inspection_fx2           PASS      4 pass=4 / CHECKS=4
+stream_async_fifo        PASS      1 pass=1 / CHECKS=1
+inspection_ui            PASS     13 pass=13 / CHECKS=13
+inspection_application   PASS     10 pass=10 / CHECKS=10
+inspection_speed         PASS      8 pass=8 / CHECKS=8
+inspection_dispatch      PASS      7 pass=7 / CHECKS=7
+inspection_uart          PASS      3 pass=3 / CHECKS=3
+inspection_control       PASS     24 pass=24 / CHECKS=24
+inspection_tx            PASS      3 pass=3 / CHECKS=3
+visual_navigation        PASS      4 pass=4 / CHECKS=4
+inspection_packet        PASS      8 pass=8 / CHECKS=8
+nav_visual_layer         PASS     14 pass=14 / CHECKS=14
+camera_rotation          PASS    253 pass=253 / CHECKS=253
+nav_planner_limit        PASS      6 pass=6 / CHECKS=6
+nav_center               PASS     41 pass=41 / CHECKS=41
+nav_route                PASS     32 pass=32 / CHECKS=32
+nav_line_cells           PASS     17 pass=17 / CHECKS=17
+nav_drive                PASS     60 pass=60 / CHECKS=60
+nav_dijkstra_pool        PASS      6 pass=6 / CHECKS=6
+nav_dijkstra             PASS    286 pass=286 / CHECKS=286
+yaw_pipeline             PASS      1 pass=1 / CHECKS=1
+manual_takeover          PASS     18 pass=18 / CHECKS=18
+ai_video_gate            PASS      9 pass=9 / CHECKS=9
+ai_rc_control            PASS     23 pass=23 / CHECKS=23
+ai_uart_tx               PASS      5 pass=5 / CHECKS=5
+ai_display_link          PASS     20 pass=20 / CHECKS=20
+voice_motion_bridge      PASS     71 pass=71 / CHECKS=71
+uart_command_router      PASS   2304 pass=2304 / CHECKS=2304
+voice_motion_integration PASS     24 pass=24 / CHECKS=24
+ui_layers                PASS      1 pass=1 / CHECKS=1
+display_mm_to_cm         PASS      1 pass=1 / CHECKS=1
+nav_planner              PASS    465 pass=465 / CHECKS=465
+ui_pipeline              PASS      6 pass=6 / CHECKS=6
+imu_calib                PASS     22 pass=22 / CHECKS=22
+radar_coordinates        PASS     34 pass=34 / CHECKS=34
+nav_geometry             PASS     19 pass=19 / CHECKS=19
+nav_scan_accumulator     PASS     18 pass=18 / CHECKS=18
+nav_pose                 PASS      8 pass=8 / CHECKS=8
+obstacle_motion          PASS     15 pass=15 / CHECKS=15
+nav_command              PASS     40 pass=40 / CHECKS=40
+nav_map_view             PASS     47 pass=47 / CHECKS=47
+nav_point_ctrl           PASS     17 pass=17 / CHECKS=17
+obstacle_display         PASS     20 pass=20 / CHECKS=20
+obstacle_page            PASS     44 pass=44 / CHECKS=44
+obstacle_plan            PASS      5 pass=5 / CHECKS=5
+radar_map                PASS     20 pass=20 / CHECKS=20
+rc_led_test              PASS     27 pass=27 / CHECKS=27
+rc_probe_report          PASS      5 pass=5 / CHECKS=5
+reset_sync               PASS      6 pass=6 / CHECKS=6
+ht10a_input              PASS     83 pass=83 / CHECKS=83
+rc_input                 PASS     32 pass=32
+chassis_ctrl             PASS     25 pass=25
+encoder_chain            PASS      7 pass=7 / CHECKS=7
+num_text                 PASS    112 pass=112
+ui_render                PASS     50 pass=50
+nav_free                 PASS     88 pass=88
+speed_report             PASS      4 pass=4
+odom                     PASS     20 pass=20
+cordic_atan2             PASS     12 pass=12 / CHECKS=12
+nav_ctrl                 PASS    388 pass=388 / CHECKS=388
+nav_sys                  PASS     79 pass=79 / CHECKS=79
+tune_ctrl                PASS     82 pass=82 / CHECKS=82
+tune_page                PASS     65 pass=65 / CHECKS=65
+hdmi_tx_reset            PASS     13 pass=13 / CHECKS=13
+disp_driver              PASS   5267 pass=5267 / CHECKS=5267
+dyn_text_ram             PASS     70 pass=70 / CHECKS=70
+imu_top                  PASS     16 pass=16 / CHECKS=16
+
+全部 80 个测试通过

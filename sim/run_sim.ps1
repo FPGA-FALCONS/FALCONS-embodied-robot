@@ -244,7 +244,7 @@ $sources += @(
     "$ProjectRoot\rtl\ai\inspection_frame_store.v",
     "$ProjectRoot\rtl\ai\inspection_map_export.v",
     "$PSScriptRoot\inspection_ddr_arb_tb.v",
-    "$PSScriptRoot\inspection_frame_tb.v",
+    "$PSScriptRoot\inspection_frame_tb.v", "$PSScriptRoot\inspection_ddr_deadline_tb.v",
     "$PSScriptRoot\inspection_map_export_tb.v"
 )
 $tests = @(
@@ -254,6 +254,7 @@ $tests = @(
     @{ Name = 'inspection_mailbox'; Top = 'inspection_mailbox_tb'; Desc = 'Validated layer-only USB mailbox / UART authority isolation' },
     @{ Name = 'inspection_ddr_arb'; Top = 'inspection_ddr_arb_tb'; Desc = 'Independent DDR AI display / passive map export' },
     @{ Name = 'inspection_frame'; Top = 'inspection_frame_tb'; Desc = 'Independent DDR AI display / passive map export' },
+    @{ Name = 'inspection_ddr_deadline'; Top = 'inspection_ddr_deadline_tb'; Desc = 'Display read deadline while camera writes are backpressured' },
     @{ Name = 'inspection_map_export'; Top = 'inspection_map_export_tb'; Desc = 'Independent DDR AI display / passive map export' },
 
     @{ Name = 'inspection_fx2_clock'; Top = 'inspection_fx2_clock_tb'; Desc = 'Independent Gray frequency measurement / wrong clock / loss and return' },

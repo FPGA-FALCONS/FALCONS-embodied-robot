@@ -1,0 +1,55 @@
+
+================ 编译（FALCONS 仿真）================
+Source list: 183 files; simulator: ModelSim
+
+================ 测试：inspection_ddr_arb ================
+  Independent DDR AI display / passive map export
+  pass three concurrent clients make progress under independent memory backpressure
+  pass all outstanding reads preserve owner and order through a saturated tag queue
+  pass read/write commands and data are accepted together without lost transactions
+  PASS: inspection_ddr_arb 3 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_ddr_arb.log）
+
+================ 测试：inspection_frame ================
+  Independent DDR AI display / passive map export
+  pass first complete bank publishes only at frame boundary and scans in exact pixel order
+  pass aborted back bank cannot replace or damage the front image
+  pass view and confirmation context changes retain the complete front picture
+  pass manual or AI exit hides retained picture immediately
+  pass new session cannot display retained old-session picture
+  pass new context swaps banks after drain and starts each display frame from pixel zero
+  pass short committed payload is rejected even after real DDR writes
+  PASS: inspection_frame 7 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_frame.log）
+
+================ 测试：inspection_ddr_deadline ================
+  Display read deadline while camera writes are backpressured
+  pass AI display read bypasses camera write-data backpressure before FIFO deadline
+  pass camera-only path resumes after AI request withdraws
+  PASS: inspection_ddr_deadline 2 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_ddr_deadline.log）
+
+================ 测试：ai_video_gate ================
+  Shared display gate without inspection navigation authority
+  pass master off never displays RK frames
+  pass semantic navigation retains its text page
+  pass standalone recognition displays camera without opening inspection
+  pass manual takeover disables video overlay
+  pass chatbot retains its text page
+  pass inspection selector stays visible until child opens
+  pass inspection keeps its independently selected view
+  pass RK loss disables video overlay
+  pass original FPGA pages cannot receive AI video overlay
+  PASS: ai_video_gate 9 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_ai_video_gate.log）
+
+================ 汇总 ================
+
+测试                    结果 检查数 说明
+----                    ---- ------ ----
+inspection_ddr_arb      PASS      3 pass=3 / CHECKS=3
+inspection_frame        PASS      7 pass=7 / CHECKS=7
+inspection_ddr_deadline PASS      2 pass=2 / CHECKS=2
+ai_video_gate           PASS      9 pass=9 / CHECKS=9
+
+全部 4 个测试通过

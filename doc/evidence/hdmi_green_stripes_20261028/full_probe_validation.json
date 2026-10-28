@@ -1,0 +1,135 @@
+{
+  "fs_sha256": "a9749c9e790fe30ad43f6fe53bec94d17f637f8d642f0226f5a0c7e642ae6eb9",
+  "inputs_verified": 136,
+  "frequency": {
+    "i_clk_50m": {
+      "required_mhz": 50.0,
+      "actual_mhz": 50.218
+    },
+    "camera_pclk": {
+      "required_mhz": 52.499,
+      "actual_mhz": 112.946
+    },
+    "clk_fx2": {
+      "required_mhz": 30.03,
+      "actual_mhz": 34.93
+    },
+    "clk_pixel": {
+      "required_mhz": 49.0,
+      "actual_mhz": 49.023
+    },
+    "clk_cam200": {
+      "required_mhz": 200.0,
+      "actual_mhz": 2240.145
+    },
+    "clk_cam50": {
+      "required_mhz": 50.0,
+      "actual_mhz": 103.587
+    },
+    "clk_ddrf": {
+      "required_mhz": 50.0,
+      "actual_mhz": 67.847
+    }
+  },
+  "same_clock_tns_rows": [
+    [
+      "i_clk_50m",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "i_clk_50m",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "camera_pclk",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "camera_pclk",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_fx2",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_fx2",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_pixel",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_pixel",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_serial",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_serial",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam200",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam200",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam50",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam50",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_ddrf",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_ddrf",
+      "Hold",
+      "0.000",
+      "0"
+    ]
+  ],
+  "logic": 55043,
+  "registers": 26819,
+  "same_clock_timing_pass": true
+}

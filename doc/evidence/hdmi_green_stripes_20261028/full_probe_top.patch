@@ -1,0 +1,88 @@
+--- rtl/top/falcons_top.v
++++ falcons_top_probe.v
+@@ -270,7 +270,7 @@
+         .o_pressed(key3_hold), .o_press_pulse(key3_press), .o_release_pulse()
+     );
+     app_key #(.CLK_FREQ_HZ(CLK_HZ), .DEBOUNCE_MS(10)) u_key4 (
+-        .i_clock(i_clk_50m), .i_reset_n(sys_rst_n), .i_key_n(i_key4_n),
++        .i_clock(i_clk_50m), .i_reset_n(sys_rst_n), .i_key_n(1'b1),
+         .o_pressed(key4_hold), .o_press_pulse(key4_press), .o_release_pulse()
+     );
+ 
+@@ -773,10 +773,10 @@
+         .i_brake       (brake_vec),
+         .i_duty        (duty_flat),
+         .i_stall_clear (stall_clear_r),
+-        .o_stby        (o_stby),
+-        .o_in1         (o_motor_in1),
+-        .o_in2         (o_motor_in2),
+-        .o_pwm         (o_motor_pwm),
++        .o_stby        (diag_motor_stby),
++        .o_in1         (diag_motor_in1),
++        .o_in2         (diag_motor_in2),
++        .o_pwm         (diag_motor_pwm),
+         .o_stall       (stall_vec),
+         .i_enc_a       (i_enc_a),
+         .i_enc_b       (i_enc_b),
+@@ -1307,10 +1307,42 @@
+     end
+     wire pixel_rst_n = pixel_pwr_cnt[3];
+ 
++    // Temporary in-design display probe; physical motor outputs stay disabled.
++    wire diag_motor_stby;
++    wire [3:0] diag_motor_in1,diag_motor_in2,diag_motor_pwm;
++    assign o_stby=0;
++    assign o_motor_in1=0,o_motor_in2=0,o_motor_pwm=0;
++    reg diag_key1=1,diag_key2=1,diag_pattern=0;
++    reg diag_ai_bad=0,diag_menu_bad=0;
++    reg [23:0] diag_color;
++    always @(posedge pixel_clk or negedge pixel_rst_n)begin
++        if(!pixel_rst_n)begin diag_key1<=1;diag_key2<=1;diag_pattern<=0;diag_ai_bad<=0;diag_menu_bad<=0;end
++        else begin
++            diag_key1<=i_key4_n;diag_key2<=diag_key1;
++            if(frame_start)diag_pattern<=!diag_key2;
++            if(page_ps2==PAGE_AI && pixel_x>=208 && pixel_x<224 && pixel_y>=64 && pixel_y<108 && ui_rgb!=24'h101820)diag_ai_bad<=1;
++            if(pixel_x>=4 && pixel_x<20 && pixel_y>=520 && pixel_y<532 && ui_rgb!=(menu_dim_ps2?24'h0b1019:24'h101828))diag_menu_bad<=1;
++        end
++    end
++    always @* begin
++        if(pixel_y>=300)diag_color=24'h101828;
++        else case(pixel_x[9:7])
++            0:diag_color=24'h101828;
++            1:diag_color=24'h0b1019;
++            2:diag_color=24'h000000;
++            3:diag_color=24'h202020;
++            4:diag_color=24'hff0000;
++            5:diag_color=24'h00ff00;
++            6:diag_color=24'h0000ff;
++            7:diag_color=24'hffffff;
++        endcase
++    end
++    wire [23:0] diag_rgb=diag_pattern?diag_color:ui_rgb;
++
+     hdmi_1024x600 u_hdmi (
+         .clk_50m       (i_clk_50m),
+         .reset_n       (pixel_rst_n),     // ★ 像素域同步释放（原为 sys_rst_n，见上方说明）
+-        .pixel_rgb888  (ui_rgb),
++        .pixel_rgb888  (diag_rgb),
+         .pixel_clk     (pixel_clk),
+         .pixel_req     (pixel_req),
+         .pixel_x       (pixel_x),
+@@ -2202,12 +2234,12 @@
+     end
+ 
+     assign o_led[0] = chassis_running;                 // 运行中
+-    assign o_led[1] = estop_latch;                     // 急停锁存
+-    assign o_led[2] = |stall_vec;                      // 任一路堵转
+-    assign o_led[3] = rc_signal_ok;                    // 遥控信号有效
++    assign o_led[1] = diag_motor_stby | (|diag_motor_in1) | (|diag_motor_in2) | (|diag_motor_pwm);                     // 急停锁存
++    assign o_led[2] = diag_ai_bad;                      // 任一路堵转
++    assign o_led[3] = diag_menu_bad;                    // 遥控信号有效
+     assign o_led[5:4] = rc_mode;                       // 当前模式
+-    assign o_led[6] = run_en;                          // 使能
+-    assign o_led[7] = hb_cnt[23];                      // 心跳（约 0.34 s 翻转）
++    assign o_led[6] = page_ps2==PAGE_AI;                          // 使能
++    assign o_led[7] = diag_pattern;                      // 心跳（约 0.34 s 翻转）
+ 
+     // ==================================================================
+     // 9. 未使用信号的处理（2026-10-16 修正）

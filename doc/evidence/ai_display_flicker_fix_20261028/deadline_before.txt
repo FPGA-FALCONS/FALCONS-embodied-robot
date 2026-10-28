@@ -1,0 +1,17 @@
+
+================ 编译（FALCONS 仿真）================
+Source list: 183 files; simulator: ModelSim
+
+================ 测试：inspection_ddr_deadline ================
+  Display read deadline while camera writes are backpressured
+  FAIL: AI display read bypasses camera write-data backpressure before FIFO deadline
+  pass camera-only path resumes after AI request withdraws
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_ddr_deadline.log）
+
+================ 汇总 ================
+
+测试                    结果 检查数 说明
+----                    ---- ------ ----
+inspection_ddr_deadline FAIL      1 输出里有 FAIL/FATAL/Error
+
+1 个测试未通过：inspection_ddr_deadline

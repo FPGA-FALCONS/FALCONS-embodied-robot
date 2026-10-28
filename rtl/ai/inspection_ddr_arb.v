@@ -78,9 +78,11 @@ module inspection_ddr_arb #(
                 2'b01:count<=count-1'b1;
                 default:begin end
             endcase
-            // Round robin is evaluated only after acceptance or withdrawal.
-            // With AI idle the legacy adapter sees its original ready path.
-            if(o_memory_en || !want[selected])case(selected)
+            // A blocked write cannot hold a scan-out read behind wr_data_rdy.
+            // Switch only the registered grant; accepted commands keep their
+            // existing owner tags. With AI idle the legacy path is unchanged.
+            if(selected!=2 && want[2] && !o_memory_en)selected<=2;
+            else if(o_memory_en || !want[selected])case(selected)
                 0:if(want[1])selected<=1;else if(want[2])selected<=2;else selected<=0;
                 1:if(want[2])selected<=2;else if(want[0])selected<=0;else selected<=1;
                 default:if(want[0])selected<=0;else if(want[1])selected<=1;else selected<=2;

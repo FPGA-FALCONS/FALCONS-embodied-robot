@@ -61,7 +61,9 @@ module hdmi_1024x600(
         .I_rst_n       (reset_n & pll_lock),
         .I_serial_clk  (clk_serial_5x),
         .I_rgb_clk     (clk_pixel),
-        .I_rgb_vs      (video_vs),
+        // MPI7002 EDID: negative HS, positive VS. Keep the internal
+        // active-low frame_sync used by DDR unchanged.
+        .I_rgb_vs      (~video_vs),
         .I_rgb_hs      (video_hs),
         .I_rgb_de      (video_active),
         .I_rgb_r       (video_r),

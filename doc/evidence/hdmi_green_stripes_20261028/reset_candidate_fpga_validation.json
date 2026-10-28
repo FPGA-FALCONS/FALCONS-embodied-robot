@@ -1,0 +1,213 @@
+{
+  "fs_sha256": "66963d4df2976be87acbf3305072b971caac1c43b4ea1c94f87f21df67046425",
+  "inputs_verified": 137,
+  "frequency": {
+    "i_clk_50m": {
+      "required_mhz": 50.0,
+      "actual_mhz": 51.508
+    },
+    "camera_pclk": {
+      "required_mhz": 52.499,
+      "actual_mhz": 129.679
+    },
+    "clk_fx2": {
+      "required_mhz": 30.03,
+      "actual_mhz": 36.908
+    },
+    "clk_pixel": {
+      "required_mhz": 49.0,
+      "actual_mhz": 52.618
+    },
+    "clk_serial": {
+      "required_mhz": 245.0,
+      "actual_mhz": 901.509
+    },
+    "clk_cam200": {
+      "required_mhz": 200.0,
+      "actual_mhz": 2240.145
+    },
+    "clk_cam50": {
+      "required_mhz": 50.0,
+      "actual_mhz": 94.206
+    },
+    "clk_ddrf": {
+      "required_mhz": 50.0,
+      "actual_mhz": 62.867
+    }
+  },
+  "same_clock_tns_rows": [
+    [
+      "i_clk_50m",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "i_clk_50m",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "camera_pclk",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "camera_pclk",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_fx2",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_fx2",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_pixel",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_pixel",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_serial",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_serial",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam200",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam200",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam50",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam50",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_ddrf",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_ddrf",
+      "Hold",
+      "0.000",
+      "0"
+    ]
+  ],
+  "reported_oser_paths": {
+    "Setup_Slack_Table": [],
+    "Hold_Slack_Table": [],
+    "Recovery_Slack_Table": [],
+    "Removal_Slack_Table": [
+      [
+        "1",
+        "0.165",
+        "u_hdmi/u_tx_reset/release_sync_2_s0/Q",
+        "u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_r/RESET",
+        "clk_serial:[R]",
+        "clk_pixel:[R]",
+        "0.000",
+        "0.032",
+        "0.306"
+      ],
+      [
+        "2",
+        "0.167",
+        "u_hdmi/u_tx_reset/release_sync_2_s0/Q",
+        "u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_r/RESET",
+        "clk_serial:[R]",
+        "clk_serial:[R]",
+        "0.000",
+        "-0.002",
+        "0.306"
+      ],
+      [
+        "3",
+        "0.257",
+        "u_hdmi/u_tx_reset/release_sync_2_s0/Q",
+        "u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_b/RESET",
+        "clk_serial:[R]",
+        "clk_serial:[R]",
+        "0.000",
+        "-0.002",
+        "0.396"
+      ],
+      [
+        "9",
+        "0.263",
+        "u_hdmi/u_tx_reset/release_sync_2_s0/Q",
+        "u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_b/RESET",
+        "clk_serial:[R]",
+        "clk_pixel:[R]",
+        "0.000",
+        "0.039",
+        "0.396"
+      ],
+      [
+        "10",
+        "0.269",
+        "u_hdmi/u_tx_reset/release_sync_2_s0/Q",
+        "u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_g/RESET",
+        "clk_serial:[R]",
+        "clk_pixel:[R]",
+        "0.000",
+        "0.014",
+        "0.427"
+      ],
+      [
+        "13",
+        "0.288",
+        "u_hdmi/u_tx_reset/release_sync_2_s0/Q",
+        "u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_g/RESET",
+        "clk_serial:[R]",
+        "clk_serial:[R]",
+        "0.000",
+        "-0.002",
+        "0.427"
+      ]
+    ]
+  },
+  "logic": 54083,
+  "registers": 26950,
+  "same_clock_timing_pass": true,
+  "reported_oser_negative_paths": []
+}
