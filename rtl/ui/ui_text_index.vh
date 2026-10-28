@@ -4,8 +4,8 @@
 //       再用 char_index*16+row 从 font_rom（16x16）取 16bit 行点阵，
 //       或 char_index*24+row 从 font_rom_lg（24x24）取 24bit 行点阵。
 
-localparam integer UI_FONT_CHAR_COUNT = 252;
-localparam integer UI_TEXT_TOTAL_CHARS = 387;
+localparam integer UI_FONT_CHAR_COUNT = 256;
+localparam integer UI_TEXT_TOTAL_CHARS = 391;
 
 // {名, 文案, 起始地址, 字符数}
 localparam [11:0] UI_TXT_MENU_VEHICLE_ADDR = 12'd0;  // 运行数据显示
@@ -242,4 +242,6 @@ localparam [11:0] UI_TXT_AUX_RETURN_EDIT_ADDR = 12'd377;  // 返回重新选点
 localparam [5:0] UI_TXT_AUX_RETURN_EDIT_LEN  = 6'd6;
 localparam [11:0] UI_TXT_ST_CTRL_FAULT_ADDR = 12'd383;  // 控制故障
 localparam [5:0] UI_TXT_ST_CTRL_FAULT_LEN  = 6'd4;
+localparam [11:0] UI_TXT_TUNE_WINDOW_ADDR = 12'd387;  // 规划窗口
+localparam [5:0] UI_TXT_TUNE_WINDOW_LEN  = 6'd4;
 

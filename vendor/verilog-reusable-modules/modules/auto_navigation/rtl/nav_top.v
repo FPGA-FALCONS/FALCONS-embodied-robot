@@ -26,8 +26,7 @@ module nav_top #(
     parameter integer        CELL_MM             = 50,
     parameter signed         HALF_MM             = 6400,
     parameter integer        MAX_WP              = 1024,
-    parameter         [22:0] REPLAN_PERIOD       = 23'd5_000_000,  // 50 MHz / 100 ms
-    parameter integer        W_MAX               = 39
+    parameter         [22:0] REPLAN_PERIOD       = 23'd5_000_000  // 50 MHz / 100 ms
 ) (
     input  wire               clk,
     input  wire               reset_n,
@@ -45,6 +44,8 @@ module nav_top #(
     // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
     input  wire         [7:0] forward_check_cells,
     input  wire        [15:0] vehicle_width_mm,
+    // 每轮规划锁存；包含起点，默认 5，短段最多相差 4 格。
+    input  wire         [7:0] w_max,
 
     input  wire               pose_valid,
     input  wire signed [31:0] pose_x_mm,
@@ -519,11 +520,11 @@ module nav_top #(
     nav_planner #(
         .GRID_W   (GRID_W),
         .GRID_H   (GRID_H),
-        .W_MAX    (W_MAX),
         .BFS_RELAX(PLAN_INFLATE_CELLS)
     ) u_plan (
         .clk          (clk),
         .reset_n      (reset_n),
+        .w_max        (w_max),
         .wp_limit     (MAX_WP[15:0] - (inject_prefix ? 16'd1 : 16'd0)),
         .req_valid    (pl_req_valid),
         .req_ready    (pl_req_ready),
@@ -558,22 +559,22 @@ module nav_top #(
     wire active_valid;
     wire [15:0] r_target_x, r_target_y;
     wire [15:0] drive_x, drive_y, drive_index;
-    wire final_target;
+    wire final_target, drive_valid;
     reg  [15:0] target_index;
     reg  [ 2:0] target_wait;
     wire [ 2:0] r_target_dir;
     wire advance, motion_stopped, arrived;
-    wire [15:0] advance_index;
     wire publish_route = rstate == R_PUB && publish_ok;
     reg route_ready, round_motion, no_path_r;
     wire route_for_goal = active_valid && active_goal_match && route_ready;
     // 发布整拍屏蔽新描述符，已有目标点任务继续保持；不要组合依赖 publish_ok。
-    wire descriptor_valid = route_for_goal && target_wait == 0 && rstate != R_PUB && !advance;
+    wire descriptor_valid = route_for_goal && drive_valid && target_wait == 0 && rstate != R_PUB && !advance;
     reg signed [31:0] segment_x_mm  /* synthesis syn_dspstyle = "logic" */;
     reg signed [31:0] segment_y_mm  /* synthesis syn_dspstyle = "logic" */;
-    // 发布后的描述符刷新期间，旧输出只能确认新旧路线共同保留的锁定段。
-    wire [15:0] completed_index = target_x_mm == segment_x_mm && target_y_mm == segment_y_mm ?
-        advance_index : target_index;
+    // 发布会改变航点编号；完成目标相同才使用新路线中的索引。
+    wire completed_matches = drive_valid && target_x_mm == segment_x_mm &&
+                             target_y_mm == segment_y_mm;
+    wire [15:0] completed_index = drive_index;
     always @(posedge clk) begin
         segment_x_mm <= drive_x * CELL_MM - HALF_MM + CELL_MM / 2;
         segment_y_mm <= drive_y * CELL_MM - HALF_MM + CELL_MM / 2;
@@ -586,7 +587,7 @@ module nav_top #(
             target_index <= 0;
             target_wait  <= 4;
         end else if (advance) begin
-            if (completed_index + 16'd1 < st_route_length) target_index <= completed_index + 16'd1;
+            if (completed_matches && completed_index + 16'd1 < st_route_length) target_index <= completed_index + 16'd1;
             target_wait <= 4;
         end else if (target_wait != 0) target_wait <= target_wait - 1'b1;
     end
@@ -616,7 +617,7 @@ module nav_top #(
     wire at_target, segment_blocked, forward_clear;
     wire route_revoked = visual_changed || !motion_enable || !goal_valid || !st_sensors_valid ||
         (route_ready && !active_goal_match) || (emergency_stop && !motion_stopped) ||
-        (advance && completed_index + 16'd1 >= st_route_length);
+        (advance && (!completed_matches || completed_index + 16'd1 >= st_route_length));
     always @(posedge clk or negedge reset_n)
         if (!reset_n) route_ready <= 0;
         else if (route_revoked) route_ready <= 0;
@@ -653,6 +654,7 @@ module nav_top #(
         .drive_x           (drive_x),
         .drive_y           (drive_y),
         .drive_index       (drive_index),
+        .drive_valid       (drive_valid),
         .load_full         (),
         .display_enable         (display_enable),
         .display_refresh        (display_refresh),
@@ -727,7 +729,6 @@ module nav_top #(
         .segment_dir    (r_target_dir),
         .segment_x_mm   (segment_x_mm),
         .segment_y_mm   (segment_y_mm),
-        .segment_index  (drive_index),
         .forward_clear  (forward_clear),
         .ctrl_done      (ctrl_done),
         .ctrl_linear_active     (ctrl_linear_active),
@@ -737,7 +738,6 @@ module nav_top #(
         .target_line_dir  (target_line_dir),
         .emergency_stop (emergency_stop),
         .advance        (advance),
-        .advance_index  (advance_index),
         .arrived        (arrived),
         .at_target      (at_target),
         .stopped        (motion_stopped)
@@ -828,7 +828,7 @@ module nav_top #(
                 if (driving && !arrived && !normal_complete &&
                     !(route_ready && route_revoked) &&
                     (!motion_enable || motion_stopped || normal_origin) &&
-                    (!normal_origin || (target_wait == 0 && MAX_WP > 1)) &&
+                    (!normal_origin || (target_wait == 0 && drive_valid && MAX_WP > 1)) &&
                     replan_due) begin
                     replan_due <= 0;
                     replan_count <= 0;

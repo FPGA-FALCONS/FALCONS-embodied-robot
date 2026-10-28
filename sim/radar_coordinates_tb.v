@@ -20,6 +20,7 @@ module radar_coordinates_tb;
     real reference_dx, reference_dy, actual_dx, actual_dy, delta_dx, delta_dy, range_mm;
     real angle_rad, dx_mm, dy_mm;
     radar_navigation dut (
+        .w_max(8'd5),
         .forward_check_cells(8'd4), .vehicle_width_mm(16'd180),
         .clk                    (clk),
         .reset_n                (rst_n),

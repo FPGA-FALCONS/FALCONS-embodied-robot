@@ -9,6 +9,7 @@ module radar_map_tb;
         .position_tick(tick),.x_mm(x),.y_mm(y),.yaw_cdeg(yaw),
         .pose_valid(valid),.pose_tick(),.pose_x_mm(px),.pose_y_mm(py),.pose_yaw_cdeg(pa));
     radar_navigation dut(
+        .w_max(8'd5),
         .forward_check_cells(8'd4), .vehicle_width_mm(16'd180),.clk(clk),.reset_n(rst_n && !clear),
         .map_enable(valid),.plan_enable(1'b0),.motion_enable(1'b0),
         .radar_rx(rx),.pose_valid(valid),.pose_x_mm(px),.pose_y_mm(py),.pose_yaw_cdeg(pa),

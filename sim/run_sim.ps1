@@ -201,7 +201,7 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
               "$PSScriptRoot\obstacle_page_tb.v",
               "$PSScriptRoot\obstacle_display_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
-              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v", "$PSScriptRoot\nav_dijkstra_tb.v", "$PSScriptRoot\nav_dijkstra_pool_tb.v", "$PSScriptRoot\nav_line_cells_tb.v", "$PSScriptRoot\nav_route_tb.v", "$PSScriptRoot\nav_center_tb.v", "$PSScriptRoot\nav_planner_limit_tb.v", "$PSScriptRoot\nav_drive_tb.v")
+              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v", "$PSScriptRoot\nav_dijkstra_tb.v", "$PSScriptRoot\nav_dijkstra_pool_tb.v", "$PSScriptRoot\nav_line_cells_tb.v", "$PSScriptRoot\nav_route_tb.v", "$PSScriptRoot\nav_lock_tb.v", "$PSScriptRoot\nav_center_tb.v", "$PSScriptRoot\nav_planner_limit_tb.v", "$PSScriptRoot\nav_drive_tb.v")
 
 $sources += @("$ProjectRoot\rtl\common\display_mm_to_cm.v", "$PSScriptRoot\display_mm_to_cm_tb.v", "$PSScriptRoot\ui_layers_tb.v")
 
@@ -277,6 +277,7 @@ $tests = @(
     @{ Name = 'camera_rotation'; Top = 'camera_rotation_tb'; Desc = 'Camera flip and mirror / all 253 initialization register entries' },
     @{ Name = 'nav_planner_limit'; Top = 'nav_planner_limit_tb'; Desc = 'Post-centering relays / capacity prefix / repeated request / same goal' },
     @{ Name = 'nav_center'; Top = 'nav_center_tb'; Desc = 'Eight-direction intersections / minimum gaps / budget / full-segment rejection' },
+    @{ Name = 'nav_lock'; Top = 'nav_lock_tb'; Desc = 'Short locked segments / farthest target / real background origin / runtime window' },
     @{ Name = 'nav_route'; Top = 'nav_route_tb'; Desc = 'Eight-direction locked prefix / farthest target / candidate isolation' },
     @{ Name = 'nav_line_cells'; Top = 'nav_line_cells_tb'; Desc = 'Eight-direction inclusive segments and flank cells' },
     @{ Name = 'nav_drive'; Top = 'nav_drive_tb'; Desc = 'Eight-direction raw front checks / lateral / behind / invalid pose' },

@@ -36,7 +36,7 @@ module num_text_tb;
     reg signed [31:0] v9 = 32'sd0, v10 = 32'sd0, v11 = 32'sd0;
     reg signed [31:0] v12 = 4, v13 = 180;
     // ★ 2026-10-20：哪些字段带小数。默认 = 数据页配置（字段 6..10 带小数）。
-    reg [13:0] frac_mask = 14'b00_0111_1100_0000;
+    reg [14:0] frac_mask = 14'b00_0111_1100_0000;
 
     wire        o_we;
     wire [6:0]  o_addr;
@@ -53,14 +53,14 @@ module num_text_tb;
         .REFRESH_MS (1),
         .FIELD_W    (FW),
         // ★ 2026-10-20：9 → 12，覆盖新增的字段 11（参数整定页速度环 Kd）
-        .NUM_FIELDS (14)
+        .NUM_FIELDS (15)
     ) dut (
         .clk    (clk),
         .rst_n  (rst_n),
         .i_v0   (v0), .i_v1 (v1), .i_v2 (v2),
         .i_v3   (v3), .i_v4 (v4), .i_v5 (v5), .i_v6 (v6),
         .i_v7   (v7), .i_v8 (v8), .i_v9 (v9), .i_v10 (v10), .i_v11 (v11),
-        .i_v12 (v12), .i_v13 (v13),
+        .i_v12 (v12), .i_v13 (v13), .i_v14(32'sd5),
         .i_frac_mask (frac_mask),
         .o_we   (o_we),
         .o_addr (o_addr),
@@ -314,6 +314,11 @@ module num_text_tb;
         check_ch("width_addr69", cap[69], CH_0);
 
         $display("======== 结果 ========");
+        check_ch("window_addr70", cap[70], CH_SPACE);
+        check_ch("window_addr71", cap[71], CH_SPACE);
+        check_ch("window_addr72", cap[72], CH_SPACE);
+        check_ch("window_addr73", cap[73], CH_SPACE);
+        check_ch("window_addr74", cap[74], CH_0+5);
         if (errors == 0) $display("PASS: num_text all checks passed");
         else             $display("FAIL: %0d checks failed", errors);
         $finish;

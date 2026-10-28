@@ -40,6 +40,8 @@ module nav_radar_adapter #(
     // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
     input  wire         [7:0] forward_check_cells,
     input  wire        [15:0] vehicle_width_mm,
+    // 包含起点的规划窗口格数，2..64，默认 5；下一轮规划生效。
+    input  wire         [7:0] w_max,
 
     // 允许启动新规划轮次；撤销不取消在途计算，不清活动路线。
     input  wire               plan_enable,
@@ -225,6 +227,7 @@ module nav_radar_adapter #(
         .ai_error_code(ai_error_code),
         .ai_layer_busy(ai_layer_busy),
         .forward_check_cells    (forward_check_cells),
+        .w_max               (w_max),
         .vehicle_width_mm       (vehicle_width_mm),
         .plan_enable        (plan_enable),
         .motion_enable      (motion_enable),

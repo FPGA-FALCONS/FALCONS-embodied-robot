@@ -60,7 +60,7 @@ module num_text #(
     //     （单位 0.01 m，与航位同口径）。11 字段 × 5 字符 = 55 < 字符 RAM 深度 64，仍够。
     //   ★ 2026-10-20：11 → 12。新增字段 11 = 「参数整定」页第 12 行（速度环 Kd）。
     //     14 字段 × 5 字符 = 70；字符 RAM 使用 7 位地址、深度 128。
-    parameter integer NUM_FIELDS = 14
+    parameter integer NUM_FIELDS = 15
 )(
     input  wire                clk,
     input  wire                rst_n,
@@ -79,6 +79,7 @@ module num_text #(
     input  wire signed [31:0]  i_v11,     // 字段 11：参数整定页第 12 行（速度环 Kd）
 
     input  wire signed [31:0]  i_v12,     // 前探格数
+    input  wire signed [31:0]  i_v14,     // 规划窗口格数
     input  wire signed [31:0]  i_v13,     // 车宽 mm
 
     // ★ 2026-10-20（综合报错后补）：哪些字段带小数（= 整数部分至少几位）。
@@ -86,7 +87,7 @@ module num_text #(
     //   参数整定页复用了数据页的字段 0..11，但**参数全是整数**，若沿用 3 位最小宽度，
     //   航向 Kd = 6 会显示成 "  006" 且 ui_render 还会在百位后画小数点（"  0.06"）。
     //   故改为由顶层按页面给掩码：数据页 12'b0111_1100_0000（字段 6..10），参数页 12'b0。
-    input  wire [13:0]         i_frac_mask,
+    input  wire [14:0]         i_frac_mask,
 
     output reg                 o_we,
     output reg  [6:0]          o_addr,
@@ -153,18 +154,18 @@ module num_text #(
     //   打一拍后拆成两段：① 计算链 → v*_r（≈16.7 ns，过）；② v*_r → cur → absv → mag（≈11.2 ns，过）。
     //   代价：9 × 32 = 288 个触发器 + 1 拍延迟（20 ns，对 100 ms 刷新周期完全无感）。
     reg signed [31:0] v0_r, v1_r, v2_r, v3_r, v4_r,
-                      v5_r, v6_r, v7_r, v8_r, v9_r, v10_r, v11_r, v12_r, v13_r;
+                      v5_r, v6_r, v7_r, v8_r, v9_r, v10_r, v11_r, v12_r, v13_r, v14_r;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             v0_r <= 32'sd0; v1_r <= 32'sd0; v2_r <= 32'sd0;
             v3_r <= 32'sd0; v4_r <= 32'sd0; v5_r <= 32'sd0;
             v6_r <= 32'sd0; v7_r <= 32'sd0; v8_r <= 32'sd0;
-            v9_r <= 32'sd0; v10_r <= 32'sd0; v11_r <= 32'sd0; v12_r <= 32'sd0; v13_r <= 32'sd0;
+            v9_r <= 32'sd0; v10_r <= 32'sd0; v11_r <= 32'sd0; v12_r <= 32'sd0; v13_r <= 32'sd0; v14_r <= 32'sd0;
         end else begin
             v0_r <= i_v0; v1_r <= i_v1; v2_r <= i_v2;
             v3_r <= i_v3; v4_r <= i_v4; v5_r <= i_v5;
             v6_r <= i_v6; v7_r <= i_v7; v8_r <= i_v8;
-            v9_r <= i_v9; v10_r <= i_v10; v11_r <= i_v11; v12_r <= i_v12; v13_r <= i_v13;
+            v9_r <= i_v9; v10_r <= i_v10; v11_r <= i_v11; v12_r <= i_v12; v13_r <= i_v13; v14_r <= i_v14;
         end
     end
 
@@ -183,7 +184,8 @@ module num_text #(
             4'd10:   cur = v10_r;
             4'd11:   cur = v11_r;
             4'd12:   cur = v12_r;
-            default: cur = v13_r;
+            4'd13: cur = v13_r;
+            default: cur = v14_r;
         endcase
         absv = (cur < 0) ? (32'd0 - cur) : cur;
     end
@@ -211,7 +213,7 @@ module num_text #(
     //      带小数（掩码位 = 1）→ 最少 3 位数字（0.00 的整数部分是 1 位 '0'）
     //      不带小数（掩码位 = 0）→ 最少 1 位数字（6 就显示 "    6"，不出前导零）
     //      fidx 是 4 位、掩码 14 位，fidx ≥ 14 时越界，用 guard 兜成 0。
-    wire       frac_bit = (fidx < 4'd14) ? i_frac_mask[fidx] : 1'b0;
+    wire       frac_bit = (fidx < 4'd15) ? i_frac_mask[fidx] : 1'b0;
     wire [3:0] min_dig  = frac_bit ? 4'd3 : 4'd1;
 
     // ★ 2026-10-18（预览图抓出的 bug）：前导零抑制必须**按"高位是否已开始"判断**，

@@ -33,7 +33,6 @@ module nav_command (
     input  wire         [2:0] segment_dir,
     input  wire signed [31:0] segment_x_mm,
                               segment_y_mm,
-    input  wire        [15:0] segment_index,
     input  wire               forward_clear,
                               ctrl_linear_active,
                               ctrl_done,
@@ -44,7 +43,6 @@ module nav_command (
     output wire         [1:0] target_line_dir,
     output wire               emergency_stop,
     output reg                advance,
-    output reg         [15:0] advance_index,
     output reg                arrived,
                               at_target,
     output wire               stopped
@@ -64,7 +62,6 @@ module nav_command (
     reg [3:0] state;
     reg [2:0] command_dir;
     reg signed [31:0] sx_q, sy_q;
-    reg [15:0] index_q, command_index;
     reg [2:0] dir_q;
     reg last_q, final_q, command_last, command_final;
     reg segment_valid_q;
@@ -73,7 +70,6 @@ module nav_command (
         if (!reset_n) begin
             sx_q            <= 0;
             sy_q            <= 0;
-            index_q         <= 0;
             dir_q           <= 0;
             last_q          <= 0;
             final_q         <= 0;
@@ -81,7 +77,6 @@ module nav_command (
         end else begin
             sx_q            <= segment_x_mm;
             sy_q            <= segment_y_mm;
-            index_q         <= segment_index;
             dir_q           <= segment_dir;
             last_q          <= segment_last;
             final_q         <= segment_final;
@@ -101,13 +96,11 @@ module nav_command (
         if (!reset_n) begin
             state           <= IDLE;
             command_dir     <= 0;
-            command_index   <= 0;
             command_last    <= 0;
             command_final   <= 0;
             target_x_mm     <= 0;
             target_y_mm     <= 0;
             advance         <= 0;
-            advance_index   <= 0;
             at_target       <= 0;
             arrived         <= 0;
         end else begin
@@ -137,7 +130,6 @@ module nav_command (
                             command_dir   <= dir_q;
                             target_x_mm   <= sx_q;
                             target_y_mm   <= sy_q;
-                            command_index <= index_q;
                             command_last  <= last_q;
                             command_final <= final_q;
                             state         <= MOVE;
@@ -146,14 +138,12 @@ module nav_command (
                     MOVE: begin
                         if (ctrl_done) begin
                             at_target <= 1;
-                            advance_index <= command_index;
                             advance <= !command_final;
                             state <= MOVE_RELEASE;
                         end
                         else if (usable && dir_q == command_dir) begin
                             target_x_mm   <= sx_q;
                             target_y_mm   <= sy_q;
-                            command_index <= index_q;
                             command_last  <= last_q;
                             command_final <= final_q;
                         end
@@ -173,7 +163,6 @@ module nav_command (
                         if (sx_q != target_x_mm || sy_q != target_y_mm) state <= SELECT;
                         else if (!last_q) begin
                             advance <= 1;
-                            advance_index <= index_q;
                             state <= SELECT;
                         end
                     end

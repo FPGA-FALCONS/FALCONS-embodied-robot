@@ -28,6 +28,8 @@ module radar_navigation #(
     // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
     input  wire         [7:0] forward_check_cells,
     input  wire        [15:0] vehicle_width_mm,
+    // 包含起点的规划窗口格数，2..64，默认 5；下一轮规划生效。
+    input  wire         [7:0] w_max,
 
     // 建图、规划和自动动作分别授权；撤销运动授权会先要求停车。
     input  wire               map_enable,
@@ -109,6 +111,7 @@ module radar_navigation #(
         .ai_error_code(ai_error_code),
         .ai_layer_busy(ai_layer_busy),
         .forward_check_cells    (forward_check_cells),
+        .w_max               (w_max),
         .vehicle_width_mm       (vehicle_width_mm),
         .map_enable             (map_enable),
         .plan_enable            (plan_enable),

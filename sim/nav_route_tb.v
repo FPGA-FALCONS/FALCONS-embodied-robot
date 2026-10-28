@@ -2,17 +2,17 @@
 module nav_route_tb;
     reg clk=0,reset_n=0,start=0,abort=0,publish=0;
     always #10 clk=~clk;
-    reg in_valid=0,in_last=0;
+    reg in_valid=0,in_last=0,prefix=1;
     reg [15:0] in_x=128,in_y=128,index=0;
     reg [2:0] direction=0;
-    wire in_ready,sv,sr,sl,complete,active;
+    wire in_ready,sv,sr,sl,complete,active,drive_valid;
     wire [15:0] sx,sy,length,target_x,target_y,drive_x,drive_y,drive_index,route_id;
     wire [2:0] sd,target_dir;
     integer cycles=0,checks=0,errors=0,d,dx,dy,nx,ny;
     always @(posedge clk) cycles<=cycles+1;
     nav_segments segments (
         .clk(clk),.reset_n(reset_n),.start(start),.cancel(abort),
-        .start_x(16'd128),.start_y(16'd128),.start_dir_valid(1'b1),.start_dir(direction),
+        .start_x(16'd128),.start_y(16'd128),.start_dir_valid(prefix),.start_dir(direction),
         .in_valid(in_valid),.in_ready(in_ready),.in_x(in_x),.in_y(in_y),.in_last(in_last),
         .out_valid(sv),.out_ready(sr),.out_x(sx),.out_y(sy),.out_last(sl),.out_dir(sd),.busy()
     );
@@ -21,7 +21,7 @@ module nav_route_tb;
         .load_valid(sv),.load_ready(sr),.load_last(sl),.load_x(sx),.load_y(sy),.load_dir(sd),
         .publish(publish),.active_valid(active),.active_length(length),.route_id(route_id),
         .target_index(index),.target_x(target_x),.target_y(target_y),.target_dir(target_dir),
-        .drive_x(drive_x),.drive_y(drive_y),.drive_index(drive_index),.final_target(),
+        .drive_x(drive_x),.drive_y(drive_y),.drive_index(drive_index),.final_target(),.drive_valid(drive_valid),
         .candidate_complete(complete),.candidate_length(),.candidate_index(16'd0),
         .candidate_x(),.candidate_y(),.candidate_valid(),.load_full(),
         .display_enable(1'b0),.display_refresh(1'b0),.display_route_valid(1'b0),
@@ -63,13 +63,22 @@ module nav_route_tb;
             wait(complete);
             @(negedge clk); publish=1;
             @(negedge clk); publish=0;
-            repeat(4) @(negedge clk);
-            check(active && length==3 && target_x==128 && target_y==128 && target_dir==d,
+            wait(drive_valid);
+            @(negedge clk);
+            check(active && length==4 && target_x==128 && target_y==128 && target_dir==d,
                   "locked prefix remains a separate waypoint in every direction");
-            check(drive_x==128+8*dx && drive_y==128+8*dy && drive_index==1,
+            check(drive_x==128+8*dx && drive_y==128+8*dy && drive_index==2,
                   "output extends to farthest collinear point without merging locked prefix");
-            index=2;
-            repeat(3) @(negedge clk);
+            index=1;
+            @(negedge clk);
+            wait(drive_valid);
+            @(negedge clk);
+            check(target_x==128+4*dx && target_y==128+4*dy && drive_index==2,
+                  "advancing the short-segment index retains its own endpoint");
+            index=3;
+            @(negedge clk);
+            wait(drive_valid);
+            @(negedge clk);
             check(target_x==128+8*dx+4*nx && target_y==128+8*dy+4*ny && target_dir==(d+1)%8,
                   "next corner retains its independent direction");
             start=1;
@@ -78,9 +87,26 @@ module nav_route_tb;
             @(negedge clk); abort=1;
             @(negedge clk); abort=0;
             repeat(3) @(negedge clk);
-            check(active && length==3 && target_dir==(d+1)%8 && route_id==d+1,
+            check(active && length==4 && target_dir==(d+1)%8 && route_id==d+1,
                   "aborted candidate never overwrites the active route");
         end
+        // 初次规划没有注入前缀，也必须保留所有限长中继；查找不能只处理前两点。
+        @(negedge clk); prefix=0; start=1; index=0;
+        @(negedge clk); start=0;
+        for(d=1;d<=8;d=d+1) point(128+4*d,128,d==8);
+        wait(complete);
+        @(negedge clk); publish=1;
+        @(negedge clk); publish=0;
+        wait(drive_valid);
+        @(negedge clk);
+        check(length==8 && target_x==132 && drive_x==160 && drive_index==7,
+              "initial long straight keeps eight short segments but outputs the far endpoint");
+        index=4;
+        @(negedge clk);
+        wait(drive_valid);
+        @(negedge clk);
+        check(target_x==148 && drive_x==160 && drive_index==7,
+              "lookahead also works from a middle short segment");
         $display("CHECKS: %0d",checks);
         $display("METRICS: nav_route_tb cycles=%0d errors=%0d",cycles,errors);
         if(!errors) $display("PASS: nav_route_tb");

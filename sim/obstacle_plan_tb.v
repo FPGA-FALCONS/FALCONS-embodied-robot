@@ -38,6 +38,7 @@ module obstacle_plan_tb;
     endtask
     wire [15:0] route_length;
     nav_top core(
+        .w_max(8'd5),
         .forward_check_cells(8'd4), .vehicle_width_mm(16'd180),.clk(clk),.reset_n(rst_n),.pose_valid(1'b1),.pose_x_mm(32'sd1000),.pose_y_mm(32'sd0),
         .goal_valid(goal),.goal_x({8'd0,gx}),.goal_y({8'd0,gy}),.plan_enable(goal),.motion_enable(1'b0),
         .display_enable(1'b0),.map_enable(1'b1),.ctrl_done(1'b0),.ctrl_linear_active(1'b0),

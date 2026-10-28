@@ -11,8 +11,8 @@ module visual_navigation_tb;
     integer checks=0,errors=0,n,wait_cycles,old_route_id,previous_x,previous_y,dx,dy,steps,k,x,y;
     always #10 clk=~clk;
     nav_top #(.AI_LAYER_ENABLE(1),.GRID_W(16),.GRID_H(16),.HALF_MM(400),
-              .MAX_WP(32),.PLAN_INFLATE_CELLS(0),.W_MAX(3),.REPLAN_PERIOD(50000)) dut(
-        .clk(clk),.reset_n(rst),.forward_check_cells(8'd2),.vehicle_width_mm(16'd50),
+              .MAX_WP(32),.PLAN_INFLATE_CELLS(0),.REPLAN_PERIOD(50000)) dut(
+        .clk(clk),.reset_n(rst),.w_max(8'd3),.forward_check_cells(8'd2),.vehicle_width_mm(16'd50),
         .ai_enable(ai_enable),.ai_begin(begin_layer),.ai_abort(1'b0),.ai_commit(commit_layer),
         .ai_word_valid(word_valid),.ai_stopped(1'b1),.ai_epoch(32'd1),.ai_begin_epoch(32'd1),
         .ai_expected_crc(fixture[0]),.ai_word(word),.ai_begin_version(16'd1),.ai_word_index(word_index),
