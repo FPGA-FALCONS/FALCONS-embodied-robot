@@ -108,7 +108,7 @@ class Calibration:
             errors.append('missing_xy_error_m')
         return errors
 
-    def project(self, anchor, image_size, camera_serial, *, camera_metadata=None):
+    def project(self, anchor, image_size, camera_serial, *, camera_metadata=None, check_region=True):
         """Static base-frame geometry; never authorizes a timestamped world observation."""
         p = self.profile
         errors = self.geometry_problems(image_size, camera_serial)
@@ -139,10 +139,10 @@ class Calibration:
             if not np.isfinite(q).all() or abs(q[2]) <= 1e-9*np.linalg.norm(H[2])*np.linalg.norm(ray):
                 raise ValueError('Homography horizon or invalid denominator')
             right, forward = map(float, q[:2]/q[2])
-            if not inside_hull([right, forward], h['ground_hull_cm']):
+            if check_region and not inside_hull([right, forward], h['ground_hull_cm']):
                 raise ValueError('Outside measured homography ground region')
             point = [forward/100., -right/100., 0.]
-            if math.hypot(*point[:2]) > p['max_range_m']:
+            if check_region and math.hypot(*point[:2]) > p['max_range_m']:
                 raise ValueError('Outside calibrated operating range')
             return dict(point_base_m=point, ground_right_forward_cm=[right, forward],
                         method='measured_ground_homography', motion_authorized=False)

@@ -3,6 +3,19 @@ from copy import deepcopy
 import math
 from .calibration import finite
 
+GROUND_ANCHORS = {
+    'tape': 'box_center',
+    'screwdriver': 'box_center',
+    'ad_calcium_milk': 'bottom_center',
+    'nutri_express': 'bottom_center',
+}
+
+
+def ground_anchor(detection):
+    x1,y1,x2,y2=detection['bbox']
+    v=(y1+y2)/2 if GROUND_ANCHORS[detection['class']]=='box_center' else y2-1
+    return dict(u=(x1+x2)/2,v=v,ground_verified=True)
+
 
 class Objects:
     def __init__(self, confirmations=3, merge_m=.15, limit=128):

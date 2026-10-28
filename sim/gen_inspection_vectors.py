@@ -13,7 +13,7 @@ out.mkdir(exist_ok=True)
 out.joinpath('inspection_control.hex').write_text(''.join(f'{b:02x}\n' for b in
     encode(CONTROL, [1, 2, 3, 4, 5, 0xffffffff, 7, 30], 77)), encoding='ascii')
 out.joinpath('inspection_application.hex').write_text(''.join(f'{b:02x}\n' for b in
-    encode(HELLO, [5], 1) + encode(CONTROL, [5, 1, 1, 1, 0x00010101, 140, 128, 0x001e0001], 2) +
+    encode(HELLO, [5], 1) + encode(CONTROL, [5, 1, 1, 1, 0x00010101, 140, 128, 0x012c0001], 2) +
     encode(UI_CLOSE, [5, 1, 3, 1], 3) + encode(UI_CLOSE, [5, 1, 4, 1], 4) +
     encode(UI_CLOSE, [5, 1, 3, 1], 5)), encoding='ascii')
 raw = bytearray(PLANE_BYTES)

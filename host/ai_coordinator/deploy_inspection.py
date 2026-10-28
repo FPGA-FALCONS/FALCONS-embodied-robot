@@ -22,6 +22,9 @@ def prepare_config(current,defaults,release):
     cfg=copy.deepcopy(current);inspection={**copy.deepcopy(defaults),**copy.deepcopy(cfg.get('inspection',{}))}
     cfg.get('ai_module',{}).pop('control_timeout_s',None)
     inspection['enabled']=True
+    inspection.pop('speed_code',None)
+    inspection.pop('speed_source',None)
+    inspection.setdefault('cruise_speed_mm_s',300)
     # Older deployments carry a complete inspection.camera dictionary. Merge
     # new camera defaults below it, rather than losing newly introduced fields.
     camera={**copy.deepcopy(defaults.get('camera',{})),**inspection['camera'],**cfg.get('camera',{})}

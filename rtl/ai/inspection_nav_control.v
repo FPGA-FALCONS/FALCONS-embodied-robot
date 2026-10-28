@@ -11,7 +11,8 @@ module inspection_nav_control #(
     input wire [15:0] i_user_token,
     input wire i_hello,i_control,i_heartbeat,i_layer_begin,
     input wire [31:0] i_session,i_task,i_command,i_request_epoch,
-    input wire [7:0] i_op,i_speed,
+    input wire [7:0] i_op,
+    input wire [15:0] i_cruise_mm_s,
     input wire i_commissioned,i_internal_pause,
     input wire [15:0] i_token,i_requested_layer,
     input wire [7:0] i_goal_x,i_goal_y,
@@ -22,6 +23,7 @@ module inspection_nav_control #(
     input wire [3:0] i_layer_error_code,
     output reg o_owned,o_goal_valid,o_motion_enable,
     output reg [7:0] o_goal_x,o_goal_y,
+    output reg [15:0] o_cruise_mm_s,
     output wire o_force_stop,o_stopped,o_upload_allowed,o_pending_motion,
     output reg [31:0] o_session,o_task,o_command,
     output reg [7:0] o_status,o_error_code,
@@ -47,7 +49,7 @@ module inspection_nav_control #(
         if(!rst_n) begin
             state<=IDLE;seen_low<=0;pending_go<=0;release_owner<=0;armed<=0;suspended<=0;
             consumed_token<=0;age<=AGE_LIMIT;epoch_q<=0;stop_status<=2;
-            o_owned<=0;o_goal_valid<=0;o_motion_enable<=0;o_goal_x<=0;o_goal_y<=0;
+            o_owned<=0;o_goal_valid<=0;o_motion_enable<=0;o_goal_x<=0;o_goal_y<=0;o_cruise_mm_s<=0;
             o_session<=0;o_task<=0;o_command<=0;o_status<=0;o_error_code<=0;o_caps_request<=0;
         end else begin
             o_caps_request<=0;epoch_q<=i_epoch;
@@ -104,9 +106,10 @@ module inspection_nav_control #(
             if(i_layer_error && o_owned)begin o_status<=5;o_error_code<={4'h4,i_layer_error_code};armed<=0;end
             if(i_control && identity_ok && i_task>=o_task && i_command>o_command) begin
                 age<=0;
-                if(i_op==1 && i_permission && !unsafe && i_commissioned && i_speed==30 &&
+                if(i_op==1 && i_permission && !unsafe && i_commissioned &&
                    i_layer_valid && i_requested_layer==i_layer_version && ((armed && i_task==o_task) || fresh_token)) begin
                     o_task<=i_task;o_command<=i_command;o_goal_x<=i_goal_x;o_goal_y<=i_goal_y;
+                    o_cruise_mm_s<=i_cruise_mm_s;
                     o_goal_valid<=0;o_motion_enable<=0;pending_go<=1;release_owner<=0;
                     armed<=1;consumed_token<=i_token;o_error_code<=0;
                     if(o_stopped)state<=RELEASE;

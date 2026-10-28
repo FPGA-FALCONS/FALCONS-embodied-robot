@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-28",
+  "scope": "Program latest production whole-vehicle image to external configuration Flash",
+  "fs_sha256": "afd02bf635c752f15f9a7894016765650813ff3864ce4c74b53da53110d56893",
+  "fpga": "GW5AT-138B",
+  "jtag_device_id": "0x0011081B",
+  "flash_id": "0xC22018",
+  "operation": "54: exFlash Erase,Program,Verify Arora V",
+  "program_and_verify_success": true,
+  "seconds": 119.36,
+  "build_inputs_verified": 135,
+  "input_manifest": "fpga_inputs.json",
+  "raw_log_sha256": "3f9f781beb2dcd9b4e386f1a673350b59af55e55547dc9c372fb4e8a07538bd0",
+  "raw_log_bytes": 1450341,
+  "result_log": "flash_result.txt",
+  "cold_boot_test_confirmed": false,
+  "diagnostic_encoder_image": false,
+  "encoder_production_logic": "unchanged",
+  "motion_command_sent": false,
+  "fx2_eeprom_written": false,
+  "source_base_commit": "167b7ffe78f09278230d8e4a2b5d054718177606",
+  "source_changes_uncommitted": true
+}

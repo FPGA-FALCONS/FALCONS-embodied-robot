@@ -3,8 +3,10 @@ module inspection_control_tb;
     reg clk=0,rst=0,permission=0,manual=0,safety=1,link=1;
     reg [31:0] epoch=1,session=5,task_id=1,command=0,request_epoch=1;
     reg [15:0] user_token=0,token=0,requested_layer=1;
+    reg [15:0] cruise=300;
+    wire [15:0] accepted_cruise;
     reg hello=0,control=0,heartbeat=0,layer_begin=0,commissioned=0,internal_pause=0;
-    reg [7:0] op=1,speed=30,gx=140,gy=128;
+    reg [7:0] op=1,gx=140,gy=128;
     reg done=0,idle=1,fault=0,local_pause=0;reg [3:0] nav_state=1;
     reg layer_valid=1,layer_committed=0,layer_error=0;
     wire owned,goal,motion,force_stop,stopped,upload,caps;
@@ -16,7 +18,7 @@ module inspection_control_tb;
         .clk(clk),.rst_n(rst),.i_permission(permission),.i_manual(manual),.i_safety(safety),.i_link(link),.i_local_pause(local_pause),
         .i_epoch(epoch),.i_user_token(user_token),.i_hello(hello),.i_control(control),.i_heartbeat(heartbeat),.i_layer_begin(layer_begin),
         .i_session(session),.i_task(task_id),.i_command(command),.i_request_epoch(request_epoch),
-        .i_op(op),.i_speed(speed),.i_commissioned(commissioned),.i_internal_pause(internal_pause),
+        .i_op(op),.i_cruise_mm_s(cruise),.o_cruise_mm_s(accepted_cruise),.i_commissioned(commissioned),.i_internal_pause(internal_pause),
         .i_token(token),.i_requested_layer(requested_layer),.i_goal_x(gx),.i_goal_y(gy),
         .i_ctrl_done(done),.i_command_idle(idle),.i_ctrl_fault(fault),.i_nav_state(nav_state),
         .i_layer_valid(layer_valid),.i_layer_committed(layer_committed),.i_layer_error(layer_error),
@@ -46,7 +48,7 @@ module inspection_control_tb;
         user_token=1;token=1;send(1);check(!motion && status==5 && error_code==17,"uncommissioned goal is refused");
         commissioned=1;user_token=2;token=2;send(1);
         check(!motion && !force_stop,"valid goal waits for old stop handshake release");
-        release_stop();check(motion && goal && goal_x==140,"fresh physical confirm admits goal");
+        release_stop();check(motion && goal && goal_x==140 && accepted_cruise==300,"physical confirm admits goal and full 300mm/s cruise");
         nav_state=3;actual_stop();check(stopped && status==3,"first waypoint arrival reports actual stopped");
         nav_state=1;gx=150;send(1);release_stop();
         check(motion && goal_x==150 && current_task==1,"second waypoint reuses authorized task and physical token");
@@ -65,8 +67,8 @@ module inspection_control_tb;
         check(!motion && stopped,"cursor return never resumes old task");
         send(1);check(!motion && status==5,"old physical token cannot resume after manual");
         user_token=3;token=3;send(1);release_stop();check(motion,"new confirmation can resume after manual");
-        speed=40;send(1);actual_stop();check(!motion && status==5,"speed other than 30 is refused");
-        speed=30;user_token=4;token=4;send(1);release_stop();check(motion,"commissioned speed-30 goal accepted again");
+        send(2);actual_stop();check(!motion && stopped,"operator pause still requests a real stop");
+        user_token=4;token=4;cruise=500;send(1);release_stop();check(motion && accepted_cruise==500,"next accepted goal updates RK cruise without a speed-code gate");
         repeat(1005)@(negedge clk);check(!motion && force_stop,"local lease timeout brakes independently");
         actual_stop();epoch=2;request_epoch=1;@(negedge clk);repeat(2)@(negedge clk);
         send(1);check(!motion,"old localization epoch cannot authorize movement");

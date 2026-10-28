@@ -1,0 +1,10 @@
+{
+  "valid_csv_rows": 1492,
+  "duration_s": 30,
+  "uart_writes": 0,
+  "nonzero_feedback_rows": 1336,
+  "min_rpm": -44,
+  "max_rpm": 62,
+  "any_driver_duty": false,
+  "any_run_enable": false
+}

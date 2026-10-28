@@ -73,7 +73,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.c.video_required);self.assertEqual(self.c.video.reason,'ai_module_exit')
         self.assertEqual(self.c.mission.state,'cancelled')
     async def test_missing_video_readiness_defers_goto_and_encoder_error_cancels(self):
-        self.moving();self.c.mission.actions.append(dict(self.c.mission.expected,at_s=1,goal_mm=[1000,0],layer_version=1,speed_code=30))
+        self.moving();self.c.mission.actions.append(dict(self.c.mission.expected,at_s=1,goal_mm=[1000,0],layer_version=1,cruise_speed_mm_s=300))
         self.c._begin_video(1);self.c.video.ready=False;self.c._actions(1.01)
         self.assertFalse(any(m['kind']==wire.CONTROL and m['words'][4]&255==wire.OP_GOTO for m in self.messages()))
         self.c.video.error='disk full';self.c._video_tick(1.02);self.c._actions(1.02)
@@ -84,7 +84,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.video.reason,'link_lost');self.assertFalse(self.c.video_required)
     async def test_encoder_failure_between_tick_and_dispatch_still_finalizes_report(self):
         self.moving();self.c._begin_video(1);self.c.video.ready=False;self.c.video.error='encoder died'
-        self.c.mission.actions.append(dict(self.c.mission.expected,at_s=1,goal_mm=[1000,0],layer_version=1,speed_code=30))
+        self.c.mission.actions.append(dict(self.c.mission.expected,at_s=1,goal_mm=[1000,0],layer_version=1,cruise_speed_mm_s=300))
         self.c._actions(1.01)
         self.assertEqual(self.c.mission.state,'cancelled');self.assertIsNotNone(self.c.report_path)
         self.assertFalse(self.c.video_required)
@@ -300,8 +300,16 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         import cv2,numpy as np
         path=Path(self.tmp.name)/'camera.jpg';cv2.imwrite(str(path),np.zeros((72,128,3),np.uint8))
         self.c.cfg['camera']={'selector':{'serial':'camera-1'}}
-        return dict(image=str(path),width=128,height=72,sequence=sequence,inspection_round=round_id)
+        return dict(image=str(path),width=128,height=72,sequence=sequence,inspection_round=round_id,received_at_s=1.1,dedup_pose=None)
     def demo_result(self):return {'detections':[{'class':'tape','confidence':.9,'bbox':[10,10,30,30]}]}
+    async def test_fifty_percent_detection_can_request_inspection_stop(self):
+        self.moving();frame=self.demo_frame();result=self.demo_result()
+        result['detections'][0]['confidence']=.499
+        await self.c.observe(frame,result,1.1)
+        self.assertEqual(self.c.mission.state,'outbound')
+        result['detections'][0]['confidence']=.5
+        await self.c.observe(frame,result,1.2)
+        self.assertEqual(self.c.mission.state,'observe_stop')
     async def test_stop_wait_new_capture_round_then_locate_and_speak(self):
         self.moving();self.c._begin_video(1);frame=self.demo_frame();self.c.discovery_speech.notify=Mock()
         self.c.calibration.locate_stopped=Mock(side_effect=[dict(xy_m=[x,0],xy_error_m=.03) for x in (1,1.03,1.06)])
@@ -310,9 +318,9 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.mission.state,'observe_stop');self.assertEqual(self.c.objects.items,[])
         expected=self.c.mission.expected
         self.packet(wire.STATE,[self.session,1,1,expected['command_id'],2,0,1|4|8,0],1.2)
-        self.c.mission.tick(1.69);self.assertEqual(self.c.mission.state,'observe_wait')
-        self.packet(wire.STATE,[self.session,1,1,expected['command_id'],2,0,1|4|8,0],1.7)
-        self.c.tick(1.7);self.assertEqual(self.c.mission.state,'observing')
+        self.c.mission.tick(1.49);self.assertEqual(self.c.mission.state,'observe_wait')
+        self.packet(wire.STATE,[self.session,1,1,expected['command_id'],2,0,1|4|8,0],1.5)
+        self.c.tick(1.5);self.assertEqual(self.c.mission.state,'observing')
         await self.c.observe(frame,self.demo_result(),1.71)
         self.c.calibration.locate_stopped.assert_not_called()  # In-flight result from before the wait.
         frame=self.demo_frame(2,self.c.observation_round)
@@ -352,6 +360,19 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         args=self.c.calibration.locate_stopped.call_args
         self.assertIs(args.args[3],self.c.observation_pose)
         self.assertEqual(self.c.objects.items[0]['xy_m'],[3,1])
+    async def test_class_anchors_reach_calibration_and_report(self):
+        from copy import deepcopy
+        self.moving();self.c.mission.state='observing'
+        self.c.observation_pose=self.c.mission.pose;self.c.observation_objects=deepcopy(self.c.objects)
+        self.c.calibration.locate_stopped=Mock(return_value=dict(xy_m=[1,0],xy_error_m=.03))
+        classes=['tape','screwdriver','ad_calcium_milk','nutri_express']
+        detections=[dict(self.demo_result()['detections'][0],**{'class':category}) for category in classes]
+        await self.c.observe(self.demo_frame(round_id=self.c.observation_round),dict(detections=detections),1.1)
+        anchors=[call.args[0] for call in self.c.calibration.locate_stopped.call_args_list]
+        self.assertEqual([(a['u'],a['v']) for a in anchors],[(20,20),(20,20),(20,29),(20,29)])
+        report=self.c._report()
+        self.assertEqual([report['ground_anchors'][c] for c in classes],['box_center','box_center','bottom_center','bottom_center'])
+        self.assertEqual(report['demo']['vehicle_radius_m'],.20)
     async def test_manual_during_settle_keeps_task_without_automatic_resume(self):
         self.moving();self.c.mission.request_observation(1.1)
         expected=self.c.mission.expected
@@ -360,10 +381,71 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.c.mission.tick(20)
         self.assertEqual(self.c.mission.state,'paused');self.assertFalse(self.c.objects.items)
         self.assertFalse(any(x['kind']=='goto' for x in self.c.mission.actions))
-    async def test_observed_box_does_not_repeat_stop_while_following_route(self):
-        self.moving();self.c.observed_boxes=self.demo_result()['detections']
-        await self.c.observe(self.demo_frame(),self.demo_result(),1.1)
+    def remember_target(self,category='tape',xy=(1,0)):
+        for _ in range(3):
+            self.c.objects.observe([dict(xy_m=list(xy),radius_m=.05,xy_error_m=.03,**{'class':category})],
+                self.c.objects.last_sequence+1,1,1)
+
+    async def test_capture_pose_is_frozen_before_slow_inference_and_uses_frame_time(self):
+        from copy import deepcopy
+        self.moving();self.remember_target(xy=(3,0));frame=self.demo_frame()
+        for t,x in [(10.,1),(10.2,2),(10.4,3)]:
+            self.c.mission.set_pose(dict(epoch=1,x_m=x,y_m=0,yaw_rad=0),t)
+        frame['received_at_s']=10.5;self.c.capture_pose(frame)
+        self.assertAlmostEqual(frame['dedup_pose_target_s'],10.2)
+        self.assertEqual(frame['dedup_pose']['x_m'],2)
+        old=deepcopy(self.c.objects.snapshot())
+        self.c.mission.set_pose(dict(epoch=1,x_m=6,y_m=0,yaw_rad=0),12.6)
+        self.assertFalse(any(p['at_s']==10.2 for p in self.c.mission.pose_history))
+        self.c.calibration.project=Mock(return_value=dict(point_base_m=[1,0,0]))
+        result=self.demo_result();result['detections'][0]['bbox']=[70,40,100,60]
+        await self.c.observe(frame,result,14)
         self.assertEqual(self.c.mission.state,'outbound');self.assertFalse(self.c.mission.actions)
+        self.assertEqual(self.c.objects.snapshot(),old)
+        self.assertEqual(self.c.detections[0]['bbox'],[70,40,100,60])
+
+    async def test_dedup_requires_same_class_and_less_than_thirty_cm(self):
+        self.moving();self.remember_target();frame=self.demo_frame()
+        frame['dedup_pose']=dict(epoch=1,x_m=0,y_m=0,yaw_rad=0)
+        self.c.calibration.project=Mock()
+        for category,x,confirmed,known in [('tape',1.299,True,True),('tape',1.301,True,False),
+                ('screwdriver',1.,True,False),('tape',1.,False,False)]:
+            with self.subTest(category=category,x=x,confirmed=confirmed):
+                self.moving();self.c.objects.items[0]['confirmed']=confirmed
+                self.c.calibration.project.return_value=dict(point_base_m=[x,0,0])
+                result=self.demo_result();result['detections'][0]['class']=category
+                await self.c.observe(frame,result,2)
+                self.assertEqual(self.c.mission.state,'outbound' if known else 'observe_stop')
+
+    async def test_known_catalogue_survives_manual_return_and_new_task_clears_it(self):
+        self.moving();self.remember_target();before=self.c.objects.snapshot()
+        self.controls(2,1.2,manual=True);self.controls(3,1.3)
+        self.assertEqual(self.c.objects.snapshot(),before)
+        self.c.mission.phase='returning'
+        frame=self.demo_frame();frame['dedup_pose']=dict(epoch=1,x_m=0,y_m=0,yaw_rad=0)
+        self.c.calibration.project=Mock(return_value=dict(point_base_m=[1,0,0]))
+        self.assertTrue(self.c._known_target(self.demo_result()['detections'][0],frame))
+        self.c.mission.state='completed';self.c.stopped=True;self.c.active=True
+        self.assertTrue(self.c.confirm(1.4));self.assertEqual(self.c.objects.items,[])
+        self.assertIsNone(self.c.layer);self.assertTrue(self.c.layer_dirty)
+        self.assertFalse(self.c._known_target(self.demo_result()['detections'][0],frame))
+
+    async def test_mixed_old_and_new_targets_only_locates_and_announces_new_target(self):
+        from copy import deepcopy
+        self.moving();self.remember_target();before=deepcopy(self.c.objects.items[0])
+        self.c.mission.state='observing';self.c.observation_pose=self.c.mission.pose
+        self.c.observation_objects=deepcopy(self.c.objects);self.c.discovery_speech.notify=Mock()
+        self.c.calibration.project=Mock(return_value=dict(point_base_m=[1,0,0]))
+        self.c.calibration.locate_stopped=Mock(return_value=dict(xy_m=[2,0],xy_error_m=.03))
+        result=self.demo_result();result['detections'].append(dict(result['detections'][0],**{'class':'screwdriver'}))
+        for n in range(3):
+            frame=self.demo_frame(n+2,self.c.observation_round);frame['dedup_pose']=self.c.mission.pose
+            await self.c.observe(frame,result,2+n*.01)
+        self.assertEqual(self.c.calibration.locate_stopped.call_count,3)
+        self.assertEqual(self.c.objects.items[0],before)
+        self.assertEqual([obj['id'] for obj in self.c.objects.items],[1,2])
+        announced=self.c.discovery_speech.notify.call_args.args[1]
+        self.assertEqual([obj['class'] for obj in announced],['screwdriver'])
 
     async def test_swa_panel_uses_joystick_without_moving_map_cursor(self):
         self.c.radar=bytes(PLANE_BYTES);self.c.cursor=[1,0]

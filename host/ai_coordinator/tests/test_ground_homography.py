@@ -111,6 +111,12 @@ class GroundHomographyTests(unittest.TestCase):
     def test_outside_control_hull_and_range_are_rejected(self):
         with self.assertRaisesRegex(ValueError, 'ground region'):
             self.project(uv=(615.,719.))
+        c=Calibration(profile());anchor=dict(u=615.,v=719.,ground_verified=True)
+        rough=c.project(anchor,[1280,720],'200901010001',camera_metadata=metadata(),check_region=False)
+        self.assertLess(rough['point_base_m'][0],.4)
+        self.assertFalse(rough['motion_authorized'])
+        with self.assertRaisesRegex(ValueError,'ground region'):
+            c.locate_stopped(anchor,[1280,720],'200901010001',dict(x_m=0,y_m=0,yaw_rad=0,epoch=1),camera_metadata=metadata())
         p=profile();p['max_range_m']=.1
         with self.assertRaisesRegex(ValueError, 'operating range'):
             self.project(p)

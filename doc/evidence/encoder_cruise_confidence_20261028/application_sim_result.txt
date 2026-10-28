@@ -1,0 +1,155 @@
+
+================ 编译（FALCONS 仿真）================
+Source list: 180 files; simulator: ModelSim
+
+================ 测试：inspection_application ================
+  Python transaction to production authority and actual-stop handshake
+  pass host HELLO produces capability transaction without authority
+  pass task entry completes actual stop before host goal
+  pass Python transaction reaches registered navigation goal
+  pass physical input snapshot retains confirmation and joystick axes
+  pass host cannot close child page while chassis is moving
+  pass rejected moving close revision can retry after actual stopped
+  pass old page close cannot close a newly entered page
+  pass manual revokes application output locally
+  pass cursor return holds current task stopped
+  pass lost sensor health cannot release motion
+  PASS: inspection_application 10 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_application.log）
+
+================ 测试：inspection_control ================
+  Actual stopped handshake, physical confirm, manual priority and local lease
+  pass hello cannot claim motor authority outside AI task
+  pass page entry claims zero and requests real stop
+  pass actual done low-high allows stationary upload
+  pass uncommissioned goal is refused
+  pass valid goal waits for old stop handshake release
+  pass fresh physical confirm admits goal
+  pass first waypoint arrival reports actual stopped
+  pass second waypoint reuses authorized task and physical token
+  pass second waypoint also waits for actual stopped
+  pass third waypoint continues without another physical confirm
+  pass internal visual pause waits for actual stopped
+  pass internal layer pause may continue same authorized task
+  pass armed old task cannot authorize a new task with reused token
+  pass new task requires fresh physical confirmation
+  pass local pause revokes goal without a host round trip
+  pass fresh confirmation resumes locally paused task
+  pass manual revokes autonomous output without RK round trip
+  pass cursor return never resumes old task
+  pass old physical token cannot resume after manual
+  pass new confirmation can resume after manual
+  pass operator pause still requests a real stop
+  pass goal uses shared navigation cruise without a speed-code gate
+  pass local lease timeout brakes independently
+  pass old localization epoch cannot authorize movement
+  PASS: inspection_control 24 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_control.log）
+
+================ 测试：obstacle_motion ================
+  UI / real BFS / point controller / moving differential vehicle
+  pass first user destination submitted
+  pass actual BFS starts point execution
+  pass pause preserves destination and acknowledges stopped
+  pass paused vehicle remains stopped while planning advances
+  pass movement crosses cells without consuming destination or resuming
+  pass resume replans forward from moved pose
+  pass near raw obstacle stops vehicle without cancelling destination
+  pass clear observation permits replanning and resumption
+  pass arrival advances to second user destination
+  pass second destination reached and stopped after corner turn
+  pass final completion releases goal and control request
+  pass confirm cannot restart finished navigation
+  pass return-to-editor submits an independent new task
+  pass second complete navigation stops and releases its task
+  pass background planner runs throughout vehicle motion
+  PASS: obstacle_motion_tb
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_obstacle_motion.log）
+
+================ 测试：nav_point_ctrl ================
+  Point task / live target / emergency handshake
+  pass startup stop first observes done low
+  pass startup stop is acknowledged without a target
+  pass stop completion is held
+  pass stop release clears completion
+  pass side target turns before translating
+  pass aligned task starts translating
+  pass live target extension does not complete old target
+  pass live target shortening changes deceleration
+  pass arrival includes stopped confirmation
+  pass normal completion is held until request withdrawn
+  pass new emergency clears stale normal completion
+  pass new emergency gets its own stopped confirmation
+  pass normal and emergency request release
+  pass emergency preempts in-flight calculation
+  pass decelerating car remains in linear phase
+  pass linear phase clears only after stopped
+  pass stall revokes propulsion
+  PASS: nav_point_ctrl_tb
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_nav_point_ctrl.log）
+
+================ 测试：chassis_ctrl ================
+  ★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算
+  -- 1. ???????????��??????????????? 0 --
+  pass  tgt_left_center = 0
+  pass  tgt_right_center = 0
+  -- 2. ??????��?�� +1000???????????? = +3072???3146??1000>>10???--
+  pass  tgt_left_full_thr = 3072
+  pass  tgt_right_full_thr = 3072
+  -- 3. ???��?? steer=+1000??????��?�� 0????��? ???612 / ??? +612 --
+  pass  tgt_left_full_steer = -612
+  pass  tgt_right_full_steer = 612
+  -- 4. ???��?�� ???1000???????????? = ???3072 --
+  pass  tgt_left_reverse = -3073
+  pass  tgt_right_reverse = -3073
+  -- 5. ��????��?��?????????? center=5000/diff=2000??????��?????��??��???????�� 4096 --
+  pass  left_clamped = 3000
+  pass  right_clamped = 4096
+  -- 6. i_enable=0???duty ??�� 0???o_enable ??�� 0 --
+  pass  duty0_disabled = 0
+  pass  oenable_disabled = 0
+  -- 7. ?????????duty ??�� 0 ??? o_brake=1111??????����????��?????--
+  pass  duty0_estop = 0
+  pass  obrake_estop = 15
+  -- 8. ???����????��???????����?��????????????��???????????��?????--
+  pass  duty0_stall = 0
+  pass  oenable_stall = 0
+  pass  obrake_stall_0 = 0
+  -- 9. ��??????????????>0??????��??=0 ??? dir=0??????��????????duty ???����??????? --
+  pass  dir0_fwd = 0
+  pass  duty0_rising = 1
+  pass  ramp_6_windows = 6
+  pass  running_1 = 1
+  -- 9b. ???��??=?????? ??? ��??????????????????????????��????? PID ?????��???--
+  pass  duty_holds_at_target = 0
+  -- 10. ???��???????????delta=1024 ??? rpm=100????��10.24???--
+  pass  rpm0 = 100
+  pass  live_disable_enable = 0
+  pass  live_disable_duty = 0
+  PASS: chassis_ctrl ??����?��??????��??��??
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_chassis_ctrl.log）
+
+================ 测试：encoder_chain ================
+  Four real encoder channels / fast pulses / 10ms windows / missing phase reproduction
+  pass all four real decoders retain fast asynchronous quadrature counts
+  pass 10ms shared sample publishes each wheel without A-channel loss
+  pass encoder acquisition continues with all motor outputs disabled
+  pass missing A-wheel B phase gives zero net counts while another wheel measures normally
+  pass fast single-phase edges reproduce near-zero speed feedback rather than a display fault
+  pass restoring both phases recovers A counting without a fault latch
+  pass sampling stays periodic and the test never enables motors
+  PASS: encoder_chain 7 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_encoder_chain.log）
+
+================ 汇总 ================
+
+测试                   结果 检查数 说明
+----                   ---- ------ ----
+inspection_application PASS     10 pass=10 / CHECKS=10
+inspection_control     PASS     24 pass=24 / CHECKS=24
+obstacle_motion        PASS     15 pass=15 / CHECKS=15
+nav_point_ctrl         PASS     17 pass=17 / CHECKS=17
+chassis_ctrl           PASS     25 pass=25
+encoder_chain          PASS      7 pass=7 / CHECKS=7
+
+全部 6 个测试通过

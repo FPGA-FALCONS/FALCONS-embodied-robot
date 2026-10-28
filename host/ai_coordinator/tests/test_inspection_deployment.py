@@ -18,6 +18,8 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(cfg['camera']['backend'],'v4l2_native')
         self.assertFalse(cfg['inspection']['calibration']['intrinsics_measured'])
         self.assertNotIn('device',cfg['camera'])
+        self.assertEqual(cfg['inspection']['cruise_speed_mm_s'],300)
+        self.assertNotIn('speed_source',cfg['inspection'])
     def test_focus_defaults_and_existing_measured_focus_are_preserved(self):
         defaults={'camera':{'focus':260,'autofocus':False}}
         for old,expected in (({},260),({'focus':285,'autofocus':False},285)):

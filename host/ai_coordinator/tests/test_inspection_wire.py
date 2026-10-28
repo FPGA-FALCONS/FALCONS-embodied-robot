@@ -41,14 +41,18 @@ class InspectionWireTests(unittest.TestCase):
         reader = wire.Reader(); reader.feed(b'x'*100000)
         self.assertLessEqual(len(reader.buffer), 3)
 
-    def test_control_preserves_physical_token_and_keeps_speed_30(self):
+    def test_control_preserves_token_and_full_16_bit_cruise_mm_s(self):
         command = dict(kind='goto', session_id=1, task_id=2, epoch=3, command_id=4,
-                       goal_mm=[1000, 0], layer_version=7)
+                       goal_mm=[1000, 0], layer_version=7, cruise_speed_mm_s=300)
         words = wire.control(command, user_token=5, commissioned=True)
         self.assertEqual(words[4], (5 << 16) | 0x101)
         self.assertEqual(words[5:7], [148, 128])
-        self.assertEqual(words[7], (30 << 16) | 7)
+        self.assertEqual(words[7], (300 << 16) | 7)
         self.assertEqual(wire.control(command)[4] & 0x100, 0)
+        command['cruise_speed_mm_s']=600
+        self.assertEqual(wire.control(command)[7]>>16,600)
+        command['kind']='pause'
+        self.assertEqual(wire.control(command)[7]>>16,0)
 
     def test_status_stopped_bit_is_not_fabricated_from_host_window(self):
         event = wire.status([1, 2, 3, 4, 3, 7, 0, 0])

@@ -109,7 +109,9 @@ def control(command, *, user_token=0, commissioned=False):
         flags |= 0x200
     goal = cell([v/1000 for v in command['goal_mm']]) if op == OP_GOTO else (0, 0)
     return [command[k] for k in ('session_id', 'task_id', 'epoch', 'command_id')] + [
-        flags, *goal, command.get('layer_version', 0) | (30 << 16)]
+        # Upper 16 bits carry physical mm/s, not the old 8-bit drive code.
+        flags, *goal, command.get('layer_version', 0) |
+        ((command['cruise_speed_mm_s'] if op == OP_GOTO else 0) << 16)]
 
 
 def status(words):

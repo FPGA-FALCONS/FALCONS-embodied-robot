@@ -163,6 +163,7 @@ $sources = @(
     "$PSScriptRoot\reset_sync_tb.v",
     "$PSScriptRoot\ht10a_input_tb.v",
     "$PSScriptRoot\chassis_ctrl_tb.v",
+    "$PSScriptRoot\encoder_chain_tb.v",
     "$PSScriptRoot\num_text_tb.v",
     "$PSScriptRoot\ui_render_tb.v",
     "$PSScriptRoot\ui_pipeline_tb.v",
@@ -220,6 +221,7 @@ $sources += @("$VendorRoot\ov5640_capture\rtl\ov5640_init_table_rgb.v", "$PSScri
 $sources += @("$ProjectRoot\rtl\ai\inspection_packet_rx.v", "$PSScriptRoot\inspection_packet_tb.v",
               "$PSScriptRoot\nav_visual_layer_tb.v", "$PSScriptRoot\visual_navigation_tb.v")
 $sources += @("$ProjectRoot\rtl\ai\inspection_nav_control.v", "$ProjectRoot\rtl\ai\inspection_dispatch.v",
+              "$ProjectRoot\rtl\ai\inspection_speed_params.v", "$PSScriptRoot\inspection_speed_tb.v",
               "$ProjectRoot\rtl\ai\inspection_packet_tx.v", "$ProjectRoot\rtl\ai\inspection_telemetry.v", "$ProjectRoot\rtl\ai\inspection_application.v",
               "$PSScriptRoot\inspection_control_tb.v", "$PSScriptRoot\inspection_tx_tb.v", "$PSScriptRoot\inspection_dispatch_tb.v", "$PSScriptRoot\inspection_uart_tb.v", "$PSScriptRoot\inspection_application_tb.v", "$PSScriptRoot\inspection_ui_tb.v")
 $sources += @("$ProjectRoot\rtl\ai\inspection_fx2_phy.v", "$ProjectRoot\rtl\ai\inspection_stream_rx.v", "$ProjectRoot\rtl\ai\inspection_highspeed.v", "$ProjectRoot\rtl\ai\inspection_fx2_clock.v",
@@ -263,6 +265,7 @@ $tests = @(
     @{ Name = 'stream_async_fifo'; Top = 'stream_async_fifo_tb'; Desc = 'Independent clocks / full FIFO / tagged stream / backpressure' },
     @{ Name = 'inspection_ui'; Top = 'inspection_ui_tb'; Desc = 'Nested AI task views / CH8 scope / manual preservation / child back' },
     @{ Name = 'inspection_application'; Top = 'inspection_application_tb'; Desc = 'Python transaction to production authority and actual-stop handshake' },
+    @{ Name = 'inspection_speed'; Top = 'inspection_speed_tb'; Desc = 'RK physical cruise / iterative slow gain / actual point controller / base independence' },
     @{ Name = 'inspection_dispatch'; Top = 'inspection_dispatch_tb'; Desc = 'Synchronous message RAM / authenticated layer stream / stopped commit' },
     @{ Name = 'inspection_uart'; Top = 'inspection_uart_tb'; Desc = 'Physical UART arbitration / whole CSV / indivisible inspection transaction' },
     @{ Name = 'inspection_control'; Top = 'inspection_control_tb'; Desc = 'Actual stopped handshake, physical confirm, manual priority and local lease' },
@@ -310,6 +313,7 @@ $tests = @(
     @{ Name = 'ht10a_input'; Top = 'ht10a_input_tb'; Desc = 'HT10A mapping/calibration/switches/loss/manual drive integration' },
     @{ Name = 'rc_input';     Top = 'rc_input_tb';     Desc = '遥控槽位映射：归一化/死区/模式两档/按钮 select+confirm/丢信号/取反/摇杆拨动/掩码有效性' },
     @{ Name = 'chassis_ctrl'; Top = 'chassis_ctrl_tb'; Desc = '★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算' },
+    @{ Name = 'encoder_chain'; Top = 'encoder_chain_tb'; Desc = 'Four real encoder channels / fast pulses / 10ms windows / missing phase reproduction' },
     @{ Name = 'num_text';     Top = 'num_text_tb';     Desc = '实时数值格式化（9 字段、负数、前导空格、饱和）' },
     @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮随 menu_sel/状态栏/光标档文案/动态数值/占位页/非避障导航页' },
     @{ Name = 'nav_free';     Top = 'nav_free_tb';     Desc = '原非避障调试选点（保持原功能）' },

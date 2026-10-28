@@ -123,6 +123,23 @@ class ObjectAndGridTests(unittest.TestCase):
 
 
 class InspectionMissionTests(unittest.TestCase):
+    def test_pose_history_retains_two_seconds_and_selects_nearest_sample(self):
+        m=InspectionMission()
+        for t in range(61):m.set_pose(pose(t/10),t/10)
+        self.assertEqual(len(m.pose_history),21)
+        self.assertEqual(m.pose_history[0]['at_s'],4)
+        self.assertEqual(m.pose_at(5.71)['at_s'],5.7)
+        frozen=m.pose_at(5.71);m.set_pose(pose(6),9)
+        self.assertEqual(frozen['x_m'],5.7)
+        m.set_pose(pose(0,epoch=2),9.1)
+        self.assertEqual(len(m.pose_history),1)
+
+    def test_stop_receipt_waits_point_three_seconds_before_three_frame_phase(self):
+        self.start();self.mission.request_observation(1.1)
+        self.ack('stopped',1.2,stopped=True)
+        self.mission.tick(1.499);self.assertEqual(self.mission.state,'observe_wait')
+        self.mission.tick(1.5);self.assertEqual(self.mission.state,'observing')
+
     def setUp(self):
         self.mission = InspectionMission(session_id=123)
         self.ready = {key: True for key in REQUIRED}
@@ -132,7 +149,7 @@ class InspectionMissionTests(unittest.TestCase):
     def start(self):
         self.assertTrue(self.mission.start(self.ready, 1))
         command = self.mission.drain()[-1]
-        self.assertEqual(command['speed_code'], 30)
+        self.assertEqual(command['cruise_speed_mm_s'], self.mission.cruise_speed_mm_s)
         self.ack('accepted', 1.01)
         return command
 
@@ -146,6 +163,15 @@ class InspectionMissionTests(unittest.TestCase):
             self.assertFalse(self.mission.start({**self.ready, key: False}, 1))
             self.assertEqual(self.mission.drain(), [])
         self.assertTrue(self.mission.start(self.ready, 2))
+
+    def test_rk_configured_cruise_survives_pause_and_resume(self):
+        self.mission=InspectionMission(session_id=123,cruise_speed_mm_s=420)
+        self.mission.set_pose(pose(),1)
+        self.mission.add_waypoint([1,0]);self.mission.prepare_start()
+        self.assertEqual(self.start()['cruise_speed_mm_s'],420)
+        self.mission.pause(1.1);self.mission.drain()
+        self.assertTrue(self.mission.resume(self.ready,1.2))
+        self.assertEqual(self.mission.drain()[0]['cruise_speed_mm_s'],420)
 
     def test_manual_preserves_view_and_progress_and_cursor_never_resumes(self):
         old = self.start(); self.mission.set_view(2)

@@ -16,16 +16,20 @@ from .grid import cell, PLANE_BYTES
 REQUIRED = ('calibration', 'camera', 'fpga', 'map', 'layer')
 ACTIVE = {'await_start', 'outbound', 'returning', 'no_path', 'await_stop', 'await_layer', 'await_return_layer',
           'observe_stop', 'observe_wait', 'observing'}
-SETTLE_SECONDS = .5  # Camera delay <=.3s, plus .2s for the demo chassis to settle.
+CAMERA_DELAY_SECONDS = .3
+SETTLE_SECONDS = .3
+POSE_HISTORY_SECONDS = 2.
 
 
 class InspectionMission:
-    def __init__(self, *, session_id=None, trace_step_m=.15, trace_limit=512):
+    def __init__(self, *, session_id=None, trace_step_m=.15, trace_limit=512, cruise_speed_mm_s=300):
         self.session_id = session_id or (uuid.uuid4().int & 0xffffffff) or 1
+        self.cruise_speed_mm_s = cruise_speed_mm_s
         self.trace_step_m, self.trace_limit = trace_step_m, trace_limit
         self.task_id = 0; self.command_id = 0; self.layer_version = 0
         self.state = 'edit'; self.phase = 'outbound'; self.view = 'map'
         self.goal = None; self.pose = None; self.epoch = None
+        self.pose_history = deque()
         self.waypoints = []; self.waypoint_index = 0; self.waypoint_arrivals = []; self.started_at = None
         self.start_point = None
         self.trace = []; self.return_trace=[];self.trace_truncated=False;self.return_yaw=None; self.return_points = []; self.return_index = 0
@@ -58,13 +62,21 @@ class InspectionMission:
         if self.epoch not in (None, pose['epoch']):
             self.cancel(now, 'localization_reset')
             self.state = 'invalidated'
+            self.pose_history.clear()
         self.epoch = pose['epoch']; self.pose = {**pose, 'at_s': now}
+        self.pose_history.append(dict(self.pose))
+        while self.pose_history[0]['at_s'] < now-POSE_HISTORY_SECONDS:
+            self.pose_history.popleft()
         if self.start_point is not None and self.state in (ACTIVE | {'paused','manual_paused','fault'}):
             try:
                 self._trace()
             except ValueError:
                 self.trace_truncated=True
                 self.pause(now, 'trajectory_full')
+
+    def pose_at(self, when):
+        if not self.pose_history:return None
+        return dict(min(self.pose_history,key=lambda p:abs(p['at_s']-when)))
 
     def _trace(self, force=False):
         if self.pose is None:
@@ -133,7 +145,7 @@ class InspectionMission:
         self.goal = list(goal)
         self.state = 'await_start'
         self._command('goto', now, goal_mm=[round(v*1000) for v in goal],
-                      layer_version=self.layer_version, speed_code=30, phase=self.phase,
+                      layer_version=self.layer_version, cruise_speed_mm_s=self.cruise_speed_mm_s, phase=self.phase,
                       waypoint_index=self.waypoint_index if self.phase == 'outbound' else None)
 
     def pause(self, now, reason='operator_pause', manual=False):

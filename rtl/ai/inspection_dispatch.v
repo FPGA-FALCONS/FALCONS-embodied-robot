@@ -76,7 +76,7 @@ module inspection_dispatch #(
                     else if(kind==2 && count==8)begin
                         o_task<=header[1];o_epoch<=header[2];o_command<=header[3];o_flags<=header[4];
                         o_goal_x<=header[5];o_goal_y<=header[6];o_layer_speed<=header[7];o_control<=1;
-                        if(header[5]>255 || header[6]>255 || header[7][31:24]!=0)begin
+                        if(header[5]>255 || header[6]>255)begin
                             o_flags<={header[4][31:8],8'hff};o_error<=1;
                         end
                     end else if(kind==7 && count==4 && header[0]==i_current_session &&

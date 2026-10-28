@@ -1,7 +1,7 @@
 """One RK inspection task controller using the coordinator's serial owner.
 
 Models/capture stay in existing owned workers; USB only carries display/layers.
-Demo localization: STOP receipt, .5s settle, three frames, latest pose.
+Demo localization: STOP receipt, .3s wait, three frames, fixed stopped pose.
 """
 import asyncio
 from collections import deque
@@ -13,15 +13,17 @@ from pathlib import Path
 import time
 import uuid
 from . import wire
-from .mission import InspectionMission,ACTIVE
+from .mission import InspectionMission,ACTIVE,CAMERA_DELAY_SECONDS,SETTLE_SECONDS,POSE_HISTORY_SECONDS
+from ..ground_target import base_to_map
 from .evidence import Evidence
-from .objects import Objects
+from .objects import Objects,GROUND_ANCHORS,ground_anchor
 from .calibration import Calibration,finite
 from .grid import build,cell,bit
 from .stream import Container,DISPLAY,CONTROL,route_points
 from .usb_pump import USBPump
 from .recording import Recording,recover
 from .discovery_speech import DiscoverySpeech
+from ..schema import DETECTION_CONFIDENCE_THRESHOLD
 
 
 class InspectionController:
@@ -35,8 +37,10 @@ class InspectionController:
         fps=self.cfg.get('highspeed',{}).get('display_fps',10)
         if not finite(fps) or not 1<=fps<=10:raise ValueError('Display fps must be1..10')
         self.render_interval=1/fps
-        self.mission=InspectionMission();self.objects=Objects();self.calibration=Calibration(self.cfg.get('calibration',{}))
-        self.observation_round=0;self.observation_pose=None;self.observed_boxes=[]
+        self.mission=InspectionMission(cruise_speed_mm_s=self.cfg.get('cruise_speed_mm_s',300))
+        self.dedup_distance_m=self.cfg.get('dedup_distance_m',.30)
+        self.objects=Objects();self.calibration=Calibration(self.cfg.get('calibration',{}))
+        self.observation_round=0;self.observation_pose=None
         self.observation_objects=None;self.observation_frames=0
         self.usb=usb_factory(self.cfg['highspeed']) if self.enabled and self.cfg.get('highspeed',{}).get('enabled') is True else None
         self.input=None;self.actual=None;self.caps=None
@@ -145,7 +149,7 @@ class InspectionController:
     def fpga_reset(self,now):
         self.link_lost('fpga_reset',now)
         # link_lost archives the old report/video before replacing coordinates.
-        self.mission=InspectionMission(session_id=self.mission.session_id)
+        self.mission=InspectionMission(session_id=self.mission.session_id,cruise_speed_mm_s=self.mission.cruise_speed_mm_s)
         self.latest_ai=None;self.context=0;self.stopped=False
         self.cursor=[0.,0.];self.cursor_initialized=False;self.scroll=0;self.edit_stick_ready=False
         self.planned_route=[];self.route_history=[];self.route_key=None;self.last_route=None
@@ -169,11 +173,11 @@ class InspectionController:
         self._finish_video(reason)
         # A reboot can reuse the FPGA's numeric epoch. Establish a fresh host
         # session and discard geometry, rather than assume localization survived.
-        self.mission.actions.clear();self.mission.expected=None;self.mission.pose=None
+        self.mission.actions.clear();self.mission.expected=None;self.mission.pose=None;self.mission.pose_history.clear()
         self.mission.session_id=(uuid.uuid4().int&0xffffffff) or 1
         self.active=False;self.recognition_display=False;self.caps=None;self.actual=None;self.input=None;self.epoch=None
         self.radar=None;self.camera=None;self.detections=[];self.objects=Objects();self.layer=None;self.layer_crc=None
-        self.observation_round+=1;self.observation_pose=None;self.observed_boxes=[]
+        self.observation_round+=1;self.observation_pose=None
         self.upload=None;self.upload_info=None;self.upload_pending=None;self.last_input=self.last_state=None
         self.latest_ai=None;self.next_hello=now;self.rt.gateway.transport.drop('inspection')
         if self.usb:self.usb.drop_controls()
@@ -198,7 +202,7 @@ class InspectionController:
             self.mission.cancel(now,'ai_module_exit');self._save_report();self._finish_video('ai_module_exit')
         if event.get('manual'):
             self.observation_objects=None
-            self.exit_requested=False;self.last_camera=None;self.camera=None;self.observed_boxes=[];self.mission.set_manual(True,now);self._stop_recording();self.notice='手动接管，保留任务；回光标后确认继续'
+            self.exit_requested=False;self.last_camera=None;self.camera=None;self.mission.set_manual(True,now);self._stop_recording();self.notice='手动接管，保留任务；回光标后确认继续'
         elif self.mission.manual:self.mission.set_manual(False,now)
         if was and not usable:
             self.generation+=1;self._stop_recording();self.upload=None;self.upload_info=None;self.upload_pending=None
@@ -289,11 +293,11 @@ class InspectionController:
             self._finish_video('localization_reset')
             self.mission.new_task();self.mission.manual=False
             self.report_path=None;self.instruction='';self.recording_phase=None
-        self.mission.actions.clear();self.mission.expected=None;self.mission.pose=None;self.mission.epoch=epoch
+        self.mission.actions.clear();self.mission.expected=None;self.mission.pose=None;self.mission.epoch=epoch;self.mission.pose_history.clear()
         self.actual=None;self.last_state=None;self.exit_requested=False;self.cursor_initialized=False
         self.edit_action=None
         self._stop_recording()
-        self.epoch=epoch;self.observation_round+=1;self.observation_pose=None;self.observed_boxes=[]
+        self.epoch=epoch;self.observation_round+=1;self.observation_pose=None
         self.objects=Objects();self.upload=None;self.upload_info=None;self.upload_pending=None;self.layer=None;self.layer_crc=None
         self.radar=None;self.camera=None;self.detections=[];self.planned_route=[];self.route_history=[];self.route_key=None;self.generation+=1
     def readiness(self,now):
@@ -337,7 +341,9 @@ class InspectionController:
             accepted=self.mission.resume(self.readiness(now),now,layer=self.layer);self.notice='请求继续' if accepted else '尚不满足恢复条件';return accepted
         if state in ACTIVE:self.pause(now,'operator_pause');return True
         if state in ('completed','cancelled','invalidated') and (self.stopped or (self.actual and not self.actual['flags']&32)):
-            self.mission.new_task();self.cursor=[self.mission.pose['x_m'],self.mission.pose['y_m']] if self.mission.pose else [0,0];self.report_path=None;self.notice='新任务：SWA打开路径点菜单';return True
+            self.mission.new_task();self.objects=Objects();self.observation_objects=None;self.observation_frames=0
+            self.layer=None;self.layer_crc=None;self.layer_dirty=True
+            self.cursor=[self.mission.pose['x_m'],self.mission.pose['y_m']] if self.mission.pose else [0,0];self.report_path=None;self.notice='新任务：SWA打开路径点菜单';return True
         return False
     def pause(self,now,reason='operator_pause'):
         self.discovery_speech.cancel(reason)
@@ -367,6 +373,10 @@ class InspectionController:
         if self.exit_requested and self.actual and self.input and not self.input['manual']:
             if self.stopped or not self.actual['flags']&32:
                 self.send(wire.UI_CLOSE,[self.mission.session_id,self.epoch,self.context,1])
+    def capture_pose(self,frame):
+        frame['dedup_pose_target_s']=frame['received_at_s']-CAMERA_DELAY_SECONDS
+        frame['dedup_pose']=self.mission.pose_at(frame['dedup_pose_target_s'])
+
     async def observe(self,frame,result,now):
         if not self.enabled:return
         generation=self.generation
@@ -376,18 +386,18 @@ class InspectionController:
         if image is None or image.shape[:2]!=(frame['height'],frame['width']):raise ValueError('Camera JPEG geometry changed')
         self.camera=dict(bgr=image,sequence=frame['sequence'],metadata=frame);self.last_camera=now
         self.detections=[{**d,'frame_sequence':frame['sequence']} for d in result.get('detections',[])[:64]]
-        detections=[d for d in self.detections if d['confidence']>=.6]
+        detections=[d for d in self.detections if d['confidence']>=DETECTION_CONFIDENCE_THRESHOLD]
         if not self.active:return
         if self.mission.state in ('await_start','outbound','returning','no_path'):
-            if any(not self._known_box(d) for d in detections):
-                self.mission.request_observation(now);self.notice='发现目标，停车后等待0.5秒定位'
+            if any(not self._known_target(d,frame) for d in detections):
+                self.mission.request_observation(now);self.notice='发现新目标，停车后等待0.3秒定位'
             return
         if self.mission.state!='observing' or frame['inspection_round']!=self.observation_round:return
         serial=self.cfg['camera']['selector']['serial']
         located=[]
         for d in detections:
-            x1,y1,x2,y2=d['bbox']
-            point=self.calibration.locate_stopped(dict(u=(x1+x2)/2,v=y2-1,ground_verified=True),
+            if self._known_target(d,frame):continue
+            point=self.calibration.locate_stopped(ground_anchor(d),
                 [frame['width'],frame['height']],serial,self.observation_pose,camera_metadata=frame)
             located.append({**point,'class':d['class'],'radius_m':.05})
         objects=self.observation_objects
@@ -395,23 +405,25 @@ class InspectionController:
         self.observation_frames+=1
         if self.observation_frames<3:return
         self.objects=objects;self.observation_objects=None
-        self.observed_boxes=deepcopy(detections)
         self.discovery_speech.notify((self.mission.session_id,self.mission.task_id,self.epoch),
             [obj for obj in self.objects.snapshot() if obj['confirmed'] and obj['sequence']==self.objects.last_sequence])
         self._record_evidence('keyframe',Path(frame['image']).read_bytes(),dict(frame=frame,
             confirmed_ids=confirmed,projections=located,pose=self.observation_pose,
-            localization='stop receipt + .5s wait + three-frame mean',calibration=self.calibration.profile))
+            localization='stop receipt + .3s wait + three-frame mean',calibration=self.calibration.profile))
         self.layer=build(self.objects.snapshot(),.20);self.layer_dirty=False
         self.mission.finish_observation(self.layer,now);self.notice='目标定位完成，提交障碍层后继续'
-    def _known_box(self,d):
-        x1,y1,x2,y2=d['bbox']
-        for old in self.observed_boxes:
-            if old['class']!=d['class']:continue
-            a,b,c,e=old['bbox'];intersection=max(0,min(x2,c)-max(x1,a))*max(0,min(y2,e)-max(y1,b))
-            union=(x2-x1)*(y2-y1)+(c-a)*(e-b)-intersection
-            if intersection/union>=.3:
-                old['bbox']=list(d['bbox']);return True
-        return False
+    def _known_target(self,d,frame):
+        candidates=[obj for obj in self.objects.items if obj['confirmed'] and obj['class']==d['class']]
+        if not candidates:return False
+        pose=frame['dedup_pose']
+        if pose is None:return False
+        serial=self.cfg['camera']['selector']['serial']
+        # Approximate H projection is only an association hint, including
+        # outside the measured hull; formal stopped coordinates keep its bounds.
+        point=self.calibration.project(ground_anchor(d),[frame['width'],frame['height']],serial,
+            camera_metadata=frame,check_region=False)
+        xy=base_to_map(point['point_base_m'],(pose['x_m'],pose['y_m'],pose['yaw_rad']))[:2]
+        return any(math.dist(xy,obj['xy_m'])<self.dedup_distance_m for obj in candidates)
     def _record_evidence(self,kind,payload,metadata):
         if len(self.evidence_jobs)>=4:self.evidence_error='Evidence queue full';return False
         metadata={'session':self.mission.session_id,'task':self.mission.task_id,'epoch':self.epoch,**metadata}
@@ -608,7 +620,10 @@ class InspectionController:
         return dict(version=1,world_frame='FPGA navigation map; x forward at origin, y left; metres',
             mission=self.mission.snapshot(),objects=self.objects.snapshot(),calibration_sha256=hashlib.sha256(profile).hexdigest(),
             discovery_speech=self.discovery_speech.snapshot(),
-            demo=dict(camera_delay_assumed_s=.3,settle_s=.5,frames=3,vehicle_radius_m=.20,
+            ground_anchors=dict(GROUND_ANCHORS),
+            deduplication=dict(distance_m=self.dedup_distance_m,pose_history_s=POSE_HISTORY_SECONDS,pose_offset_s=CAMERA_DELAY_SECONDS,
+                pose_time_origin='native frame received_at_s before inference',pose_selection='nearest',rough_points_published=False),
+            demo=dict(camera_delay_assumed_s=CAMERA_DELAY_SECONDS,settle_s=SETTLE_SECONDS,frames=3,vehicle_radius_m=.20,
                       object_radius_m=.05,location_margin_m=.03),
             return_policy='latest_map',fpga_route_history=self.route_history,evidence=[entry for entry in self.evidence_files if entry.get('epoch')==self.epoch],device_state=self.actual,
             recording=self.video.status() if self.video else None,
@@ -630,7 +645,9 @@ class InspectionController:
                 pending=self.calibration.geometry_problems(size,serial),
                 pixel_domain=profile.get('homography',{}).get('pixel_domain'),focus=profile.get('focus'),
                 max_range_m=profile.get('max_range_m'),ground_hull_cm=profile.get('homography',{}).get('ground_hull_cm')),
-            serial_owner='coordinator',localization='stop_then_wait_0.5s_then_three_frames',
+            deduplication=dict(distance_m=self.dedup_distance_m,pose_history_s=POSE_HISTORY_SECONDS,
+                pose_offset_s=CAMERA_DELAY_SECONDS,pose_samples=len(self.mission.pose_history)),
+            serial_owner='coordinator',localization='stop_then_wait_0.3s_then_three_frames',
             observation_round=self.observation_round,observation_frames=self.observation_frames)
     def lines(self):
         from .render import STATES
@@ -641,7 +658,7 @@ class InspectionController:
             '路径点：%d/%d已完成'%(state['waypoints_completed'],state['waypoint_count']),
             '当前目标：'+str(state['goal_m']),'起点：'+str(state['start_m']),
             '已定位物体：'+str(sum(x['confirmed'] for x in self.objects.items)),
-            '指令：'+self.instruction,'待就绪：'+'、'.join(labels.get(k,k) for k in missing),'等待相机、地图和接口就绪' if missing else '演示巡检已就绪，速度码30']
+            '指令：'+self.instruction,'待就绪：'+'、'.join(labels.get(k,k) for k in missing),'等待相机、地图和接口就绪' if missing else '巡检速度：%d mm/s'%self.mission.cruise_speed_mm_s]
     async def close(self):
         await self.discovery_speech.close()
         if self.enabled and self.actual:

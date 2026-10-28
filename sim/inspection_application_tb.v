@@ -6,6 +6,7 @@ module inspection_application_tb;
     reg [15:0] token=0;
     wire ready,owned,goal,motion,force_stop,pending,stopped,txvalid;
     wire [7:0] gx,gy,status,txdata;
+    wire [15:0] cruise;
     wire ui_close;
     integer checks=0,errors=0,i,stop_wait=0,txbytes=0,closes=0,input_snapshots=0;
     always #10 clk=~clk;
@@ -31,6 +32,7 @@ module inspection_application_tb;
         .i_ctrl_done(done),.i_command_idle(!done),.i_ctrl_fault(1'b0),.i_nav_state(4'd1),
         .o_owned(owned),.o_goal_valid(goal),.o_motion_enable(motion),.o_force_stop(force_stop),.o_pending_motion(pending),
         .o_goal_x(gx),.o_goal_y(gy),.o_layer_begin(),.o_layer_commit(),.o_layer_word_valid(),
+        .o_cruise_mm_s(cruise),
         .o_layer_epoch(),.o_layer_crc(),.o_layer_word(),.o_layer_version(),.o_layer_word_index(),
         .i_layer_ready(1'b1),.i_layer_valid(1'b1),.i_layer_committed(1'b0),.i_layer_error(1'b0),.i_layer_busy(1'b0),
         .i_layer_version(16'd1),.i_layer_error_code(4'd0),.o_stopped(stopped),.o_status(status),
@@ -51,7 +53,7 @@ module inspection_application_tb;
         feed(0,35);check(!owned && txbytes>0,"host HELLO produces capability transaction without authority");
         permission=1;ui_open=1;repeat(25)@(negedge clk);token=1;confirm=1;@(negedge clk);confirm=0;
         check(owned && stopped && !motion,"task entry completes actual stop before host goal");
-        feed(36,155);check(motion && goal && gx==140 && gy==128,"Python transaction reaches registered navigation goal");
+        feed(36,155);check(motion && goal && gx==140 && gy==128 && cruise==300,"Python transaction reaches registered goal and 16-bit 300mm/s cruise");
         check(input_snapshots>0 && dut.confirms==1 && dut.backs==0,"physical input snapshot retains confirmation and joystick axes");
         feed(156,227);check(closes==0 && motion,"host cannot close child page while chassis is moving");
         local_pause=1;@(negedge clk);local_pause=0;repeat(25)@(negedge clk);

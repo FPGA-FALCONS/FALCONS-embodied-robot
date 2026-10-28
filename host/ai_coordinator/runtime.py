@@ -392,6 +392,7 @@ class Runtime:
                 if frame.get('status')=='frame':
                     self.camera_state='streaming'
                     frame['inspection_round']=self.inspection.observation_round
+                    self.inspection.capture_pose(frame)
                     payload={k:frame[k] for k in ('image','format','width','height','byteorder')};payload['_temporary']=True
                     tag={'task_id':self.core.task_id,'goal_id':self.core.goal_id,'captured_at_s':frame['received_at_s'],
                          'replay':False,'source_timestamp_verified':False,'timestamp_origin':'host_receipt_only',

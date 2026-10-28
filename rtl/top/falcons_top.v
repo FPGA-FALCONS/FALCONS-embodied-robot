@@ -409,6 +409,7 @@ module falcons_top (
     wire signed [31:0] obs_auto_center, obs_auto_diff;
     wire inspection_owned,inspection_goal_valid,inspection_motion_enable,inspection_force_stop,inspection_pending_motion;
     wire [7:0] inspection_goal_x,inspection_goal_y,inspection_status;
+    wire [15:0] inspection_cruise_mm_s;
     wire inspection_begin,inspection_commit,inspection_word_valid,inspection_stopped;
     wire inspection_word_ready,inspection_layer_valid,inspection_committed,inspection_error,inspection_layer_busy;
     wire [31:0] inspection_layer_epoch,inspection_layer_crc,inspection_layer_word;
@@ -424,13 +425,13 @@ module falcons_top (
     wire nav_selected_valid = inspection_owned ? inspection_auto_valid : obs_owns_control ? obs_auto_valid : nav_auto_valid;
     wire signed [31:0] nav_selected_center = inspection_owned ? inspection_auto_center : obs_owns_control ? obs_auto_center : nav_auto_center;
     wire signed [31:0] nav_selected_diff = inspection_owned ? inspection_auto_diff : obs_owns_control ? obs_auto_diff : nav_auto_diff;
-    // Same drive-code mapping as the reviewed MOT1 bridge: 30 << 2 = 120.
-    // Clamp/register separately from navigation arithmetic and final muxes.
+    // Inspection shares the obstacle-navigation controller; RK sets its cruise.
+    // Keep the register boundary before the final ownership mux.
     always @(posedge i_clk_50m or negedge sys_rst_n)begin
         if(!sys_rst_n)begin inspection_auto_valid<=0;inspection_auto_center<=0;inspection_auto_diff<=0;end
         else if(inspection_owned && !inspection_force_stop)begin
             inspection_auto_valid<=obs_auto_valid;
-            inspection_auto_center<=obs_auto_center>120?32'sd120:obs_auto_center< -120?-32'sd120:obs_auto_center;
+            inspection_auto_center<=obs_auto_center;
             inspection_auto_diff<=obs_auto_diff;
         end else begin inspection_auto_valid<=0;inspection_auto_center<=0;inspection_auto_diff<=0;end
     end
@@ -1645,6 +1646,7 @@ module falcons_top (
         .i_ctrl_fault(obs_ctrl_fault),.i_nav_state(planner_nav_state),
         .o_owned(inspection_owned),.o_goal_valid(inspection_goal_valid),.o_motion_enable(inspection_motion_enable),
         .o_force_stop(inspection_force_stop),.o_goal_x(inspection_goal_x),.o_goal_y(inspection_goal_y),
+        .o_cruise_mm_s(inspection_cruise_mm_s),
         .o_pending_motion(inspection_pending_motion),
         .o_layer_begin(inspection_begin),.o_layer_commit(inspection_commit),.o_layer_word_valid(inspection_word_valid),
         .o_layer_epoch(inspection_layer_epoch),.o_layer_crc(inspection_layer_crc),.o_layer_word(inspection_layer_word),
@@ -1783,17 +1785,22 @@ module falcons_top (
         .o_cur_py   (free_nav_cur_py)
     );
 
+    wire signed [31:0] point_cruise,point_k_slow;
+    inspection_speed_params u_inspection_speed (
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.i_owned(inspection_owned),.i_cruise_mm_s(inspection_cruise_mm_s),
+        .i_base_cruise(tune_p[31:0]),.i_d_slow(tune_p[63:32]),.i_base_k_slow(tune_k_slow),
+        .o_cruise(point_cruise),.o_k_slow(point_k_slow));
     nav_point_ctrl u_nav_point_ctrl (
         .clk(i_clk_50m), .rst_n(sys_rst_n),
         .i_cmd_valid(planner_cmd_valid), .i_emergency_stop(planner_emergency_stop | (inspection_force_stop && !manual_drive)),
         .i_target_x_mm(planner_target_x), .i_target_y_mm(planner_target_y),
         .i_tick(navigation_pose_tick), .i_x_mm(navigation_x_mm), .i_y_mm(navigation_y_mm),
         .i_yaw_centi(navigation_yaw_cdeg), .i_v_mms(odom_v_mms), .i_stall(stall_vec),
-        .i_v_cruise(tune_p[31:0]), .i_d_slow(tune_p[63:32]),
+        .i_v_cruise(point_cruise), .i_d_slow(tune_p[63:32]),
         .i_align_in(tune_p[95:64]), .i_align_out(tune_p[127:96]),
         .i_max_diff_cruise(tune_p[159:128]), .i_kp_yaw(tune_p[191:160]),
         .i_ki_yaw(tune_p[223:192]), .i_kd_yaw(tune_p[255:224]),
-        .i_i_limit(tune_p[287:256]), .i_k_slow_q10(tune_k_slow),
+        .i_i_limit(tune_p[287:256]), .i_k_slow_q10(point_k_slow),
         .o_auto_valid(obs_auto_valid), .o_center(obs_auto_center), .o_diff(obs_auto_diff),
         .o_done(obs_ctrl_done), .o_linear_active(obs_linear_active), .o_fault(obs_ctrl_fault)
     );
