@@ -29,7 +29,7 @@ module nav_lock_tb;
         .obs_valid(1'b0), .obs_scan_start(1'b0), .obs_ready(),
         .obs_grid_x(16'sd0), .obs_grid_y(16'sd0), .obs_grid_valid(1'b0),
         .obs_origin_x_mm(32'sd0), .obs_origin_y_mm(32'sd0),
-        .obs_ray_dx_q16(32'sd0), .obs_ray_dy_q16(32'sd0),
+        .obs_ray_dx_q16(32'sd0), .obs_ray_dy_q16(32'sd0), .obs_range_mm(14'd0),
         .scan_valid(1'b1), .stream_error(1'b0),
         .cmd_valid(command), .emergency_stop(emergency),
         .target_x_mm(tx), .target_y_mm(ty), .nav_state(nav_state),

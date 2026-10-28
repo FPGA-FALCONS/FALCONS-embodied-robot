@@ -19,7 +19,7 @@ module nav_geometry_tb;
         .out_valid(out_valid), .out_scan_start(), .out_ready(out_ready),
         .out_hit(hit), .out_hit_x(gx), .out_hit_y(gy),
         .out_origin_x_mm(ox), .out_origin_y_mm(oy), .out_ray_dx_q16(dx_q16), .out_ray_dy_q16(dy_q16),
-        .out_rejected(rejected)
+        .out_range_mm(), .out_rejected(rejected)
     );
     task check;
         input condition;

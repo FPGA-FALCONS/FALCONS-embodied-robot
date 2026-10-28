@@ -22,7 +22,7 @@ module visual_navigation_tb;
         .goal_valid(1'b1),.goal_x(16'd14),.goal_y(16'd8),.plan_enable(1'b1),.motion_enable(1'b0),
         .display_enable(1'b1),.map_enable(1'b1),.ctrl_done(1'b0),.ctrl_linear_active(1'b0),
         .obs_scan_start(1'b0),.obs_valid(1'b0),.obs_grid_x(16'sd0),.obs_grid_y(16'sd0),.obs_grid_valid(1'b0),
-        .obs_origin_x_mm(32'sd0),.obs_origin_y_mm(32'sd0),.obs_ray_dx_q16(32'sd0),.obs_ray_dy_q16(32'sd0),
+        .obs_origin_x_mm(32'sd0),.obs_origin_y_mm(32'sd0),.obs_ray_dx_q16(32'sd0),.obs_ray_dy_q16(32'sd0),.obs_range_mm(14'd0),
         .scan_valid(1'b1),.stream_error(1'b0),.st_route_length(route_length),.st_route_id(route_id),
         .route_disp_valid(route_valid),.route_disp_x_cell(route_x),.route_disp_y_cell(route_y),
         .route_disp_frame_start(route_start),.route_disp_frame_done(route_done));

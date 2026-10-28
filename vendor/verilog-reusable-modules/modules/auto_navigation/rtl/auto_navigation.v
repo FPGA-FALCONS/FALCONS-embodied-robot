@@ -187,6 +187,7 @@ module auto_navigation #(
     assign grid_ready = obs_ready;
     wire signed [31:0] observation_origin_x_mm, observation_origin_y_mm;
     wire signed [31:0] observation_ray_dx_q16, observation_ray_dy_q16;
+    wire [13:0] observation_range_mm;
 
     nav_polar u_polar (
         .clk             (clk),
@@ -210,6 +211,7 @@ module auto_navigation #(
         .out_origin_y_mm (observation_origin_y_mm),
         .out_ray_dx_q16  (observation_ray_dx_q16),
         .out_ray_dy_q16  (observation_ray_dy_q16),
+        .out_range_mm    (observation_range_mm),
         .out_rejected    (sample_rejected)
     );
 
@@ -283,6 +285,7 @@ module auto_navigation #(
         .obs_origin_y_mm   (observation_origin_y_mm),
         .obs_ray_dx_q16    (observation_ray_dx_q16),
         .obs_ray_dy_q16    (observation_ray_dy_q16),
+        .obs_range_mm      (observation_range_mm),
         .scan_valid        (scan_valid),
         .stream_error      (stream_error),
         .cmd_valid         (cmd_valid),

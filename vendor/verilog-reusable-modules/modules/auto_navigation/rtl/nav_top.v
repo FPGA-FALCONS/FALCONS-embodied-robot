@@ -74,6 +74,7 @@ module nav_top #(
                               obs_origin_y_mm,
     input  wire signed [31:0] obs_ray_dx_q16,
                               obs_ray_dy_q16,
+    input  wire        [13:0] obs_range_mm,
 
     input  wire               scan_valid,
     input  wire               stream_error,
@@ -150,7 +151,7 @@ module nav_top #(
     wire arb_timeout,arb_busy;
     assign ai_layer_busy=visual_blocked;
     wire map_idle;
-    wire scan_wr_valid, scan_wr_ready, scan_wr_val;
+    wire scan_wr_valid, scan_wr_ready, scan_wr_val, scan_wr_shadow;
     wire [15:0] scan_wr_x, scan_wr_y;
     wire scanner_ready, circle_ready;
     wire observation_enabled = !obs_scan_start || circle_ready;
@@ -173,10 +174,12 @@ module nav_top #(
         .origin_y_mm(obs_origin_y_mm),
         .ray_dx_q16 (obs_ray_dx_q16),
         .ray_dy_q16 (obs_ray_dy_q16),
+        .range_mm   (obs_range_mm),
         .map_enable (map_enable),
         .wr_valid   (scan_wr_valid),
         .wr_ready   (scan_wr_ready),
         .wr_val     (scan_wr_val),
+        .wr_shadow  (scan_wr_shadow),
         .wr_x       (scan_wr_x),
         .wr_y       (scan_wr_y),
         .busy       (),
@@ -196,6 +199,7 @@ module nav_top #(
         .in_valid  (scan_wr_valid),
         .in_ready  (scan_wr_ready),
         .in_value  (scan_wr_val),
+        .in_shadow (scan_wr_shadow),
         .in_x      (scan_wr_x),
         .in_y      (scan_wr_y),
         .wr_valid  (scan_map_valid),

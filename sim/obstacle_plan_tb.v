@@ -43,7 +43,7 @@ module obstacle_plan_tb;
         .goal_valid(goal),.goal_x({8'd0,gx}),.goal_y({8'd0,gy}),.plan_enable(goal),.motion_enable(1'b0),
         .display_enable(1'b0),.map_enable(1'b1),.ctrl_done(1'b0),.ctrl_linear_active(1'b0),
         .obs_scan_start(1'b0),.obs_valid(1'b0),.obs_grid_x(16'sd0),.obs_grid_y(16'sd0),.obs_grid_valid(1'b0),
-        .obs_origin_x_mm(32'sd0),.obs_origin_y_mm(32'sd0),.obs_ray_dx_q16(32'sd0),.obs_ray_dy_q16(32'sd0),
+        .obs_origin_x_mm(32'sd0),.obs_origin_y_mm(32'sd0),.obs_ray_dx_q16(32'sd0),.obs_ray_dy_q16(32'sd0),.obs_range_mm(14'd10000),
         .scan_valid(1'b1),.stream_error(1'b0),.nav_state(feedback),.st_route_length(route_length));
 
     initial begin
