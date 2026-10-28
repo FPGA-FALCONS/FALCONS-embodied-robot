@@ -156,9 +156,9 @@ module inspection_application #(
                     if(i_ui_back)backs<=backs+1'b1;
                 end
                 if(session!=ui_session || i_epoch!=ui_epoch)last_ui_revision<=0;
-                else if(ui_close_request && ui_revision>last_ui_revision)begin
+                else if(ui_close_request && ui_revision>last_ui_revision && (o_stopped || !o_owned))begin
                     last_ui_revision<=ui_revision;
-                    if(o_stopped || !o_owned)o_ui_close<=1;
+                    o_ui_close<=1;
                 end
             end
         end

@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-28",
+  "scope": "AI inspection exit, FPGA reset handshake and stable view switching; radar/arrow transforms unchanged",
+  "bundle": {
+    "tag": "f04e40a83244",
+    "sha256": "b5896608af3d191a088ec465ab756bb965b72b23720bf1a5e973b7da3c33bfae",
+    "source_files": 245
+  },
+  "fpga": {
+    "fs_sha256": "c33e7a34e7615c2070f7269947ffbd816d5166f20a0c262b2f72a7821fd2b2bb",
+    "source_constraint_header_files": 135,
+    "frequency": {
+      "i_clk_50m": {
+        "required_mhz": 50.0,
+        "actual_mhz": 50.324
+      },
+      "camera_pclk": {
+        "required_mhz": 52.499,
+        "actual_mhz": 118.938
+      },
+      "clk_fx2": {
+        "required_mhz": 30.03,
+        "actual_mhz": 36.908
+      },
+      "clk_pixel": {
+        "required_mhz": 49.0,
+        "actual_mhz": 55.29
+      },
+      "clk_cam200": {
+        "required_mhz": 200.0,
+        "actual_mhz": 2240.145
+      },
+      "clk_cam50": {
+        "required_mhz": 50.0,
+        "actual_mhz": 79.28
+      },
+      "clk_ddrf": {
+        "required_mhz": 50.0,
+        "actual_mhz": 63.339
+      }
+    },
+    "same_clock_zero_tns_rows": 16,
+    "global_setup_violated_endpoints": 58,
+    "global_hold_violated_endpoints": 18,
+    "logic": 54038,
+    "registers": 26839,
+    "load": "SRAM only",
+    "status": "0x00026230",
+    "seconds": 8.05,
+    "all_paths_closed": false
+  },
+  "tests": {
+    "windows_affected": 85,
+    "rk_coordinator": 352,
+    "rk_fx2_tools": 36,
+    "rk_semantic": 12,
+    "fpga_application_benches": 76,
+    "passed": true
+  },
+  "hardware": {
+    "reset_handshake_verified": true,
+    "display_commit_ack": 5,
+    "master_off": true,
+    "empty_task": true,
+    "models_unchanged": true,
+    "motion_command_sent": false,
+    "fx2_verified": false,
+    "rc_valid": false
+  },
+  "limitations": [
+    "Physical controller exit and view switching need onsite verification; no FX2 or valid RC signal in this deployment check",
+    "Existing DDR/HDMI cross-domain setup58/hold18 endpoints remain; same-clock TNS is zero"
+  ]
+}

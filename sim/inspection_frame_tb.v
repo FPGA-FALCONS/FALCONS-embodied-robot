@@ -7,6 +7,9 @@ module inspection_frame_tb;
     reg begin_frame=0,commit_frame=0,abort_frame=0,pv=0;
     reg [15:0] pixel=0;
     reg [31:0] context=4,sequence=11;
+    reg [31:0] session=1;
+    reg [1:0] view=0;
+    reg show=1;
     wire frame_ready,pixel_ready,token_valid,token_ready,dt_valid,dt_ready;
     wire [17:0] token,dt;
     reg response_valid=0;
@@ -17,8 +20,8 @@ module inspection_frame_tb;
     reg [1:0] ready_sync=0,done_sync=0;
     always @(posedge sclk)begin ready_sync<={ready_sync[0],bank_ready};done_sync<={done_sync[0],done_toggle};end
     inspection_frame_tokens sender(.clk(sclk),.rst_n(rst),.i_bank_ready(ready_sync[1]),.i_done_toggle(done_sync[1]),
-        .i_begin(begin_frame),.i_commit(commit_frame),.i_abort(abort_frame),.i_session(32'd1),.i_task(32'd2),
-        .i_epoch(32'd3),.i_context(context),.i_sequence(sequence),.i_view(2'd0),.o_frame_ready(frame_ready),
+        .i_begin(begin_frame),.i_commit(commit_frame),.i_abort(abort_frame),.i_session(session),.i_task(32'd2),
+        .i_epoch(32'd3),.i_context(context),.i_sequence(sequence),.i_view(view),.o_frame_ready(frame_ready),
         .i_pixel(pixel),.i_pixel_valid(pv),.o_pixel_ready(pixel_ready),.o_token(token),.o_token_valid(token_valid),.i_token_ready(token_ready));
     stream_async_fifo #(.WIDTH(18),.DEPTH(16)) tokens(.wclk(sclk),.wrst_n(rst),.i_valid(token_valid),.i_data(token),.o_ready(token_ready),
         .rclk(dclk),.rrst_n(rst),.o_valid(dt_valid),.o_data(dt),.i_ready(dt_ready));
@@ -42,14 +45,14 @@ module inspection_frame_tb;
         .wr_en(fifo_write),.wr_data(fifo_data),.wr_full(),.wr_free(free),.rd_clk(pclk),.rd_rst_n(fifo_reset && rst),
         .rd_en(fdread),.rd_data(fddata),.rd_valid(fdvalid),.rd_empty(empty));
     inspection_frame_pixels #(.X0(4),.Y0(2),.WIDTH(8),.HEIGHT(2)) pixels(.clk(pclk),.rst_n(rst),
-        .i_frame_sync(x==0 && y==0),.i_pixel_req(1'b1),.i_x(x),.i_y(y),.i_show(1'b1),
-        .i_session(32'd1),.i_task(32'd2),.i_epoch(32'd3),.i_context(context),.i_view(2'd0),
+        .i_frame_sync(x==0 && y==0),.i_pixel_req(1'b1),.i_x(x),.i_y(y),.i_show(show),
+        .i_session(session),.i_task(32'd2),.i_epoch(32'd3),.i_context(context),.i_view(view),
         .i_publish_toggle(publish_toggle),.i_publish_metadata(metadata),.o_tick(tick),.o_publish_ack(publish_ack),
         .i_fifo_reset_n(fifo_reset),.i_fifo_empty(empty),.i_fifo_valid(fdvalid),.i_fifo_data(fddata),.o_fifo_read(fdread),
         .o_pixel(display_pixel),.o_pixel_valid(display_valid),.o_underflow(underflow));
     reg [127:0] bank0[0:1],bank1[0:1];
-    integer cycle=0,qhead=0,qtail=0,errors=0,checks=0,shown1=0,shown2=0,pubs=0,writes=0;
-    reg [27:0] readq[0:255];
+    integer cycle=0,qhead=0,qtail=0,errors=0,checks=0,shown1=0,shown2=0,pubs=0,writes=0,before_shown=0;
+    reg [27:0] readq[0:1023];
     reg [127:0] response=0;
     assign response_data=response;
     assign write_ready=cycle%7!=0 && cycle%7!=1;
@@ -109,7 +112,16 @@ module inspection_frame_tb;
         sequence=12;send_frame(16'h3000,8,1);
         repeat(250)@(negedge pclk);
         check(pubs==1 && shown1>=48 && !errors,"aborted back bank cannot replace or damage the front image");
-        sequence=13;context=5;send_frame(16'h2000,16,0);
+        before_shown=shown1;context=5;view=2;
+        repeat(330)@(negedge pclk);
+        check(shown1>=before_shown+16 && pubs==1,"view and confirmation context changes retain the complete front picture");
+        show=0;repeat(4)@(negedge pclk);before_shown=shown1;
+        repeat(170)@(negedge pclk);
+        check(shown1==before_shown,"manual or AI exit hides retained picture immediately");
+        show=1;session=7;repeat(4)@(negedge pclk);before_shown=shown1;
+        repeat(170)@(negedge pclk);
+        check(shown1==before_shown,"new session cannot display retained old-session picture");
+        session=1;sequence=13;send_frame(16'h2000,16,0);
         wait(shown2>=32);
         check(pubs==2 && !fault && !errors,"new context swaps banks after drain and starts each display frame from pixel zero");
         sequence=14;send_frame(16'h3000,8,0);

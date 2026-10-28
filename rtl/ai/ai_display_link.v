@@ -13,7 +13,8 @@ module ai_display_link #(
     output wire o_glyph,
     output wire o_connected,o_local_region,o_highlight,
     output reg [7:0] o_display_ack,
-    output wire o_display_bank,o_host_alive
+    output wire o_display_bank,o_host_alive,
+    output reg o_reset_pending
 );
     localparam integer CELLS=828, BYTE_TIMEOUT=CLK_HZ/50, LINK_TIMEOUT=CLK_HZ*3;
     reg [3:0] pos;
@@ -52,7 +53,7 @@ module ai_display_link #(
             staging<=0;stage_bank<=1;published_bank<=0;transaction<=0;
             expected<=0;written<=0;published_count<=0;bank_ack1<=0;bank_ack2<=0;
             font_valid0<=0;font_valid1<=0;font_upload<=0;font_slot<=0;font_next_row<=0;
-            published_sequence<=0;o_display_ack<=0;
+            published_sequence<=0;o_display_ack<=0;o_reset_pending<=1;
         end else begin
             bank_ack1<=read_bank;bank_ack2<=bank_ack1;
             if(bank_ack2==published_bank)o_display_ack<=published_sequence;
@@ -93,7 +94,11 @@ module ai_display_link #(
                                 end
                                 staging<=0;
                             end
-                            8'h43: age<=0;
+                            8'h43: begin
+                                age<=0;
+                                // A normal heartbeat cannot acknowledge reset.
+                                if(value==16'd1 && frame[8]==0 && frame[9]==0)o_reset_pending<=0;
+                            end
                             8'h44: begin
                                 age<=0;
                                 if(staging && frame[4]==transaction && written==0 && frame[9][7:5]==0) begin

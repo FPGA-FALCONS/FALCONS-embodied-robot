@@ -142,6 +142,20 @@ class InspectionController:
         self.record_armed=False
         if self.released:self.released.set()
         if self.record_job and not self.record_job.done():self.record_job.cancel()
+    def fpga_reset(self,now):
+        self.link_lost('fpga_reset',now)
+        # link_lost archives the old report/video before replacing coordinates.
+        self.mission=InspectionMission(session_id=self.mission.session_id)
+        self.latest_ai=None;self.context=0;self.stopped=False
+        self.cursor=[0.,0.];self.cursor_initialized=False;self.scroll=0;self.edit_stick_ready=False
+        self.planned_route=[];self.route_history=[];self.route_key=None;self.last_route=None
+        self.report_path=None;self.instruction='';self.error=None;self.recording_phase=None
+        self.observation_objects=None;self.observation_frames=0
+        self.layer_dirty=False;self.next_upload_retry=0.;self.next_close=0.
+        self.last_map=self.last_camera=None
+        if self.render_job and not self.render_job.done():self.render_job.cancel()
+        if self.usb:self.usb.bind(self.mission.session_id,0,0,0)
+        self.notice='已复位，请重新开启AI并选择任务'
     def link_lost(self,reason,now):
         if not self.enabled:return
         self.discovery_speech.cancel(reason)
@@ -191,6 +205,8 @@ class InspectionController:
         # original three modes. A fresh local confirmation is required on return.
         if not usable:
             self.discovery_speech.cancel('inspection_not_active');return
+        if self.want_close is not None:
+            self._stop_recording();return
         if not event.get('record'):
             if self.released:self.released.set()
             self.record_armed=True
@@ -225,10 +241,11 @@ class InspectionController:
                 if self.video_required and (not event['open'] or not event['permission'] or not event['rc_valid']):
                     self.mission.cancel(now,'inspection_page_exit');self._save_report();self._finish_video('inspection_page_exit')
                 self.input=event;self.context=event['sequence'];self.last_input=now
+                if not event['open']:self.want_close=None
                 if event['manual'] or (old and old['view']!=event['view']):self.edit_action=None
                 self.mission.set_view(event['view'])
                 if self.usb:self.usb.bind(self.mission.session_id,self.actual['task_id'] if self.actual else 0,self.epoch,self.context)
-                if self.active and not event['manual'] and event['rc_valid'] and old:
+                if event['open'] and not event['manual'] and event['rc_valid'] and old:
                     confirms=(event['confirms']-old['confirms'])&65535;backs=(event['backs']-old['backs'])&65535
                     if confirms==1:self.confirm(now)
                     elif 1<confirms<32768:self.pause(now,'input_gesture_gap')
@@ -266,6 +283,8 @@ class InspectionController:
             self.mission.cancel(now,'localization_reset');self.mission.state='invalidated'
             self._save_report()  # Save old coordinates before replacing their frame.
             self._finish_video('localization_reset')
+            self.mission.new_task();self.mission.manual=False
+            self.report_path=None;self.instruction='';self.recording_phase=None
         self.mission.actions.clear();self.mission.expected=None;self.mission.pose=None;self.mission.epoch=epoch
         self.actual=None;self.last_state=None;self.want_close=None;self.cursor_initialized=False
         self.edit_action=None
@@ -280,7 +299,7 @@ class InspectionController:
             fpga=bool(self.usb and self.usb.status()['verified'] and self.actual),map=self.radar is not None,
             layer=bool(self.actual and self.actual['flags']&16 and self.layer_crc is not None and self.layer and self.layer_crc==self.layer['crc32']))
     def confirm(self,now):
-        if not self.active or not self.input or self.input['manual']:return False
+        if not self.active or not self.input or self.input['manual'] or self.want_close is not None:return False
         state=self.mission.state
         if state=='edit':
             if self.input['view']!=1:self.notice='请用CH8切到地图后选点';return False
@@ -311,8 +330,7 @@ class InspectionController:
         if state in ('paused','manual_paused','fault'):
             accepted=self.mission.resume(self.readiness(now),now,layer=self.layer);self.notice='请求继续' if accepted else '尚不满足恢复条件';return accepted
         if state in ACTIVE:self.pause(now,'operator_pause');return True
-        if state=='completed':self.notice='巡检已完成，上拨返回可新建任务';return False
-        if state in ('cancelled','invalidated') and self.stopped:
+        if state in ('completed','cancelled','invalidated') and (self.stopped or (self.actual and not self.actual['flags']&32)):
             self.mission.new_task();self.cursor=[self.mission.pose['x_m'],self.mission.pose['y_m']] if self.mission.pose else [0,0];self.report_path=None;self.notice='新任务：SWA打开路径点菜单';return True
         return False
     def pause(self,now,reason='operator_pause'):
@@ -323,17 +341,28 @@ class InspectionController:
         self.upload=None;self.upload_info=None;self.upload_pending=None
         if self.usb:self.usb.drop_controls()
     def back(self,now):
-        if not self.active:return
+        if not self.input or not self.input['open'] or self.input['manual']:return
         if self.edit_action is not None:self.edit_action=None;return
+        if self.want_close is not None:return
         state=self.mission.state
         if state in ACTIVE:self.pause(now,'operator_back');return
         if state in ('paused','manual_paused','fault'):
-            self.mission.cancel(now,'operator_cancel');self.want_close=dict(self.mission.expected);self._save_report();self.notice='正在取消，停稳后返回AI功能页';return
+            self.mission.cancel(now,'operator_cancel');self._save_report();self._finish_video('operator_cancel')
         if state=='ready':self.mission.state='edit';self.mission.goal=None;self.notice='继续编辑，已选路径点保留';return
-        if not self.stopped:self.notice='等待停车回执';return
-        if state in ('completed','cancelled','invalidated'):
-            self.mission.new_task();self.cursor=[self.mission.pose['x_m'],self.mission.pose['y_m']] if self.mission.pose else [0,0];self.report_path=None;return
-        if self.input:self.send(wire.UI_CLOSE,[self.mission.session_id,self.epoch,self.context,1])
+        if state in ('edit','completed','cancelled','invalidated') and self.actual and self.actual['flags']&32:
+            self.mission._command('cancel',now,reason='inspection_page_exit')
+        self.want_close=dict(self.mission.expected or self.actual or {})
+        self._stop_recording()
+        self.upload=None;self.upload_info=None;self.upload_pending=None
+        if self.usb:self.usb.drop_controls()
+        self.notice='正在返回AI功能页'
+        self._close_tick(now)
+    def _close_tick(self,now):
+        if self.want_close is None or not self.actual or not self.input or self.input['manual'] or now<self.next_close:return
+        owned=bool(self.actual['flags']&32)
+        matching=all(self.actual.get(k)==self.want_close.get(k) for k in ('session_id','task_id','epoch','command_id'))
+        if not owned or (self.stopped and matching):
+            self.send(wire.UI_CLOSE,[self.mission.session_id,self.epoch,self.context,1]);self.next_close=now+.1
     async def observe(self,frame,result,now):
         if not self.enabled:return
         generation=self.generation
@@ -505,6 +534,9 @@ class InspectionController:
             for frame in self.usb.drain_maps():
                 if self.input and frame.view==self.input['view']:
                     self.radar=frame.payload;self.last_map=now
+        self._close_tick(now)
+        if self.want_close is not None:
+            self._actions(now);return
         if not self.active:
             if (self.recognition_display and self.usb and self.usb.status()['verified'] and self.input and self.input['view']==0
                     and self.actual and now>=self.next_render and (not self.render_job or self.render_job.done())):
@@ -512,7 +544,7 @@ class InspectionController:
                 self.render_job=asyncio.create_task(self._render(self.generation,binding,recognition=True));self.next_render=now+self.render_interval
             self._actions(now);return
         if self.input and now>=self.next_stick:
-            if self.mission.state=='edit' and self.input['view']==1:
+            if self.want_close is None and self.mission.state=='edit' and self.input['view']==1:
                 self._edit_stick(self.input['steer'],self.input['throttle'])
             elif self.input['view']==2:
                 from .render import list_entries
@@ -528,9 +560,6 @@ class InspectionController:
             elif changed and now>=self.next_upload_retry and self.mission.state in ('edit','ready') and self.stopped and self.actual['flags']&8:
                 self._begin_upload(self.layer,self.actual['layer_version']+1,self.actual['task_id'],self.actual['command_id'])
         self._actions(now);self._upload_tick()
-        if self.want_close and self.actual and self.stopped and now>=self.next_close:
-            if all(self.actual.get(k)==self.want_close[k] for k in ('session_id','task_id','epoch','command_id')):
-                self._save_report();self.send(wire.UI_CLOSE,[self.mission.session_id,self.epoch,self.context,1]);self.next_close=now+.5
         if self.usb and self.usb.status()['verified'] and self.input and self.actual and now>=self.next_render and (not self.render_job or self.render_job.done()):
             binding=(self.mission.session_id,self.actual['task_id'],self.epoch,self.context)
             self.render_job=asyncio.create_task(self._render(self.generation,binding));self.next_render=now+self.render_interval
@@ -614,7 +643,7 @@ class InspectionController:
         labels=dict(calibration='相机和地面标定',camera='相机',fpga='接口和回执',map='雷达地图',layer='视觉障碍层')
         state=self.mission.snapshot();ready=self.readiness(time.monotonic());missing=[k for k,v in ready.items() if not v]
         return ['视觉巡检：摄像头 / 雷达地图 / 文字','状态：'+STATES.get(state['state'],state['state']),self.notice,
-            'CH8切换视图，SWA打开选点操作菜单','返回：关闭菜单 / 暂停 / 取消',
+            'CH8切换视图，SWA打开选点操作菜单','返回：关闭菜单 / 暂停 / 取消并退出',
             '路径点：%d/%d已完成'%(state['waypoints_completed'],state['waypoint_count']),
             '当前目标：'+str(state['goal_m']),'起点：'+str(state['start_m']),
             '已定位物体：'+str(sum(x['confirmed'] for x in self.objects.items)),

@@ -367,6 +367,20 @@ class AiModule:
                 '当前指令:'] + wrapped(self.instruction, 2) + ['识别目标:'] + wrapped(found, 2) + \
                ['聊天回复:'] + wrapped(self.reply, 5) + wrapped(self.error or '', 2)
 
+    def fpga_reset(self):
+        """Discard FPGA-dependent state without unloading the ready models."""
+        if not self.enabled:return
+        self.external_stop()
+        self.active=self.vision=self.chat=False
+        self.paused_manual=self.vision_resume_required=False
+        self.rearm_required=True
+        self.controls=self.last_rx=self.sequence=self.confirm_toggle=None
+        self.mode='semantic_navigation';self.selected=0;self.state='off'
+        self.instruction=self.reply='';self.detections=[];self.target=None;self.history=[];self.error=None
+        self.display_ack=self.display_bank=self.transaction=0
+        self._invalidate_display()
+        self._task(self._set_vision(False))
+
     def link_lost(self,reason):
         if not self.enabled:return
         self.last_rx=None;self.sequence=None

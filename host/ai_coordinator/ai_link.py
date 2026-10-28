@@ -9,6 +9,7 @@ from pathlib import Path
 from .motion_reference.mot1 import Frame, crc16
 
 BEGIN, GLYPH, COMMIT, FONT, CONTROL = 0x40, 0x41, 0x42, 0x44, 0x50
+RESET_ACK = Frame(0, 0x43, 1, 0).encode()
 COLS, ROWS = 46, 18
 CELLS = COLS * ROWS
 
@@ -90,7 +91,7 @@ class ControlReader:
             seq, command, raw_flags, controls, reserved = struct.unpack('>BBHBB', frame[4:10])
             flags=raw_flags&255
             mode, selected = controls & 3, (controls >> 3) & 3
-            if command != CONTROL or flags & ~63 or controls & ~63 or reserved:
+            if command != CONTROL or flags & ~127 or controls & ~63 or reserved:
                 continue
             result.append({'kind': 'ai_controls', 'sequence': seq,
                            'enabled': bool(flags & 1), 'rc_valid': bool(flags & 2),
@@ -98,6 +99,7 @@ class ControlReader:
                            'swb_valid': bool(flags & 16), 'selected': selected,
                            'confirm_toggle':bool(controls & 32),
                            'display_ack':raw_flags>>8,'display_bank':(flags>>5)&1,
+                           'reset_pending':bool(flags & 64),
                            'mode': ('semantic_navigation','object_recognition','chat','visual_inspection')[mode],
                            'chat': mode == 2, 'record': bool(controls & 4), 'vision': mode == 1})
         return result

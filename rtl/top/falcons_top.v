@@ -470,7 +470,7 @@ module falcons_top (
     wire ai_inspection_open,ai_inspection_close;
     wire [1:0] ai_inspection_view;
     wire [7:0] ai_display_ack;
-    wire ai_display_bank,ai_host_alive;
+    wire ai_display_bank,ai_host_alive,ai_reset_pending;
     wire nav_page_now = (page == PAGE_NAV_FREE);
     wire nav_page_any = (page == PAGE_NAV_FREE) || (page == PAGE_NAV_OBS);
 
@@ -1143,7 +1143,7 @@ module falcons_top (
         .i_host_alive(ai_host_alive),
         .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | (planner_emergency_stop && !inspection_owned) | (|stall_vec)),
         .i_swb_pwm(i_rc_pwm[4]),
-        .i_inspection_close(ai_inspection_close || (rc_back && !inspection_owned)),
+        .i_inspection_close(ai_inspection_close),
         .o_inspection_open(ai_inspection_open),.o_inspection_view(ai_inspection_view),
         .o_master(ai_master),.o_chat(ai_chat),.o_record(ai_record),.o_vision(ai_vision),
         .o_mode(ai_mode),.o_selected(ai_selected),
@@ -1212,7 +1212,7 @@ module falcons_top (
     ai_uart_tx #(.CLK_HZ(CLK_HZ),.BAUD_RATE(BAUD_DEBUG),.INSPECTION_ENABLE(1)) u_ai_uart_tx(
         .clk(i_clk_50m),.rst_n(sys_rst_n),.i_csv_data(csv_stream_data),
         .i_csv_valid(csv_stream_valid),.o_csv_ready(csv_stream_ready),
-        .i_flags({ai_display_ack,2'd0,ai_display_bank,ai_flags[4:0]}),.i_controls(ai_controls),
+        .i_flags({ai_display_ack,1'b0,ai_reset_pending,ai_display_bank,ai_flags[4:0]}),.i_controls(ai_controls),
         .i_ai_link_active(ai_host_alive),.i_inspection_data(inspection_tx_data),.i_inspection_valid(inspection_tx_valid),
         .i_inspection_last(inspection_tx_last),.o_inspection_ready(inspection_tx_ready),.o_uart_tx(o_uart_tx));
     speed_report #(
@@ -2063,7 +2063,7 @@ module falcons_top (
         .pixel_clk(pixel_clk),.pixel_rst_n(pixel_rst_n),.pixel_x(pixel_x_ai),.pixel_y(pixel_y_ai),
         .selected(ai_inspection_open?ai_inspection_view:ai_selected),.i_inspection(ai_inspection_open),
         .o_glyph(ai_glyph),.o_connected(ai_connected),.o_local_region(ai_local_region),.o_highlight(ai_highlight),
-        .o_display_ack(ai_display_ack),.o_display_bank(ai_display_bank),.o_host_alive(ai_host_alive));
+        .o_display_ack(ai_display_ack),.o_display_bank(ai_display_bank),.o_host_alive(ai_host_alive),.o_reset_pending(ai_reset_pending));
     assign ui_rgb_raw=(page_ps2==PAGE_AI && pixel_x>=208 &&
         (ai_local_region || (ai_connected && pixel_y>=120 && pixel_y<540)))
         ? (ai_glyph ? (ai_highlight?24'hffe066:24'he8f0f8) : (ai_highlight?24'h1d4ed8:24'h101820)) : ui_rgb_base;

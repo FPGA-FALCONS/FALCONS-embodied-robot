@@ -34,9 +34,11 @@ module inspection_frame_pixels #(
     reg show_1,show_2;
     wire boundary=i_frame_sync && !frame_sync_q;
     wire region=i_pixel_req && i_x>=X0 && i_x<X0+WIDTH && i_y>=Y0 && i_y<Y0+HEIGHT;
-    // Metadata is session/task/epoch/context/sequence/view. Sequence occupies
-    // 128..159 and is not part of the current live task binding.
-    wire task_match=has_publication && metadata[127:0]==binding_2[127:0] && metadata[161:160]==binding_2[161:160];
+    // Keep the complete front image while a new view/context is in flight.
+    // The stream receiver validates the requested context/view on incoming
+    // frames. Only a different session/task/epoch invalidates this front bank;
+    // i_show still removes it immediately on manual takeover or AI exit.
+    wire task_match=has_publication && metadata[95:0]==binding_2[95:0];
     wire consume=region && current_valid && !o_underflow;
     wire load=(!current_valid || (consume && index==7)) && next_valid;
     assign o_fifo_read=data_reset[2] && !next_valid && !pending && !i_fifo_empty;

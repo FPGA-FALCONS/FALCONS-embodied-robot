@@ -122,17 +122,64 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.packet(wire.STATE,[self.session,1,1,1,1,0,4|8,0],1.1)
         self.assertEqual(self.c.mission.state,'outbound')
     async def test_back_pauses_then_cancels_without_closing_a_moving_page(self):
-        self.moving();self.c.back(1.1);self.assertEqual(self.c.mission.state,'paused')
+        self.moving();self.c.actual['flags']|=32;self.c.back(1.1);self.assertEqual(self.c.mission.state,'paused')
         self.c.back(1.2);self.assertEqual(self.c.mission.state,'cancelled')
         self.c.stopped=False;self.c.back(1.3);self.c._actions(1.3)
         self.assertFalse(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
     async def test_cancel_closes_child_only_after_matching_stopped_receipt(self):
-        self.moving();self.c.back(1.1);self.c.back(1.2);self.c.tick(1.21)
+        self.moving();self.c.actual['flags']|=32;self.c.back(1.1);self.c.back(1.2);self.c.tick(1.21)
         self.assertFalse(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
         expected=self.c.mission.expected
         self.packet(wire.STATE,[self.session,expected['task_id'],1,expected['command_id'],2,0,1|4|8,0],1.22)
         self.c.tick(1.23)
         self.assertTrue(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+    async def test_unstarted_exit_needs_neither_permission_nor_stopped_owner(self):
+        self.c.stopped=False;self.c.active=False
+        self.input(2,0,1,1.1,flags=1|4|128|(1<<4))
+        self.assertTrue(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+        self.assertEqual(self.c.mission.state,'edit');self.assertIsNone(self.c.video)
+    async def test_owned_editor_exit_releases_authority_without_starting_a_task(self):
+        self.c.actual['flags']|=32
+        self.c.back(1.1);self.c.tick(1.11)
+        controls=[m for m in self.messages() if m['kind']==wire.CONTROL]
+        self.assertEqual([m['words'][4]&255 for m in controls],[wire.OP_CANCEL])
+        self.assertFalse(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+        expected=self.c.mission.expected
+        self.packet(wire.STATE,[self.session,0,1,expected['command_id'],2,0,64,0],1.12)
+        self.c.tick(1.13)
+        self.assertTrue(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+        self.assertIsNone(self.c.video);self.assertEqual(self.c.mission.state,'edit')
+    async def test_close_retry_runs_when_runtime_permission_is_revoked(self):
+        self.moving();self.c.actual['flags']|=32
+        self.c.back(1.1);self.c.back(1.2);self.c.active=False
+        expected=self.c.mission.expected
+        self.packet(wire.STATE,[self.session,expected['task_id'],1,expected['command_id'],2,0,8,0],1.22)
+        self.c.tick(1.23)
+        self.assertTrue(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+    async def test_completed_back_exits_confirm_starts_new_editor(self):
+        self.moving();self.c.mission.state='completed';self.c.mission.waypoints=[[1,0]]
+        self.c.back(1.1)
+        self.assertEqual(self.c.mission.state,'completed')
+        self.assertTrue(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+        self.assertFalse(self.c.confirm(1.11))
+        self.input(2,0,0,1.12,flags=4|128|(1<<4))
+        self.input(3,0,0,1.13);self.controls(2,1.14)
+        self.assertTrue(self.c.confirm(1.2));self.assertEqual(self.c.mission.state,'edit')
+        self.assertEqual(self.c.mission.waypoints,[])
+    async def test_editor_back_closes_panel_before_leaving_task(self):
+        self.c.edit_action=0;self.c.back(1.1)
+        self.assertIsNone(self.c.edit_action)
+        self.assertFalse(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
+    async def test_fpga_reset_archives_video_and_replaces_task_with_empty_editor(self):
+        self.moving();self.c._begin_video(1);video=self.c.video;old_session=self.session
+        self.c.fpga_reset(1.1)
+        reports=list((Path(self.tmp.name)/'inspection_reports').rglob('*.json'))
+        self.assertTrue(reports);self.assertEqual(video.reason,'fpga_reset');self.assertFalse(self.c.video_required)
+        self.assertNotEqual(self.c.mission.session_id,old_session)
+        self.assertEqual(self.c.mission.state,'edit');self.assertEqual(self.c.mission.waypoints,[])
+        self.assertEqual(self.c.mission.task_id,0);self.assertIsNone(self.c.report_path)
+        self.assertIsNone(self.c.input);self.assertIsNone(self.c.actual);self.assertIsNone(self.c.caps)
+        self.assertFalse(self.c.mission.drain());self.assertFalse(self.c.active)
     async def test_manual_discards_a_pending_page_close(self):
         self.moving();self.c.back(1.1);self.c.back(1.2);self.assertIsNotNone(self.c.want_close)
         self.controls(2,1.21,manual=True);self.assertIsNone(self.c.want_close)
@@ -154,11 +201,12 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
     async def test_localization_reset_archives_old_coordinates_before_discarding_pose(self):
         import json
         self.moving();self.c._epoch(2,1.1)
-        report=json.loads(Path(self.c.report_path).read_text(encoding='utf-8'))
+        report=json.loads(next((Path(self.tmp.name)/'inspection_reports').glob('*.json')).read_text(encoding='utf-8'))
         self.assertEqual(report['mission']['epoch'],1)
         self.assertEqual(report['mission']['start_m'],[0,0])
         self.assertEqual(report['mission']['reason'],'localization_reset')
-        self.assertEqual(self.c.mission.state,'invalidated')
+        self.assertEqual(self.c.mission.state,'edit');self.assertEqual(self.c.mission.waypoints,[])
+        self.assertIsNone(self.c.report_path)
         self.assertIsNone(self.c.mission.pose);self.assertIsNone(self.c.actual)
         self.assertFalse(self.c.mission.drain())
 
@@ -180,7 +228,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
     async def test_new_localization_epoch_discards_old_geometry_and_camera(self):
         self.moving();self.c.radar=b'\0'*PLANE_BYTES
         self.packet(wire.CAPS,[self.session,1,2,0,15,0],1.1)
-        self.assertEqual(self.c.mission.state,'invalidated');self.assertIsNone(self.c.radar);self.assertEqual(self.c.epoch,2)
+        self.assertEqual(self.c.mission.state,'edit');self.assertIsNone(self.c.radar);self.assertEqual(self.c.epoch,2)
     async def test_complete_host_protocol_returns_to_actual_start_and_saves_report(self):
         from ai_coordinator.inspection.grid import build
         import json,zlib

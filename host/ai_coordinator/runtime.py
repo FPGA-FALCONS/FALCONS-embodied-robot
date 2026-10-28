@@ -20,6 +20,7 @@ from .ai_module import AiModule
 from .startup import StartupModels
 from .inspection.controller import InspectionController
 from .device_roles import audio_device
+from .ai_link import RESET_ACK
 
 
 class Audit:
@@ -67,6 +68,25 @@ class Runtime:
         self.inspection=InspectionController(self)
         self.startup=StartupModels(self)
         self.next_link_retry=0.
+        self.fpga_reset_pending=False
+
+    def on_ai_controls(self,event,now):
+        pending=event['reset_pending']
+        if pending and not self.fpga_reset_pending:
+            self.generation+=1
+            for task in list(self.tasks):task.cancel()
+            self.motion.link_lost('fpga_reset')
+            self.ai.fpga_reset()
+            self.inspection.fpga_reset(now)
+            self.announcements._clear('fpga_reset')
+            self.core.stop(now,'fpga_reset');self.core.drain();self.core.drain_notices()
+            port=self.gateway.transport
+            port.drop('ai_ui_ping')
+            port.enqueue(RESET_ACK,priority=True,tag='ai_reset')
+            self.audit({'type':'fpga_reset_initialized','tasks_resumed':False})
+        self.fpga_reset_pending=pending
+        self.ai.on_controls(event,now)
+        self.inspection.on_ai_controls(event,now)
 
     async def start(self):
         if self.root.exists() and __import__('os').name=='posix':
@@ -116,8 +136,7 @@ class Runtime:
             self.reconnect_ai_link(now)
             for event in self.gateway.poll(now):
                 if event.get('kind')=='ai_controls':
-                    self.ai.on_controls(event,now)
-                    self.inspection.on_ai_controls(event,now)
+                    self.on_ai_controls(event,now)
                 elif event.get('kind')=='inspection_packet':
                     self.inspection.on_packet(event['message'],now)
                 elif event.get('kind') in ('link_lost','link_reset'):

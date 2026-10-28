@@ -6,7 +6,7 @@ import sys
 import tempfile
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock,patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from ai_coordinator.ai_link import ControlReader, display_frames, glyph, font_rows, BEGIN, GLYPH, COMMIT,FONT
@@ -58,6 +58,12 @@ class LinkTests(unittest.TestCase):
         self.assertTrue(event['confirm_toggle'])
         self.assertEqual(event['mode'],'object_recognition')
         self.assertEqual(reader.feed(Frame(2,0x50,19,64).encode()),[])
+
+    def test_reset_marker_keeps_display_bank_and_ack_independent(self):
+        event=ControlReader().feed(Frame(0,0x50,0x0760,0).encode())[0]
+        self.assertTrue(event['reset_pending'])
+        self.assertEqual((event['display_ack'],event['display_bank']),(7,1))
+        self.assertEqual(ControlReader().feed(Frame(0,0x50,128,0).encode()),[])
 
 
 class Port:
@@ -176,6 +182,35 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.controls(record=False)
         self.assertTrue(self.ai.active)
         self.assertEqual(len(self.starts),1)
+
+    async def test_fpga_reset_clears_font_and_chat_state_accepts_sequence_zero(self):
+        self.seq=99;self.controls(mode='chat',chat=True,selected=2)
+        self.ai.instruction='旧指令';self.ai.reply='旧回复';self.ai.history=[{'role':'user','content':'旧对话'}]
+        self.ai.font_caches=[{1:2},{3:4}];self.ai.display_pending={'old':True}
+        self.ai.fpga_reset()
+        self.assertEqual(self.ai.font_caches,[{},{}]);self.assertIsNone(self.ai.display_pending)
+        self.assertEqual(self.ai.history,[]);self.assertEqual(self.ai.reply,'');self.assertEqual(self.ai.selected,0)
+        self.seq=255;self.controls(enabled=False)
+        self.assertEqual(self.ai.sequence,0);self.assertFalse(self.ai.active);self.assertFalse(self.ai.rearm_required)
+        self.controls(record=True)
+        await asyncio.sleep(0)
+        self.assertEqual(self.starts,[])
+
+    async def test_runtime_reset_handshake_precedes_sequence_filter_and_runs_once(self):
+        self.controls();self.ai.sequence=100;self.ai.font_caches=[{1:2},{3:4}]
+        self.rt.ai=self.ai;self.rt.inspection=Mock();self.rt.motion=Mock();self.rt.core=Mock()
+        self.rt.tasks=set();self.rt.generation=0;self.rt.fpga_reset_pending=False;self.rt.announcements=Mock()
+        event=ControlReader().feed(Frame(0,0x50,64|2|16,0).encode())[0]
+        Runtime.on_ai_controls(self.rt,event,1.)
+        self.assertEqual(self.ai.sequence,0);self.assertEqual(self.ai.font_caches,[{},{}])
+        self.rt.inspection.fpga_reset.assert_called_once_with(1.)
+        self.assertEqual(self.rt.gateway.transport.frames[-1][0],Frame(0,0x43,1,0).encode())
+        Runtime.on_ai_controls(self.rt,event,1.01)
+        self.rt.inspection.fpga_reset.assert_called_once()
+        normal=ControlReader().feed(Frame(1,0x50,2|16,0).encode())[0]
+        Runtime.on_ai_controls(self.rt,normal,1.02)
+        Runtime.on_ai_controls(self.rt,event,1.03)
+        self.assertEqual(self.rt.inspection.fpga_reset.call_count,2)
 
     async def test_manual_preserves_page_history_and_requires_fresh_recording(self):
         self.controls(mode='chat',chat=True,selected=2)
