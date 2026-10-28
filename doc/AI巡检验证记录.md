@@ -34,19 +34,19 @@
 
 ## 最近FPGA构建与加载
 
-2026-10-28删除额外关闭版本计数器，改为当前页面context匹配关闭请求；重新综合布局布线并仅以SRAM加载。构建记录为[入口验证](evidence/ai_entry_simple_20261028/VALIDATION.json)，实际输入见[135项源/约束/头文件指纹](evidence/ai_entry_simple_20261028/fpga_inputs.json)。
+2026-10-28删除额外关闭版本计数器，改为当前页面context匹配关闭请求；重新综合布局布线，同一位流通过SRAM及现场菜单验收后已固化到外部Flash。构建记录为[入口验证](evidence/ai_entry_simple_20261028/VALIDATION.json)，固化结果见[Flash写入校验](evidence/fpga_flash_20261028/VALIDATION.json)，实际输入见[135项源/约束/头文件指纹](evidence/ai_entry_simple_20261028/fpga_inputs.json)。
 
 | 项目 | 最近记录 |
 | --- | --- |
 | 位流SHA256 | `4375f1cfd5ac69967bf783b7a6a83505d56e8b95009cc24c9c6ebbb25a1d5535` |
-| 加载 | SRAM，状态0x00026230，耗时7.84秒；未写Flash/FX2 EEPROM |
+| 固化 | 外部Flash ID 0xC22018，擦除、写入、校验成功，118.54秒；未写FX2 EEPROM |
 | Fmax（要求/实际） | 系统50/50.562MHz、像素49/54.726MHz、FX2 30.030/36.908MHz |
 | 同钟域 | 16行setup/hold TNS为0 |
 | 全局 | 仍有既有DDR/HDMI跨域setup58、hold18个违例端点，不能宣称所有路径闭合 |
 | 资源 | Logic53933、寄存器26775；对应布线报告BSRAM246、DSP252.5 |
 | 仿真 | 本轮受影响4台通过；当前页面停车后可关闭，旧页面关闭请求不能关闭重新进入的页面，原三功能与手动暂停不变 |
 
-SRAM掉电失效；这份日志不能证明断电后的FPGA仍运行该位流。Flash内容不以旧交接文档中的猜测更新，现场需要时按实际下载记录核对。
+外部Flash写入已通过校验，用户确认脱机启动后接回RK到FPGA J5高速线，两路AI巡检相机/地图画面恢复，本次启动与显示验收通过。脱机测试只拔电脑侧JTAG下载线，必须保留RK到FPGA的J5高速线和控制串口；本轮未进行运动测试。固化使用已验收的同一份位流，没有重新构建或更改RTL。
 
 ## 压缩后的阶段沿革
 

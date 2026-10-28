@@ -164,7 +164,7 @@ Write-Host ''
 if ($code -eq 0) {
     switch ($Action) {
         'DetectId' { Write-Host '读到了 Flash ID —— 说明板上确有配置 Flash，且能透过 FPGA 访问。' -ForegroundColor Green }
-        'Program'  { Write-Host '写入完成。下一步：断电 → 拔掉下载器 → 重新上电 → 看 LED / 串口是否自动工作。' -ForegroundColor Green }
+        'Program'  { Write-Host '写入完成。下一步：FPGA断电 → 仅拔电脑到FPGA的JTAG下载线 → 重新上电。RK到FPGA J5的高速数据线及控制串口线需保留，供AI图像和任务通信使用。' -ForegroundColor Green }
         default    { Write-Host '完成。' -ForegroundColor Green }
     }
 } else {

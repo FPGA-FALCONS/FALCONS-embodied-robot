@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-28",
+  "scope": "Persist onsite-verified FPGA image to external configuration Flash",
+  "source_commit": "4b0e6628644c1c0072a38b0dbad082a6746c1364",
+  "fs_sha256": "4375f1cfd5ac69967bf783b7a6a83505d56e8b95009cc24c9c6ebbb25a1d5535",
+  "fpga": "GW5AT-138B",
+  "jtag_device_id": "0x0011081B",
+  "flash_id": "0xC22018",
+  "operation": "54: exFlash Erase,Program,Verify Arora V",
+  "program_exit_code": 0,
+  "program_and_verify_success": true,
+  "seconds": 118.54,
+  "end_address": "0x04E3D00",
+  "input_manifest": "../ai_entry_simple_20261028/fpga_inputs.json",
+  "build_inputs_verified": 135,
+  "prior_sram_and_onsite_menu_validation": "../ai_entry_simple_20261028/VALIDATION.json",
+  "raw_log_sha256": "5db0c29bb6b64101439afc53df631df530288ce432c2d6e5c952206697de1afd",
+  "raw_log_bytes": 1440771,
+  "result_log": "program_result.txt",
+  "cold_boot_test_confirmed": true,
+  "cold_boot_validation_scope": "Flash boot and onsite AI camera/map display; no motion test",
+  "cold_boot_observation": {
+    "source": "user onsite feedback",
+    "reported_issue": "AI inspection camera and map views absent",
+    "j5_highspeed_data_cable_reconnected": true,
+    "display_recovery_confirmation_pending": false,
+    "ai_inspection_camera_map_restored": true,
+    "required_wiring": "Disconnect PC JTAG cable only; keep RK to FPGA J5 highspeed and control UART cables"
+  },
+  "motion_command_sent": false,
+  "fx2_eeprom_written": false
+}
