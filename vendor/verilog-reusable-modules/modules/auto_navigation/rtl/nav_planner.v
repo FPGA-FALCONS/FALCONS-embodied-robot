@@ -27,7 +27,8 @@ module nav_planner #(
     output wire [15:0] path_len
 );
     localparam [2:0] IDLE = 0, WAIT_POINT = 1, MEASURE = 2, MAKE_POINT = 3, OUTPUT = 4, DRAIN = 5;
-    reg [7:0] gap;
+    reg [5:0] gap;
+    reg signed [6:0] negative_gap;
     reg [2:0] state, run_dir;
     reg first_cell, corner_pending, corner_last, collecting_done, read_owner;
     reg [15:0] corner_x, corner_y;
@@ -85,12 +86,13 @@ module nav_planner #(
         end
     endfunction
     function [15:0] increment;
-        input [7:0] span;
+        input [5:0] span;
+        input signed [6:0] negative_span;
         input signed [1:0] direction;
         begin
             case(direction)
-                1:increment = {8'd0, span};
-                -1:increment = -{8'd0, span};
+                1:increment = {10'd0, span};
+                -1:increment = {{9{negative_span[6]}}, negative_span};
                 default:increment = 0;
             endcase
         end
@@ -143,6 +145,7 @@ module nav_planner #(
             count <= 0;
             limit <= 0;
             gap <= 4;
+            negative_gap <= 0;
             step_x <= 0;
             step_y <= 0;
             point_last <= 0;
@@ -173,6 +176,8 @@ module nav_planner #(
                 state <= IDLE;
             end
             MEASURE:begin
+                // 运行时负步距提前登记，下一拍只做方向选择与坐标相加。
+                negative_gap <= -$signed({1'b0, gap});
                 step_x <= end_x == cursor_x ? 0 : end_x>cursor_x ? 2'sd1 : -2'sd1;
                 step_y <= end_y == cursor_y ? 0 : end_y>cursor_y ? 2'sd1 : -2'sd1;
                 remaining <= distance(cursor_x, cursor_y, end_x, end_y);
@@ -180,8 +185,8 @@ module nav_planner #(
             end
             MAKE_POINT:begin
                 chunk_last <= (remaining <= gap);
-                wp_x <= remaining>gap ? cursor_x+increment(gap, step_x) : end_x;
-                wp_y <= remaining>gap ? cursor_y+increment(gap, step_y) : end_y;
+                wp_x <= remaining>gap ? cursor_x+increment(gap, negative_gap, step_x) : end_x;
+                wp_y <= remaining>gap ? cursor_y+increment(gap, negative_gap, step_y) : end_y;
                 wp_last <= (point_last && remaining <= gap) || count+16'd1 >= limit;
                 state <= OUTPUT;
             end

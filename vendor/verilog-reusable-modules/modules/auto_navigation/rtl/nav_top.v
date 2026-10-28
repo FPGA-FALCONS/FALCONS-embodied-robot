@@ -578,7 +578,6 @@ module nav_top #(
     // 发布会改变航点编号；完成目标相同才使用新路线中的索引。
     wire completed_matches = drive_valid && target_x_mm == segment_x_mm &&
                              target_y_mm == segment_y_mm;
-    wire [15:0] completed_index = drive_index;
     always @(posedge clk) begin
         segment_x_mm <= drive_x * CELL_MM - HALF_MM + CELL_MM / 2;
         segment_y_mm <= drive_y * CELL_MM - HALF_MM + CELL_MM / 2;
@@ -591,7 +590,7 @@ module nav_top #(
             target_index <= 0;
             target_wait  <= 4;
         end else if (advance) begin
-            if (completed_matches && completed_index + 16'd1 < st_route_length) target_index <= completed_index + 16'd1;
+            if (completed_matches && !final_target) target_index <= drive_index + 16'd1;
             target_wait <= 4;
         end else if (target_wait != 0) target_wait <= target_wait - 1'b1;
     end
@@ -621,7 +620,7 @@ module nav_top #(
     wire at_target, segment_blocked, forward_clear;
     wire route_revoked = visual_changed || !motion_enable || !goal_valid || !st_sensors_valid ||
         (route_ready && !active_goal_match) || (emergency_stop && !motion_stopped) ||
-        (advance && (!completed_matches || completed_index + 16'd1 >= st_route_length));
+        (advance && (!completed_matches || final_target));
     always @(posedge clk or negedge reset_n)
         if (!reset_n) route_ready <= 0;
         else if (route_revoked) route_ready <= 0;

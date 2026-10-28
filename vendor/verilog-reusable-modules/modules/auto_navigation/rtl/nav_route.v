@@ -63,7 +63,9 @@ module nav_route #(
     // X 字扩为 19 位，保存三位方向，共用已有同步读口。
     reg [18:0] wp_x[0:1][0:MAX_WP-1];
     reg [15:0] wp_y[0:1][0:MAX_WP-1];
+    localparam integer INDEX_BITS = MAX_WP > 1 ? $clog2(MAX_WP) : 1;
     reg bank, done;
+    reg [INDEX_BITS-1:0] last_index;
     reg [15:0] count;
     wire switch_bank = publish && done && !load_abort && !load_begin;
     assign load_full          = count >= MAX_WP;
@@ -79,6 +81,7 @@ module nav_route #(
             active_valid  <= 0;
             active_length <= 0;
             route_id      <= 0;
+            last_index    <= 0;
         end else begin
             if (load_begin || load_abort) begin
                 count <= 0;
@@ -92,6 +95,7 @@ module nav_route #(
             if (switch_bank) begin
                 bank          <= !bank;
                 active_length <= count;
+                last_index    <= count[INDEX_BITS-1:0] - 1'b1;
                 active_valid  <= 1;
                 route_id      <= route_id + 1'b1;
                 count         <= 0;
@@ -100,22 +104,26 @@ module nav_route #(
         end
     end
 
-    // 每点两拍：同步读 RAM，再比较方向。只更新输出目标，不合并存储中的短段。
+    // 每点两拍：读 RAM 同拍登记是否末点，下一拍只比较方向和已登记标志。
+    // 索引仅保留实际 RAM 地址位，递增不再串接长度比较。
     localparam [1:0] READ = 0, CHECK = 1, READY = 2, SETTLE = 3;
     reg [1:0] state;
-    reg first_read;
-    reg [15:0] scan_target, scan_index;
+    reg first_read, read_last, drive_last;
+    reg [15:0] scan_target;
+    reg [INDEX_BITS-1:0] scan_index;
     reg [18:0] read_x;
     reg [15:0] read_y;
     wire [15:0] read_index = target_index < active_length ? target_index : active_length - 1'b1;
-    assign drive_valid = reset_n && active_valid && !switch_bank &&
+    // 发布沿之前仍属于旧 bank；顶层在 R_PUB 屏蔽描述符，不将 publish_ok 接回此链。
+    assign drive_valid = reset_n && active_valid &&
                          state == READY && scan_target == target_index;
-    assign final_target = drive_valid && drive_index + 16'd1 >= active_length;
+    assign final_target = drive_valid && drive_last;
 
     always @(posedge clk) begin
         if (state == READ && active_valid) begin
             read_x <= wp_x[bank][scan_index];
             read_y <= wp_y[bank][scan_index];
+            read_last <= scan_index == last_index;
         end
     end
 
@@ -131,11 +139,12 @@ module nav_route #(
             drive_x     <= 0;
             drive_y     <= 0;
             drive_index <= 0;
+            drive_last  <= 0;
         end else if (switch_bank || (active_valid && scan_target != target_index)) begin
             state       <= READ;
             first_read  <= 1;
             scan_target <= switch_bank ? 16'd0 : target_index;
-            scan_index  <= switch_bank ? 16'd0 : read_index;
+            scan_index  <= switch_bank ? {INDEX_BITS{1'b0}} : read_index[INDEX_BITS-1:0];
         end else if (active_valid) begin
             case (state)
                 READ: state <= CHECK;
@@ -149,7 +158,8 @@ module nav_route #(
                         drive_x     <= read_x[15:0];
                         drive_y     <= read_y;
                         drive_index <= scan_index;
-                        if (scan_index + 16'd1 < active_length) begin
+                        drive_last  <= read_last;
+                        if (!read_last) begin
                             scan_index <= scan_index + 1'b1;
                             first_read <= 0;
                             state      <= READ;
