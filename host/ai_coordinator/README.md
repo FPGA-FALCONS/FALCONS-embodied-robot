@@ -1,115 +1,56 @@
-# RK3588 AI 总协调模块
+# RK3588 AI协调器
 
-2026-10-24 新增 FPGA“AI模块”页、CH8子菜单选择、SWB按拨杆开始/停止录音，以及原版Qwen聊天/动态TTS。最新交互、配置及验证边界见 [AI模块页面与遥控交互](../../doc/AI模块页面与遥控交互_20261024.md)。旧 `o_btn_select` 名称不能替代CH8的页面选择事件；VRA/VRB方案已取消。
+状态核对：2026-10-28。生产服务覆盖语义导航、独立目标识别、聊天机器人、视觉巡检四个功能；各模型复用RK已有资产。FPGA运行基础相机、雷达、导航、闭环和最终手动仲裁，RK运行模型、AI任务、图像渲染及记录，不安装ROS2/Nav2。
 
-2026-10-24后续整合：统一C1b中文入口、巡航发现目标后靠近/人工确认/恢复、电脑真实模型回放与ADB部署器见[全栈入口](FULLSTACK.md)。本次候选新包尚未部署：目标板ADB未出现；历史板端测试成绩与本次电脑结果分别保留。
+## 当前入口与数据流
 
-负责 USB 麦克风／WAV → ASR → 任务语言模型 → 视觉检测 → FPGA 任务网关。摄像头继续由FPGA采集，FPGA保留基础导航、闭环控制和执行仲裁。
+| 功能 | 数据和执行 |
+| --- | --- |
+| 语义导航 | USB麦克风 → SenseVoice → 规则/C1b → 有界MOT1动作 → FPGA运动桥；不依赖相机或FX2 |
+| 目标识别 | RK独立UVC → v17 RKNN → 同帧框/中文类别 → FX2显示；只识别，不授予巡检导航权限 |
+| 聊天机器人 | 语音 → 现有Qwen3.5 0.8B RKLLM → Kokoro → USB扬声器；不进入运动解析 |
+| 视觉巡检 | RK有序路径点与停车后三帧H定位 → 独立视觉障碍层/当前目标 → FPGA现有导航 → 真实回执；两路10Hz录像、报告及发现缓存播报 |
 
-本模块使用现有语音处理与模型资产，新增异步协调与通信合同。设计前查阅SayCan、SayPlan、行为树文献及BehaviorTree.CPP、Nav2、Sherpa官方资料，映射与未复现部分见[研究记录](RESEARCH.md)。当前任务有限，使用标准库事件循环＋状态机，没有在板上安装ROS2/Nav2。
+FPGA OV5640图像不传RK；RK使用自己的UVC相机。旧FIMG输入、FAM1找物及`patrol.py`人工拾取回放属于保留的独立工具，不是当前视觉巡检的执行通路。其历史合同见[FULLSTACK](FULLSTACK.md)、[研究依据](RESEARCH.md)。
 
-## 运行结构
+模型在既有worker中加载，协调器共享唯一串口和异步任务循环。当前巡检相信低延迟传感器数据，只按相机延迟≤0.3秒，停车回执后等0.5秒并使用三帧；不使用20ms门槛或位姿插值。相机模式1280×720、focus260、去畸变H及有效凸包仍须匹配配置。
 
-```mermaid
-flowchart TB
-    M[USB麦克风或WAV] --> A[ASR独立进程]
-    A --> L[领域纠错和语言模型独立进程]
-    L --> C[任务协调器]
-    F[FPGA摄像头图像或回放图片] --> V[视觉独立进程]
-    C -->|任务目标| V
-    V -->|带任务ID和时间的检测| C
-    C <--> G[统一FPGA网关]
-    G <--> P[FPGA任务动作和状态回执]
-```
+## 操作与文档
 
-- 录音使用明确的ALSA设备，默认不录板载声卡。麦克风未到货，`microphone.device=null`时返回待接入。
-- 录音窗口由 `microphone.seconds` 控制（现场验收用 3 秒）。可选的录音开始/结束提示音由 `microphone.cue` 配置，例如 `{"enabled": true, "device": "plughw:CARD=Device,DEV=0"}`：开始音在调 ASR 之前**播完**（不会录进窗口），结束音在窗口释放后播；播放失败只记 `recording_cue_failed` 审计、不让采集失败；不配置或 `enabled` 非 true 即完全禁用，与 `announcements` 互不影响。状态见 `/status` 的 `recording_cue`。
-- ASR为SenseVoiceSmall INT8，CPU两线程。`text`保留原始转写，`task_text`单独纠正“找交代”等，含糊表达拒识。
-- 语言模型为单独部署的专项 `domain-Q8_0.gguf`，板端llama.cpp **CPU**运行，关闭思考，最大80输出token；这不是新权重的RKLLM W8A8部署。官方原版RKLLM及Claude Code的C1/C1b保留。
-- 视觉使用板上已有v17 640 FP16 RKNN，NPU核心0，OpenCV RGB letterbox＋最佳类别及逐类NMS，原图固定输出`[1,8,8400]`。双输出版本须显式配置`decoded_probs`合同。没有替换模型、驱动或runtime。
-- 协调器和通信循环不等待模型阻塞；模型在私有进程运行。超时终止自己的worker及模型server，不终止其他实验。
-- 图像为“一个正在处理＋一个最新待处理”的邮箱，旧队列项明确标记丢弃；结果过期、任务被替换、序号倒退时拒绝。
+左侧AI模块确认开启总开关，CH8选择四项，SWA确认。SWB下拨录音、上拨结束，进入/恢复后须新的上拨→下拨。SWC手动始终由FPGA最高优先处理，AI留页保留总开关；回光标不自动续跑。
 
-## 板端入口
+- [AI页面和原三个功能](../../doc/AI模块页面与遥控交互_20261024.md)
+- [多点巡检使用/架构](../../doc/AI视觉巡检.md)、[录像与报告](../../doc/AI巡检录像与报告.md)、[已测/待测和部署证据](../../doc/AI巡检验证记录.md)
+- [地面H接口](inspection/HOMOGRAPHY.md)、[Windows标定](../usb_camera_win/README.md)、[UVC工具](../usb_camera_v4l2/README.md)
+- [模型自启](../../doc/RK模型开机加载与手动暂停_20261025.md)、[固定任务播报工具](SPEECH.md)、[模型与缓存](../MODELS.md)
 
-部署目录：`/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/`。代码快照在其`releases/`，依赖在独立`python/`，模型在`models/`，输出在`runs/`。运行根目录的`active_release.json`记录当前代码版本与哈希。
+## 板端与检查
 
-用户级服务名：`falcons-ai-coordinator.service`。默认 **shadow观察模式**，只记录任务下发意图，不打开串口，不发送车辆命令。服务的自动启动属于orangepi用户会话；没有设置系统级开机服务或更改用户linger配置。
+运行根：`/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1`。`active_release.json`给出代码release，`config.json`给出实际模型、设备身份、功能和标定，依赖在`python/`，运行结果在`runs/`。生产代码release另位于`/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/`；不要假定都在运行根的releases下。
 
-```sh
-export XDG_RUNTIME_DIR=/run/user/$(id -u)
+`falcons-ai-coordinator.service`为已启用linger的用户服务，开机加载既有ASR、语义、聊天、TTS及视觉模型，完成后尝试播放一次就绪音。默认示例配置/shadow模式与本车已部署配置不同；不能凭示例的关闭开关断言板端未启用模型或串口。
+
+```bash
 systemctl --user status falcons-ai-coordinator.service
 journalctl --user -u falcons-ai-coordinator.service -n 30 --no-pager
+curl -s http://127.0.0.1:18765/status
+
+FALCONS_AI_ROOT=/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1
+FALCONS_RELEASE=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["release"])' "$FALCONS_AI_ROOT/active_release.json")
+python3 "$FALCONS_RELEASE/host/ai_coordinator/main.py" --config "$FALCONS_AI_ROOT/config.json" status
 ```
 
-CLI可从当前版本的入口运行：
+HTTP仅监听`127.0.0.1:18765`。现有`/text`、`/audio`、`/capture`、`/image`、`/stop`、`/warmup`等入口由同一Runtime处理，`--plan-only`只分析；巡检开始/继续仍使用物理SWA，不让文字请求替代该确认。
 
-```sh
-cd /home/orangepi/workspace/falcons_ai_coordinator_20261024_r1
-CODE=$(python3 -c 'import json; print(json.load(open("active_release.json"))["release"])')
-python3 "$CODE/host/ai_coordinator/main.py" --config config.json status
-python3 "$CODE/host/ai_coordinator/main.py" --config config.json text --text '先找胶带，找不到再找螺丝刀，找到后返回起点。' --plan-only
-python3 "$CODE/host/ai_coordinator/main.py" --config config.json audio --wav "$PWD/samples/audio/Microsoft_Huihui_Desktop_single_ad_calcium_milk.wav" --plan-only
-python3 "$CODE/host/ai_coordinator/main.py" --config config.json stop
-```
+## 源码分工与验证
 
-`--plan-only`只分析、不创建执行任务。去掉该参数，在shadow模式仍只有任务意图日志；缺少FPGA回执会失败，不自动补造成功。
-
-HTTP仅绑定`127.0.0.1:18765`。`GET /status`、`GET /jobs/<id>`；`POST /text`、`/audio`、`/capture`、`/image`、`/stop`、`/warmup`。提交返回job_id，可继续查询；停止不依赖语言模型。只接受本地JSON客户端，拒绝浏览器Origin和过大输入。
-
-## 任务执行规则
-
-1. 合法任务仅`i/t/f/r`，目标固定四类；非法目标、截断回复、思考内容和未在转写中出现的物体被拒绝。
-2. 只有全句明确停止直接处理；“找到胶带后停止搜索”不会被正则直接提升为当下停止。
-3. 开始搜索先等`search_started`，视觉确认需要连续两帧同类合法检测，随后等`target_accepted`。
-4. 空画面不等于搜索失败。只有同一任务／目标／动作的`region_exhausted`回执，且该阶段有新鲜视觉结果，才允许切换备选目标。
-5. 超时和链路中断进入失败／取消，不冒充区域搜完。返回任务必须等对应`home_arrived`，不能只以指令已发送作为成功。
-6. 每个阶段有session_id、task_id、goal_id、action_id；旧任务回执不能复活被停止或替换的任务。
-7. 文件图片始终标为replay。live模式还要求相机源时间已验证和兼容FPGA网关；当前接收时间不能冒充曝光时间。
-
-## FPGA控制协议：待固件对接
-
-**新任务协议FAM1不是现有AA55视觉观察协议，也不是生产顶层已经支持的接口。没有修改应用RTL、引脚或基础控制。**
-
-帧为：`FAM1`＋大端uint16 JSON长度＋UTF-8 JSON＋大端CRC32，校验覆盖长度与JSON，最大4096字节。JSON禁止重复键及非有限数。
-
-串口仅允许显式`/dev/serial/by-id/...`，115200 8N1；独占打开，不切换DTR、不复位设备。在收到固件的`hello`之前不发任何数据。hello须包含v=1、boot_id、单调sequence、capabilities；此后状态回执须回传本会话session_id及任务／动作标识。重启、重复序号和断连撤销旧会话。
-
-| 主机请求 | 所需固件能力 | 设备回执 |
-| --- | --- | --- |
-| `start_search` | `search_v1` | `search_started`、`region_exhausted`或`action_failed` |
-| `target_found` | `target_accept_v1` | `target_accepted`或`action_failed` |
-| `return_home` | `return_home_v1` | `home_arrived`或`action_failed` |
-| `cancel` | `cancel_v1` | FPGA停止当前AI任务，基础仲裁仍独立有效 |
-
-当前固件未实现这些任务回执，不能仅把串口线插上就开启自动运动。现有19字节AA55视觉观察工具仍在`host/vision_bridge/`，本模块没有改变它的格式或宣称其支持导航任务。
-
-另有独立的低层MOT1运动入口：文本/ASR固定短语→`MotionBackend`→与FAM1共用唯一串口→FPGA `voice_motion_bridge`。默认关闭，需现场`voice_motion.live_commissioned=true`；MOT1没有任务级回执，串口写入和主机计时不算完成/停车。详见[语音到FPGA运动执行接入](../../doc/语音到FPGA运动执行接入_20261024.md)。
-
-## FPGA图像输入：待真实USB联调
-
-提供独立FX2 Bulk-IN worker，用系统已有libusb。必须配置核实的VID/PID、IN端点和接口号；不加载固件、不解绑内核驱动。默认关闭。
-
-示例FIMG帧头为24字节小端`<4sBBHHHIII`：magic、版本1、格式1=RGB565、头长24、宽、高、uint32帧序号、payload长度、CRC32。校验覆盖前20字节头和像素；半包、错CRC、倒退序号拒绝，异常后重新找帧头。像素为小端RGB565，不是JPEG。宽×高×2须与长度相等，最大16MiB。
-
-**该帧头是对接合同，需要FPGA发送端配套，不能直接套到厂家未知裸流。** 当前只验证解析器和RGB565转换。USB接收时间以`host_receipt_only`记录，`source_timestamp_verified=false`；在曝光时间／缓存年龄验证前，不能用于live动作确认。摄像头仍由FPGA采集，不启用RK3588直连摄像头替代方案。
-
-## 验证与交接
+`runtime.py/gateway.py`负责worker和唯一串口，`ai_module.py`负责原三个AI功能，`startup.py/install_autostart.py`负责开机加载，`inspection/`独立负责巡检。`deploy_inspection.py`核对源码清单、编译原有UVC工具、测试后按事务切服务，保留已有模型/配置，不升级系统包。
 
 ```powershell
-$voicePython = 'D:/HITSZ_FALCONS/ai部分/FALCONS_AI_Agent_24h_20261018/FALCONS_AI_Agent_24h_20261018/.venv/Scripts/python.exe'
-& $voicePython -m unittest discover -s host/ai_coordinator/tests -v
+$env:PYTHONPATH = (Join-Path $PWD 'host')
+python -m unittest discover -s host/ai_coordinator/tests -v
 ```
 
-加入语音播报后，Windows上46项通过、5项Linux伪终端测试跳过；板端51项全部通过。测试包括真实私有进程超时回收、模型慢响应时停止、旧结果、条件分支、返回缺回执、队列丢帧、CRC、视觉输出几何合同、播报/录音互斥与串口伪终端双向收发。伪终端不是实物FPGA验证。
+最近多点版RK343项协调服务、36项FX2工具、12项语义工具通过；原始状态和实物限制只在[验证记录](../../doc/AI巡检验证记录.md)维护。现场三视图及独立识别画面已确认，多点实车巡检和发现语音未测。最近FX2暂不接回、扬声器缺失，不能以模型ready推断已完成实物验收。
 
-`replay.py --simulate-fpga`会调用板端服务实际推理合成WAV和已有图片，用同一个任务核心模拟FPGA回执。输出始终`physical_task_completed=false`；与实机任务区别记录。已有3/3综合冒烟通过、8张图片检出对应目标；完整32条因板子重启中断，双方已暂停模型负载，不能宣称整轮通过。结果与恢复情况见[部署报告](../../doc/AI总协调器板端部署与验证_20261024.md)。回放工具对每阶段/每条证据fsync，未出现完成标记的目录不能作完整试验。
-
-与Claude Code的重负载顺序通过工作区`ai部分/AI_板端协同_20261024.md`协调。板端不升级包、不替换系统库、不停止别人的实验。文件部署需校验哈希并显式fsync；本次发现根分区`commit=600`，异常重启会丢失近期未落盘文件，但本模块不修改该挂载参数。
-
-## 中文播报
-
-已加入[中文任务播报](SPEECH.md)：36段缓存短句、异步播放、任务替换/停止抢占、状态回执限制和录音互斥。板端默认 `announcements.mode=log`，不打开声卡。真实USB音箱尚未接入；当前继续暂停模型长测。声卡选择、资产生成和待硬件验收内容见上述说明。
-# 2026-10-25 本地增量
-
-新增模型开机加载及就绪提示音、AI手动暂停保留页面，以及应用相机180°方向配置。启动脚本为`start_board.sh`，安装入口为`install_autostart.py`；操作、依赖与未完成的板端验收见[开机加载与手动暂停](../../doc/RK模型开机加载与手动暂停_20261025.md)。
+FAM1仍为独立任务协议参考，生产FPGA不提供完整FAM1找物/拾取回执；语义MOT1串口写入也不等于物理动作完成。巡检所用保留事务接口确有真实FPGA状态回传，三者不能混为同一协议。

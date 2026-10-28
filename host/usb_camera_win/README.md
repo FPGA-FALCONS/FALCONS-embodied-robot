@@ -134,7 +134,7 @@ python calib_pinhole.py --detect-pattern
 | `--min-sharpness` | `80` | Laplacian 方差低于此值时提示"清晰度偏低" |
 | `--min-shift` | 交互 `40` / 自动 `20` | 与已采集帧角点平均位移小于此值时提示"姿态与已有帧接近"（自动模式据此静默跳过） |
 | `--outlier-px` | `1.0` | 单张重投影误差超过 `max(1.0, 3×中位数)` 时在 `r` 重标定里剔除 |
-| `--focus` | `260` | 当前默认锁定对焦位置；285是早期扫描结果，使用各自对应的标定参数 |
+| `--focus` | `260` | 当前锁定对焦位置，必须与所用标定一致 |
 
 ### 输出
 
@@ -155,17 +155,10 @@ python calib_pinhole.py --detect-pattern
 普通标定、剔除离群和文件夹入口统一使用该选项，`--no-fix-k3`恢复同时估计k3。
 固定k3是模型选择，不代表独立验证通过。逐视图最大误差约1.5956px，仍需独立验证。
 
-**历史1080p结果**（2026-10-27 21:24:57，已被当前结果替换）：
-45/45 张通过，`RMS=0.8586px`，`fx=1520.197 fy=1520.847 cx=904.881 cy=614.931`，
-`D=[0.07593,-0.10644,0.01013,-0.00109,0.03309]`，逐图 RMS 最大 1.27px（无离群）。
-主点距画面中心（960,540）约 `(−55,+75)px`，略偏；要更稳就补拍倾斜 20–30°、
-板子靠画面四角的图再跑一次，检查参数和独立验证误差是否稳定；不以主点必须回到中心为验收标准。
-上面这组历史`K`属于1080p，不可直接用于当前720p。原始45张1080p照片仍在本机保留。
-
 ### 两条硬约束
 
 1. **内参与 focus 绑定**：这只镜头靠移动镜组对焦，改 `focus` 就等于改了内参。
-   标定用哪个值，推理就必须用哪个值（当前实测最佳 `260`，早期扫描过 `285`）；换工作距离就重新扫焦 + 重新标定。
+   标定用哪个值，推理就必须用哪个值（当前 `260`）；如需改变对焦，重新标定并独立验证。
 2. **内参与分辨率绑定**：脚本默认 `1280x720`，`calib_out/` 当前结果也对应此模式，历史1080p参数不可混用。
    只有确认两模式保持同一视野、无额外裁切且为纯等比例缩放时，才可按精确比例缩放
    `fx/fy/cx/cy`（1080p→720p 为 `2/3`，720p→1080p 为 `1.5`）。实际重采样若使用半像素中心约定，
@@ -202,60 +195,23 @@ v4l2-ctl -d /dev/v4l/by-id/usb-<相机>-video-index0 --list-ctrls   # 看可用�
 - `scan_20261027/`、`scan_fine/`、`locked_285.png` 是本次实测证据，可直接作为
   文档附件；重新标定后覆盖或换目录即可。
 
-## 本次提交的结果及验证边界
+## 当前标定与地面H
 
-`calib_out/pinhole_calib.json/.yaml/.npz`保留本轮44个有效视图拟合得到的轻量参数，
-对应1280×720、focus=260、9×6内角点、标称25mm方格，拟合RMS约0.6723px。
-这些是内参拟合记录，尚不代表独立验证、车体外参、地面投影或时间对齐验收通过；
-RK曾部署同晚22:25:38的上一版720p参数（45视图、RMS约0.7179px），
-23:30:22的新参数最初仅用于本地重算，现已随后述14点去畸变H方案一起部署到RK；未授权巡检运动。
-文件夹模式的focus字段来自命令行参数，
-该字段本身不能证明历史每张照片均已锁焦。
+正式K/D为calib_out/pinhole_calib.json，1280×720、focus260、44个有效视图，RMS约0.6723px。内参拟合误差不直接代表地面位置精度，原始照片、不同模式和对焦扫描记录保留各自来源；运行只选择当前模式配套参数。
 
-源码的合成自检验证检测与标定数值链路，不能替代真实相机、Windows锁焦或现场距离验证。
-原始照片、对焦扫描图片及去畸变对比图保留在本机，目录内`.gitignore`将其排除出提交；
-根目录的两份小型对焦JSON是不同历史测量记录，285与260的结果不可混用。
-
-`calib_out/camera_mount_initial.json`是绑定22:25:38旧内参的初始安装候选，
-其源SHA属于历史参数，不对应当前`pinhole_calib.json`；其中20.6cm高度、19.6cm前移和20°俯角
-尚未通过地面验证，不得作为已验收配置自动加载。
-`calib_out/ground_validation_20261027.json`保存最新内参下60/120/180cm红点计算和拟合诊断；
-原图SHA用于关联本机原始证据，拟合结果未部署。
-详细链路、实际部署状态及未完成项见[标定与地面投影核对](../../doc/相机标定与地面投影核对_20261028.md)。
-
-## 七点地面单应性拟合
-
-`fit_ground_homography.py`离线读取原图像素与实测地面点，拟合两组独立H：原始像素近似版，
-以及先用`undistortPoints(...,P=K)`去畸变后使用的版本。两者不可混用或重复去畸变。
-用户坐标为右/前、单位cm，原点为雷达中心的地面投影；输出也提供前/左、单位m的车体系转换。
+`fit_ground_homography.py`用原图像素和实测地面点离线拟合，分别输出原始像素近似H与去畸变像素H。当前已部署14点去畸变H：先undistortPoints(K,D,P=K)，再乘H；不能重复去畸变或套用预览new_K像素。原点为雷达中心地面投影，测量轴右/前厘米，运行转换前/左米。
 
 ```powershell
-python fit_ground_homography.py --input calib_out/ground_homography_points_20261028.json --intrinsics calib_out/pinhole_calib.json --out ground_homography_candidate.json
+python fit_ground_homography.py --input calib_out/ground_homography_points_combined_20261028.json --intrinsics calib_out/pinhole_calib.json --out ground_homography_candidate.json
 ```
 
-输出文件已存在时拒绝覆盖。`calib_out/ground_homography_20261028.json`保存本轮七个电池底部接地点的
-H、控制点回代和逐点留一误差。它不依赖初始20.6cm高度/20°俯角，但仍与相机安装、分辨率、
-锁焦、地面平面及像素输入约定绑定。控制点范围外不作精度承诺，不修改RK运行配置或巡检运动门禁。
-原图保留在本机`build/camera_calibration_20261028/homography/ground_homography_20261028_002353/`，
-点位和图像SHA写入轻量JSON；完整数值与使用约定见[七点地面单应性](../../doc/七点地面单应性标定_20261028.md)。
+| 资料 | 用途 |
+| --- | --- |
+| ground_homography_points_combined_20261028.json / ground_homography_combined_20261028.json | 14点拟合输入/候选及来源 |
+| ground_homography_points_validation3_20261028.json / ground_homography_independent_validation3_20261028.json | 独立非规则七点，不并入训练 |
+| ground_homography_points_near_20261028.json / ground_homography_near_validation_20261028.json | 40～55cm近五点验证；H未重拟合 |
+| ai_coordinator/profiles/inspection_ground_homography_20261028.json | 当前14点H、K/D及40cm起有效凸包 |
 
-第二组独立七点使用`ground_homography_points_validation_20261028.json`，原H的独立验证结果在
-`ground_homography_independent_validation_20261028.json`。原H未被覆盖。
-合并后的14点输入和候选分别在`ground_homography_points_combined_20261028.json`和
-`ground_homography_combined_20261028.json`；候选的训练误差与原H的独立验证误差分别记录，未部署。
+40cm处横向±20cm，边界与原远处实测范围组成凸包，径向上限2.1m；范围外不作定位。安装高度/角度的初始候选没有用于当前H。详细误差及测量来源见[地面H记录](../../doc/七点地面单应性标定_20261028.md)，实际调用见[H接口](../ai_coordinator/inspection/HOMOGRAPHY.md)。
 
-第三组非规则七点保留为独立测试集：`ground_homography_points_validation3_20261028.json`及
-`ground_homography_independent_validation3_20261028.json`。同时比较原七点和14点H，不重新拟合，
-不将新点并入训练；报告中的误差是静态可见电池底部取点结果，不是运行误差保证。
-
-用户随后选择14点去畸变H，已部署为RK标定方案；上述候选JSON的“未部署”标记保留其生成时状态。
-实际采用的配置为`host/ai_coordinator/profiles/inspection_ground_homography_20261028.json`，
-详细发布与备份记录见[地面单应性部署](../../doc/七点地面单应性标定_20261028.md)。
-静态标定有效，时序、运行XY误差界限和其他巡检验收仍分别保留，不自动启动巡检。
-
-40–55cm新增五点另存`ground_homography_points_near_20261028.json`和
-`ground_homography_near_validation_20261028.json`。离线几何外推误差较小，未重新拟合；
-五点在当前运行凸包外，生产定位仍拒绝，未自动扩大RK有效区域。
-
-用户随后明确批准40cm起的有效区域，已仅更新RK区域配置，H未重拟合；上述拒绝记录保留扩展前的历史状态。
-当前profile边界在前向40cm处为左右±20cm，并按原远处边界组成凸包，详见地面单应性部署记录。
+原始标定JSON禁用Git换行转换，来源SHA按原字节关联，不能因整理文档改写。候选生成时的状态保留在原始证据，当前运行配置由RK config.json决定；当前巡检为停车后0.5秒等待/三帧平均，操作见[巡检指南](../../doc/AI视觉巡检.md)。

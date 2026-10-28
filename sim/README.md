@@ -1,227 +1,36 @@
-# sim —— 应用层自检与跨模块集成
+# 应用层自检与跨模块集成
 
-## 时序优化回归（2026-10-21）
+本目录测试本车应用和真实模块组合，包内独立单测在vendor各包sim中。入口为run_sim.ps1；最近已保存的完整回归/多点接口结果见[巡检验证](../doc/AI巡检验证记录.md)，历史各轮计数不再作为当前清单。
 
-当前入口共 30 个测试台、2620 项检查通过。新增 `imu_calib`（22 项 / 10453 周期），覆盖采样一致性、种子均值、运动拒收、绝对读数门禁、完成优先于超时、复位及两周期提交延迟；新增 `ui_pipeline`（6 项 / 4896384 周期），由实际 `disp_driver` 连续扫描六页，与优化前完整帧像素指纹对比。`nav_ctrl` 补转角阈值两侧、正负叉积及反向点积，加入 264 组有符号比较对照后，现 388 项。
+## 运行
 
-局部 UI 测试与预览改为沿后更新坐标、下一沿消费，和真实扫描器一致；窗口跳读前补水平消隐，不放宽字模逐像素判据。原有地图、路线双缓冲和运动测试继续执行。模块库自带的 BMI270 SPI 行为模型另行通过初始化、8192 字节配置、静止标定及运动拒收验证，详见[优化验证记录](../doc/Fmax优化验证_20261021.md)。
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -Only inspection_control
+powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -Only inspection_control,inspection_application -Library work_inspection
+powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -Simulator Icarus
+```
 
-## 自动导航接入新增验证（2026-10-21）
+ModelSim路径可通过-ModelSim覆盖。脚本按每台独立仿真进程执行，避免$finish使后续台静默跳过；-Library选择独立工作库。完整日志在logs/sim_<test>.log，只在屏幕汇总判据。
 
-批量入口现有 26 台，原 19 台继续保留。新增以下 7 台；完整结果和周期见[接入验证](../doc/自动导航接入验证.md)，下文早期计数为历史记录。
+## 覆盖范围
 
-| 测试名（`-Only`） | 检查内容 |
+| 范围 | 检查重点 |
 | --- | --- |
-| nav_pose | 实际 odom 流水 → 导航位置 / 控制采样，不滞后一个测速窗口 |
-| radar_map | UART 实包、公共位姿、四朝向障碍、清零 |
-| obstacle_page | 独立避障页面、16 目的地、暂停 / 手动接管、无路不跳点 |
-| obstacle_plan | UI 目标接真实 Dijkstra，未授权运动时预规划 |
-| nav_point_ctrl | 动态目标、先转再走、完成电平、停车握手与抢占 |
-| nav_map_view | 地图 / 路线双缓冲、空路线、覆盖旧点、中止帧、完整线段 |
-| obstacle_motion | 真实 UI + Dijkstra + 点位控制，两个目的地、转弯、暂停恢复、近障停车及清除后续行 |
+| 复位/遥控/底盘 | 冷启动、六路映射、开关/摇杆、回中守卫、手动接管、差速/PID及实时停机 |
+| 数值/UI | 生成字模、14字段格式化、页面逐像素扫描、菜单冻结、大字高亮和原页面回归 |
+| IMU/航位 | 初始化/校准、角度/坐标口径、采样与里程积分 |
+| 基础导航 | 原非避障和避障单点执行、地图/Dijkstra、对角/路线复核、双缓冲及运行参数 |
+| 语音运动 | MOT1/ASCII隔离、有界动作、转向、停止所有权和本地恢复 |
+| 巡检控制/图层 | session/task/epoch/command、物理令牌、停车/图层版本、授权内连续GOTO、手动撤权 |
+| 高速/DDR | AIF1容器、FX2时钟/PHY/回环、跨域FIFO、DDR仲裁/帧银行、地图/路线导出和UI门控 |
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64
-# 也可只跑一个或一组，逗号分隔
-powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64 -Only nav_map_view,obstacle_motion
-```
+实际测试名、顶层与源依赖以脚本清单为准；新增台须加入入口，不能只放源码后声称全量已覆盖。向量生成工具位于sim/gen_inspection_vectors.py及gen_inspection_stream_vectors.py，主机/RTL交叉回放和自造RTL输入分别说明。
 
-`obstacle_motion` 的 RTL 以 50 MHz 运行，车辆和定位每 500000 周期推进 10 ms，规划期间照常运动。底盘是理想差速模型，测试车速为 1 m/s，停稳观察缩为 2 个控制周期；整车仍保留原默认 300 mm/s、10 周期停稳配置。该台不模拟电机惯性 / 滑移，不能据此判定实车安全距离。UART → 世界地图由另一台实包测试覆盖，本台在雷达转换后的射线接口注入障碍。
+## 判定与边界
 
-## 这里放什么
+脚本核对退出码、PASS/FAIL行及已声明CHECKS数；日志里的“0 FAIL”不当作失败。中文日志若因工具编码显示问号，ASCII检查行仍按实际结果判定，不篡改原日志。
 
-**现状（2026-10-16 如实修正）**：这里目前放的是**本工程 `rtl\` 下应用层模块的单元测试**
-（`rc_input` / `chassis_ctrl` / `num_text` / `ui_render` / `speed_report`），因为它们是本工程
-自己写的代码、不属于模块库，跟着 `rtl\` 走最方便。
+这些是软件/仿真证据，不代替整车PnR、实际USB吞吐、模型推理或实车停车/绕障。改vendor需同时遵循[ORIGIN回归约定](../vendor/ORIGIN.md)，改RTL/约束需核对对应输入的实际构建时序。
 
-**将来要放的跨模块集成测试**（与"应用层单元测试"区分开）：
-
-- 速度闭环：`speed_pid` + `vendor\motor_tb6612` 的 `motor_top` + 串口命令/上报，
-  用电机对象模型（`motor_plant_model.v`）闭环验证收敛/阶跃/带载/饱和；
-- **顶层集成**：`falcons_top`（两段式切页、模式门控、门禁与丢信号的 `run_en` 组合）
-  —— ★ **目前完全缺失**，是已知覆盖缺口，见 `doc\设计落实待办.md` 的整改台账；
-- 未来的 IMU + 速度环联调（直行纠偏）。
-
-**模块库自带的单元测试不在这里** —— 它们住在
-`vendor\verilog-reusable-modules\modules\<包>\sim\`，用 `tools\run_all_modules.ps1` 跑。
-把库自带的测试复制到 `sim\` 会让"库自带测试当门槛"这条失效（副本会与库漂移）。
-
-## 两条踩过的坑（写脚本时照做）
-
-1. **ModelSim 在 `-c`（命令行）模式下，tb 里的 `$finish` 会终结整个 vsim 进程。**
-   所以不能把多个 tb 串在同一个 `do` 脚本里跑 —— 只有第一个会执行，后面静默跳过且不报错。
-   命令行请给**每个测试开一个独立进程**（`vsim -c -do "run -all; quit -f" work.<tb>`），
-   参考 `class\car_fpga\sim\run_speed.ps1` 的结构。
-   `do` 脚本里的 `vsim work.xxx / run -all / quit -sim` 内建写法只适用于 **GUI Transcript**。
-2. **测试平台自身的错误会让"通过"失去意义。**
-   曾出现：`wait_ticks` 早返回一个节拍导致期望值差 1；清零用例后多等一拍导致期望 0 实测 8；
-   tb 里把有符号量声明成 unsigned 导致打印成 4294885376。
-   **"改了 RTL 之后 tb 的检查值变了"本身就是信号**，要停下来查清楚是谁错了。
-
-3. **给 `run_sim.ps1` 加一个被测模块时，必须把它的【依赖闭包】也加进 `sources`。**
-   `vlog` 是**逐文件独立编译**的，不做模块解析 —— 少列依赖时**编译照样全过**，
-   直到 `vsim` 加载 design 才报 `Module 'xxx' is not defined` / `Error loading design`。
-   实测链：`speed_report` → `uart_tx_queue` → { `uart_byte_tx`, `sync_fifo` }，
-   补了一层还不够，要补到叶子（依赖是两层的）。
-4. **复位后 DUT 自发的那一行要先吃掉。** `speed_report` 的 `tick_cnt` 复位为 0，
-   而 `report_tick = (tick_cnt == 0)`，所以**复位一释放就上报一行**（这是既定行为，
-   好处是上位机一上电就能看到数据）。tb 若不先丢弃它，之后每次检查都会读到"上一次的行"，
-   表现是**整体滞后一行且每行长度都对不上**（实测 39/42/42/42）。
-   同理 `i_force` 在 `S_IDLE` 里是**或**条件：保持高电平会连续上报，触发请给脉冲。
-
-## 本工程现有的测试（**2026-10-16** 实测）
-
-| 文件 | 覆盖 | 检查项 |
-| --- | --- | --- |
-| `ht10a_input_tb.v` | **HT-10A 集成**：槽位映射（CH4→转向 / CH2→油门 / CH7→**select**）、每轴标定与取反、开关迟滞与帧确认、幽灵点击防护、菜单回中判定、**手动解锁（回中解锁后推杆保持）**、丢信号/超长高电平/复位、**掩码生效（闲置 bit5 超时不拖死整车、参与判定的通道超时必须失效）** | 83 |
-| `rc_input_tb.v` | 遥控适配层：归一化 / 死区 / **模式两档** / 按钮 **select + confirm** / 丢信号（含超时后模式退回光标档）/ **方向取反对照实例** / **摇杆拨动菜单（先回中才算松手）** / **信号有效性掩码对照实例** | 32 |
-| `chassis_ctrl_tb.v` | 差速分解 / 限幅 / 安全逻辑 / 闭环方向 / rpm 换算（已改为 Icarus 兼容写法） | 23 |
-| `num_text_tb.v` | 实时数值格式化（**9 字段**、负数、**负号跟随最高位**、前导空格、字段边界、>999 饱和） | **40** |
-| `ui_render_tb.v` | 中文界面（菜单 / **高亮带随 `i_menu_sel` 移动** / 状态栏 / **光标档文案** / **启动门禁提示及优先级** / 动态数值 / 占位页 / **★ 文字段边界黄金参考：段内逐像素对字库本体 + 段起点左侧 2 列必须无字**，静态 ROM 与动态 RAM 各一段 / **★ 数据页车图：逐像素对 SVG 黄金参考 + 包围盒内必须有图 + 包围盒外不得有白色像素** / **★ 轮速位置↔通道映射：该位置在向哪个字段要数据**） | 33 |
-| `speed_report_tb.v` | 串口 CSV **12 列**格式：整行逐字符比对（负数 / 边界 / 7 位大数） | 4 |
-| `debug_rc_tb.v` | 最小调试台：单个 `rc_pwm_capture`（排查多路例化问题时用） | — |
-| `run_sim.ps1` | 命令行批量入口：**每个测试一个独立进程**，`-Simulator ModelSim\|Icarus` 双引擎 + PASS/FAIL 汇总 | — |
-
-> 上表"检查项"是 `sim\run_sim.ps1` 实测统计的 `pass` 行数（2026-10-16 **审查修复轮**实测 6 台合计 203 项；
-> 2026-10-18 凌晨 UI 第九处修复 + 合并队友提交后 `num_text` 39 → **40**，全量 9 台合计 **253 项全 PASS**），
-> 不是手写的估计值 —— 口径以实测为准（旧文档里出现过 22/26/28 三个不同的数）。
-> ★ **最新基线（2026-10-18 接入 odom、上电默认页、中点积分后实测）**：**10 台 / 332 项全 PASS** ——
-> `odom` **20**（新增，含中点积分用例）/ `num_text` **96** / `ui_render` **36** / `ht10a_input` 83 / `rc_input` 32 /
-> `chassis_ctrl` 23 / `rc_led_test` 27 / `reset_sync` 6 / `rc_probe_report` 5 / `speed_report` 4。
-> 上表个别行的"检查项"列仍是旧值（如 `ui_render` 33、`num_text` 未反映 96），以本行为准。
-> 两套仿真器：本机以 **ModelSim 为报数主口径**，Icarus 入口保留（`-Simulator Icarus`）作为可复现备选。
->
-> **覆盖不到的地方（如实记录，不要读成"需求已全覆盖"）**：
-> - **路径点导航页（§33）零覆盖** —— 准心移动（地图不动）、辅助菜单 5 项、菜单变暗、
->   select 切换，在 `rtl\` 里**都还没实现**（页 3 现在只有"导航未实现"占位）；
-> - **顶层行为零覆盖** —— `falcons_top` 不在 `$sources` 里：两段式（摇杆改 `menu_sel`、
->   确认键才赋给 `page`）、丢信号、`rc_drive_guard` 在整车里的接线都只有模块级覆盖
->   （`ht10a_input_tb` 已覆盖 `ht10a_input` + `rc_drive_guard` 的组合，但不含 HDMI/电机）。
->
-> **写 tb 时踩过的坑（本项目实测）**：
-> 1. **`fork` 里的多个 task 调用是并行的** —— 想"连发 N 帧"必须写 `begin … end` 包住，
->    否则 N 个分支同时拉高/拉低，等价于只发了一帧（表现为"帧确认类断言永远不通过"）；
-> 2. **编译库的工作目录要对**：`vlog -work work_sim` 是相对**当前目录**建库的，
->    在工程根编译却在 `sim\` 下 `vsim`，会各自用一套库，出现"改了代码结果不变"的假象。
-
-```powershell
-powershell -File sim\run_sim.ps1
-```
-
-## 命名
-
-| 文件 | 用途 |
-| --- | --- |
-| `run_<集成名>.ps1` | 命令行跑该集成测试（每个 tb 独立进程 + PASS/FAIL 汇总表） |
-| `<模块>_tb.v` | 测试平台本体 |
-| `<对象>_model.v` | 行为级模型（如电机对象模型），不要放进 `rtl\` |
-
-日志与仿真库（`work*\`、`transcript`、`*.log`）都被 `.gitignore` 忽略，不会进仓库。
-
-## 2026-10-17 当前回归
-
-本轮保留上面的历史基线并新增：rc_led_test_tb（27项，真实测试顶层/PWM到LED/所有电机输出持续为零）、rc_probe_report_tb（5项，逐字节UART解码/整行快照/边界65535）、reset_sync_tb（6项，无初始按键的冷启动/去抖）。共9个测试台241项，本机Icarus实跑。未安装ModelSim，因此不声称本轮在ModelSim实跑。UI测试恢复合并时丢失的初始模式跳变激励，原断言未降低。当前数据统一见doc/审查与上板验证_20261017.md；上述较早的203项属于合并时基线。
-
-## 导航界面预览
-
-`python tools/preview_navigation.py --modelsim D:/apps/modelsim/win64` 调实际 `ui_render` 与 `nav_map_view`，输出 `logs/nav_ui_preview/` 下的 14 张 1024×600 PNG、总览和逐图索引。包括雷达地图、空列表、目的地与四个菜单选择、运行、暂停、已到达、无路、整车急停、手动接管、遥控失联。
-
-示例地图 / 状态来自测试台输入，不是实车截图，也不用于证明状态切换流程。规划、转向和普通避障都归“导航中”，不会生成 RTL 没有的额外状态文字。图片及 ModelSim 临时库不提交 Git；预览台不计入自检项数。
-
-
-## 同圈建图回归（2026-10-21）
-
-新增 `nav_scan_accumulator_tb`（18 项），覆盖同圈命中优先、跨圈清障、新圈命中保护、重叠膨胀和完整 256×256 记录整理。`radar_map_tb` 扩至 16 项，真实串口验证换圈和无效槽；`obstacle_motion_tb` 适配跨圈确认清障，仍按 50 MHz 真实时间推进车辆。
-
-完整 ModelSim 回归 27 台 / 2301 项通过；命令为 `powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64`，定向可加 `-Only nav_scan_accumulator,radar_map,obstacle_motion`。周期及资源 / 时序结果见[接入验证](../doc/自动导航接入验证.md)。
-
-
-## 50 mm 地图回归（2026-10-21）
-
-地图改为 256×256、50 mm/格、12.8×12.8 m 后，完整回归 28 台 / 2323 项通过。新增 `nav_geometry_tb` 18 项，包括所有 32801 个可达量化输入的精确 floor 对比；串口建图增至 20 项，选点 / 规划 / 实际运动测试均适配新中心及格号。命令不变，定向可用 `-Only nav_geometry,radar_map,obstacle_page,obstacle_plan,obstacle_motion`。原非避障测试文件不变。
-
-
-## 雷达坐标与综合网表回归（2026-10-21）
-
-`radar_coordinates_tb` 从 UART 验证四象限、轴旁、平移位姿、地图与双缓冲显示，再回放前 72 包实物报文；`nav_geometry_tb` 补充 9730 次普通角度换算。定向运行 `-Only radar_coordinates,nav_geometry`，完整回归仍用 `sim/run_sim.ps1`。
-
-此次故障只在综合后出现，因此 RTL 通过后还需执行以下命令（仓库根目录）：
-
-```powershell
-& D:/Apps/Gowin/Gowin_V1.9.12.03_x64/IDE/bin/gw_sh.exe sim/build_radar_polar.tcl
-powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_radar_gate.ps1 -Netlist logs/radar_polar_gate/impl/gwsynthesis/nav_polar_gate.vg
-```
-
-这会将独立综合的 `nav_polar` 替换回相同 UART、建图与显示测试链；其余模块保持 RTL。产物位于 `logs/radar_polar_gate/`，不烧录、不替换整车位流。它不是整车全部模块的门级时序仿真；完整构建、实际整车网表复核和资源/Fmax 见[本轮验证](../doc/雷达坐标翻转修复验证_20261021.md)。
-
-## 直行优先 BFS 室内回归（2026-10-22）
-
-`-Only nav_planner` 会先用 `bfs_indoor.py` 生成 256×256、50 mm/格、中心原点的室内地图及独立 FIFO BFS 参考，再运行 `nav_planner_tb`。生成仅依赖 Python 标准库，不增加硬件接口或兼容模式。
-
-共 30 个地图 / 请求：房间错位门、斜走廊、斜隔墙与家具，18 组不同角度和宽度的斜通道，同格目标、障碍起终点、封路、局部接出开关和地图边界，以及两个含 4 格短拐段的窄通道。分别运行关闭 / 开启居中的规划器，合计 531 项检查；地图读口带变化延迟、航点输出带背压。原始路径逐格与独立参考一致；实际居中路线逐段展开检查障碍和边界，并限制额外路长。房间搜索超过 8192 次入队，覆盖环索引回绕。
-
-居中修正后的专项检查还会从地图独立计算所有预期探针的两侧最小间隙，核对起点、终点、末尾不足 4 格的补点，以及每位置 40 次法向读取。覆盖后续探针遇到更近障碍、端点限制间隙、恰好 4 格的中间段及两侧完整 20 格扫描；图外探针与正式 `nav_map` 一样回答阻挡，不允许输出路线越界。
-
-专项台 `wp_limit=512`，用于比较到同一终点的完整路线；不修改整车原有容量或前缀发布策略，路线转弯数也不等同于实车累计停车次数。整车层行为由完整应用回归另行覆盖。
-
-输出位于 `logs/bfs_straight/fixtures/`：地图、参考路径、两组 RTL 周期 / 队列统计及航点 CSV。对比历史 RTL 时，在独立仿真库编译对应 `nav_planner.v` 和同一测试台，传入匹配的 `+FIXTURE_DIR`（工作目录 `sim/`）。生成器 `--order fixed` 仅用于更早的固定枚举 BFS 参考，默认 `straight` 用于当前 BFS；正式 RTL 没有旧算法分支。当前台检查新的居中默认和采样规则，因此旧居中 RTL 应被这些新检查检出，不能期待旧版全过。
-
-已有两组输出时，从仓库根目录运行 `python sim/plot_bfs_indoor.py`，绘制实际 RTL 航点对照图，可用 `--baseline`、`--current`、`--output` 和 `--labels` 指定本轮输入和标题。绘图额外依赖 matplotlib、numpy，不影响自检。BFS 首轮结果见[直行优先验证](../doc/BFS直行优先验证_20261022.md)，当前居中与端点修正见[居中验证](../doc/路线居中修正验证_20261022.md)。
-
-
-## 2026-10-22 整车时序流水回归
-
-新增 `display_mm_to_cm_tb`（22204 份连续 int32 显示换算输入，22216 周期）和 `ui_layers_tb`（131072 个图层 / 配色组合）。两台各记一组汇总检查；完整应用为 34 台 / 3191 项。参数整定增加单拍推杆后回中的三项检查，运动闭环使用与整车相同的一拍普通运动许可。六页真实扫描指纹不变。局部参数页窗口在跳读前走消隐并预读，不修改像素期望。
-
-仅运行新增专项：`powershell -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64 -Only ui_layers,display_mm_to_cm`。完整证据及布线后结果见[流水优化验证](../doc/Fmax流水优化验证_20261022.md)。
-
-
-## 当前段轴线补画回归（2026-10-23）
-
-新增 `nav_command` 20 项 / 92 周期，验证显示轴向对应正在执行的目标任务，包含四方向、同向动态目标与换向停车握手。`nav_map_view` 从 17 增至 40 项 / 1049163 周期，验证忽略横向偏差的四方向当前段、前进清尾、目标延长/缩短、零长度、撤销、帧内输入变化、保留中间锁定点和后续拐角；原地图与路线双缓冲断言保留。UART 显示测试、静态预览显式连接新增输入。
-
-35 台完整应用回归通过，补充显示三项后对 `nav_map_view,nav_command,radar_coordinates` 定向回归通过，最终累计 3234 项。运动仍为 98000033 周期 / 22 轮规划，六页原扫描指纹不变。命令、显示绘制周期与范围见[本轮验证](../doc/当前段轴线补画验证_20261023.md)。
-
-
-## 八方向搜索核心（2026-10-25）
-
-新增 `nav_bfs` 自检：41 个室内、方向和墙角场景，对照独立等权 BFS 的完整逐格路径，164 项 / 12639801 周期通过，队列峰值 452/8192。读图和输出都有背压；斜向必须检查两侧格。生成器 `sim/bfs_eight.py` 仅依赖标准库和已有地图函数，产物在 `logs/eight_direction/fixtures/`。阶段实现、回归及构建对比见[改造记录](../doc/八方向导航改造记录_20261025.md)。
-
-
-## 八方向导航链路（2026-10-25）
-
-`nav_planner` 已切换为八方向压缩航点验证：41 个地图、164 项，逐格还原航点与独立 BFS 对照。原直角居中内部探针断言随算法替换删除，新八方向居中在下一步独立验证。新增 `nav_line_cells` 17 项 / 228 周期、`nav_drive` 33 项 / 1253125 周期（扫描最长 478 周期）、`nav_route` 32 项 / 243 周期；`nav_command` 扩至 40 项，显示扩至 47 项 / 1377026 周期。八方向握手、锁定前缀和候选隔离均通过。
-
-本步完整 47 台 / 8226 项通过。运动台 228000033 周期 / 48 轮规划，两个目的地、暂停恢复、raw 急停及清障续行通过；等权八方向路线不保证运动时间比四方向更短。交付显示字段已替换为两位 `target_line_dir`。
-
-
-## 八方向居中（2026-10-25）
-
-新增 `nav_center` 41 项 / 32642 周期，覆盖八方向预期平移、端点与非整步尾点、全段最小间隙、预算拒绝、探针之间障碍的完整复核；新增 `nav_planner_limit` 6 项 / 22336 周期，覆盖居中后中继、容量截断排空、重入和起终点同格。规划台同时运行 CENTER_EN=0/1，329 项 / 12661972 周期，41 图中实际接受 22 次居中（8 次斜段）。所有航点逐格还原检查通行性，斜步检查两侧格，原始输出匹配独立参考，居中输出检查 10/14 增长预算。
-
-完整 49 台 / 8438 项通过；前探再拆相对坐标寄存拍后，前探、实际运动、UI 规划三台再次通过。运动恢复为 98000033 周期 / 22 轮规划；前探最长 548 周期。`python sim/plot_bfs_eight.py --centered` 绘制真实居中航点与原始路线对照；不将绘图当功能自检。根节点方向改为目标朝起点，避免固定东向种子带来的开放轴向斜折；BFS 仍等权。
-
-
-## 四桶 Dijkstra（2026-10-25，替换等权八方向版本）
-
-当前入口为 `nav_dijkstra`、`nav_dijkstra_pool` 和 `nav_planner`。搜索参考由 `dijkstra_eight.py` 用独立二叉堆生成，直步 2、斜步 3；同一格等代价时优先累计转弯少，再保留直行扩展的发现顺序。当前 58 张图包含原 41 图、不等长斜段、12 组室内随机障碍和超过 255 次转弯的单通道。参考仍保存完整累计代价，转弯计数饱和于 255；RTL 使用三位桶状态和 2048 条共享队列。新增小容量共享池自检覆盖满池失败、释放复用、重复请求和搜索中复位。
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File sim/run_sim.ps1 -ModelSim D:/apps/modelsim/win64
-python sim/plot_dijkstra.py --centered
-```
-
-生成物在 `logs/dijkstra/`。绘图从 `baseline_route/waypoints_center_1.csv` 读取改造前等权 BFS 的实际居中航点，从本轮回归读取 Dijkstra 航点；相同地图、原点、膨胀和居中参数。前面等权 BFS 小节是历史结果；对应搜索模块、参考生成和绘图入口已由本节替换，生产 RTL 不保留旧算法分支。完整结果见 [Dijkstra 验证记录](../doc/Dijkstra导航验证_20261025.md)。
-
-
-## Dijkstra 存储缩减（2026-10-25）
-
-3 位状态替换 18 位绝对距离，增加 SETTLE 和 RELATIVE 两拍；8 位饱和转弯计数替换 16 位计数，默认队列 2048。nav_dijkstra 自检额外检查起点已确定状态、转弯计数、桶回绕、旧条目与饱和场景。原 57 图的原始/居中航点与改前 CSV 逐条比较。验证与同主线基线的综合布线对比见 [存储优化记录](../doc/Dijkstra存储优化验证_20261025.md)。
-
-## 前探在线配置（2026-10-25）
-
-51 台 / 9012 项回归通过。前探 60 项覆盖从定位中心点起算、车宽无额外余量、八方向和扫描中修改配置；最大扫描 3198 拍。参数页支持 14 项，车宽 10 mm 步长；数值地址扩至 7 位，新增地址 64..69 有独立检查。其余五页像素指纹不变，参数页新增两行更新指纹。详见 [验证及页面预览](../doc/前探配置运行时化验证_20261025.md)。
-
-## 避障交互生命周期（2026-10-25）
-
-完整 52 台 / 9059 项通过，最后显示调整后另做 5 台 / 121 项 UI 复核。新增 obstacle_display 像素与文案检查；obstacle_page 44 项覆盖完成后返回再导航、故障保留索引、取消和手动恢复。obstacle_motion 连续两次导航加手动跨格移动，共 152500034 拍、33 轮规划。只有避障页像素指纹更新，另五页不变。详见 [验证与渲染](../doc/避障导航UI交互重构验证_20261025.md)。
+RK任务队列、H定位和录像测试在host/ai_coordinator/tests，见[协调器入口](../host/ai_coordinator/README.md)；现场已测/待测只在专题验证维护。
