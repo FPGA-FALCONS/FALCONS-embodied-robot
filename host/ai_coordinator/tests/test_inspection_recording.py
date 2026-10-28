@@ -75,6 +75,33 @@ class ArchiveTests(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which('ffmpeg'),'Existing FFmpeg required')
 class EncoderIntegrationTests(unittest.TestCase):
+    def test_waypoint_progress_pause_and_return_share_one_synchronised_video_session(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            current=snapshot();current['mission'].update(waypoints_m=[[1,0],[2,1]],waypoint_index=0,
+                waypoint_count=2,waypoints_completed=0)
+            report={'mission':{'session_id':1,'task_id':1,'epoch':1}}
+            r=Recording(tmp,{'min_free_bytes':1,'segment_seconds':1},current,report)
+            deadline=time.monotonic()+6
+            try:
+                for index,state,phase,completed,manual in ((0,'outbound','outbound',0,False),
+                        (1,'outbound','outbound',1,False),(1,'manual_paused','outbound',1,True),
+                        (2,'returning','returning',2,False)):
+                    current=snapshot(state,manual);current['mission'].update(waypoints_m=[[1,0],[2,1]],
+                        waypoint_index=index,waypoint_count=2,waypoints_completed=completed,phase=phase)
+                    before=r.frames;r.offer(current)
+                    while r.frames<before+4 and not r.error and time.monotonic()<deadline:time.sleep(.02)
+            finally:r.finish('completed',{'mission':current['mission']});r.wait()
+            self.assertIsNone(r.error)
+            self.assertEqual(len(list(Path(tmp).glob('*/manifest.json'))),1)
+            rows=[json.loads(s) for s in (r.path/'frames.jsonl').read_text(encoding='utf-8').splitlines()]
+            self.assertEqual({row['waypoint_index'] for row in rows},{0,1,2})
+            self.assertTrue(any(row['manual'] and row['waypoint_index']==1 for row in rows))
+            self.assertTrue(any(row['phase']=='returning' and row['waypoints_completed']==2 for row in rows))
+            self.assertEqual([row['relative_ms'] for row in rows],list(range(0,len(rows)*100,100)))
+            self.assertTrue(all(v['stream_frames']['camera']==v['stream_frames']['map'] for v in segment_inventory(r.path)))
+            final=json.loads((r.path/'report.json').read_text(encoding='utf-8'))
+            self.assertEqual(final['mission']['waypoints_m'],[[1,0],[2,1]])
+
     def test_actual_dual_mp4_segments_are_ten_hz_and_survive_manual_pause(self):
         with tempfile.TemporaryDirectory() as tmp:
             r=Recording(tmp,{'min_free_bytes':1,'segment_seconds':1},snapshot(),

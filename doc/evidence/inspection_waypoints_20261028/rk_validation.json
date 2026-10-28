@@ -1,0 +1,136 @@
+{
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/inspection_src_ec4f025785d1",
+  "activation": {
+    "installed": true,
+    "linger": "yes",
+    "backup": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/autostart_backups/20261028_113707_99315a52",
+    "service": "/home/orangepi/.config/systemd/user/falcons-ai-coordinator.service",
+    "models_ready_verified": false,
+    "note": "Inspect /status startup readiness; enabled service alone is not model-load acceptance",
+    "models_ready": true,
+    "inspection_enabled": true,
+    "automatic_motion_started": false
+  },
+  "service": [
+    "NRestarts=0",
+    "ActiveState=active",
+    "SubState=running"
+  ],
+  "startup": {
+    "enabled": true,
+    "ready": true,
+    "state": "ready",
+    "required_models": [
+      "asr",
+      "llm",
+      "chat",
+      "tts"
+    ],
+    "loaded": {
+      "asr": {
+        "load_s": 2.6779626200000166,
+        "ready_at_s": 4074.525707605
+      },
+      "llm": {
+        "load_s": 0.00046899200015104725,
+        "ready_at_s": 4079.192381729
+      },
+      "chat": {
+        "load_s": 1.9778398059997926,
+        "ready_at_s": 4081.280402082
+      },
+      "tts": {
+        "load_s": 3.055710036999699,
+        "ready_at_s": 4084.435371967
+      },
+      "vision": {
+        "load_s": 0.42173062099982417,
+        "ready_at_s": 4084.946829466
+      }
+    },
+    "errors": {},
+    "ready_tone_played": false,
+    "ready_tone_error": "ValueError: USB role speaker has 0 matches; explicit identity/disambiguation required"
+  },
+  "mission": {
+    "session_id": 3684728847,
+    "task_id": 0,
+    "epoch": 2,
+    "state": "edit",
+    "phase": "outbound",
+    "view": "map",
+    "reason": null,
+    "goal_m": null,
+    "trace_m": [],
+    "waypoints_m": [],
+    "waypoint_index": 0,
+    "waypoint_count": 0,
+    "waypoints_completed": 0,
+    "waypoint_arrivals": [],
+    "started_at_s": null,
+    "return_trace_m": [],
+    "pose": {
+      "epoch": 2,
+      "x_m": 0.0,
+      "y_m": 0.0,
+      "yaw_rad": -0.02181661564992912,
+      "at_s": 4158.854957256
+    },
+    "trace_truncated": false,
+    "start_m": null,
+    "return_policy": "latest_map",
+    "return_index": 0,
+    "return_count": 0,
+    "layer_version": 0,
+    "manual": false
+  },
+  "actual": {
+    "session_id": 3684728847,
+    "task_id": 0,
+    "epoch": 2,
+    "command_id": 0,
+    "kind": "hello",
+    "layer_version": 0,
+    "stopped": false,
+    "manual": false,
+    "error_code": 0,
+    "flags": 64
+  },
+  "usb": {
+    "verified": false,
+    "ifclk_hz": null,
+    "last_diagnostic_s": null,
+    "error": "USB role inspection_link has 0 matches; explicit identity/disambiguation required",
+    "generation": 0,
+    "pending_control": 0,
+    "pending_display": false
+  },
+  "tests": {
+    "ai_coordinator_tests": {
+      "count": 343,
+      "ok": true,
+      "skipped": false
+    },
+    "fx2_camera_tests": {
+      "count": 36,
+      "ok": true,
+      "skipped": false
+    },
+    "semantic_nav": {
+      "count": 12,
+      "ok": true,
+      "skipped": false
+    }
+  },
+  "manifest_files": 246,
+  "manifest_all_match": true,
+  "configuration_changed_top_keys": [
+    "camera",
+    "inspection"
+  ],
+  "calibration_unchanged": true,
+  "audio_roles_unchanged": true,
+  "focus": 260,
+  "autofocus": false,
+  "automatic_motion_started": false
+}

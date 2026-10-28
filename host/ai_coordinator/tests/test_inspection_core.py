@@ -12,7 +12,7 @@ from ai_coordinator.inspection.calibration import Calibration
 from ai_coordinator.inspection.grid import build, bit, cell, PLANE_BYTES
 from ai_coordinator.inspection.objects import Objects
 from ai_coordinator.inspection.mission import InspectionMission, REQUIRED
-from ai_coordinator.inspection.render import render, rgb565
+from ai_coordinator.inspection.render import render, rgb565, list_entries, map_pixel
 
 
 def profile():
@@ -127,7 +127,7 @@ class InspectionMissionTests(unittest.TestCase):
         self.mission = InspectionMission(session_id=123)
         self.ready = {key: True for key in REQUIRED}
         self.mission.set_pose(pose(), 1)
-        self.mission.select_goal([1, 0])
+        self.mission.add_waypoint([1, 0]);self.mission.prepare_start()
 
     def start(self):
         self.assertTrue(self.mission.start(self.ready, 1))
@@ -216,7 +216,7 @@ class InspectionMissionTests(unittest.TestCase):
         self.ack('accepted', 1.25)
         self.ack('arrived', 1.26, stopped=True)
         self.assertEqual(self.mission.state, 'completed')
-        with self.assertRaises(ValueError): self.mission.select_goal([2, 0])
+        with self.assertRaises(ValueError): self.mission.add_waypoint([2, 0])
         self.mission.new_task(); self.assertEqual(self.mission.state, 'edit')
         self.assertIsNone(self.mission.start_point)
 
@@ -254,8 +254,106 @@ class InspectionMissionTests(unittest.TestCase):
         self.mission.set_pose(pose(.08, yaw=math.pi/2), 1.12)
         self.assertEqual(self.mission.trace[-1], [.08, 0])
 
+    def route(self):
+        self.mission.state='edit';self.mission.add_waypoint([2,1]);self.mission.add_waypoint([3,0]);self.mission.prepare_start()
+
+    def test_three_waypoints_advance_once_each_then_return_directly_to_start(self):
+        self.route();self.mission.set_pose(pose(.2,.1),1);self.start()
+        for i,xy in enumerate(([1,0],[2,1],[3,0])):
+            old=dict(self.mission.expected);self.mission.set_pose(pose(*xy),2+i)
+            self.assertTrue(self.ack('arrived',2.01+i,stopped=True))
+            self.assertFalse(self.mission.on_status({**old,'kind':'arrived','stopped':True},2.02+i))
+            self.assertEqual(self.mission.waypoint_index,i+1)
+            if i<2:
+                self.assertEqual(self.mission.expected['goal_mm'],[[2000,1000],[3000,0]][i])
+                self.assertEqual(self.mission.state,'await_start')
+                self.ack('accepted',2.03+i)
+        self.assertEqual(self.mission.state,'await_return_layer')
+        self.assertEqual(self.mission.return_points,[[.2,.1]])
+        self.assertEqual([p['number'] for p in self.mission.waypoint_arrivals],[1,2,3])
+        self.assertAlmostEqual(self.mission.waypoint_arrivals[-1]['elapsed_s'],3.01)
+        task=self.mission.task_id
+        self.mission.submit_layer(build([],.2),5)
+        self.ack('layer_committed',5.1,layer_version=1)
+        self.assertEqual(self.mission.expected['goal_mm'],[200,100])
+        self.ack('arrived',6,stopped=True)
+        self.assertEqual(self.mission.state,'completed');self.assertEqual(self.mission.task_id,task)
+        self.assertEqual(self.mission.snapshot()['waypoints_completed'],3)
+
+    def test_manual_on_second_waypoint_resumes_same_point_without_advancing(self):
+        self.route();self.start();self.ack('arrived',1.1,stopped=True);self.ack('accepted',1.11)
+        self.mission.drain();old=dict(self.mission.expected)
+        self.mission.set_manual(True,1.2);self.mission.drain()
+        self.mission.set_pose(pose(.5,.4),1.3);self.mission.set_manual(False,1.4)
+        self.assertEqual(self.mission.drain(),[])
+        self.assertFalse(self.mission.on_status({**old,'kind':'arrived','stopped':True},1.5))
+        self.assertEqual(self.mission.waypoint_index,1)
+        self.assertTrue(self.mission.resume(self.ready,1.6))
+        self.assertEqual(self.mission.expected['goal_mm'],[2000,1000])
+        self.assertEqual(self.mission.start_point,[0,0])
+
+    def test_observation_on_second_point_restarts_that_point_after_layer_commit(self):
+        self.route();self.start();self.ack('arrived',1.1,stopped=True);self.ack('accepted',1.11)
+        self.mission.request_observation(1.2)
+        self.assertFalse(self.ack('arrived',1.21,stopped=True))
+        self.ack('stopped',1.22,stopped=True);self.mission.tick(1.72)
+        self.mission.finish_observation(build([],.2),1.8)
+        self.ack('layer_committed',1.9,layer_version=1)
+        self.assertEqual(self.mission.expected['goal_mm'],[2000,1000]);self.assertEqual(self.mission.waypoint_index,1)
+        self.assertEqual(len(self.mission.waypoint_arrivals),1)
+
+    def test_blocked_second_point_never_skips_to_third(self):
+        self.route();self.start();self.ack('arrived',1.1,stopped=True);self.ack('no_path',1.2)
+        self.mission.tick(100)
+        self.assertEqual(self.mission.state,'no_path');self.assertEqual(self.mission.waypoint_index,1)
+        self.assertEqual(self.mission.goal,[2,1]);self.ack('running',101)
+        self.assertEqual(self.mission.state,'outbound')
+
+    def test_route_is_frozen_after_review_and_new_task_clears_progress(self):
+        for state in ('ready','outbound','paused','manual_paused','completed'):
+            self.mission.state=state
+            for call in (lambda:self.mission.add_waypoint([2,0]),self.mission.undo_waypoint,self.mission.clear_waypoints):
+                with self.subTest(state=state),self.assertRaises(ValueError):call()
+        self.mission.new_task()
+        self.assertEqual(self.mission.waypoints,[]);self.assertEqual(self.mission.waypoint_index,0)
+        self.assertEqual(self.mission.waypoint_arrivals,[]);self.assertIsNone(self.mission.started_at)
+        with self.assertRaises(ValueError):self.mission.prepare_start()
+
+    def test_cancel_keeps_partial_route_results_for_report(self):
+        self.route();self.start();self.ack('arrived',1.1,stopped=True)
+        self.mission.cancel(1.2)
+        report=self.mission.snapshot()
+        self.assertEqual(report['waypoint_count'],3);self.assertEqual(report['waypoints_completed'],1)
+        self.assertEqual(report['waypoint_index'],1);self.assertEqual(report['state'],'cancelled')
+        self.assertFalse(any(c['kind']=='goto' for c in self.mission.drain()))
+
 
 class InspectionRendererTests(unittest.TestCase):
+    def test_numbered_waypoints_have_distinct_progress_colours_and_text(self):
+        points=[[0,0],[2,0],[4,0]]
+        mission=dict(state='outbound',phase='outbound',waypoints_m=points,waypoint_index=1,
+            waypoint_count=3,waypoints_completed=1,waypoint_arrivals=[])
+        output=render('map',mission,[],calibration_ready=True)
+        for xy,colour in zip(points,((80,220,80),(0,220,255),(255,210,150))):
+            x,y=map_pixel(xy)
+            self.assertTrue(np.any(np.all(output[y-9:y+10,x-9:x+10]==colour,axis=2)))
+        lines=list_entries(mission,[])
+        self.assertTrue(any('P1' in s and '已完成' in s for s in lines))
+        self.assertTrue(any('P2' in s and '当前点' in s for s in lines))
+        self.assertTrue(any('P3' in s and '待执行' in s for s in lines))
+
+    def test_edit_panel_uses_blue_fill_and_yellow_text(self):
+        output=render('map',dict(state='edit',waypoints_m=[],edit_action=2),[],calibration_ready=True)
+        np.testing.assert_array_equal(output[144+2*40-5,440],[170,75,0])
+        self.assertTrue(np.any(np.all(output[224:240,456:600]==[0,240,255],axis=2)))
+
+    def test_text_view_can_scroll_to_targets_after_long_waypoint_list(self):
+        mission=dict(state='edit',waypoints_m=[[i*.1,0] for i in range(20)])
+        objects=[dict(id=1,confirmed=True,xy_m=[1,0],**{'class':'tape'})]
+        lines=list_entries(mission,objects)
+        self.assertIn('胶带',lines[-1])
+        self.assertFalse(np.array_equal(render('list',mission,objects),render('list',mission,objects,scroll=1000)))
+
     def test_all_three_views_and_rgb565_endianness(self):
         mission = {'state': 'edit', 'trace_m': [], 'goal_m': None}
         for view in ('camera', 'map', 'list'):

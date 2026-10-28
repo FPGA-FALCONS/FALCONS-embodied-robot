@@ -38,19 +38,24 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await self.c.close();self.tmp.cleanup()
     def packet(self,kind,words,now):self.c.on_packet(dict(kind=kind,words=words),now)
-    def input(self,seq,confirms,backs,now,flags=1|4|128|256|(1<<4)):
-        self.packet(wire.INPUT,[self.session,1,seq,flags,0,(backs<<16)|confirms,confirms,180|(4<<16)],now)
+    def input(self,seq,confirms,backs,now,flags=1|4|128|256|(1<<4),steer=0,throttle=0):
+        self.packet(wire.INPUT,[self.session,1,seq,flags,((throttle&65535)<<16)|(steer&65535),
+            (backs<<16)|confirms,confirms,180|(4<<16)],now)
     def controls(self,sequence,now,manual=False,record=False,mode='visual_inspection'):
         self.c.on_ai_controls(dict(sequence=sequence,enabled=True,manual=manual,estop=False,record=record,mode=mode),now)
     def messages(self):
         reader=wire.Reader();return [m for data,kw in self.port.frames for m in reader.feed(data,now=1)]
     def moving(self):
         m=self.c.mission;m.epoch=1;m.task_id=1;m.state='outbound';m.goal=[1,0];m.start_point=[0,0]
+        m.waypoints=[[1,0]];m.waypoint_index=0;m.started_at=1
         m.command_id=1;m.expected=dict(session_id=self.session,task_id=1,epoch=1,command_id=1,kind='goto')
         m.pose=dict(epoch=1,x_m=0,y_m=0,yaw_rad=0,at_s=1);m.last_status=1
     async def test_uncommissioned_goal_can_be_edited_but_cannot_emit_goto(self):
         self.c.radar=b'\0'*PLANE_BYTES;self.c.last_map=1
-        self.assertTrue(self.c.confirm(1));self.assertEqual(self.c.mission.state,'ready')
+        self.assertTrue(self.c.confirm(1));self.assertEqual(self.c.edit_action,0)
+        self.assertTrue(self.c.confirm(1.01));self.assertEqual(self.c.mission.waypoints,[[0,0]])
+        self.c.confirm(1.02);self.c.edit_action=3;self.c.confirm(1.03)
+        self.assertEqual(self.c.mission.state,'ready')
         self.assertFalse(self.c.confirm(1.1));self.c._actions(1.1)
         self.assertFalse(any(m['kind']==wire.CONTROL and m['words'][4]&255==wire.OP_GOTO for m in self.messages()))
     async def test_manual_retains_goal_and_requires_explicit_resume(self):
@@ -192,7 +197,8 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.c.layer=build([],.2);self.c.layer_crc=self.c.layer['crc32'];self.c.mission.layer_version=1
         self.c.mission.set_pose(dict(epoch=1,x_m=.2,y_m=0,yaw_rad=0),1)
         self.c.radar=b'\0'*PLANE_BYTES;self.c.cursor=[1,0]
-        self.assertTrue(self.c.confirm(1));self.c.input['user_token']=2
+        self.c.confirm(1);self.c.confirm(1)
+        self.c.confirm(1);self.c.edit_action=3;self.assertTrue(self.c.confirm(1));self.c.input['user_token']=2
         self.assertTrue(self.c.confirm(1.01));self.c.tick(1.01)
         goto=[m for m in self.messages() if m['kind']==wire.CONTROL][-1]
         self.assertEqual(goto['words'][4]&255,wire.OP_GOTO)
@@ -297,5 +303,91 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.moving();self.c.observed_boxes=self.demo_result()['detections']
         await self.c.observe(self.demo_frame(),self.demo_result(),1.1)
         self.assertEqual(self.c.mission.state,'outbound');self.assertFalse(self.c.mission.actions)
+
+    async def test_swa_panel_uses_joystick_without_moving_map_cursor(self):
+        self.c.radar=bytes(PLANE_BYTES);self.c.cursor=[1,0]
+        self.input(2,1,0,1.01);self.assertEqual(self.c.edit_action,0)
+        self.c._edit_stick(1000,0);self.c._edit_stick(1000,-1000)
+        self.assertEqual(self.c.edit_action,1);self.assertEqual(self.c.cursor,[1,0])
+        self.c._edit_stick(1000,-1000);self.assertEqual(self.c.edit_action,1) # One movement per centering.
+        self.c._edit_stick(0,0);self.c._edit_stick(0,1000)
+        self.input(3,2,0,1.02)
+        self.assertEqual(self.c.mission.waypoints,[[1,0]]);self.assertIsNone(self.c.edit_action)
+        self.c._edit_stick(-1000,0);self.assertEqual(self.c.cursor,[1.05,0])
+
+    async def test_undo_clear_and_empty_start_never_create_a_task_or_video(self):
+        self.c.radar=bytes(PLANE_BYTES)
+        for xy in ([1,0],[2,0]):
+            self.c.cursor=list(xy);self.c.confirm(1);self.c.confirm(1)
+        self.c.confirm(1);self.c.edit_action=1;self.c.confirm(1)
+        self.assertEqual(self.c.mission.waypoints,[[1,0]])
+        self.c.confirm(1);self.c.edit_action=2;self.c.confirm(1)
+        self.assertEqual(self.c.mission.waypoints,[])
+        self.c.confirm(1);self.c.edit_action=3;self.assertFalse(self.c.confirm(1))
+        self.assertEqual(self.c.mission.state,'edit');self.assertIsNone(self.c.video)
+        self.assertEqual(self.c.mission.task_id,0)
+
+    async def test_start_review_can_return_to_edit_without_losing_points(self):
+        self.c.mission.add_waypoint([1,0]);self.c.mission.add_waypoint([2,1])
+        self.c.confirm(1);self.c.edit_action=3;self.c.confirm(1)
+        self.assertEqual(self.c.mission.state,'ready');self.assertIsNone(self.c.video)
+        self.c.back(1.01)
+        self.assertEqual(self.c.mission.state,'edit');self.assertEqual(self.c.mission.waypoints,[[1,0],[2,1]])
+        self.c.confirm(1.02);self.c.back(1.03)
+        self.assertIsNone(self.c.edit_action);self.assertEqual(self.c.mission.state,'edit')
+
+    async def test_view_change_and_manual_takeover_dismiss_panel_without_executing_it(self):
+        self.c.mission.add_waypoint([1,0]);self.c.confirm(1);self.c.edit_action=2
+        self.input(2,0,0,1.01,flags=1|4|128|256) # CH8 changed to camera.
+        self.assertIsNone(self.c.edit_action);self.assertEqual(self.c.mission.waypoints,[[1,0]])
+        self.input(3,0,0,1.02);self.c.confirm(1.03)
+        self.controls(2,1.04,manual=True)
+        self.assertIsNone(self.c.edit_action);self.assertFalse(self.c.confirm(1.05))
+        self.assertEqual(self.c.mission.waypoints,[[1,0]]);self.assertIsNone(self.c.video)
+
+    async def test_occupied_map_cell_is_not_added(self):
+        from ai_coordinator.inspection.grid import cell
+        x,y=cell(self.c.cursor);radar=bytearray(PLANE_BYTES);offset=y*256+x;radar[offset//8]|=1<<(offset%8)
+        self.c.radar=bytes(radar);self.c.confirm(1)
+        self.assertFalse(self.c.confirm(1.01));self.assertEqual(self.c.mission.waypoints,[])
+
+    async def test_multi_point_protocol_uses_one_recording_and_report_through_manual_and_return(self):
+        from ai_coordinator.inspection.grid import build
+        import json
+        self.c.readiness=lambda now:{key:True for key in ('calibration','camera','fpga','map','layer')}
+        self.c.mission.set_pose(dict(epoch=1,x_m=.2,y_m=0,yaw_rad=0),1)
+        self.c.radar=bytes(PLANE_BYTES);self.c.layer=build([],.2)
+        self.c.mission.add_waypoint([1,0]);self.c.mission.add_waypoint([2,1]);self.c.mission.prepare_start()
+        self.c.confirm(1.01);video=self.c.video;self.c._actions(1.01)
+        task=self.c.mission.task_id;command=self.c.mission.expected['command_id']
+        self.packet(wire.STATE,[self.session,task,1,command,3,0,1|4|8,0],1.1)
+        self.c._actions(1.1)
+        command=self.c.mission.expected['command_id']
+        goto=[m for m in self.messages() if m['kind']==wire.CONTROL][-1]
+        self.assertEqual(goto['words'][5:7],[168,148]);self.assertIs(video,self.c.video)
+        self.controls(2,1.2,manual=True);self.controls(3,1.3)
+        self.assertTrue(self.c.video_required);self.assertEqual(self.c.mission.waypoint_index,1)
+        self.assertEqual(self.c.mission.state,'paused')
+        self.assertTrue(self.c.mission.resume(self.c.readiness(1.31),1.31));self.c._actions(1.31)
+        command=self.c.mission.expected['command_id']
+        self.packet(wire.STATE,[self.session,task,1,command,3,0,1|4|8,0],1.4)
+        self.assertEqual(self.c.mission.state,'await_return_layer');self.assertIs(video,self.c.video)
+        self.c._actions(1.4);self.c._actions(1.401)
+        command=self.c.mission.expected['command_id'];version=self.c.mission.pending_layer['version']
+        self.packet(wire.STATE,[self.session,task,1,command,6,version,1|4|8|16,0],1.41)
+        self.c._actions(1.41);command=self.c.mission.expected['command_id']
+        goto=[m for m in self.messages() if m['kind']==wire.CONTROL][-1]
+        self.assertEqual(goto['words'][5:7],[132,128]);self.assertTrue(video.capturing)
+        self.packet(wire.STATE,[self.session,task,1,command,3,version,1|4|8|16,0],1.5)
+        self.assertEqual(self.c.mission.state,'completed');self.assertIs(video,self.c.video);self.assertFalse(video.capturing)
+        report=json.loads(Path(self.c.report_path).read_text(encoding='utf-8'))
+        self.assertEqual(report['mission']['waypoints_m'],[[1,0],[2,1]])
+        self.assertEqual(report['mission']['waypoints_completed'],2);self.assertEqual(report['mission']['start_m'],[.2,0])
+        self.assertEqual([p['number'] for p in report['mission']['waypoint_arrivals']],[1,2])
+
+    async def test_editing_points_are_discarded_on_fpga_reconnection(self):
+        self.c.mission.add_waypoint([1,0]);self.c.confirm(1)
+        self.c.link_lost('link_lost',1.1)
+        self.assertIsNone(self.c.edit_action);self.assertEqual(self.c.mission.waypoints,[])
 
 if __name__=='__main__':unittest.main()

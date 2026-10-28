@@ -11,7 +11,7 @@ WIDTH, HEIGHT = 816, 420
 NAV_OBSTACLE_BGR = (0x46, 0x79, 0xE8)
 NAMES = {'tape': '胶带', 'screwdriver': '螺丝刀', 'scissors': '剪刀',
          'ad_calcium_milk': 'AD钙奶', 'nutri_express': '营养快线'}
-STATES = {'edit': '移动准心选点', 'ready': '确认开始巡检', 'await_start': '等待导航受理',
+STATES = {'edit': '移动准心，SWA打开选点菜单', 'ready': '确认路线后开始巡检', 'await_start': '等待导航受理',
           'object_recognition':'目标识别',
           'outbound': '去程巡检', 'returning': '最新地图返航', 'no_path': '无路，等待或暂停',
           'await_stop': '停车复核物体', 'await_layer': '提交视觉障碍',
@@ -39,6 +39,61 @@ def text(image, value, x, y, colour=(235, 240, 248)):
 def map_pixel(point):
     x, y = cell(point)
     return round((x+.5)*HEIGHT/SIZE), round((SIZE-y-.5)*HEIGHT/SIZE)
+
+
+def list_entries(mission, objects):
+    points=mission.get('waypoints_m',[]);completed=mission.get('waypoints_completed',0)
+    index=mission.get('waypoint_index',0)
+    entries=['%-6s%-7s%7s  %7s'%('编号','状态','X/米','Y/米')]
+    for i,(x,y) in enumerate(points):
+        status='已完成' if i<completed else '当前点' if i==index and mission['state']!='edit' else '待执行'
+        entries.append('%-6s%-7s%+7.2f  %+7.2f'%('P%d'%(i+1),status,x,y))
+    if not points:entries.append('尚未添加路径点')
+    entries.append('%-6s%-9s%7s  %7s'%('编号','目标名称','X/米','Y/米'))
+    for obj in objects:
+        if obj['confirmed']:
+            x,y=obj['xy_m']
+            entries.append('%-6s%-9s%+7.2f  %+7.2f'%('%03d'%obj['id'],NAMES.get(obj['class'],obj['class']),x,y))
+    if not any(o['confirmed'] for o in objects):entries.append('尚无完成定位的目标')
+    return entries
+
+
+def dashed_line(image, a, b):
+    length=math.dist(a,b)
+    if not length:return
+    for offset in range(0,math.ceil(length),10):
+        ends=[tuple(round(a[i]+(b[i]-a[i])*d/length) for i in (0,1)) for d in (offset,min(offset+5,length))]
+        cv2.line(image,*ends,(145,130,95),1)
+
+
+def waypoint_panel(image,mission):
+    points=mission.get('waypoints_m',[]);completed=mission.get('waypoints_completed',0)
+    index=mission.get('waypoint_index',0);state=mission['state']
+    text(image,'路径点：%d/%d已完成'%(completed,len(points)),440,40)
+    text(image,'坐标X向前、Y向左，单位米',440,64)
+    notice=mission.get('notice','')
+    for row in range(2):text(image,notice[row*22:(row+1)*22],440,88+row*20,(0,220,255))
+    selected=mission.get('edit_action')
+    if selected is not None:
+        for i,label in enumerate(('添加路径点','撤销末点','清空路径点','开始巡检')):
+            y=144+i*40
+            if i==selected:cv2.rectangle(image,(436,y-7),(WIDTH-8,y+25),(170,75,0),-1)
+            text(image,label,456,y,(0,240,255) if i==selected else (235,240,248))
+        text(image,'摇杆上下选择，SWA执行',440,328)
+        text(image,'返回或CH8切页关闭菜单',440,352)
+        return
+    if state=='ready':
+        text(image,'共%d点，完成后自动返航'%len(points),440,144)
+        text(image,'SWA开始；返回继续编辑',440,168)
+    else:
+        text(image,'橙格：障碍；红点：目标',440,144)
+        text(image,'浅蓝待执行、黄当前、绿完成',440,168)
+    text(image,'编号       X/米      Y/米',440,204)
+    first=max(0,len(points)-6) if state in ('edit','ready') else max(0,min(index-1,len(points)-6))
+    for row,i in enumerate(range(first,min(first+6,len(points)))):
+        x,y=points[i];colour=(80,220,80) if i<completed else (0,220,255) if i==index and state!='edit' else (255,210,150)
+        text(image,'P%-3d  %+.2f  %+.2f'%(i+1,x,y),440,230+row*24,colour)
+    text(image,'SWA打开菜单' if state=='edit' else 'CH8切页；SWA暂停或继续',440,392)
 
 
 def render(view, mission, objects, *, camera=None, detections=(), radar_raw=None,
@@ -75,6 +130,9 @@ def render(view, mission, objects, *, camera=None, detections=(), radar_raw=None
             bitmap = np.zeros((SIZE, SIZE, 3), np.uint8)
             bitmap[:] = (45, 39, 30); bitmap[occupancy.astype(bool)] = NAV_OBSTACLE_BGR
             image[:, :HEIGHT] = cv2.resize(bitmap[::-1], (HEIGHT, HEIGHT), interpolation=cv2.INTER_NEAREST)
+        points=mission.get('waypoints_m',[])
+        ordered=([mission['start_m']] if mission.get('start_m') is not None else [])+points
+        for a,b in zip(ordered,ordered[1:]):dashed_line(image,map_pixel(a),map_pixel(b))
         trace = mission.get('trace_m', [])
         if len(trace) > 1:
             cv2.polylines(image, [np.array([map_pixel(p) for p in trace])], False, (230, 160, 40), 2)
@@ -94,33 +152,33 @@ def render(view, mission, objects, *, camera=None, detections=(), radar_raw=None
                 radius = max(5, round(obj['xy_error_m']*HEIGHT/12.8))
                 cv2.circle(image, centre, radius, (40, 75, 180), 1)
                 text(image, obj['id'], centre[0]+6, centre[1]-8, (40, 70, 255))
-        if mission.get('goal_m') is not None:
-            cv2.drawMarker(image, map_pixel(mission['goal_m']), (0, 220, 255), cv2.MARKER_DIAMOND, 14, 2)
+        for i,point in enumerate(points):
+            colour=(80,220,80) if i<mission.get('waypoints_completed',0) else (0,220,255) if i==mission.get('waypoint_index',0) and mission['state']!='edit' else (255,210,150)
+            centre=map_pixel(point)
+            cv2.drawMarker(image,centre,colour,cv2.MARKER_DIAMOND,14,2)
+            text(image,'P%d'%(i+1),centre[0]+8,centre[1]-18,colour)
         if mission.get('start_m') is not None:
             cv2.drawMarker(image,map_pixel(mission['start_m']),(80,220,80),cv2.MARKER_SQUARE,12,2)
         if cursor is not None and mission['state'] in ('edit', 'ready'):
             cv2.drawMarker(image, map_pixel(cursor), (255, 255, 255), cv2.MARKER_CROSS, 16, 1)
-        text(image, '橙格：导航障碍', 440, 40)
-        text(image, '红点：已定位目标', 440, 64)
-        text(image, '黄点：巡检终点', 440, 92)
-        text(image, '蓝线：实际去程轨迹', 440, 120)
-        text(image, '绿点：返航起点，可换路', 440, 144)
-        text(image, '坐标：起始车头向前为X', 440, 172)
-        text(image, '地图范围：12.8米', 440, 200)
+        # Markers at the map's right edge must not overwrite the sidebar.
+        image[:,HEIGHT:]=(32,24,16)
+        waypoint_panel(image,mission)
     elif view == 'list':
-        confirmed = [o for o in objects if o['confirmed']]
-        text(image, '编号    目标            X/米       Y/米', 16, 48)
-        for row, obj in enumerate(confirmed[max(0, scroll):max(0, scroll)+12]):
-            x, y = obj['xy_m']
-            line = '%03d  %-6s  %+.2f   %+.2f' % (obj['id'], NAMES.get(obj['class'], obj['class']), x, y)
-            text(image, line, 16, 80+row*24)
-        if not confirmed:
-            text(image, '尚无完成定位的目标', 24, 100)
+        text(image,'巡检路径点与目标记录（摇杆上下滚动）',16,48)
+        entries=list_entries(mission,objects);offset=max(0,min(scroll,len(entries)-12))
+        for row,line in enumerate(entries[offset:offset+12]):text(image,line,16,80+row*24)
     else:
         raise ValueError('Unknown inspection view')
     cv2.rectangle(image, (0, 0), (WIDTH-1, 31), (32, 24, 16), -1)
     caption = {'recording':'录音中，上拨结束','recognizing':'正在识别语音'}.get(mission.get('recording_phase'),STATES.get(mission['state'], mission['state']))
-    text(image, caption, 12, 8)
+    if mission.get('waypoint_count'):
+        if mission['state'] in ('edit','ready'):progress='待开始%d点'%mission['waypoint_count']
+        elif mission['state']=='completed':progress='已完成%d点'%mission['waypoint_count']
+        else:progress='返航' if mission.get('phase')=='returning' else '去程%d/%d'%(min(mission['waypoint_index']+1,mission['waypoint_count']),mission['waypoint_count'])
+        caption+=' | '+progress
+    if mission.get('manual'):caption='手动接管，返回光标后确认继续'
+    text(image, caption if calibration_ready else caption[:20], 12, 8)
     if mission.get('instruction'):
         text(image,str(mission['instruction'])[:48],12,HEIGHT-18,(0,220,255))
     if not calibration_ready:

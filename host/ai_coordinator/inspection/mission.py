@@ -26,6 +26,7 @@ class InspectionMission:
         self.task_id = 0; self.command_id = 0; self.layer_version = 0
         self.state = 'edit'; self.phase = 'outbound'; self.view = 'map'
         self.goal = None; self.pose = None; self.epoch = None
+        self.waypoints = []; self.waypoint_index = 0; self.waypoint_arrivals = []; self.started_at = None
         self.start_point = None
         self.trace = []; self.return_trace=[];self.trace_truncated=False;self.return_yaw=None; self.return_points = []; self.return_index = 0
         self.actions = deque(); self.expected = None; self.pending_layer = None
@@ -83,11 +84,27 @@ class InspectionMission:
         if returning:self.return_yaw=self.pose['yaw_rad']
         else:self.trace_yaw=self.pose['yaw_rad']
 
-    def select_goal(self, xy):
-        if self.state not in ('edit', 'ready'):
-            raise ValueError('Goal editing is disabled during a task or on completion')
+    def _editing(self):
+        if self.state != 'edit':
+            raise ValueError('Route editing requires an unstarted task')
+
+    def add_waypoint(self, xy):
+        self._editing()
         cell(xy)
-        self.goal = list(xy); self.state = 'ready'; self.reason = None
+        self.waypoints.append(list(xy))
+
+    def undo_waypoint(self):
+        self._editing()
+        if self.waypoints:self.waypoints.pop()
+
+    def clear_waypoints(self):
+        self._editing()
+        self.waypoints.clear()
+
+    def prepare_start(self):
+        self._editing()
+        if not self.waypoints:raise ValueError('Add a patrol waypoint first')
+        self.goal = list(self.waypoints[0]); self.state = 'ready'; self.reason = None
 
     def _problems(self, ready, now):
         errors = [key for key in REQUIRED if ready.get(key) is not True]
@@ -104,6 +121,7 @@ class InspectionMission:
         if problems:
             self.reason = 'not_ready:' + ','.join(problems); return False
         self.task_id += 1; self.phase = 'outbound'; self.trace = [];self.return_trace=[];self.trace_truncated=False;self.return_yaw=None
+        self.waypoint_index = 0; self.waypoint_arrivals = []; self.started_at = now
         self.start_point = [self.pose['x_m'],self.pose['y_m']]
         self.return_points = []; self.return_index = 0; self.pending_layer = None
         self.reason = None; self._trace(force=True); self.last_status = now
@@ -111,10 +129,12 @@ class InspectionMission:
         return True
 
     def _goto(self, now):
-        goal = self.goal if self.phase == 'outbound' else self.return_points[self.return_index]
+        goal = self.waypoints[self.waypoint_index] if self.phase == 'outbound' else self.return_points[self.return_index]
+        self.goal = list(goal)
         self.state = 'await_start'
         self._command('goto', now, goal_mm=[round(v*1000) for v in goal],
-                      layer_version=self.layer_version, speed_code=30, phase=self.phase)
+                      layer_version=self.layer_version, speed_code=30, phase=self.phase,
+                      waypoint_index=self.waypoint_index if self.phase == 'outbound' else None)
 
     def pause(self, now, reason='operator_pause', manual=False):
         self.manual = manual or self.manual
@@ -163,6 +183,7 @@ class InspectionMission:
             raise ValueError('Stop or cancel the current task first')
         self.actions.clear(); self.expected = None; self.pending_layer = None
         self.state = 'edit'; self.phase = 'outbound'; self.goal = None
+        self.waypoints = []; self.waypoint_index = 0; self.waypoint_arrivals = []; self.started_at = None
         self.trace = []; self.return_trace=[];self.trace_truncated=False;self.return_yaw=None; self.return_points = []; self.reason = None
         self.start_point = None
 
@@ -226,6 +247,12 @@ class InspectionMission:
         elif kind == 'arrived' and self.state in ('await_start', 'outbound', 'returning', 'no_path') and event.get('stopped') is True:
             if self.phase == 'outbound':
                 self._trace(force=True)
+                self.waypoint_arrivals.append(dict(number=self.waypoint_index+1,xy_m=list(self.waypoints[self.waypoint_index]),
+                    at_s=now,elapsed_s=now-self.started_at,pose=deepcopy(self.pose)))
+                self.waypoint_index += 1
+                if self.waypoint_index < len(self.waypoints):
+                    self._goto(now)
+                    return True
                 # The outbound trace is evidence, not a return corridor. The
                 # existing FPGA planner may reroute on the latest merged map.
                 # Freeze the actual task start rather than the editor's pose
@@ -253,6 +280,9 @@ class InspectionMission:
         return {'session_id': self.session_id, 'task_id': self.task_id, 'epoch': self.epoch,
                 'state': self.state, 'phase': self.phase, 'view': self.view, 'reason': self.reason,
                 'goal_m': deepcopy(self.goal), 'trace_m': deepcopy(self.trace),
+                'waypoints_m':deepcopy(self.waypoints),'waypoint_index':self.waypoint_index,
+                'waypoint_count':len(self.waypoints),'waypoints_completed':len(self.waypoint_arrivals),
+                'waypoint_arrivals':deepcopy(self.waypoint_arrivals),'started_at_s':self.started_at,
                 'return_trace_m':deepcopy(self.return_trace),'pose':deepcopy(self.pose),'trace_truncated':self.trace_truncated,
                 'start_m':deepcopy(self.start_point),'return_policy':'latest_map',
                 'return_index': self.return_index, 'return_count': len(self.return_points),

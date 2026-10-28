@@ -255,6 +255,10 @@ class Recording:
                 timeline.write(json.dumps(dict(frame=self.frames,relative_ms=self.frames*100,utc=utc,
                     scheduled_monotonic_s=deadline,sampled_monotonic_s=now,phase=snapshot['mission']['phase'],
                     state=snapshot['mission']['state'],manual=snapshot['mission'].get('manual',False),
+                    waypoint_index=snapshot['mission'].get('waypoint_index',0),
+                    waypoint_count=snapshot['mission'].get('waypoint_count',0),
+                    waypoints_completed=snapshot['mission'].get('waypoints_completed',0),
+                    goal_m=snapshot['mission'].get('goal_m'),
                     sources=snapshot.get('sources',{})),ensure_ascii=False,allow_nan=False)+'\n')
                 self.frames+=1
                 if not self.ready:
