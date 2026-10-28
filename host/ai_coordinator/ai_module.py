@@ -1,7 +1,7 @@
 """Physical AI master switch, mode selection and release-to-transcribe audio.
 
-Controls have a short lease. A mode change, manual takeover, emergency stop or
-lost link cancels old work before it can publish speech or authorize motion.
+The FPGA master/mode switches define availability. Manual takeover, emergency
+stop or a real transport disconnect cancels old work; RK adds no rearm latch.
 """
 import asyncio
 from collections import deque
@@ -37,7 +37,6 @@ class AiModule:
         self.paused_manual = False
         self.vision_resume_required = False
         self.confirm_toggle = None
-        self.rearm_required = runtime.cfg.get('startup', {}).get('enabled') is True
         self.chat = False
         self.mode = 'semantic_navigation'
         self.selected = 0
@@ -68,7 +67,7 @@ class AiModule:
     def rejection(self, need_vision=False):
         if not self.enabled:
             return None
-        if not self.active or self.last_rx is None or self.clock()-self.last_rx > self.cfg.get('control_timeout_s',.5):
+        if not self.active:
             return 'ai_master_off_or_control_link_unavailable'
         if self.mode != 'semantic_navigation':
             return self.mode + '_mode_cannot_control_motion'
@@ -109,10 +108,7 @@ class AiModule:
     def on_controls(self, event, now):
         if not self.enabled:
             return
-        seq = event['sequence']
-        if self.sequence is not None and not 0 < ((seq - self.sequence) & 255) < 128:
-            return
-        self.sequence = seq
+        self.sequence = event['sequence']
         self.last_rx = now
         self.controls = event
         toggle=event.get('confirm_toggle',False)
@@ -120,16 +116,9 @@ class AiModule:
         self.confirm_toggle=toggle
         self.display_ack=event.get('display_ack',0)
         self.display_bank=event.get('display_bank',0)
-        if not event['enabled'] and event['rc_valid'] and not event['manual'] and not event['estop']:
-            self.rearm_required=False
         previous_pause=self.paused_manual
         paused=bool(event['enabled'] and event['manual'] and event['rc_valid'] and not event['estop'])
-        startup=getattr(self.rt,'startup',None)
-        usable = (event['enabled'] and event['rc_valid'] and event['swb_valid'] and
-                  not self.rearm_required and
-                  not event['manual'] and not event['estop'] and
-                  (startup is None or startup.ready) and
-                  self.rt.cfg.get('model_loads_enabled') is True)
+        usable = event['enabled'] and event['rc_valid'] and not event['manual'] and not event['estop']
         previous_mode=self.mode
         self.mode, self.selected = event['mode'], event['selected']
         chat = event['chat']
@@ -239,8 +228,7 @@ class AiModule:
             await self.chat_server.close()
 
     def _current(self, epoch, chat):
-        return (self.active and self.epoch == epoch and self.chat == chat and self.last_rx is not None and
-                self.clock()-self.last_rx<=self.cfg.get('control_timeout_s',.5))
+        return self.active and self.epoch == epoch and self.chat == chat
 
     async def _utterance(self, epoch, chat, released):
         path = None
@@ -360,7 +348,9 @@ class AiModule:
             startup=getattr(self.rt,'startup',None)
             if not self.controls.get('manual') and startup and not startup.ready:
                 state='模型加载中，请稍候' if startup.state!='retrying' else '模型加载重试中'
-            if self.rearm_required:state='请先返回再确认开启AI'
+        startup=getattr(self.rt,'startup',None)
+        if requested and self.active and startup and not startup.ready:
+            state='模型加载中，可选择功能'
         return ['AI模块 总开关: ' + ('开启' if requested else '关闭'),
                 'CH8选择 SWA确认/返回 SWB录音/结束',
                 '功能: '+mode, '状态: '+state,
@@ -373,7 +363,6 @@ class AiModule:
         self.external_stop()
         self.active=self.vision=self.chat=False
         self.paused_manual=self.vision_resume_required=False
-        self.rearm_required=True
         self.controls=self.last_rx=self.sequence=self.confirm_toggle=None
         self.mode='semantic_navigation';self.selected=0;self.state='off'
         self.instruction=self.reply='';self.detections=[];self.target=None;self.history=[];self.error=None
@@ -384,7 +373,6 @@ class AiModule:
     def link_lost(self,reason):
         if not self.enabled:return
         self.last_rx=None;self.sequence=None
-        self.rearm_required=True
         self.active=self.vision=False
         self.paused_manual=False
         self.vision_resume_required=True
@@ -396,8 +384,6 @@ class AiModule:
     def tick(self, now):
         if not self.enabled:
             return
-        if self.last_rx is not None and now-self.last_rx > self.cfg.get('control_timeout_s', .5):
-            self.link_lost('ai_control_link_timeout')
         if self.vision and self.rt.camera_state=='unavailable':
             self.error='camera_unavailable';self.state='error'
         try:
@@ -451,7 +437,7 @@ class AiModule:
                 'vision_enabled': self.vision, 'state': self.state,
                 'instruction': self.instruction, 'reply': self.reply,
                 'detections': self.detections, 'last_error': self.error,
-                'control_link_fresh': self.last_rx is not None and self.clock()-self.last_rx<=self.cfg.get('control_timeout_s',.5),
+                'control_link_available': self.last_rx is not None,
                 'record_armed': self.record_armed}
 
     async def close(self):

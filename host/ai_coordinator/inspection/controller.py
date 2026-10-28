@@ -40,7 +40,7 @@ class InspectionController:
         self.observation_objects=None;self.observation_frames=0
         self.usb=usb_factory(self.cfg['highspeed']) if self.enabled and self.cfg.get('highspeed',{}).get('enabled') is True else None
         self.input=None;self.actual=None;self.caps=None
-        self.epoch=None;self.sequence=0;self.context=0;self.latest_ai=None;self.ai_sequence=None
+        self.epoch=None;self.sequence=0;self.context=0;self.latest_ai=None
         self.last_input=self.last_state=self.last_map=self.last_camera=None
         self.next_hello=self.next_heartbeat=self.next_render=self.next_stick=0.
         self.cursor=[0.,0.];self.scroll=0;self.camera=None;self.detections=[];self.radar=None;self.planned_route=[];self.route_history=[];self.route_key=None;self.last_route=None
@@ -50,7 +50,7 @@ class InspectionController:
         self.render_job=None;self.record_job=None;self.released=None;self.record_armed=False
         self.usb_was_verified=False
         self.evidence=Evidence(rt.run_dir/'inspection_evidence');self.evidence_jobs=set();self.evidence_error=None;self.evidence_files=[]
-        self.want_close=None;self.next_close=0.
+        self.exit_requested=False
         self.video=None;self.recording_factory=recording_factory;self.video_next_report=0.;self.video_recovery=None
         self.video_camera_lease=False
         self.video_usb_lost_since=None
@@ -151,7 +151,7 @@ class InspectionController:
         self.planned_route=[];self.route_history=[];self.route_key=None;self.last_route=None
         self.report_path=None;self.instruction='';self.error=None;self.recording_phase=None
         self.observation_objects=None;self.observation_frames=0
-        self.layer_dirty=False;self.next_upload_retry=0.;self.next_close=0.
+        self.layer_dirty=False;self.next_upload_retry=0.
         self.last_map=self.last_camera=None
         if self.render_job and not self.render_job.done():self.render_job.cancel()
         if self.usb:self.usb.bind(self.mission.session_id,0,0,0)
@@ -159,7 +159,7 @@ class InspectionController:
     def link_lost(self,reason,now):
         if not self.enabled:return
         self.discovery_speech.cancel(reason)
-        self.generation+=1;self._stop_recording();self.want_close=None
+        self.generation+=1;self._stop_recording();self.exit_requested=False
         if self.mission.state in ACTIVE or self.mission.state in ('paused','manual_paused','fault'):
             self.mission.pause(now,reason);self.mission.state='invalidated';self.mission.reason=reason
             if self.epoch is not None:self._save_report()
@@ -175,15 +175,17 @@ class InspectionController:
         self.radar=None;self.camera=None;self.detections=[];self.objects=Objects();self.layer=None;self.layer_crc=None
         self.observation_round+=1;self.observation_pose=None;self.observed_boxes=[]
         self.upload=None;self.upload_info=None;self.upload_pending=None;self.last_input=self.last_state=None
-        self.ai_sequence=None;self.next_hello=now;self.rt.gateway.transport.drop('inspection')
+        self.latest_ai=None;self.next_hello=now;self.rt.gateway.transport.drop('inspection')
         if self.usb:self.usb.drop_controls()
         self.notice='连接重建：旧定位任务失效，报告已保留'
     def on_ai_controls(self,event,now):
         if not self.enabled:return
-        seq=event['sequence']
-        if self.ai_sequence is not None and not 0<((seq-self.ai_sequence)&255)<128:return
-        self.ai_sequence=seq;self.latest_ai=event
+        previous=self.latest_ai;self.latest_ai=event
         mode=event.get('mode')=='visual_inspection'
+        if mode and event.get('enabled') and (previous is None or not previous.get('enabled') or
+                previous.get('mode')!='visual_inspection' or previous.get('confirm_toggle')!=event.get('confirm_toggle')):
+            self._enter_page()
+            if previous is not None:self.input=None  # First new-page snapshot establishes its button counters.
         recognition=bool(event.get('mode')=='object_recognition' and self.rt.ai.active and
                          getattr(self.rt.ai,'vision',False) and event.get('enabled') and
                          not event.get('manual') and not event.get('estop'))
@@ -196,7 +198,7 @@ class InspectionController:
             self.mission.cancel(now,'ai_module_exit');self._save_report();self._finish_video('ai_module_exit')
         if event.get('manual'):
             self.observation_objects=None
-            self.want_close=None;self.last_camera=None;self.camera=None;self.observed_boxes=[];self.mission.set_manual(True,now);self._stop_recording();self.notice='手动接管，保留任务；回光标后确认继续'
+            self.exit_requested=False;self.last_camera=None;self.camera=None;self.observed_boxes=[];self.mission.set_manual(True,now);self._stop_recording();self.notice='手动接管，保留任务；回光标后确认继续'
         elif self.mission.manual:self.mission.set_manual(False,now)
         if was and not usable:
             self.generation+=1;self._stop_recording();self.upload=None;self.upload_info=None;self.upload_pending=None
@@ -205,7 +207,7 @@ class InspectionController:
         # original three modes. A fresh local confirmation is required on return.
         if not usable:
             self.discovery_speech.cancel('inspection_not_active');return
-        if self.want_close is not None:
+        if self.exit_requested:
             self._stop_recording();return
         if not event.get('record'):
             if self.released:self.released.set()
@@ -218,6 +220,9 @@ class InspectionController:
             elif not self.record_job or self.record_job.done():
                 self.released=asyncio.Event();generation=self.generation
                 self.record_job=asyncio.create_task(self._record(generation,self.released))
+    def _enter_page(self):
+        self.exit_requested=False;self.edit_action=None;self._stop_recording()
+        self.notice='地图移动准心，SWA打开路径点菜单'
     def on_packet(self,message,now):
         if not self.enabled:return
         kind,words=message['kind'],message['words']
@@ -233,24 +238,22 @@ class InspectionController:
                 old=self.input
                 if event['manual']:
                     self.observation_objects=None
-                    self.want_close=None;self.last_camera=None;self.camera=None;self.mission.set_manual(True,now)
+                    self.exit_requested=False;self.last_camera=None;self.camera=None;self.mission.set_manual(True,now)
                 elif self.mission.manual:self.mission.set_manual(False,now)
-                if old and (event['sequence']-old['sequence'])&0xffffffff>=0x80000000:return
                 if self.active and (not event['open'] or not event['permission'] or event['manual'] or not event['rc_valid']):
                     self.pause(now,'inspection_page_closed');self.active=False;self.generation+=1;self._stop_recording()
                 if self.video_required and (not event['open'] or not event['permission'] or not event['rc_valid']):
                     self.mission.cancel(now,'inspection_page_exit');self._save_report();self._finish_video('inspection_page_exit')
                 self.input=event;self.context=event['sequence'];self.last_input=now
-                if not event['open']:self.want_close=None
+                if event['open'] and (old is None or not old['open']):self._enter_page()
+                if not event['open']:self.exit_requested=False
                 if event['manual'] or (old and old['view']!=event['view']):self.edit_action=None
                 self.mission.set_view(event['view'])
                 if self.usb:self.usb.bind(self.mission.session_id,self.actual['task_id'] if self.actual else 0,self.epoch,self.context)
-                if event['open'] and not event['manual'] and event['rc_valid'] and old:
-                    confirms=(event['confirms']-old['confirms'])&65535;backs=(event['backs']-old['backs'])&65535
-                    if confirms==1:self.confirm(now)
-                    elif 1<confirms<32768:self.pause(now,'input_gesture_gap')
-                    if backs==1:self.back(now)
-                    elif 1<backs<32768:self.pause(now,'input_gesture_gap')
+                if event['open'] and not event['manual'] and event['rc_valid'] and old and old['open']:
+                    if event['confirms']!=old['confirms']:self.confirm(now)
+                    if event['backs']!=old['backs']:self.back(now)
+                self._close_page()
             elif kind==wire.STATE:
                 state=wire.status(words)
                 if state['session_id']!=self.mission.session_id or state['epoch']!=self.epoch:return
@@ -264,6 +267,7 @@ class InspectionController:
                     self.mission.layer_version=state['layer_version']
                 receipt={**state,'kind':'running'} if state['kind']=='accepted' and self.mission.state=='no_path' else state
                 self.mission.on_status(receipt,now)
+                self._close_page()
                 if self.mission.state=='completed' and self.report_path is None:self._save_report()
                 if self.mission.state=='completed':self._finish_video('completed')
                 if self.mission.state in ('edit','ready','paused','manual_paused','fault'):self.mission.layer_version=state['layer_version']
@@ -286,7 +290,7 @@ class InspectionController:
             self.mission.new_task();self.mission.manual=False
             self.report_path=None;self.instruction='';self.recording_phase=None
         self.mission.actions.clear();self.mission.expected=None;self.mission.pose=None;self.mission.epoch=epoch
-        self.actual=None;self.last_state=None;self.want_close=None;self.cursor_initialized=False
+        self.actual=None;self.last_state=None;self.exit_requested=False;self.cursor_initialized=False
         self.edit_action=None
         self._stop_recording()
         self.epoch=epoch;self.observation_round+=1;self.observation_pose=None;self.observed_boxes=[]
@@ -299,7 +303,7 @@ class InspectionController:
             fpga=bool(self.usb and self.usb.status()['verified'] and self.actual),map=self.radar is not None,
             layer=bool(self.actual and self.actual['flags']&16 and self.layer_crc is not None and self.layer and self.layer_crc==self.layer['crc32']))
     def confirm(self,now):
-        if not self.active or not self.input or self.input['manual'] or self.want_close is not None:return False
+        if not self.active or not self.input or self.input['manual'] or self.exit_requested:return False
         state=self.mission.state
         if state=='edit':
             if self.input['view']!=1:self.notice='请用CH8切到地图后选点';return False
@@ -322,11 +326,13 @@ class InspectionController:
             if self.evidence_error:self.notice='数据记录未就绪，请检查存储';return False
             if self.video_recovery and not self.video_recovery.done():self.notice='正在检查上次中断录像，请稍候';return False
             if self.video and not self.video.done.is_set():self.notice='上一段录像正在收尾';return False
-            accepted=self.mission.start(self.readiness(now),now)
+            ready=self.readiness(now);accepted=self.mission.start(ready,now)
             if accepted:
                 self.route_history=[];self.route_key=None;self.planned_route=[]
                 self._begin_video(now)
-            self.notice='正在准备双路录像，随后开始任务' if accepted else '等待标定或设备条件';return accepted
+            labels=dict(calibration='相机标定',camera='相机画面',fpga='FX2接口',map='雷达地图',layer='视觉图层')
+            self.notice='正在准备双路录像，随后开始任务' if accepted else '尚缺：'+'、'.join(labels[k] for k,v in ready.items() if not v)
+            return accepted
         if state in ('paused','manual_paused','fault'):
             accepted=self.mission.resume(self.readiness(now),now,layer=self.layer);self.notice='请求继续' if accepted else '尚不满足恢复条件';return accepted
         if state in ACTIVE:self.pause(now,'operator_pause');return True
@@ -343,7 +349,7 @@ class InspectionController:
     def back(self,now):
         if not self.input or not self.input['open'] or self.input['manual']:return
         if self.edit_action is not None:self.edit_action=None;return
-        if self.want_close is not None:return
+        if self.exit_requested:return
         state=self.mission.state
         if state in ACTIVE:self.pause(now,'operator_back');return
         if state in ('paused','manual_paused','fault'):
@@ -351,18 +357,16 @@ class InspectionController:
         if state=='ready':self.mission.state='edit';self.mission.goal=None;self.notice='继续编辑，已选路径点保留';return
         if state in ('edit','completed','cancelled','invalidated') and self.actual and self.actual['flags']&32:
             self.mission._command('cancel',now,reason='inspection_page_exit')
-        self.want_close=dict(self.mission.expected or self.actual or {})
+        self.exit_requested=True
         self._stop_recording()
         self.upload=None;self.upload_info=None;self.upload_pending=None
         if self.usb:self.usb.drop_controls()
         self.notice='正在返回AI功能页'
-        self._close_tick(now)
-    def _close_tick(self,now):
-        if self.want_close is None or not self.actual or not self.input or self.input['manual'] or now<self.next_close:return
-        owned=bool(self.actual['flags']&32)
-        matching=all(self.actual.get(k)==self.want_close.get(k) for k in ('session_id','task_id','epoch','command_id'))
-        if not owned or (self.stopped and matching):
-            self.send(wire.UI_CLOSE,[self.mission.session_id,self.epoch,self.context,1]);self.next_close=now+.1
+        self._close_page()
+    def _close_page(self):
+        if self.exit_requested and self.actual and self.input and not self.input['manual']:
+            if self.stopped or not self.actual['flags']&32:
+                self.send(wire.UI_CLOSE,[self.mission.session_id,self.epoch,self.context,1])
     async def observe(self,frame,result,now):
         if not self.enabled:return
         generation=self.generation
@@ -452,9 +456,7 @@ class InspectionController:
                             self.mission.cancel(now,'recording_failed');self._save_report();self._finish_video('recording_failed')
                         else:self.mission.actions.append(action)
                         continue
-                commissioned=all(self.readiness(now).values()) if kind=='goto' else True
-                if kind=='goto' and not commissioned:
-                    self.mission.pause(now,'conditions_changed_before_goto');continue
+                commissioned=True
                 self.send(wire.CONTROL,wire.control(action,user_token=self.input['user_token'] if self.input else 0,commissioned=commissioned),priority=kind!='goto')
                 if kind=='goto':self.mission.last_status=now;self.planned_route=[];self.route_key=None
             elif kind=='commit_layer':
@@ -495,11 +497,7 @@ class InspectionController:
         self._video_tick(now)
         if self.mission.state in ('completed','cancelled','invalidated','fault'):
             self.discovery_speech.cancel('inspection_terminal')
-        if self.video_required and (self.last_state is None or now-self.last_state>.5):
-            self.link_lost('inspection_telemetry_timeout',now)
         if self.rt.gateway.transport.fd is None:return
-        if self.last_state is not None and now-self.last_state>.5:
-            self.link_lost('inspection_telemetry_timeout',now)
         if (self.caps is None or self.actual is None) and now>=self.next_hello:
             self.send(wire.HELLO,[self.mission.session_id],priority=True);self.next_hello=now+1.
         if self.actual and now>=self.next_heartbeat:
@@ -517,10 +515,6 @@ class InspectionController:
             self.observation_objects=deepcopy(self.objects);self.observation_frames=0
             for obj in self.observation_objects.items:
                 if not obj['confirmed']:obj['hits']=0
-        if self.active and self.mission.state in ACTIVE:
-            ready=self.readiness(now)
-            missing=[key for key in ('calibration','camera','fpga') if not ready[key]]
-            if missing:self.pause(now,'runtime_conditions_lost:'+','.join(missing))
         if self.usb:
             for frame in getattr(self.usb,'drain_routes',lambda:[])():
                 try:
@@ -534,8 +528,7 @@ class InspectionController:
             for frame in self.usb.drain_maps():
                 if self.input and frame.view==self.input['view']:
                     self.radar=frame.payload;self.last_map=now
-        self._close_tick(now)
-        if self.want_close is not None:
+        if self.exit_requested:
             self._actions(now);return
         if not self.active:
             if (self.recognition_display and self.usb and self.usb.status()['verified'] and self.input and self.input['view']==0
@@ -544,7 +537,7 @@ class InspectionController:
                 self.render_job=asyncio.create_task(self._render(self.generation,binding,recognition=True));self.next_render=now+self.render_interval
             self._actions(now);return
         if self.input and now>=self.next_stick:
-            if self.want_close is None and self.mission.state=='edit' and self.input['view']==1:
+            if self.mission.state=='edit' and self.input['view']==1:
                 self._edit_stick(self.input['steer'],self.input['throttle'])
             elif self.input['view']==2:
                 from .render import list_entries
@@ -629,6 +622,7 @@ class InspectionController:
             notice=self.notice,error=self.error,report=self.report_path,usb=self.usb.status() if self.usb else None,
             actual=self.actual,objects=self.objects.snapshot(),recording=self.video.status() if self.video else None,
             edit_action=self.edit_action,
+            exit_requested=self.exit_requested,
             recognition_display=self.recognition_display,discovery_speech=self.discovery_speech.snapshot(),
             archive=dict(root=str(self.video_root),url='http://127.0.0.1:%d'%self.archive_server.server_port if self.archive_server else None,error=self.playback_error),
             calibration_model=dict(projection_model=profile.get('projection_model','pinhole_ground'),

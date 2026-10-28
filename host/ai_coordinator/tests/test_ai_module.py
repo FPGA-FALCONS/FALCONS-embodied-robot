@@ -151,14 +151,14 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         new_start = await asyncio.wait_for(self.started.get(), .5)
         self.assertTrue(new_start[1])
 
-    async def test_timeout_and_duplicate_packets_do_not_extend_lease(self):
+    async def test_packet_spacing_and_sequence_wrap_do_not_lock_ai(self):
         event = self.controls()
         self.ai.on_controls(event, 1.4)
-        self.ai.tick(1.51)
-        self.assertFalse(self.ai.active)
-        self.assertIn('ai_control_link_timeout', self.stops)
-        self.assertFalse(self.ai.record_armed)
-        self.assertIsNone(self.ai.sequence)
+        self.ai.tick(10)
+        self.assertTrue(self.ai.active)
+        self.assertNotIn('ai_control_link_timeout', self.stops)
+        self.controls(sequence=0,swb_valid=False)
+        self.assertTrue(self.ai.active);self.assertEqual(self.ai.sequence,0)
 
     async def test_manual_estop_and_master_off_close_gate(self):
         for change in ({'manual':True}, {'estop':True}, {'enabled':False}, {'rc_valid':False}):
@@ -171,14 +171,14 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.ai.vision)
         self.assertEqual(self.ai.rejection(), 'object_recognition_mode_cannot_control_motion')
 
-    async def test_serial_loss_requires_master_off_before_reentry(self):
+    async def test_serial_loss_cancels_recording_and_next_snapshot_restores_page(self):
         self.controls();self.controls(record=True)
         await asyncio.wait_for(self.started.get(),.5)
         self.ai.link_lost('usb_unplug')
         self.assertFalse(self.ai.active)
         self.controls(record=True)
-        self.assertFalse(self.ai.active)
-        self.controls(enabled=False)
+        self.assertTrue(self.ai.active)
+        self.assertEqual(len(self.starts),1)
         self.controls(record=False)
         self.assertTrue(self.ai.active)
         self.assertEqual(len(self.starts),1)
@@ -191,7 +191,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.ai.font_caches,[{},{}]);self.assertIsNone(self.ai.display_pending)
         self.assertEqual(self.ai.history,[]);self.assertEqual(self.ai.reply,'');self.assertEqual(self.ai.selected,0)
         self.seq=255;self.controls(enabled=False)
-        self.assertEqual(self.ai.sequence,0);self.assertFalse(self.ai.active);self.assertFalse(self.ai.rearm_required)
+        self.assertEqual(self.ai.sequence,0);self.assertFalse(self.ai.active)
         self.controls(record=True)
         await asyncio.sleep(0)
         self.assertEqual(self.starts,[])
@@ -248,10 +248,10 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.ai.vision)
         self.assertFalse(self.ai.vision_resume_required)
 
-    async def test_boot_loading_blocks_held_record_until_models_ready_and_fresh_gesture(self):
+    async def test_boot_loading_allows_page_selection_without_replaying_held_record(self):
         self.rt.startup=types.SimpleNamespace(ready=False,state='loading')
         self.controls(record=True)
-        self.assertFalse(self.ai.active)
+        self.assertTrue(self.ai.active)
         self.assertIn('模型加载中',self.ai.lines()[3])
         self.rt.startup.ready=True
         self.controls(record=True)
@@ -281,20 +281,16 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             chat_close.assert_not_awaited();tts_close.assert_not_awaited()
             self.rt.workers['asr'].close.assert_not_awaited()
 
-    async def test_service_restart_requires_observing_master_off_before_new_session(self):
+    async def test_service_restart_accepts_current_master_without_off_on_cycle(self):
         await self.ai.close()
         self.rt.cfg['startup']={'enabled':True}
         self.ai=AiModule(self.rt);self.ai.clock=lambda:1.
-        self.controls(record=True)
-        self.assertTrue(self.ai.rearm_required)
-        self.assertFalse(self.ai.active)
-        self.controls(enabled=False)
         self.controls(record=True)
         self.assertTrue(self.ai.active)
         self.assertFalse(self.ai.record_armed)
         self.assertIsNone(self.ai.work)
 
-    async def test_write_failure_closes_link_and_requires_new_master_confirmation(self):
+    async def test_write_failure_closes_transport_without_latching_master_rearm(self):
         self.controls()
         closed=[]
         self.rt.gateway.close=lambda:closed.append(True)
@@ -302,10 +298,9 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.ai.tick(1.1)
         self.assertEqual(closed,[True])
         self.assertFalse(self.ai.active)
-        self.assertTrue(self.ai.rearm_required)
         self.assertIn('unplugged',self.ai.error)
         self.controls()
-        self.assertFalse(self.ai.active)
+        self.assertTrue(self.ai.active)
 
     async def test_missing_high_speed_camera_never_blocks_navigation_or_chat(self):
         self.ai._set_vision=AiModule._set_vision.__get__(self.ai)

@@ -1,0 +1,176 @@
+{
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/inspection_src_22c99544a7c0",
+  "source_files_verified": 246,
+  "tests": {
+    "ai_coordinator_tests.tests.log": 354,
+    "semantic_nav.tests.log": 12,
+    "fx2_camera_tests.tests.log": 36
+  },
+  "service": "NRestarts=0\nActiveState=active\n",
+  "startup": {
+    "enabled": true,
+    "ready": true,
+    "state": "ready",
+    "required_models": [
+      "asr",
+      "llm",
+      "chat",
+      "tts"
+    ],
+    "loaded": {
+      "asr": {
+        "load_s": 2.6962421469997935,
+        "ready_at_s": 5565.826293227
+      },
+      "llm": {
+        "load_s": 0.0006346559994199197,
+        "ready_at_s": 5570.705613692
+      },
+      "chat": {
+        "load_s": 2.1119449139996505,
+        "ready_at_s": 5572.912697237
+      },
+      "tts": {
+        "load_s": 3.1536087329996008,
+        "ready_at_s": 5576.162191548
+      },
+      "vision": {
+        "load_s": 0.3695247510004265,
+        "ready_at_s": 5576.619424845
+      }
+    },
+    "errors": {},
+    "ready_tone_played": false,
+    "ready_tone_error": "ValueError: USB role speaker has 0 matches; explicit identity/disambiguation required"
+  },
+  "last_controls": {
+    "kind": "ai_controls",
+    "sequence": 150,
+    "enabled": false,
+    "rc_valid": true,
+    "manual": false,
+    "estop": false,
+    "swb_valid": true,
+    "selected": 0,
+    "confirm_toggle": false,
+    "display_ack": 97,
+    "display_bank": 1,
+    "reset_pending": false,
+    "mode": "semantic_navigation",
+    "chat": false,
+    "record": false,
+    "vision": false
+  },
+  "reset_events": [
+    {
+      "at_s": 5888.851379375,
+      "type": "fpga_reset_initialized",
+      "tasks_resumed": false
+    }
+  ],
+  "ai": {
+    "configured": true,
+    "active": false,
+    "mode": "semantic_navigation",
+    "selected": 0,
+    "paused_manual": false,
+    "vision_resume_required": false,
+    "vision_enabled": false,
+    "state": "off",
+    "instruction": "",
+    "reply": "",
+    "detections": [],
+    "last_error": null,
+    "control_link_available": true,
+    "record_armed": false
+  },
+  "inspection": {
+    "active": false,
+    "exit_requested": false,
+    "mission": {
+      "session_id": 4046472395,
+      "task_id": 0,
+      "epoch": 2,
+      "state": "edit",
+      "phase": "outbound",
+      "view": "map",
+      "reason": null,
+      "goal_m": null,
+      "trace_m": [],
+      "waypoints_m": [],
+      "waypoint_index": 0,
+      "waypoint_count": 0,
+      "waypoints_completed": 0,
+      "waypoint_arrivals": [],
+      "started_at_s": null,
+      "return_trace_m": [],
+      "pose": {
+        "epoch": 2,
+        "x_m": -0.001,
+        "y_m": 0.0,
+        "yaw_rad": -0.0012217304763960308,
+        "at_s": 6466.735188484
+      },
+      "trace_truncated": false,
+      "start_m": null,
+      "return_policy": "latest_map",
+      "return_index": 0,
+      "return_count": 0,
+      "layer_version": 0,
+      "manual": false
+    },
+    "notice": "已复位，请重新开启AI并选择任务",
+    "readiness": {
+      "calibration": true,
+      "camera": false,
+      "fpga": true,
+      "map": false,
+      "layer": false
+    },
+    "usb": {
+      "verified": true,
+      "ifclk_hz": 30005805,
+      "last_diagnostic_s": 5564.358877798,
+      "error": null,
+      "generation": 1,
+      "pending_control": 0,
+      "pending_display": false
+    },
+    "actual": {
+      "session_id": 4046472395,
+      "task_id": 0,
+      "epoch": 2,
+      "command_id": 0,
+      "kind": "hello",
+      "layer_version": 0,
+      "stopped": false,
+      "manual": false,
+      "error_code": 0,
+      "flags": 72
+    },
+    "edit_action": null
+  },
+  "obsolete_control_timeout_removed": true,
+  "focus": 260,
+  "autofocus": false,
+  "calibration_sha256": "20147f33e8ef49e9c74332c7ec3e6b7c9e4cc27ddfa6d93bcb8ce3e09d330f71",
+  "ui_watch": [
+    {
+      "ai": false,
+      "active": false,
+      "exit_requested": false,
+      "state": "edit",
+      "points": 0,
+      "edit_action": null,
+      "notice": "已复位，请重新开启AI并选择任务",
+      "readiness": {
+        "calibration": true,
+        "camera": false,
+        "fpga": true,
+        "map": false,
+        "layer": false
+      }
+    }
+  ],
+  "physical_menu_test_confirmed": false
+}

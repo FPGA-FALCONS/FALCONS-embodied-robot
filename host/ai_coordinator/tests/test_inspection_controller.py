@@ -41,8 +41,8 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
     def input(self,seq,confirms,backs,now,flags=1|4|128|256|(1<<4),steer=0,throttle=0):
         self.packet(wire.INPUT,[self.session,1,seq,flags,((throttle&65535)<<16)|(steer&65535),
             (backs<<16)|confirms,confirms,180|(4<<16)],now)
-    def controls(self,sequence,now,manual=False,record=False,mode='visual_inspection'):
-        self.c.on_ai_controls(dict(sequence=sequence,enabled=True,manual=manual,estop=False,record=record,mode=mode),now)
+    def controls(self,sequence,now,manual=False,record=False,mode='visual_inspection',confirm_toggle=False):
+        self.c.on_ai_controls(dict(sequence=sequence,enabled=True,manual=manual,estop=False,record=record,mode=mode,confirm_toggle=confirm_toggle),now)
     def messages(self):
         reader=wire.Reader();return [m for data,kw in self.port.frames for m in reader.feed(data,now=1)]
     def moving(self):
@@ -122,15 +122,15 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.packet(wire.STATE,[self.session,1,1,1,1,0,4|8,0],1.1)
         self.assertEqual(self.c.mission.state,'outbound')
     async def test_back_pauses_then_cancels_without_closing_a_moving_page(self):
-        self.moving();self.c.actual['flags']|=32;self.c.back(1.1);self.assertEqual(self.c.mission.state,'paused')
+        self.moving();self.c.actual['flags']|=32;self.c.stopped=False;self.c.back(1.1);self.assertEqual(self.c.mission.state,'paused')
         self.c.back(1.2);self.assertEqual(self.c.mission.state,'cancelled')
         self.c.stopped=False;self.c.back(1.3);self.c._actions(1.3)
         self.assertFalse(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
-    async def test_cancel_closes_child_only_after_matching_stopped_receipt(self):
-        self.moving();self.c.actual['flags']|=32;self.c.back(1.1);self.c.back(1.2);self.c.tick(1.21)
+    async def test_cancel_closes_child_after_stopped_receipt_without_command_match_gate(self):
+        self.moving();self.c.actual['flags']|=32;self.c.stopped=False;self.c.back(1.1);self.c.back(1.2);self.c.tick(1.21)
         self.assertFalse(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
         expected=self.c.mission.expected
-        self.packet(wire.STATE,[self.session,expected['task_id'],1,expected['command_id'],2,0,1|4|8,0],1.22)
+        self.packet(wire.STATE,[self.session,expected['task_id'],1,0,2,0,1|4|8|32,0],1.22)
         self.c.tick(1.23)
         self.assertTrue(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
     async def test_unstarted_exit_needs_neither_permission_nor_stopped_owner(self):
@@ -143,7 +143,6 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.c.back(1.1);self.c.tick(1.11)
         controls=[m for m in self.messages() if m['kind']==wire.CONTROL]
         self.assertEqual([m['words'][4]&255 for m in controls],[wire.OP_CANCEL])
-        self.assertFalse(any(m['kind']==wire.UI_CLOSE for m in self.messages()))
         expected=self.c.mission.expected
         self.packet(wire.STATE,[self.session,0,1,expected['command_id'],2,0,64,0],1.12)
         self.c.tick(1.13)
@@ -181,14 +180,13 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.c.input);self.assertIsNone(self.c.actual);self.assertIsNone(self.c.caps)
         self.assertFalse(self.c.mission.drain());self.assertFalse(self.c.active)
     async def test_manual_discards_a_pending_page_close(self):
-        self.moving();self.c.back(1.1);self.c.back(1.2);self.assertIsNotNone(self.c.want_close)
-        self.controls(2,1.21,manual=True);self.assertIsNone(self.c.want_close)
+        self.moving();self.c.back(1.1);self.c.back(1.2);self.assertTrue(self.c.exit_requested)
+        self.controls(2,1.21,manual=True);self.assertFalse(self.c.exit_requested)
 
-    async def test_telemetry_timeout_rebinds_session_even_if_fpga_epoch_is_reused(self):
+    async def test_telemetry_gap_does_not_replace_session_or_invalidate_task(self):
         self.moving();old=self.c.mission.session_id;self.c.tick(1.6)
-        self.assertNotEqual(self.c.mission.session_id,old)
-        self.assertEqual(self.c.mission.state,'invalidated');self.assertIsNone(self.c.caps)
-        self.assertTrue(any(m['kind']==wire.HELLO and m['words'][0]==self.c.mission.session_id for m in self.messages()))
+        self.assertEqual(self.c.mission.session_id,old)
+        self.assertNotEqual(self.c.mission.state,'invalidated');self.assertIsNotNone(self.c.caps)
         self.assertFalse(any(m['kind']==wire.CONTROL and m['words'][4]&255==wire.OP_GOTO for m in self.messages()))
     async def test_initial_cursor_uses_actual_current_pose(self):
         self.packet(wire.POSE,[1,1,1000000,200,300,0,1],1.1)
@@ -210,9 +208,24 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.c.mission.pose);self.assertIsNone(self.c.actual)
         self.assertFalse(self.c.mission.drain())
 
-    async def test_input_counter_gap_pauses_without_replaying_multiple_gestures(self):
+    async def test_input_counter_jump_processes_latest_gesture_once(self):
         self.moving();self.input(2,3,0,1.1)
-        self.assertEqual(self.c.mission.state,'paused');self.assertEqual(self.c.mission.reason,'input_gesture_gap')
+        self.assertEqual(self.c.mission.state,'paused');self.assertEqual(self.c.mission.reason,'operator_pause')
+    async def test_explicit_reentry_discards_old_close_even_without_closed_input_snapshot(self):
+        self.c.back(1.1);self.assertTrue(self.c.exit_requested)
+        self.controls(2,1.2,confirm_toggle=True)
+        self.assertFalse(self.c.exit_requested);self.assertNotIn('正在返回',self.c.notice)
+        self.input(8,5,3,1.21);self.controls(3,1.22,confirm_toggle=True)
+        self.assertTrue(self.c.active);self.assertFalse(self.c.exit_requested)
+        self.assertIsNone(self.c.edit_action) # Old counters are only the new baseline.
+        self.input(9,6,3,1.23)
+        self.assertEqual(self.c.edit_action,0)
+    async def test_open_edge_clears_old_return_notice_and_button_history(self):
+        self.c.exit_requested=True;self.c.notice='正在返回AI功能页'
+        self.input(2,2,2,1.1,flags=4|128|(1<<4))
+        self.input(3,7,4,1.2)
+        self.assertFalse(self.c.exit_requested);self.assertNotIn('正在返回',self.c.notice)
+        self.assertIsNone(self.c.edit_action)
     async def test_stale_session_packets_cannot_close_or_change_task(self):
         old=self.c.context;self.packet(wire.INPUT,[self.session^1,1,999,0,0,0,0,0],1.1)
         self.assertEqual(self.c.context,old);self.assertEqual(self.c.mission.state,'edit')

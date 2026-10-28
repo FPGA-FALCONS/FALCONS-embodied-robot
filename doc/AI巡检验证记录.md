@@ -9,7 +9,7 @@
 | 四个AI入口、原功能独立 | 已实现；语义导航、聊天和手动暂停留页曾由用户现场确认 |
 | 巡检三视图及非运动接管 | 2026-10-27用户确认实时相机、地图、文字正常；SWC后保留总开关/页面，回光标不自启动 |
 | 独立目标识别带框画面 | 2026-10-27用户确认屏幕显示成功 |
-| 巡检退出、复位和切页 | 已修复并部署；真实FPGA复位握手、空任务、关闭AI及动态文字重建通过；手柄退出和切页观感待现场复测 |
+| 巡检进入、退出和切页 | 已删除重复自锁门槛；354项主机测试及相关RTL通过。2026-10-28用户确认进入巡检、打开菜单、添加路径点、返回AI功能页及再次进入全部正常 |
 | 雷达绘制方向 | 用户确认由雷达安装方向导致，调整安装后已解决；本轮没有修改坐标或箭头逻辑 |
 | 原生UVC与focus260 | 2026-10-28真实取得三帧1280×720 MJPG，序号6/7/8；自动对焦关闭，每帧读回260 |
 | 静态H | 14点去畸变H已部署，近端扩展至40cm；独立测量记录保留，不用标称安装角度代替H |
@@ -17,34 +17,34 @@
 | 多路径点 | RK已部署；顺序推进、人工恢复和返航已通过协议/状态机测试；新面板及实车多点巡检待测 |
 | 双路10Hz录像 | 真FFmpeg/MP4/PTS、恢复及回放测试通过；跨点、手动与返航同一会话通过；真实巡检全程录像待测 |
 | 发现语音 | 四句Kokoro WAV已缓存；扬声器触发播报尚未实测 |
-| 本轮外设与实测边界 | 控制串口与JTAG正常；本轮RK未枚举到FX2，遥控无有效上报；未进行音频或运动验收 |
+| 本轮外设与实测边界 | 用户重插后FX2真实回环通过、约30.006MHz；热点连接重建后SSH恢复，服务正常；未启动巡检运动 |
 | 整车巡检 | 尚未进行真实自动绕障、全部点位完成及换路返航验收 |
 
 ## 最近RK软件发布
 
-发布为`/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/inspection_src_f04e40a83244`。运行根为`/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1`，实际选择由`active_release.json`和`config.json`决定。
+发布为`/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/inspection_src_22c99544a7c0`。运行根为`/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1`，实际选择由`active_release.json`和`config.json`决定。
 
-- 包内245份源码/资源，SHA256为`b5896608af3d191a088ec465ab756bb965b72b23720bf1a5e973b7da3c33bfae`；含编译原生取帧工具的246项部署清单全部匹配。
-- 服务active/running、NRestarts=0；ASR、语义LLM、Qwen3.5 0.8B、Kokoro及视觉模型均就绪，模型errors为空。
-- 保留原模型、音频身份、H、focus260和关闭自动对焦配置。备份为`autostart_backups/20261028_133126_955c4997`。
-- RK协调服务352项全部通过，FX2工具36项、语义工具12项通过；Windows受影响85项复核通过。测试涵盖未开始/运行/取消/完成退出、退出期间撤权、底盘所有权释放、复位后序号0与字库重建。
-- SRAM加载后收到序号0的reset_pending标记，RK只初始化一次并确认；之后标记清除、动态文字提交确认号为5。任务点数0、task/command均为0，AI关闭；模型加载记录在FPGA复位前后完全一致，没有启动巡检或发送运动指令。
+- 包内245份源码/资源，SHA256为`3bb72534197aa2a32e70c22e7bc3cf3911b9204c73af95b27329d728606527e4`；部署前逐文件校验并编译原生取帧工具。
+- 激活后重连核对运行版本正确，服务active、NRestarts=0；必需模型就绪，控制串口和FX2回环正常。
+- 保留原模型、音频身份、H、focus260和关闭自动对焦配置，删除失效的control_timeout_s配置。备份为`autostart_backups/20261028_140555_3d1ffeb5`。
+- RK协调服务354项全部通过，FX2工具36项、语义工具12项通过；Windows354项中11项平台跳过，其余通过，配置与入口受影响72项复核通过。新增回归覆盖未观察到关闭快照时重新进入、旧返回请求和旧按键基线，以及服务重启不要求关闭/重开AI。
+- 新位流加载后核对为空任务编辑状态、exit_requested=false、AI关闭，不存在重新解锁标志。用户随后确认手柄进入、打开菜单、添加路径点、返回和再次进入全部正常，不再卡在旧返回/重新开启提示；本轮仅验收菜单，没有启动巡检运动。
 
-详细原始记录：[交互修复验证](evidence/ai_interaction_fix_20261028/VALIDATION.json)、[板端状态](evidence/ai_interaction_fix_20261028/rk_validation.json)。先前多点版本记录保留在[多点验证](evidence/inspection_waypoints_20261028/VALIDATION.json)，不代表当前部署。
+详细原始记录：[简化入口验证](evidence/ai_entry_simple_20261028/VALIDATION.json)。先前版本的[复位握手实测](evidence/ai_interaction_fix_20261028/rk_validation.json)和[多点验证](evidence/inspection_waypoints_20261028/VALIDATION.json)保留原样，不代表本轮已经完成现场交互验收。
 
 ## 最近FPGA构建与加载
 
-2026-10-28修复AI复位标记、退出确认和前台画面保留逻辑，重新综合布局布线并仅以SRAM加载。构建记录为[交互验证](evidence/ai_interaction_fix_20261028/VALIDATION.json)，实际输入见[135项源/约束/头文件指纹](evidence/ai_interaction_fix_20261028/fpga_inputs.json)。
+2026-10-28删除额外关闭版本计数器，改为当前页面context匹配关闭请求；重新综合布局布线并仅以SRAM加载。构建记录为[入口验证](evidence/ai_entry_simple_20261028/VALIDATION.json)，实际输入见[135项源/约束/头文件指纹](evidence/ai_entry_simple_20261028/fpga_inputs.json)。
 
 | 项目 | 最近记录 |
 | --- | --- |
-| 位流SHA256 | `c33e7a34e7615c2070f7269947ffbd816d5166f20a0c262b2f72a7821fd2b2bb` |
-| 加载 | SRAM，状态0x00026230，耗时8.05秒；未写Flash/FX2 EEPROM |
-| Fmax（要求/实际） | 系统50/50.324MHz、像素49/55.290MHz、FX2 30.030/36.908MHz |
+| 位流SHA256 | `4375f1cfd5ac69967bf783b7a6a83505d56e8b95009cc24c9c6ebbb25a1d5535` |
+| 加载 | SRAM，状态0x00026230，耗时7.84秒；未写Flash/FX2 EEPROM |
+| Fmax（要求/实际） | 系统50/50.562MHz、像素49/54.726MHz、FX2 30.030/36.908MHz |
 | 同钟域 | 16行setup/hold TNS为0 |
 | 全局 | 仍有既有DDR/HDMI跨域setup58、hold18个违例端点，不能宣称所有路径闭合 |
-| 资源 | Logic54038、寄存器26839；对应布线报告BSRAM246、DSP252.5 |
-| 仿真 | 完整应用76台通过；包括复位握手、真实停车后重试退出、切页保留前台帧、手动立即隐藏及原三功能独立 |
+| 资源 | Logic53933、寄存器26775；对应布线报告BSRAM246、DSP252.5 |
+| 仿真 | 本轮受影响4台通过；当前页面停车后可关闭，旧页面关闭请求不能关闭重新进入的页面，原三功能与手动暂停不变 |
 
 SRAM掉电失效；这份日志不能证明断电后的FPGA仍运行该位流。Flash内容不以旧交接文档中的猜测更新，现场需要时按实际下载记录核对。
 

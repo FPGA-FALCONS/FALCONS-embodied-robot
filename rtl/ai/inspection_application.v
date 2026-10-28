@@ -133,7 +133,7 @@ module inspection_application #(
     wire [3:0] tx_count;
     wire [255:0] tx_words;
     wire [31:0] status_flags={25'd0,i_pose_valid,o_owned,i_layer_valid,i_safety,i_permission,i_manual,o_stopped};
-    reg [31:0] input_sequence,last_ui_revision,ui_session,ui_epoch,previous_input_flags;
+    reg [31:0] input_sequence,previous_input_flags;
     reg [15:0] confirms,backs;
     assign o_session=session;
     assign o_task=task_id;
@@ -144,10 +144,10 @@ module inspection_application #(
         backs,confirms,input_axes,input_flags,input_sequence,i_epoch,session};
     always @(posedge clk or negedge rst_n)begin
         if(!rst_n)begin
-            input_sequence<=0;last_ui_revision<=0;ui_session<=0;ui_epoch<=0;previous_input_flags<=0;
+            input_sequence<=0;previous_input_flags<=0;
             confirms<=0;backs<=0;o_ui_close<=0;
         end else begin
-            o_ui_close<=0;ui_session<=session;ui_epoch<=i_epoch;previous_input_flags<=input_flags;
+            o_ui_close<=0;previous_input_flags<=input_flags;
             if(UI_ENABLE!=0)begin
                 if(input_flags!=previous_input_flags || (i_ui_open && !i_manual && i_ui_rc_valid && (i_ui_confirm || i_ui_back)))
                     input_sequence<=input_sequence+1'b1;
@@ -155,9 +155,9 @@ module inspection_application #(
                     if(i_ui_confirm)confirms<=confirms+1'b1;
                     if(i_ui_back)backs<=backs+1'b1;
                 end
-                if(session!=ui_session || i_epoch!=ui_epoch)last_ui_revision<=0;
-                else if(ui_close_request && ui_revision>last_ui_revision && (o_stopped || !o_owned))begin
-                    last_ui_revision<=ui_revision;
+                // Close belongs to this page's current input revision. A
+                // delayed request from a previous visit cannot close a new one.
+                if(ui_close_request && ui_revision==input_sequence && (o_stopped || !o_owned))begin
                     o_ui_close<=1;
                 end
             end

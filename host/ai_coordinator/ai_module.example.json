@@ -1,7 +1,6 @@
 {
   "ai_module": {
     "enabled": true,
-    "control_timeout_s": 0.5,
     "max_recording_s": 30,
     "speaker_device": "plughw:CARD=Device,DEV=0"
   },

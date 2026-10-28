@@ -20,6 +20,7 @@ import zipfile
 
 def prepare_config(current,defaults,release):
     cfg=copy.deepcopy(current);inspection={**copy.deepcopy(defaults),**copy.deepcopy(cfg.get('inspection',{}))}
+    cfg.get('ai_module',{}).pop('control_timeout_s',None)
     inspection['enabled']=True
     # Older deployments carry a complete inspection.camera dictionary. Merge
     # new camera defaults below it, rather than losing newly introduced fields.

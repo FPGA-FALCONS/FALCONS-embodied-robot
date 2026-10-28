@@ -2,7 +2,7 @@
 module inspection_application_tb;
     reg clk=0,rst=0,rxvalid=0,permission=0,manual=0,safety=1,done=0;
     reg [7:0] rxdata=0,vector[0:371];
-    reg local_pause=0,confirm=0,back=0;
+    reg local_pause=0,confirm=0,back=0,ui_open=0;
     reg [15:0] token=0;
     wire ready,owned,goal,motion,force_stop,pending,stopped,txvalid;
     wire [7:0] gx,gy,status,txdata;
@@ -24,7 +24,7 @@ module inspection_application_tb;
         .clk(clk),.rst_n(rst),.i_rx_data(rxdata),.i_rx_valid(rxvalid),.o_rx_ready(ready),
         .i_permission(permission),.i_manual(manual),.i_safety(safety),.i_link(1'b1),.i_local_pause(local_pause),
         .i_user_token(token),.i_epoch(32'd1),.i_pose_tick(1'b0),.i_pose_valid(1'b1),
-        .i_ui_open(permission),.i_ui_master(1'b1),.i_ui_record(1'b0),.i_ui_rc_valid(1'b1),
+        .i_ui_open(ui_open),.i_ui_master(1'b1),.i_ui_record(1'b0),.i_ui_rc_valid(1'b1),
         .i_ui_confirm(confirm),.i_ui_back(back),.i_ui_view(2'd1),.i_ui_steer(-12'sd500),.i_ui_throttle(12'sd800),
         .i_vehicle_width_mm(16'd180),.i_forward_check_cells(8'd4),.o_ui_close(ui_close),
         .i_x_mm(32'sd0),.i_y_mm(32'sd0),.i_yaw_cdeg(32'sd0),
@@ -49,14 +49,15 @@ module inspection_application_tb;
         $readmemh("vectors/inspection_application.hex",vector);
         repeat(3)@(negedge clk);rst=1;repeat(3)@(negedge clk);
         feed(0,35);check(!owned && txbytes>0,"host HELLO produces capability transaction without authority");
-        permission=1;repeat(25)@(negedge clk);token=1;confirm=1;@(negedge clk);confirm=0;
+        permission=1;ui_open=1;repeat(25)@(negedge clk);token=1;confirm=1;@(negedge clk);confirm=0;
         check(owned && stopped && !motion,"task entry completes actual stop before host goal");
         feed(36,155);check(motion && goal && gx==140 && gy==128,"Python transaction reaches registered navigation goal");
         check(input_snapshots>0 && dut.confirms==1 && dut.backs==0,"physical input snapshot retains confirmation and joystick axes");
         feed(156,227);check(closes==0 && motion,"host cannot close child page while chassis is moving");
         local_pause=1;@(negedge clk);local_pause=0;repeat(25)@(negedge clk);
         feed(156,227);check(closes==1 && stopped,"rejected moving close revision can retry after actual stopped");
-        feed(156,227);check(closes==1,"accepted close revision cannot be replayed");
+        ui_open=0;repeat(3)@(negedge clk);ui_open=1;repeat(3)@(negedge clk);
+        feed(156,227);check(closes==1,"old page close cannot close a newly entered page");
         manual=1;repeat(3)@(negedge clk);
         check(!motion && !goal,"manual revokes application output locally");
         manual=0;repeat(25)@(negedge clk);check(stopped && !motion,"cursor return holds current task stopped");
