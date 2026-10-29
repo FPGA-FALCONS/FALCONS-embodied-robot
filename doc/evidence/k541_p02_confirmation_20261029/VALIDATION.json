@@ -1,0 +1,43 @@
+{
+  "model": "K541 P02 FP16 + CPU temporal confirmation",
+  "model_bytes": 21812533,
+  "model_sha256": "7d84e80c20b0c3ff8e5eae6bcbec1d152f880a8ab4189a50adb5757431e02209",
+  "threshold": 0.25,
+  "nms_iou": 0.65,
+  "confirm_frames": 3,
+  "association_iou": 0.3,
+  "association_gap_s": 0.6,
+  "raw_gate_source": "用户提供训练包temporal_confirm.py原样引入",
+  "weight_is_new_to_this_deployment": true,
+  "package_note": "连续确认版沿用包内P02权重，不是本次重新训练",
+  "source_update": "原活动发布目录内更新视觉适配相关文件与清单；没有另建备份或添加兼容分支",
+  "release_directory": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/inspection_src_213a5d4b18af",
+  "model_path": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/models/k541_p02_fp16.rknn",
+  "manifest_files_verified": 248,
+  "local_tests": 375,
+  "local_platform_skips": 11,
+  "rk_tests": 375,
+  "camera_frames": 10,
+  "camera_size": [
+    1280,
+    720
+  ],
+  "focus": 260,
+  "autofocus": false,
+  "real_scene_detected_targets": 0,
+  "real_object_confirmation_field_test": "待测，真实探针中没有目标框，不能当作实物识别通过",
+  "service_active": true,
+  "service_restarts": 0,
+  "vision_worker_loaded": true,
+  "startup_ready": true,
+  "speaker_connected": false,
+  "control_link_available": false,
+  "motion_commands_sent": false,
+  "fpga_changed": false,
+  "source_sha256": {
+    "host/ai_coordinator/worker.py": "015998411d23065aa68d6d4fc422234f18e5a42ae594266b3bc5b23d131fa39d",
+    "host/ai_coordinator/runtime.py": "e16b9816441650144bacb5a1930563d9291fe2024df2c15ee1eb12e7d580f29a",
+    "host/ai_coordinator/schema.py": "83f5c0beeb48e93d428a4457f4eca30b56fdb497749c49ef14b23108795d81f6",
+    "host/ai_coordinator/temporal_confirm.py": "5d6a86355ef4c51575e294760b55f31969d64cbb9658dc6d8c92412d25bc81a7"
+  }
+}

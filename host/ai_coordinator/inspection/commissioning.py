@@ -114,3 +114,38 @@ def main():
     args.out.write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps({'candidate':str(args.out),'live_config_changed':False,'motion_enabled':False}))
 
 if __name__=='__main__':main()
+
+
+from .calibration import Calibration
+from ..ground_target import base_to_map
+
+
+class TimedCalibration(Calibration):
+    """Offline strict-timing validation only; live inspection uses locate_stopped."""
+    def problems(self, image_size, camera_serial):
+        errors = self.geometry_problems(image_size, camera_serial)
+        if self.profile.get('timing_verified') is not True:
+            errors.append('timing_verified')
+        if not finite(self.profile.get('xy_error_m')) or self.profile['xy_error_m'] <= 0:
+            errors.append('missing_xy_error_m')
+        return errors
+
+    def locate(self, anchor, image_size, camera_serial, pose, *, epoch, captured_at,
+               pose_at, now, source_timestamp_verified, camera_metadata=None):
+        p = self.profile
+        problems = self.problems(image_size, camera_serial)
+        if problems:
+            raise ValueError('Uncommissioned calibration: ' + ','.join(problems))
+        if source_timestamp_verified is not True or anchor.get('ground_verified') is not True:
+            raise ValueError('Verified capture timing and ground anchor are required')
+        if epoch != pose.get('epoch') or not epoch:
+            raise ValueError('Localization epoch mismatch')
+        if not all(finite(x) for x in (captured_at, pose_at, now)) or not 0 <= now-captured_at <= .5 or abs(captured_at-pose_at) > .02:
+            raise ValueError('Capture and pose do not have verified temporal alignment')
+        point = self.project(anchor, image_size, camera_serial, camera_metadata=camera_metadata)
+        mapped = base_to_map(point['point_base_m'], (pose['x_m'], pose['y_m'], pose['yaw_rad']))
+        if not all(-6.4 <= x < 6.4 for x in mapped[:2]):
+            raise ValueError('Projected object outside navigation map')
+        return {'xy_m': mapped[:2], 'xy_error_m': p['xy_error_m'],
+                'epoch': epoch, 'captured_at': captured_at,
+                'method': 'measured_ground_homography' if p.get('projection_model') == 'undistorted_homography' else 'measured_ground_projection'}

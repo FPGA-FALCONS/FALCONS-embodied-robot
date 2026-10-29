@@ -12,7 +12,7 @@
 
 ## 正式调用
 
-`Calibration.project()`返回静态车体点，`locate_stopped()`进一步用停车等待后保存的车辆位姿得到地图坐标。巡检STOP回执后等0.3秒，处理新轮次三帧并平均，不用动态20ms门槛、位姿插值或传感器年龄判断。
+`Calibration.project()`返回静态车体点，`locate_stopped()`进一步用停车等待后保存的车辆位姿得到地图坐标。巡检STOP回执后等0.3秒，处理新轮次图像，按目标累计3个有效投影后平均（最多10张，空帧不计有效样本），不用动态20ms门槛、位姿插值或传感器年龄判断。
 
 停车前的去重使用同一H粗投影，按取帧`received_at_s−0.3s`从RK最近2秒位姿缓存中选取最近样本，送入推理前冻结在帧元数据中；因此推理耗时不改变所用位姿。该粗投影允许超出实测H凸包，仅用于与本次任务已确认目标做同类别、距离<30cm匹配，不写入目标记录或图层。正式三帧定位仍检查原H凸包和最大范围，停车后也过滤已知目标，避免与新目标同框时重复编号或播报。
 
@@ -28,3 +28,5 @@ python3 -m ai_coordinator.deploy_inspection --config <现有config.json> --relea
 ```
 
 使用事务安装器保留模型、设备身份及启动策略；不在带清单的历史release中改文件。现有近40cm配置证据位于运行根`calibration/ground_homography_near40_ff4224fa7642/`。相机安装、focus或图像模式改变后重新标定/验证，不套用不配套的H。
+
+严格时间对齐的离线验证接口已隔离到`commissioning.TimedCalibration`；当前运行类`Calibration`只提供静态投影及停车后定位，不携带旧20ms时序准入门槛。接地点按类别规则选取，不再用恒真的ground_verified标记自证。

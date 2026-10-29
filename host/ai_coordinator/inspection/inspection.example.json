@@ -56,45 +56,21 @@
     "intrinsics_measured": false,
     "extrinsics_measured": false,
     "ground_plane_verified": false,
-    "timing_verified": false,
     "K": null,
     "distortion": null,
     "T_base_camera": null,
-    "max_range_m": null,
-    "xy_error_m": null
+    "max_range_m": null
   },
-  "vehicle_swept_radius_m": null,
   "return_policy": "latest_map",
   "cruise_speed_mm_s": 300,
-  "dedup_distance_m": 0.30,
-  "speed_mapping_verified": false,
-  "ground_anchor_policies": {},
-  "object_footprints_m": {},
+  "dedup_distance_m": 0.3,
   "note": "Device identity survives USB socket changes. Lens catalogue values do not replace measured calibration.",
-  "vehicle_braking_verified": false,
   "classes": [
     "tape",
     "screwdriver",
     "ad_calcium_milk",
     "nutri_express"
   ],
-  "capture_timing": {
-    "measured": false,
-    "camera_serial": "200901010001",
-    "image_size": [
-      1280,
-      720
-    ],
-    "mode": {
-      "width": 1280,
-      "height": 720,
-      "fps": 30,
-      "fourcc": "MJPG"
-    },
-    "timestamp_source": "start_of_exposure",
-    "driver_to_exposure_s": null,
-    "error_bound_s": null
-  },
   "discovery_speech": {
     "enabled": true,
     "names": {}

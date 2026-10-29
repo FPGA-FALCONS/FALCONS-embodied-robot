@@ -385,6 +385,7 @@ class Runtime:
     async def _camera(self):
         try:
             self.camera_state='starting'
+            stream_id=time.monotonic_ns()
             while True:
                 if self.cfg.get('model_loads_enabled',True) is not True:
                     self.camera_state='hold';return
@@ -394,6 +395,7 @@ class Runtime:
                     frame['inspection_round']=self.inspection.observation_round
                     self.inspection.capture_pose(frame)
                     payload={k:frame[k] for k in ('image','format','width','height','byteorder')};payload['_temporary']=True
+                    payload.update(frame_id=int(frame['sequence']),captured_at_s=frame['received_at_s'],stream_id=stream_id)
                     tag={'task_id':self.core.task_id,'goal_id':self.core.goal_id,'captured_at_s':frame['received_at_s'],
                          'replay':False,'source_timestamp_verified':False,'timestamp_origin':'host_receipt_only',
                          'source_sequence':frame['sequence'],'camera_backend':self.camera_backend,

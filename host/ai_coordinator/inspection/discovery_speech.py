@@ -34,14 +34,14 @@ class DiscoverySpeech:
             raise ValueError('Invalid discovery speech class names')
         self.root=Path(rt.cfg.get('root',rt.run_dir))/'inspection_speech'
         self.audit=getattr(rt,'audit',lambda event:None)
-        self.binding=None;self.seen=set();self.queue=deque();self.generation=0
+        self.binding=None;self.seen=set();self.pending=set();self.attempt=0;self.queue=deque();self.generation=0
         self.pump=None;self.preparing=False;self.closed=False;self.last_error=None
 
     @property
     def task_key(self):return 'inspection:'+':'.join(map(str,self.binding)) if self.binding else None
 
     def cancel(self,reason):
-        self.generation+=1;self.queue.clear()
+        self.generation+=1;self.queue.clear();self.pending.clear()
         if self.binding and hasattr(self.rt.announcements,'cancel_task'):
             self.rt.announcements.cancel_task(self.task_key,reason)
 
@@ -51,12 +51,13 @@ class DiscoverySpeech:
             self.cancel('inspection_task_replaced');self.binding=binding;self.seen.clear()
         for obj in objects:
             identifier=obj['id'];label=self.names.get(obj['class'])
-            if not obj.get('confirmed') or identifier in self.seen or not label:continue
+            if not obj.get('confirmed') or identifier in self.seen or (self.generation,identifier) in self.pending or not label:continue
             if len(self.seen)>=512:return
-            self.seen.add(identifier)
+            self.pending.add((self.generation,identifier))
             item=dict(id=identifier,text='发现'+label,at_s=time.monotonic(),binding=binding,generation=self.generation)
             if len(self.queue)>=8:
-                self.audit(dict(type='inspection_speech_skipped',reason='queue_full',object_id=self.queue.popleft()['id']))
+                dropped=self.queue.popleft();self.pending.discard((dropped['generation'],dropped['id']))
+                self.audit(dict(type='inspection_speech_skipped',reason='queue_full',object_id=dropped['id']))
             self.queue.append(item)
         if self.queue and (self.pump is None or self.pump.done()):self.pump=asyncio.create_task(self._run())
 
@@ -79,7 +80,8 @@ class DiscoverySpeech:
     async def _run(self):
         while self.queue and not self.closed:
             item=self.queue.popleft();binding=item['binding'];generation=item['generation']
-            if generation!=self.generation or not self.allowed(binding) or time.monotonic()-item['at_s']>10:continue
+            if generation!=self.generation or not self.allowed(binding) or time.monotonic()-item['at_s']>10:
+                self.pending.discard((generation,item['id']));continue
             self.preparing=True
             try:
                 # Resolving by USB identity at both preparation and playback
@@ -90,17 +92,20 @@ class DiscoverySpeech:
                 clip=await self._clip(item['text'])
                 if generation!=self.generation or not self.allowed(binding) or time.monotonic()-item['at_s']>10:continue
                 self.last_error=None
-                self.rt.announcements.emit_clip(dict(id=self.task_key+':'+str(item['id']),task_id=self.task_key,
+                self.attempt+=1
+                played=await self.rt.announcements.emit_clip(dict(id=self.task_key+':'+str(item['id'])+':'+str(self.attempt),task_id=self.task_key,
                     goal_id=str(item['id']),code='inspection_found',simulated=False,discovered_at_s=item['at_s']),clip,item['text'])
+                if played and binding==self.binding:self.seen.add(item['id'])
             except asyncio.CancelledError:raise
             except Exception as exc:
                 self.last_error=type(exc).__name__+': '+str(exc)[:200]
                 self.audit(dict(type='inspection_speech_unavailable',object_id=item['id'],error=self.last_error))
-            finally:self.preparing=False
+            finally:
+                self.pending.discard((generation,item['id']));self.preparing=False
 
     def snapshot(self):
         return dict(enabled=self.enabled,queued=len(self.queue),preparing=self.preparing,
-                    attempted_object_ids=sorted(self.seen),last_error=self.last_error)
+                    played_object_ids=sorted(self.seen),last_error=self.last_error)
 
     async def close(self):
         self.closed=True;self.cancel('inspection_shutdown')

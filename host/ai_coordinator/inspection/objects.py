@@ -14,7 +14,7 @@ GROUND_ANCHORS = {
 def ground_anchor(detection):
     x1,y1,x2,y2=detection['bbox']
     v=(y1+y2)/2 if GROUND_ANCHORS[detection['class']]=='box_center' else y2-1
-    return dict(u=(x1+x2)/2,v=v,ground_verified=True)
+    return dict(u=(x1+x2)/2,v=v)
 
 
 class Objects:
@@ -24,7 +24,7 @@ class Objects:
         self.confirmations, self.merge_m, self.limit = confirmations, merge_m, limit
         self.items = []; self.last_sequence = -1; self.epoch = None
 
-    def observe(self, detections, sequence, epoch, now):
+    def observe(self, detections, sequence, epoch, now, *, consecutive=True):
         if not epoch or type(sequence) is not int or sequence <= self.last_sequence:
             raise ValueError('Fresh observation sequence and epoch required')
         if self.epoch not in (None, epoch):
@@ -48,8 +48,8 @@ class Objects:
                           and math.dist(x['xy_m'], d['xy_m']) <= self.merge_m]
             if candidates:
                 item = min(candidates, key=lambda x: math.dist(x['xy_m'], d['xy_m']))
-                consecutive = item['sequence'] == previous_sequence
-                item['hits'] = item['hits'] + 1 if consecutive else 1
+                matched_previous = item['sequence'] == previous_sequence
+                item['hits'] = item['hits'] + 1 if (not consecutive or matched_previous) else 1
                 # A confirmed footprint never shrinks on one noisy observation.
                 if not item['confirmed']:
                     item['xy_m'] = [(a*(item['hits']-1)+b)/item['hits'] for a, b in zip(item['xy_m'], d['xy_m'])]

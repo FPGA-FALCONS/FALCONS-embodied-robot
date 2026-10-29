@@ -41,7 +41,7 @@ class InspectionController:
         self.dedup_distance_m=self.cfg.get('dedup_distance_m',.30)
         self.objects=Objects();self.calibration=Calibration(self.cfg.get('calibration',{}))
         self.observation_round=0;self.observation_pose=None
-        self.observation_objects=None;self.observation_frames=0
+        self.observation_objects=None;self.observation_frames=0;self.observation_attempts=0
         self.usb=usb_factory(self.cfg['highspeed']) if self.enabled and self.cfg.get('highspeed',{}).get('enabled') is True else None
         self.input=None;self.actual=None;self.caps=None
         self.epoch=None;self.sequence=0;self.context=0;self.latest_ai=None
@@ -53,7 +53,7 @@ class InspectionController:
         self.layer=None;self.layer_crc=None;self.layer_dirty=False;self.upload=None;self.upload_info=None;self.upload_pending=None
         self.render_job=None;self.record_job=None;self.released=None;self.record_armed=False
         self.usb_was_verified=False
-        self.evidence=Evidence(rt.run_dir/'inspection_evidence');self.evidence_jobs=set();self.evidence_error=None;self.evidence_files=[]
+        self.evidence=Evidence(rt.run_dir/'inspection_evidence');self.evidence_jobs=set();self.storage_check=None;self.evidence_error=None;self.evidence_files=[]
         self.exit_requested=False
         self.video=None;self.recording_factory=recording_factory;self.video_next_report=0.;self.video_recovery=None
         self.video_camera_lease=False
@@ -154,7 +154,7 @@ class InspectionController:
         self.cursor=[0.,0.];self.cursor_initialized=False;self.scroll=0;self.edit_stick_ready=False
         self.planned_route=[];self.route_history=[];self.route_key=None;self.last_route=None
         self.report_path=None;self.instruction='';self.error=None;self.recording_phase=None
-        self.observation_objects=None;self.observation_frames=0
+        self.observation_objects=None;self.observation_frames=0;self.observation_attempts=0
         self.layer_dirty=False;self.next_upload_retry=0.
         self.last_map=self.last_camera=None
         if self.render_job and not self.render_job.done():self.render_job.cancel()
@@ -182,6 +182,35 @@ class InspectionController:
         self.latest_ai=None;self.next_hello=now;self.rt.gateway.transport.drop('inspection')
         if self.usb:self.usb.drop_controls()
         self.notice='连接重建：旧定位任务失效，报告已保留'
+    def _manual(self,enabled,now):
+        if enabled and not self.mission.manual:
+            self.observation_objects=None;self.exit_requested=False
+            self.discovery_speech.cancel('manual_takeover');self._stop_recording()
+            self.notice='手动接管，保留任务；回光标后确认继续'
+        self.mission.set_manual(enabled,now)
+
+    def _check_storage(self):
+        import os,shutil,tempfile
+        from .recording import directory_bytes
+        self.evidence.check_storage()
+        self.video_root.mkdir(parents=True,exist_ok=True)
+        cfg=self.cfg.get('recording',{})
+        if (directory_bytes(self.video_root)>=cfg.get('max_archive_bytes',16*1024**3) or
+                shutil.disk_usage(self.video_root).free<cfg.get('min_free_bytes',2*1024**3)):
+            raise OSError('录像存储空间不足，请先导出或清理')
+        with tempfile.TemporaryFile(dir=self.video_root) as f:
+            f.write(b'falcons storage check');f.flush();os.fsync(f.fileno())
+
+    async def _retry_storage(self):
+        error=self.evidence_error
+        try:
+            await asyncio.to_thread(self._check_storage)
+            if self.evidence_error==error:
+                self.evidence_error=None;self.error=None
+                self.notice='记录资源已恢复，请再次SWA确认'
+        except (OSError,ValueError) as exc:
+            self.evidence_error=str(exc)[:160];self.notice='存储仍不可用，请清理后再次SWA'
+
     def on_ai_controls(self,event,now):
         if not self.enabled:return
         previous=self.latest_ai;self.latest_ai=event
@@ -201,9 +230,8 @@ class InspectionController:
         if self.video_required and (not mode or not event.get('enabled') or event.get('estop')):
             self.mission.cancel(now,'ai_module_exit');self._save_report();self._finish_video('ai_module_exit')
         if event.get('manual'):
-            self.observation_objects=None
-            self.exit_requested=False;self.last_camera=None;self.camera=None;self.mission.set_manual(True,now);self._stop_recording();self.notice='手动接管，保留任务；回光标后确认继续'
-        elif self.mission.manual:self.mission.set_manual(False,now)
+            self._manual(True,now)
+        elif self.mission.manual:self._manual(False,now)
         if was and not usable:
             self.generation+=1;self._stop_recording();self.upload=None;self.upload_info=None;self.upload_pending=None
             self.mission.pause(now,'ai_mode_or_permission_changed')
@@ -241,9 +269,8 @@ class InspectionController:
                 if event['epoch']!=self.epoch:self._epoch(event['epoch'],now)
                 old=self.input
                 if event['manual']:
-                    self.observation_objects=None
-                    self.exit_requested=False;self.last_camera=None;self.camera=None;self.mission.set_manual(True,now)
-                elif self.mission.manual:self.mission.set_manual(False,now)
+                    self._manual(True,now)
+                elif self.mission.manual:self._manual(False,now)
                 if self.active and (not event['open'] or not event['permission'] or event['manual'] or not event['rc_valid']):
                     self.pause(now,'inspection_page_closed');self.active=False;self.generation+=1;self._stop_recording()
                 if self.video_required and (not event['open'] or not event['permission'] or not event['rc_valid']):
@@ -309,6 +336,9 @@ class InspectionController:
     def confirm(self,now):
         if not self.active or not self.input or self.input['manual'] or self.exit_requested:return False
         state=self.mission.state
+        if self.evidence_error and state in ('ready','paused','fault','completed','cancelled','invalidated'):
+            if not self.storage_check or self.storage_check.done():self.storage_check=asyncio.create_task(self._retry_storage())
+            self.notice='正在重新检查记录资源，完成后再次SWA确认';return False
         if state=='edit':
             if self.input['view']!=1:self.notice='请用CH8切到地图后选点';return False
             if self.edit_action is None:
@@ -327,7 +357,6 @@ class InspectionController:
                 self.mission.prepare_start();self.notice='共%d点，完成后自动返航；再次SWA开始'%len(self.mission.waypoints)
             return True
         if state=='ready':
-            if self.evidence_error:self.notice='数据记录未就绪，请检查存储';return False
             if self.video_recovery and not self.video_recovery.done():self.notice='正在检查上次中断录像，请稍候';return False
             if self.video and not self.video.done.is_set():self.notice='上一段录像正在收尾';return False
             ready=self.readiness(now);accepted=self.mission.start(ready,now)
@@ -338,10 +367,12 @@ class InspectionController:
             self.notice='正在准备双路录像，随后开始任务' if accepted else '尚缺：'+'、'.join(labels[k] for k,v in ready.items() if not v)
             return accepted
         if state in ('paused','manual_paused','fault'):
-            accepted=self.mission.resume(self.readiness(now),now,layer=self.layer);self.notice='请求继续' if accepted else '尚不满足恢复条件';return accepted
+            accepted=self.mission.resume(self.readiness(now),now,layer=self.layer)
+            if accepted:self.discovery_speech.notify((self.mission.session_id,self.mission.task_id,self.epoch),self.objects.snapshot())
+            self.notice='请求继续' if accepted else '尚不满足恢复条件';return accepted
         if state in ACTIVE:self.pause(now,'operator_pause');return True
         if state in ('completed','cancelled','invalidated') and (self.stopped or (self.actual and not self.actual['flags']&32)):
-            self.mission.new_task();self.objects=Objects();self.observation_objects=None;self.observation_frames=0
+            self.mission.new_task();self.objects=Objects();self.observation_objects=None;self.observation_frames=0;self.observation_attempts=0
             self.layer=None;self.layer_crc=None;self.layer_dirty=True
             self.cursor=[self.mission.pose['x_m'],self.mission.pose['y_m']] if self.mission.pose else [0,0];self.report_path=None;self.notice='新任务：SWA打开路径点菜单';return True
         return False
@@ -394,24 +425,36 @@ class InspectionController:
             return
         if self.mission.state!='observing' or frame['inspection_round']!=self.observation_round:return
         serial=self.cfg['camera']['selector']['serial']
-        located=[]
+        located=[];rejected=[]
         for d in detections:
-            if self._known_target(d,frame):continue
-            point=self.calibration.locate_stopped(ground_anchor(d),
-                [frame['width'],frame['height']],serial,self.observation_pose,camera_metadata=frame)
+            try:
+                if self._known_target(d,frame):continue
+                point=self.calibration.locate_stopped(ground_anchor(d),
+                    [frame['width'],frame['height']],serial,self.observation_pose,camera_metadata=frame)
+                cell(point['xy_m'])
+            except ValueError as exc:
+                rejected.append(dict(target=d['class'],reason=str(exc)));continue
             located.append({**point,'class':d['class'],'radius_m':.05})
         objects=self.observation_objects
-        confirmed=objects.observe(located,objects.last_sequence+1,self.epoch,now)
-        self.observation_frames+=1
-        if self.observation_frames<3:return
+        objects.observe(located,objects.last_sequence+1,self.epoch,now,consecutive=False)
+        self.observation_attempts+=1
+        if located:self.observation_frames+=1
+        pending=[o for o in objects.items if not o['confirmed']]
+        new=[o for o in objects.items if o['confirmed'] and not any(old['confirmed'] and old['id']==o['id'] for old in self.objects.items)]
+        if (pending or not new) and self.observation_attempts<10:
+            self.notice='定位采样：有效%d帧，已处理%d/10张'%(self.observation_frames,self.observation_attempts)
+            return
         self.objects=objects;self.observation_objects=None
-        self.discovery_speech.notify((self.mission.session_id,self.mission.task_id,self.epoch),
-            [obj for obj in self.objects.snapshot() if obj['confirmed'] and obj['sequence']==self.objects.last_sequence])
         self._record_evidence('keyframe',Path(frame['image']).read_bytes(),dict(frame=frame,
-            confirmed_ids=confirmed,projections=located,pose=self.observation_pose,
-            localization='stop receipt + .3s wait + three-frame mean',calibration=self.calibration.profile))
+            confirmed_ids=[o['id'] for o in new],projections=located,rejected=rejected,pose=self.observation_pose,
+            localization='stop receipt + .3s wait + three valid samples per object',calibration=self.calibration.profile))
         self.layer=build(self.objects.snapshot(),.20);self.layer_dirty=False
-        self.mission.finish_observation(self.layer,now);self.notice='目标定位完成，提交障碍层后继续'
+        if not new:
+            self.pause(now,'insufficient_localization_samples')
+            self.notice='目标有效定位不足3帧，任务暂停；调整后SWA重试';return
+        self.discovery_speech.notify((self.mission.session_id,self.mission.task_id,self.epoch),new)
+        self.mission.finish_observation(self.layer,now)
+        self.notice='已确认%d个目标；%d个样本不足，未入障碍层'%(len(new),len(pending)) if pending else '目标定位完成，提交障碍层后继续'
     def _known_target(self,d,frame):
         candidates=[obj for obj in self.objects.items if obj['confirmed'] and obj['class']==d['class']]
         if not candidates:return False
@@ -420,8 +463,10 @@ class InspectionController:
         serial=self.cfg['camera']['selector']['serial']
         # Approximate H projection is only an association hint, including
         # outside the measured hull; formal stopped coordinates keep its bounds.
-        point=self.calibration.project(ground_anchor(d),[frame['width'],frame['height']],serial,
-            camera_metadata=frame,check_region=False)
+        try:
+            point=self.calibration.project(ground_anchor(d),[frame['width'],frame['height']],serial,
+                camera_metadata=frame,check_region=False)
+        except ValueError:return False
         xy=base_to_map(point['point_base_m'],(pose['x_m'],pose['y_m'],pose['yaw_rad']))[:2]
         return any(math.dist(xy,obj['xy_m'])<self.dedup_distance_m for obj in candidates)
     def _record_evidence(self,kind,payload,metadata):
@@ -524,7 +569,7 @@ class InspectionController:
         if not preparing:self.mission.tick(now)
         if previous=='observe_wait' and self.mission.state=='observing':
             self.observation_round+=1;self.observation_pose=deepcopy(self.mission.pose)
-            self.observation_objects=deepcopy(self.objects);self.observation_frames=0
+            self.observation_objects=deepcopy(self.objects);self.observation_frames=0;self.observation_attempts=0
             for obj in self.observation_objects.items:
                 if not obj['confirmed']:obj['hits']=0
         if self.usb:
@@ -609,7 +654,7 @@ class InspectionController:
                     except (OSError,RuntimeError) as exc:self.evidence_error='Video report write failed: '+str(exc)[:100]
                 job=asyncio.create_task(update_video_report());self.evidence_jobs.add(job);job.add_done_callback(self.evidence_jobs.discard)
         directory=self.rt.run_dir/'inspection_reports'
-        path=directory/('task-%d-epoch-%d.json'%(self.mission.task_id,self.epoch))
+        path=directory/('session-%d-task-%d-epoch-%d.json'%(self.mission.session_id,self.mission.task_id,self.epoch))
         try:
             directory.mkdir(parents=True,exist_ok=True)
             temporary=path.with_suffix('.tmp');temporary.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');temporary.replace(path)
@@ -625,7 +670,7 @@ class InspectionController:
                 pose_time_origin='native frame received_at_s before inference',pose_selection='nearest',rough_points_published=False),
             demo=dict(camera_delay_assumed_s=CAMERA_DELAY_SECONDS,settle_s=SETTLE_SECONDS,frames=3,vehicle_radius_m=.20,
                       object_radius_m=.05,location_margin_m=.03),
-            return_policy='latest_map',fpga_route_history=self.route_history,evidence=[entry for entry in self.evidence_files if entry.get('epoch')==self.epoch],device_state=self.actual,
+            return_policy='latest_map',fpga_route_history=self.route_history,evidence=[entry for entry in self.evidence_files if (entry.get('session'),entry.get('task'),entry.get('epoch'))==(self.mission.session_id,self.mission.task_id,self.epoch)],device_state=self.actual,
             recording=self.video.status() if self.video else None,
             motion_completion_source='authenticated FPGA stopped-arrival receipt' if self.mission.state=='completed' else 'task not completed; inspect device_state')
     def snapshot(self):
@@ -648,7 +693,7 @@ class InspectionController:
             deduplication=dict(distance_m=self.dedup_distance_m,pose_history_s=POSE_HISTORY_SECONDS,
                 pose_offset_s=CAMERA_DELAY_SECONDS,pose_samples=len(self.mission.pose_history)),
             serial_owner='coordinator',localization='stop_then_wait_0.3s_then_three_frames',
-            observation_round=self.observation_round,observation_frames=self.observation_frames)
+            observation_round=self.observation_round,observation_frames=self.observation_frames,observation_attempts=self.observation_attempts)
     def lines(self):
         from .render import STATES
         labels=dict(calibration='相机和地面标定',camera='相机',fpga='接口和回执',map='雷达地图',layer='视觉障碍层')
@@ -671,6 +716,7 @@ class InspectionController:
             try:await asyncio.to_thread(self.video.wait)
             except RuntimeError as exc:self.evidence_error=str(exc)
         if self.video_recovery:await self.video_recovery
+        if self.storage_check:await self.storage_check
         if self.archive_server:
             await asyncio.to_thread(self.archive_server.shutdown);self.archive_server.server_close();self.archive_thread.join(timeout=1)
         self.closed=True;self._stop_recording()

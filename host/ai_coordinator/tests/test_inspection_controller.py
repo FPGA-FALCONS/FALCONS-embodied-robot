@@ -60,7 +60,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any(m['kind']==wire.CONTROL and m['words'][4]&255==wire.OP_GOTO for m in self.messages()))
     async def test_manual_retains_goal_and_requires_explicit_resume(self):
         self.moving();self.c.last_camera=1.;self.c.camera={'old':True};self.controls(2,1.1,manual=True)
-        self.assertIsNone(self.c.last_camera);self.assertIsNone(self.c.camera)
+        self.assertEqual(self.c.last_camera,1.);self.assertEqual(self.c.camera,{'old':True})
         self.assertEqual(self.c.mission.state,'manual_paused');self.assertEqual(self.c.mission.goal,[1,0])
         self.input(2,0,0,1.2);self.controls(3,1.2)
         self.assertEqual(self.c.mission.state,'paused')
@@ -302,12 +302,12 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.c.cfg['camera']={'selector':{'serial':'camera-1'}}
         return dict(image=str(path),width=128,height=72,sequence=sequence,inspection_round=round_id,received_at_s=1.1,dedup_pose=None)
     def demo_result(self):return {'detections':[{'class':'tape','confidence':.9,'bbox':[10,10,30,30]}]}
-    async def test_fifty_percent_detection_can_request_inspection_stop(self):
+    async def test_twenty_five_percent_detection_can_request_inspection_stop(self):
         self.moving();frame=self.demo_frame();result=self.demo_result()
-        result['detections'][0]['confidence']=.499
+        result['detections'][0]['confidence']=.249
         await self.c.observe(frame,result,1.1)
         self.assertEqual(self.c.mission.state,'outbound')
-        result['detections'][0]['confidence']=.5
+        result['detections'][0]['confidence']=.25
         await self.c.observe(frame,result,1.2)
         self.assertEqual(self.c.mission.state,'observe_stop')
     async def test_stop_wait_new_capture_round_then_locate_and_speak(self):
@@ -532,5 +532,79 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.c.mission.add_waypoint([1,0]);self.c.confirm(1)
         self.c.link_lost('link_lost',1.1)
         self.assertIsNone(self.c.edit_action);self.assertEqual(self.c.mission.waypoints,[])
+
+
+    async def test_manual_after_long_recording_does_not_cancel_or_drop_camera(self):
+        self.moving();self.c._begin_video(1);self.c.video.started=1
+        self.c.last_camera=self.c.last_map=10
+        self.c.usb=SimpleNamespace(status=lambda:{'verified':True},drop_controls=lambda:None,close=lambda:None)
+        self.controls(2,10.1,manual=True);self.c._video_tick(10.11)
+        self.assertEqual(self.c.mission.state,'manual_paused');self.assertTrue(self.c.video_required)
+        self.assertEqual(self.c.last_camera,10)
+
+    def begin_sampling(self):
+        from copy import deepcopy
+        from ai_coordinator.inspection.objects import Objects
+        self.moving();self.c.mission.state='observing'
+        self.c.observation_pose=deepcopy(self.c.mission.pose);self.c.observation_objects=Objects()
+        self.c.discovery_speech.notify=Mock()
+        self.c.calibration.locate_stopped=Mock(return_value=dict(xy_m=[1,0],xy_error_m=.03))
+
+    async def test_empty_frames_do_not_complete_three_valid_samples(self):
+        self.begin_sampling()
+        for i in range(5):
+            result={'detections':[]} if i in (0,2) else self.demo_result()
+            await self.c.observe(self.demo_frame(i+1,self.c.observation_round),result,1.2+i*.1)
+            if i<4:self.assertEqual(self.c.mission.state,'observing')
+        self.assertEqual(self.c.observation_frames,3);self.assertEqual(self.c.mission.state,'await_layer')
+        self.assertTrue(self.c.objects.items[0]['confirmed'])
+
+    async def test_bad_target_does_not_discard_valid_target(self):
+        self.begin_sampling()
+        def locate(anchor,*args,**kwargs):
+            if anchor['u']>50:raise ValueError('outside calibrated region')
+            return dict(xy_m=[1,0],xy_error_m=.03)
+        self.c.calibration.locate_stopped=Mock(side_effect=locate)
+        for i in range(3):
+            result=self.demo_result();result['detections'].append({'class':'screwdriver','confidence':.9,'bbox':[60,10,80,30]})
+            await self.c.observe(self.demo_frame(i+1,self.c.observation_round),result,1.2+i*.1)
+        self.assertEqual(self.c.mission.state,'await_layer')
+        self.assertEqual([o['class'] for o in self.c.objects.items if o['confirmed']],['tape'])
+
+    async def test_no_valid_samples_pauses_without_publishing_success(self):
+        self.begin_sampling();self.c.calibration.locate_stopped.side_effect=ValueError('outside region')
+        for i in range(10):await self.c.observe(self.demo_frame(i+1,self.c.observation_round),self.demo_result(),1.2+i*.1)
+        self.assertEqual(self.c.mission.state,'paused')
+        self.assertEqual(self.c.mission.reason,'insufficient_localization_samples')
+        self.assertFalse(any(o['confirmed'] for o in self.c.objects.items))
+
+    async def test_reports_isolate_session_task_and_epoch(self):
+        self.moving();self.c.evidence_files=[dict(session=self.session,task=1,epoch=1,payload='current'),dict(session=self.session,task=2,epoch=1,payload='other')]
+        self.assertEqual([e['payload'] for e in self.c._report()['evidence']],['current'])
+        self.c._save_report();first=self.c.report_path
+        self.c.mission.session_id+=1;self.c._save_report()
+        self.assertNotEqual(first,self.c.report_path);self.assertTrue(Path(first).exists())
+
+    async def test_storage_retry_clears_only_after_success_and_never_resumes(self):
+        self.moving();self.c.mission.state='paused';self.c.evidence_error='disk full'
+        self.c._check_storage=Mock(side_effect=OSError('still full'))
+        self.assertFalse(self.c.confirm(2));await self.c.storage_check
+        self.assertIsNotNone(self.c.evidence_error);self.assertEqual(self.c.mission.state,'paused')
+        self.c._check_storage.side_effect=None
+        self.assertFalse(self.c.confirm(3));await self.c.storage_check
+        self.assertIsNone(self.c.evidence_error);self.assertEqual(self.c.mission.state,'paused')
+
+    async def test_trajectory_capacity_is_only_a_recording_limit(self):
+        self.moving();self.c.mission.trace_limit=2
+        for i in range(6):self.c.mission.set_pose(dict(epoch=1,x_m=i*.2,y_m=0,yaw_rad=0),2+i*.1)
+        self.assertEqual(self.c.mission.state,'outbound');self.assertTrue(self.c.mission.trace_truncated)
+        self.assertEqual(len(self.c.mission.trace),2)
+        self.c.pause(3);ready={k:True for k in ('calibration','camera','fpga','map','layer')}
+        self.assertTrue(self.c.mission.resume(ready,3.1))
+
+    async def test_storage_probe_works_after_deleted_evidence(self):
+        self.c.evidence.limit=100;self.c.evidence.used=100;self.c.evidence.count=2048
+        self.c.evidence.check_storage()
+        self.assertEqual(self.c.evidence.used,0);self.assertEqual(self.c.evidence.count,0)
 
 if __name__=='__main__':unittest.main()

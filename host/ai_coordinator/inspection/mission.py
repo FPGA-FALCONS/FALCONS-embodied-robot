@@ -32,7 +32,7 @@ class InspectionMission:
         self.pose_history = deque()
         self.waypoints = []; self.waypoint_index = 0; self.waypoint_arrivals = []; self.started_at = None
         self.start_point = None
-        self.trace = []; self.return_trace=[];self.trace_truncated=False;self.return_yaw=None; self.return_points = []; self.return_index = 0
+        self.trace = []; self.return_trace=[];self.trace_truncated=False;self.return_yaw=None; self.return_goal = None
         self.actions = deque(); self.expected = None; self.pending_layer = None
         self.reason = None; self.manual = False; self.last_status = None
         self.trace_yaw = None
@@ -68,11 +68,7 @@ class InspectionMission:
         while self.pose_history[0]['at_s'] < now-POSE_HISTORY_SECONDS:
             self.pose_history.popleft()
         if self.start_point is not None and self.state in (ACTIVE | {'paused','manual_paused','fault'}):
-            try:
-                self._trace()
-            except ValueError:
-                self.trace_truncated=True
-                self.pause(now, 'trajectory_full')
+            self._trace()
 
     def pose_at(self, when):
         if not self.pose_history:return None
@@ -91,7 +87,7 @@ class InspectionMission:
             if distance < .001 or (not force and distance < self.trace_step_m and angle < math.pi/12):return
         if len(trace) >= self.trace_limit:
             self.trace_truncated=True
-            raise ValueError('Actual trajectory capacity reached; pause required')
+            return
         trace.append(point)
         if returning:self.return_yaw=self.pose['yaw_rad']
         else:self.trace_yaw=self.pose['yaw_rad']
@@ -122,7 +118,6 @@ class InspectionMission:
         errors = [key for key in REQUIRED if ready.get(key) is not True]
         if self.manual:
             errors.append('manual')
-        if self.trace_truncated:errors.append('trajectory_full')
         if self.pose is None:errors.append('pose')
         return errors
 
@@ -135,13 +130,13 @@ class InspectionMission:
         self.task_id += 1; self.phase = 'outbound'; self.trace = [];self.return_trace=[];self.trace_truncated=False;self.return_yaw=None
         self.waypoint_index = 0; self.waypoint_arrivals = []; self.started_at = now
         self.start_point = [self.pose['x_m'],self.pose['y_m']]
-        self.return_points = []; self.return_index = 0; self.pending_layer = None
+        self.return_goal = None; self.pending_layer = None
         self.reason = None; self._trace(force=True); self.last_status = now
         self._goto(now)
         return True
 
     def _goto(self, now):
-        goal = self.waypoints[self.waypoint_index] if self.phase == 'outbound' else self.return_points[self.return_index]
+        goal = self.waypoints[self.waypoint_index] if self.phase == 'outbound' else self.return_goal
         self.goal = list(goal)
         self.state = 'await_start'
         self._command('goto', now, goal_mm=[round(v*1000) for v in goal],
@@ -196,7 +191,7 @@ class InspectionMission:
         self.actions.clear(); self.expected = None; self.pending_layer = None
         self.state = 'edit'; self.phase = 'outbound'; self.goal = None
         self.waypoints = []; self.waypoint_index = 0; self.waypoint_arrivals = []; self.started_at = None
-        self.trace = []; self.return_trace=[];self.trace_truncated=False;self.return_yaw=None; self.return_points = []; self.reason = None
+        self.trace = []; self.return_trace=[];self.trace_truncated=False;self.return_yaw=None; self.return_goal = None; self.reason = None
         self.start_point = None
 
     @staticmethod
@@ -269,18 +264,13 @@ class InspectionMission:
                 # existing FPGA planner may reroute on the latest merged map.
                 # Freeze the actual task start rather than the editor's pose
                 # or the first planned waypoint. Manual detours do not move it.
-                self.return_points = [deepcopy(self.start_point)]
-                self.return_index = 0
+                self.return_goal = deepcopy(self.start_point)
                 self.phase = 'returning';self.return_trace=[[self.pose['x_m'],self.pose['y_m']]];self.return_yaw=self.pose['yaw_rad']; self.state = 'await_return_layer'
                 self._command('prepare_return_layer', now, return_goal_m=deepcopy(self.start_point),
                               return_policy='latest_map',trace=deepcopy(self.trace))
             else:
                 self._trace(force=True)
-                self.return_index += 1
-                if self.return_index == len(self.return_points):
-                    self.state = 'completed'; self.expected = None
-                else:
-                    self._goto(now)
+                self.state = 'completed'; self.expected = None
         else:
             return False
         return True
@@ -297,5 +287,5 @@ class InspectionMission:
                 'waypoint_arrivals':deepcopy(self.waypoint_arrivals),'started_at_s':self.started_at,
                 'return_trace_m':deepcopy(self.return_trace),'pose':deepcopy(self.pose),'trace_truncated':self.trace_truncated,
                 'start_m':deepcopy(self.start_point),'return_policy':'latest_map',
-                'return_index': self.return_index, 'return_count': len(self.return_points),
+                'return_goal_m': deepcopy(self.return_goal),
                 'layer_version': self.layer_version, 'manual': self.manual}

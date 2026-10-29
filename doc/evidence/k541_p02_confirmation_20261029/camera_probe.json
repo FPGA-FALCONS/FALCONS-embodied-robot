@@ -1,0 +1,196 @@
+{
+  "model_sha256": "7d84e80c20b0c3ff8e5eae6bcbec1d152f880a8ab4189a50adb5757431e02209",
+  "frames": [
+    {
+      "sequence": 1,
+      "received_at_s": 3603.91221,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.09722343600014938,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    },
+    {
+      "sequence": 8,
+      "received_at_s": 3604.148095,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.0784621870002411,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    },
+    {
+      "sequence": 11,
+      "received_at_s": 3604.247926,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.07898367799998596,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    },
+    {
+      "sequence": 14,
+      "received_at_s": 3604.347921,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.07841610500008755,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    },
+    {
+      "sequence": 16,
+      "received_at_s": 3604.411932,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.07796052900039285,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    },
+    {
+      "sequence": 19,
+      "received_at_s": 3604.511929,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.07931150500007789,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    },
+    {
+      "sequence": 22,
+      "received_at_s": 3604.611893,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.09187365700017835,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    },
+    {
+      "sequence": 25,
+      "received_at_s": 3604.711907,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.07962708200011548,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    },
+    {
+      "sequence": 28,
+      "received_at_s": 3604.811905,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.0794506279999041,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    },
+    {
+      "sequence": 30,
+      "received_at_s": 3604.879902,
+      "width": 1280,
+      "height": 720,
+      "focus": 260,
+      "raw": 0,
+      "confirmed": 0,
+      "detections": [],
+      "inference_s": 0.07960549900008118,
+      "output_shapes": [
+        [
+          1,
+          8,
+          8400
+        ]
+      ],
+      "confidence": 0.25
+    }
+  ],
+  "motion_commands_sent": false
+}

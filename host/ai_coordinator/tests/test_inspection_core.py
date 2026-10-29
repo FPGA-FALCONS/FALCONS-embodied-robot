@@ -8,7 +8,7 @@ import unittest
 import numpy as np
 
 from ai_coordinator.device_roles import choose, camera_config
-from ai_coordinator.inspection.calibration import Calibration
+from ai_coordinator.inspection.commissioning import TimedCalibration as Calibration
 from ai_coordinator.inspection.grid import build, bit, cell, PLANE_BYTES
 from ai_coordinator.inspection.objects import Objects
 from ai_coordinator.inspection.mission import InspectionMission, REQUIRED
@@ -203,7 +203,7 @@ class InspectionMissionTests(unittest.TestCase):
         self.mission.set_pose(pose(1),1.1)
         self.assertTrue(self.ack('arrived',1.11,stopped=True))
         self.assertEqual(self.mission.state,'await_return_layer')
-        self.assertEqual(self.mission.return_points,[[0,0]])
+        self.assertEqual(self.mission.return_goal,[0,0])
 
     def test_return_and_manual_detour_traces_are_recorded_without_moving_start(self):
         self.start();self.mission.set_manual(True,1.1)
@@ -233,7 +233,7 @@ class InspectionMissionTests(unittest.TestCase):
         self.assertFalse(self.ack('arrived', 1.21, stopped=False))
         self.assertTrue(self.ack('arrived', 1.22, stopped=True))
         self.assertEqual(self.mission.state, 'await_return_layer')
-        self.assertEqual(self.mission.return_points, [[0, 0]])
+        self.assertEqual(self.mission.return_goal, [0, 0])
         self.assertEqual(self.mission.expected['return_policy'],'latest_map')
         self.assertEqual(self.mission.expected['return_goal_m'],[0,0])
         self.mission.submit_layer(build([], .1), 1.23)
@@ -295,7 +295,7 @@ class InspectionMissionTests(unittest.TestCase):
                 self.assertEqual(self.mission.state,'await_start')
                 self.ack('accepted',2.03+i)
         self.assertEqual(self.mission.state,'await_return_layer')
-        self.assertEqual(self.mission.return_points,[[.2,.1]])
+        self.assertEqual(self.mission.return_goal,[.2,.1])
         self.assertEqual([p['number'] for p in self.mission.waypoint_arrivals],[1,2,3])
         self.assertAlmostEqual(self.mission.waypoint_arrivals[-1]['elapsed_s'],3.01)
         task=self.mission.task_id

@@ -1,0 +1,8 @@
+test_original_graph_letterbox_best_class_and_nms (test_vision.VisionContractTests) ... ok
+test_twenty_five_percent_boundary_applies_to_inference_and_frame_admission (test_vision.VisionContractTests) ... ok
+test_wrong_graph_and_logits_rejected (test_vision.VisionContractTests) ... ok
+
+----------------------------------------------------------------------
+Ran 375 tests in 15.659s
+
+OK

@@ -1,0 +1,7 @@
+test_twenty_five_percent_boundary_applies_to_inference_and_frame_admission (test_vision.VisionContractTests) ... ok
+test_wrong_graph_and_logits_rejected (test_vision.VisionContractTests) ... ok
+
+----------------------------------------------------------------------
+Ran 384 tests in 13.913s
+
+OK

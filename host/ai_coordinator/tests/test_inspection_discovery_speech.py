@@ -24,9 +24,12 @@ class DiscoverySpeechTests(unittest.IsolatedAsyncioTestCase):
             with wave.open(request['output'],'wb') as out:
                 out.setparams((1,2,24000,0,'NONE','not compressed'));out.writeframes(b'\0\0'*2400)
             return {'result':{}}
+        def emitted(*args):
+            self.events.append(args)
+            future=asyncio.get_running_loop().create_future();future.set_result(True);return future
         self.rt=SimpleNamespace(cfg={'root':str(self.root)},run_dir=self.run,audit=self.logs.append,
             ai=SimpleNamespace(tts_worker=SimpleNamespace(call=AsyncMock(side_effect=synth))),
-            announcements=SimpleNamespace(emit_clip=lambda *args:self.events.append(args),
+            announcements=SimpleNamespace(emit_clip=emitted,
                 cancel_task=lambda *args:self.cancelled.append(args)))
         self.speech=DiscoverySpeech(self.rt,lambda binding:self.valid and binding[1]>0)
         self.binding=(123,1,2)
@@ -64,25 +67,25 @@ class DiscoverySpeechTests(unittest.IsolatedAsyncioTestCase):
         self.rt.ai.tts_worker.call.side_effect=delayed
         self.notify();await started.wait();self.valid=False;self.speech.cancel('manual')
         release.set();await self.drain();self.assertEqual(self.events,[])
-        self.valid=True;self.notify();await self.drain();self.assertEqual(self.events,[])
-        self.notify(2);await self.drain();self.assertEqual(len(self.events),1)
+        self.valid=True;self.notify();await self.drain();self.assertEqual(len(self.events),1)
+        self.notify(2);await self.drain();self.assertEqual(len(self.events),2)
 
     async def test_missing_speaker_skips_once_without_synthesis_or_replug_replay(self):
         self.resolve.side_effect=ValueError('speaker unplugged')
         self.notify();await self.drain();self.assertEqual(self.calls,[])
         self.assertIn('speaker unplugged',self.speech.last_error)
-        self.resolve.side_effect=None;self.notify();await self.drain();self.assertEqual(self.events,[])
-        self.notify(2);await self.drain();self.assertEqual(len(self.events),1)
+        self.resolve.side_effect=None;self.notify();await self.drain();self.assertEqual(len(self.events),1)
+        self.notify(2);await self.drain();self.assertEqual(len(self.events),2)
 
     async def test_preview_unknown_class_and_unconfirmed_objects_do_not_speak(self):
         self.binding=(123,0,2);self.notify();await self.drain()
         self.binding=(123,1,2);self.notify(confirmed=False);self.notify(**{'class':'unknown'})
         await self.drain();self.assertEqual(self.calls,[]);self.assertEqual(self.events,[])
 
-    async def test_synthesis_failure_is_bounded_and_does_not_retry_same_object(self):
+    async def test_synthesis_failure_can_retry_on_new_explicit_notification(self):
         self.rt.ai.tts_worker.call.side_effect=RuntimeError('TTS unavailable')
         self.notify();await self.drain();self.notify();await self.drain()
-        self.assertEqual(self.rt.ai.tts_worker.call.await_count,1)
+        self.assertEqual(self.rt.ai.tts_worker.call.await_count,2)
         self.assertIn('TTS unavailable',self.speech.last_error);self.assertEqual(self.events,[])
         self.assertFalse(list(self.root.rglob('*.pending.wav')))
 

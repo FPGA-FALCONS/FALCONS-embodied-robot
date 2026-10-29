@@ -9,7 +9,8 @@ import urllib.request
 
 HOST=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(HOST))
-from ai_coordinator.schema import DETECTION_CONFIDENCE_THRESHOLD
+from ai_coordinator.schema import DETECTION_CONFIDENCE_THRESHOLD, TARGETS
+from ai_coordinator.temporal_confirm import TemporalConfirmation
 PREFIX='FALCONS_RPC '
 
 
@@ -59,7 +60,7 @@ def decode_outputs(outputs,scale,px,py,width,height,threshold=DETECTION_CONFIDEN
     from ai_coordinator.schema import TARGETS
     if contract=='original':
         if len(outputs)!=1 or np.asarray(outputs[0]).ndim!=3 or np.asarray(outputs[0]).shape[:2]!=(1,8):
-            raise ValueError('Expected v17 original [1,8,N]: xywh + four probabilities')
+            raise ValueError('Expected original [1,8,N]: xywh + four probabilities')
         b=np.asarray(outputs[0])[:,:4];s=np.asarray(outputs[0])[:,4:]
     elif contract=='decoded_probs':
         if len(outputs)!=2:raise ValueError('Expected decoded boxes + four probabilities')
@@ -80,14 +81,16 @@ def decode_outputs(outputs,scale,px,py,width,height,threshold=DETECTION_CONFIDEN
         xyxy[:,1]=(box[:,1]-box[:,3]/2-py)/scale;xyxy[:,3]=(box[:,1]+box[:,3]/2-py)/scale
         xyxy[:,[0,2]]=np.clip(xyxy[:,[0,2]],0,width);xyxy[:,[1,3]]=np.clip(xyxy[:,[1,3]],0,height)
         valid=(xyxy[:,2]>xyxy[:,0])&(xyxy[:,3]>xyxy[:,1]);xyxy=xyxy[valid];sc=scores[indices,c][valid]
-        for k in nms(xyxy,sc,.7):result.append({'class':name,'confidence':float(sc[k]),'bbox':xyxy[k].tolist()})
+        for k in nms(xyxy,sc,.65):result.append({'class':name,'confidence':float(sc[k]),'bbox':xyxy[k].tolist()})
     return result
 
 
 class Vision:
     def __init__(self,cfg):
         self.provider=cfg.get('provider','rknn');self.size=cfg.get('size',640);self.contract=cfg.get('contract','original')
-        if self.size!=640:raise ValueError('This contract is frozen to v17 640 FP16')
+        self.gate=TemporalConfirmation(min_hits=3,iou_threshold=.3,max_gap_s=.6,confidence=DETECTION_CONFIDENCE_THRESHOLD)
+        self.stream_id=None
+        if self.size!=640:raise ValueError('This contract requires 640 input')
         if self.provider=='onnx_cpu':
             import onnxruntime as ort
             opts=ort.SessionOptions();opts.intra_op_num_threads=cfg.get('threads',4);opts.inter_op_num_threads=1
@@ -125,10 +128,21 @@ class Vision:
             outputs=self.rec.run(None,{self.input.name:x})
         else:outputs=self.rec.inference(inputs=[canvas[None,...]],data_format='nhwc')
         inference=time.monotonic()-start
-        return {'detections':decode_outputs(outputs,scale,px,py,width,height,contract=self.contract),'width':width,'height':height,
+        raw=decode_outputs(outputs,scale,px,py,width,height,contract=self.contract)
+        if 'frame_id' in request:
+            if request['stream_id']!=self.stream_id:
+                self.gate=TemporalConfirmation(min_hits=3,iou_threshold=.3,max_gap_s=.6,confidence=DETECTION_CONFIDENCE_THRESHOLD)
+                self.stream_id=request['stream_id']
+            candidates=[dict(d,cls=TARGETS.index(d['class'])) for d in raw]
+            confirmed=self.gate.update(candidates,int(request['frame_id']),request['captured_at_s'],(height,width))
+            detections=[{k:v for k,v in d.items() if k!='cls'} for d in confirmed]
+        else:
+            detections=raw  # 单图离线诊断不冒充连续确认，也不积累轨迹。
+        return {'detections':detections,'raw_detections':raw,'confirmation_frames':3,
+                'single_image_raw_only':'frame_id' not in request,'width':width,'height':height,
                 'confidence_threshold':DETECTION_CONFIDENCE_THRESHOLD,
                 'inference_s':inference,'output_shapes':[list(a.shape) for a in outputs],
-                'contract':self.contract,'engine':'v17 ONNX FP32' if self.provider=='onnx_cpu' else 'RKNN v17 FP16',
+                'contract':self.contract,'engine':'P02 ONNX FP32' if self.provider=='onnx_cpu' else 'K541 P02 RKNN FP16 + 3-frame confirmation',
                 'provider':'onnx_cpu' if self.provider=='onnx_cpu' else 'rknpu_core0'}
 
     def close(self):

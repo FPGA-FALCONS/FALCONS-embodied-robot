@@ -77,11 +77,14 @@ class Announcements:
         self.queue=deque();self.seen=deque(maxlen=256);self.task_id=None;self.epoch=0
         self.pump=None;self.playing=None;self.current=None;self.closed=False
         self.capture_active=False;self.quiet_until=0
-        self.changed=asyncio.Event()
+        self.changed=asyncio.Event();self.completions={}
 
     def _clear(self,reason):
         self.epoch+=1
-        while self.queue:self.audit({'type':'speech_dropped','reason':reason,'event':self.queue.popleft()})
+        while self.queue:
+            item=self.queue.popleft();self._settle(item['id'],False)
+            self.audit({'type':'speech_dropped','reason':reason,'event':item})
+        if self.current:self._settle(self.current['id'],False)
         if self.playing:self.playing.cancel()
 
     def emit(self,event):
@@ -90,27 +93,36 @@ class Announcements:
         if key not in catalog():raise ValueError('Unknown speech phrase')
         self._enqueue(event,key,catalog()[key])
 
+    def _settle(self,identifier,played):
+        future=self.completions.pop(identifier,None)
+        if future is not None and not future.done():future.set_result(played)
+
     def emit_clip(self,event,clip,text):
         # AI-owned synthesized clips share cancellation and microphone arbitration
         # without changing the legacy fixed-phrase catalog or its log/off policy.
-        if self.closed:return
+        future=asyncio.get_running_loop().create_future()
+        if self.closed:future.set_result(False);return future
         if self.prepared_player is None:
             self.prepared_player=ALSAPlayer(self.cfg.get('ai_speaker_device') or self.cfg.get('device'),selector=self.cfg.get('selector'))
+        self.completions[event['id']]=future
         self._enqueue(event,'inspection_found',text,prepared_clip={
             'path':str(clip['path']),'duration_s':clip['duration_s']})
+        return future
 
     def cancel_task(self,task_id,reason):
         if self.task_id==task_id:self._clear(reason)
 
     def _enqueue(self,event,key,text,**extra):
-        if event['id'] in self.seen:return
+        if event['id'] in self.seen:self._settle(event['id'],False);return
         self.seen.append(event['id'])
         if event['task_id']!=self.task_id:
             self._clear('task_replaced');self.task_id=event['task_id']
         if event['code'] in ('stop_requested','timed_out','not_found','failed'):self._clear('terminal_status')
         item={**event,'clip':key,'text':text,'queued_at_s':time.monotonic(),'epoch':self.epoch,**extra}
         self.audit({'type':'speech_queued','event':item})
-        if len(self.queue)>=8:self.audit({'type':'speech_dropped','reason':'queue_full','event':self.queue.popleft()})
+        if len(self.queue)>=8:
+            dropped=self.queue.popleft();self._settle(dropped['id'],False)
+            self.audit({'type':'speech_dropped','reason':'queue_full','event':dropped})
         self.queue.append(item);self.changed.set()
         if self.pump is None or self.pump.done():self.pump=asyncio.create_task(self._run())
 
@@ -131,8 +143,10 @@ class Announcements:
                 await self.changed.wait();continue
             item=self.queue.popleft()
             if item['epoch']!=self.epoch or time.monotonic()-item.get('discovered_at_s',item['queued_at_s'])>10:
+                self._settle(item['id'],False)
                 self.audit({'type':'speech_dropped','reason':'stale','event':item});continue
             if self.mode=='log' and 'prepared_clip' not in item:
+                self._settle(item['id'],False)
                 self.audit({'type':'speech_would_play','event':item});continue
             self.current=item
             try:
@@ -142,6 +156,7 @@ class Announcements:
                 self.playing=asyncio.create_task(player(clip,item))
                 await self.playing
                 self.audit({'type':'speech_finished','event':item})
+                self._settle(item['id'],True)
             except asyncio.CancelledError:
                 self.audit({'type':'speech_cancelled','event':item})
                 if self.closed:raise
@@ -149,6 +164,7 @@ class Announcements:
                 self.last_error=type(exc).__name__+': '+str(exc)[:200]
                 self.audit({'type':'speech_unavailable','error':self.last_error,'event':item})
             finally:
+                self._settle(item['id'],False)
                 self.playing=None;self.current=None;self.quiet_until=time.monotonic()+.3
 
     def snapshot(self):

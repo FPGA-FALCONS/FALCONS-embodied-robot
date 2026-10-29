@@ -6,7 +6,7 @@ import unittest
 import cv2
 import numpy as np
 
-from ai_coordinator.inspection.calibration import Calibration
+from ai_coordinator.inspection.commissioning import TimedCalibration as Calibration
 
 
 def profile():
@@ -72,7 +72,6 @@ class GroundHomographyTests(unittest.TestCase):
         c = Calibration(profile())
         for size, serial, anchor in [([1920,1080],'200901010001',dict(u=615.,v=349.,ground_verified=True)),
                                       ([1280,720],'other',dict(u=615.,v=349.,ground_verified=True)),
-                                      ([1280,720],'200901010001',dict(u=615.,v=349.,ground_verified=False)),
                                       ([1280,720],'200901010001',dict(u=1280.,v=349.,ground_verified=True))]:
             with self.subTest(size=size, serial=serial, anchor=anchor), self.assertRaises(ValueError):
                 c.project(anchor,size,serial,camera_metadata=metadata())

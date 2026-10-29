@@ -16,6 +16,17 @@ def event(code,task='one',identifier=None):
     return {'id':identifier or task+code,'task_id':task,'goal_id':'goal','code':code,'simulated':True}
 
 class AnnouncementTests(unittest.IsolatedAsyncioTestCase):
+    async def test_prepared_clip_completion_waits_for_playback_and_cancel_returns_false(self):
+        self.speech.prepared_player=self.speech.player
+        clip={'path':self.root/'found_tape.wav','duration_s':.1}
+        future=self.speech.emit_clip(event('inspection_found',identifier='prepared-1'),clip,'发现胶带')
+        await self.started.wait();self.assertFalse(future.done())
+        self.speech.cancel_task('one','manual')
+        self.assertFalse(await future);self.release.set();await self.drain()
+        self.started.clear()
+        future=self.speech.emit_clip(event('inspection_found',identifier='prepared-2'),clip,'发现胶带')
+        self.assertTrue(await future);await self.drain()
+
     async def asyncSetUp(self):
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name);self.log=[]
         clips={}

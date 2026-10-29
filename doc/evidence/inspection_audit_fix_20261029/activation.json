@@ -1,0 +1,79 @@
+{
+  "manifest_verified": 248,
+  "config_sha256": "b0dab41db922a5bc6f0bda3f998f63da18109e26accae17cfe0c38d2e86525fa",
+  "model_sha256": "7d84e80c20b0c3ff8e5eae6bcbec1d152f880a8ab4189a50adb5757431e02209",
+  "startup": {
+    "enabled": true,
+    "ready": true,
+    "state": "ready",
+    "required_models": [
+      "asr",
+      "llm",
+      "chat",
+      "tts"
+    ],
+    "loaded": {
+      "asr": {
+        "load_s": 9.08058651,
+        "ready_at_s": 22.900468795
+      },
+      "llm": {
+        "load_s": 0.001481643000005306,
+        "ready_at_s": 40.467312844
+      },
+      "chat": {
+        "load_s": 14.094671329999997,
+        "ready_at_s": 54.679498829
+      },
+      "tts": {
+        "load_s": 8.778655452000002,
+        "ready_at_s": 63.567739525
+      },
+      "vision": {
+        "load_s": 1.4224729160000038,
+        "ready_at_s": 65.105474883
+      }
+    },
+    "errors": {},
+    "ready_tone_played": false,
+    "ready_tone_error": "ValueError: USB role speaker has 0 matches; explicit identity/disambiguation required"
+  },
+  "ai": {
+    "configured": true,
+    "active": false,
+    "mode": "semantic_navigation",
+    "selected": 0,
+    "paused_manual": false,
+    "vision_resume_required": false,
+    "vision_enabled": false,
+    "state": "off",
+    "instruction": "",
+    "reply": "",
+    "detections": [],
+    "last_error": null,
+    "control_link_available": false,
+    "record_armed": false
+  },
+  "inspection": {
+    "state": "edit",
+    "error": null
+  },
+  "workers": {
+    "asr": {
+      "pid": 2052,
+      "load_s": 9.08058651
+    },
+    "vision": {
+      "pid": 3930,
+      "load_s": 1.4224729160000038
+    },
+    "llm": {
+      "pid": 3840,
+      "load_s": 0.001481643000005306
+    },
+    "camera": {
+      "pid": null,
+      "load_s": null
+    }
+  }
+}

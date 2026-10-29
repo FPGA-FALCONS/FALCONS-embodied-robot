@@ -5,7 +5,7 @@ import struct
 import zlib
 
 TARGETS=('tape','screwdriver','ad_calcium_milk','nutri_express')
-DETECTION_CONFIDENCE_THRESHOLD = .50
+DETECTION_CONFIDENCE_THRESHOLD = .25
 
 
 def loads(data):
