@@ -126,7 +126,7 @@ module ui_render #(
     localparam integer NAV_AUX_XW   = NAV_AUX_X / LG_CELL;
     localparam integer NAV_AUX_Y0   = 420;  // 第 1 项框顶
     localparam integer NAV_AUX_STEP = 36;   // 项高
-    localparam integer NAV_AUX_TDY  = 6;    // 文字相对框顶偏移（(32−24)/2）
+    localparam integer NAV_AUX_TDY  = 6;    // 文字相对框顶偏移（(30−24)/2）
 
     // ---- 参数整定页几何（2026-10-20 新增，一期：11 行参数，存 RAM）----
     //   内容区 x 208..1023。三列：中文标签（24px）x=240 / 数值（16px，5 格）x=384 /
@@ -135,19 +135,19 @@ module ui_render #(
     //   ★ 标签只有 4~5 个字（最长「转向角速度」「减速距离」），5×24=120 px，
     //     240+120=360 < 384（数值左界），不重叠。
     localparam integer TUNE_Y0      = 72;   // 第 1 行顶
-    localparam integer TUNE_STEP    = 32;   // 行高
-    localparam integer TUNE_TDY     = 4;    // 24px 标签相对行顶偏移 (32−24)/2
+    localparam integer TUNE_STEP    = 30;   // 行高
+    localparam integer TUNE_TDY     = 3;    // 24px 标签相对行顶偏移 (30−24)/2
     // ★ 2026-10-20 上板修：数值点阵是 **16 宽 × 24 高**（`font_num` 是 24 行），
     //   不是 16×16。原来 VDY 按 (36−16)/2=10 算、窗口又只有 SM_CELL=16 行，
     //   于是只画出字形的第 0..15 行 —— 上板现象是"右侧数值与单位下部被截掉"。
-    //   改法：VDY = (32−24)/2 = 6（与标签同一基线），窗口高度用 TUNE_VH = 24。
-    localparam integer TUNE_VDY     = 4;    // 24px 数字相对行顶偏移 (32−24)/2
+    //   改法：VDY = (30−24)/2 = 6（与标签同一基线），窗口高度用 TUNE_VH = 24。
+    localparam integer TUNE_VDY     = 3;    // 24px 数字相对行顶偏移 (30−24)/2
     localparam integer TUNE_VH      = 24;   // 数值点阵行数（font_num: 16×24）
     localparam integer TUNE_LBL_X   = 240;  // 标签左界（24 的倍数 ⇒ 字组 10）
     localparam integer TUNE_LBL_XW  = TUNE_LBL_X / LG_CELL;
     localparam integer TUNE_VAL_XW  = 24;   // 数值左界 24×16 = 384
     localparam integer TUNE_UNIT_XW = 30;   // 单位左界 30×16 = 480
-    localparam integer TUNE_ROWS    = 15;   // 参数行数（与 tune_ctrl 的 15 项一一对应）
+    localparam integer TUNE_ROWS    = 16;   // 参数行数（与 tune_ctrl 的 16 项一一对应）
 
     // ------------------------------------------------------------------
     // 文案取用（function：纯组合，综合稳）  {addr[11:0], len[5:0]}
@@ -191,6 +191,7 @@ module ui_render #(
                 4'd10:   tune_label_text = {UI_TXT_TUNE_L9_ADDR,  UI_TXT_TUNE_L9_LEN};
                 4'd11:   tune_label_text = {UI_TXT_TUNE_L10_ADDR, UI_TXT_TUNE_L10_LEN};
                 4'd12:   tune_label_text = {UI_TXT_TUNE_FORWARD_ADDR, UI_TXT_TUNE_FORWARD_LEN};
+                4'd15:   tune_label_text = {UI_TXT_TUNE_INSPECT_TURN_ADDR, UI_TXT_TUNE_INSPECT_TURN_LEN};
                 4'd14:   tune_label_text = {UI_TXT_TUNE_WINDOW_ADDR, UI_TXT_TUNE_WINDOW_LEN};
                 4'd13:   tune_label_text = {UI_TXT_TUNE_WIDTH_ADDR, UI_TXT_TUNE_WIDTH_LEN};
                 default: tune_label_text = {UI_TXT_TUNE_L0_ADDR,  UI_TXT_TUNE_L0_LEN};
@@ -210,7 +211,7 @@ module ui_render #(
                 4'd12, 4'd14: tune_unit_text = {UI_TXT_TUNE_CELLS_ADDR, UI_TXT_TUNE_CELLS_LEN};
                 4'd1, 4'd13: tune_unit_text = {UI_TXT_TUNE_UMM_ADDR,   UI_TXT_TUNE_UMM_LEN};
                 4'd2, 4'd3: tune_unit_text = {UI_TXT_TUNE_UDEG_ADDR,  UI_TXT_TUNE_UDEG_LEN};
-                4'd4:       tune_unit_text = {UI_TXT_TUNE_UDEGS_ADDR, UI_TXT_TUNE_UDEGS_LEN};
+                4'd4, 4'd15: tune_unit_text = {UI_TXT_TUNE_UDEGS_ADDR, UI_TXT_TUNE_UDEGS_LEN};
                 default:    tune_unit_text = 18'd0;
             endcase
         end
@@ -422,7 +423,7 @@ module ui_render #(
         // ---- 非避障导航页：右下角辅助菜单（5 项 / 24px 字 / 项高 36 / 文字 x = 840）----
         //   窗口几何（与下面 nav_aux_bg / nav_aux_hi 必须一致）：
         //     背景 x 832..1023、y 414..599；项框 y = 420 + i*36（高 36）；
-        //     文字 x = 840（35 组 × 24）、y = 项框顶 + 6（(32−24)/2 垂直居中）。
+        //     文字 x = 840（35 组 × 24）、y = 项框顶 + 6（(30−24)/2 垂直居中）。
         //   ★ 最长项「清除所有路径点」7 字 × 24 = 168 px，840+168 = 1008 ≤ 1023 ✓
         if ((i_page == PG_NAV_FREE) || (i_page == PG_NAV_OBS)) begin
             for (ai = 0; ai < 5; ai = ai + 1) begin

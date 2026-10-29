@@ -170,7 +170,7 @@ TUNE_L0:车速
 TUNE_L1:减速距离
 TUNE_L2:对准小角
 TUNE_L3:对准大角
-TUNE_L4:转向角速度
+TUNE_L4:导航转向
 TUNE_L5:航向Kp
 TUNE_L6:航向Ki
 TUNE_L7:航向Kd
@@ -197,3 +197,5 @@ AUX_RETURN_EDIT:返回重新选点
 ST_CTRL_FAULT:控制故障
 
 TUNE_WINDOW: 规划窗口
+
+TUNE_INSPECT_TURN: AI转向

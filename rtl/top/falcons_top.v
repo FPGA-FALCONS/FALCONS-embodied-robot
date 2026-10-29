@@ -666,15 +666,15 @@ module falcons_top (
     reg signed [15:0] kp_r, ki_r, kd_r;
 
     // ------------------------------------------------------------------
-    // 参数整定页的 15 项参数（2026-10-20，一期：存 RAM，掉电丢失）
-    //   ★ 位序：第 k 项在 tune_p[k*32 +: 32]，k = 0..14，与 rtl\ui\tune_ctrl.v
+    // 参数整定页的 16 项参数（2026-10-20，一期：存 RAM，掉电丢失）
+    //   ★ 位序：第 k 项在 tune_p[k*32 +: 32]，k = 0..15，与 rtl\ui\tune_ctrl.v
     //     的 o_sel、ui_render 的字段号、num_text 的字段号**四处一致**。
     //   ★ 这里只声明 wire，实例 u_tune_ctrl 在文件末尾（第 12c 节）—— Verilog
     //     允许先声明后实例化，但不能先使用后声明。
     // ------------------------------------------------------------------
-    wire [479:0] tune_p;        // 参数值本身（给 nav_ctrl / speed_pid）
-    wire [479:0] tune_disp;     // 显示值（已按单位换算，给 num_text）
-    wire [3:0]   tune_sel;      // 当前选中行 0..14
+    wire [511:0] tune_p;        // 参数值本身（给 nav_ctrl / speed_pid）
+    wire [511:0] tune_disp;     // 显示值（已按单位换算，给 num_text）
+    wire [3:0]   tune_sel;      // 当前选中行 0..15
     wire signed [31:0] tune_k_slow;   // = V_CRUISE×1024/D_SLOW，由 tune_ctrl 的除法器算
 
     //   速度环 PID 的两路写方（串口 / 页面）：靠"页面值变化沿"触发，避免每拍覆盖
@@ -1791,6 +1791,12 @@ module falcons_top (
         .clk(i_clk_50m),.rst_n(sys_rst_n),.i_owned(inspection_owned),.i_cruise_mm_s(inspection_cruise_mm_s),
         .i_base_cruise(tune_p[31:0]),.i_d_slow(tune_p[63:32]),.i_base_k_slow(tune_k_slow),
         .o_cruise(point_cruise),.o_k_slow(point_k_slow));
+    // 在系统时钟域寄存选择，避免参数数组选择与限幅比较串成组合路径。
+    reg signed [31:0] point_turn_limit;
+    always @(posedge i_clk_50m or negedge sys_rst_n) begin
+        if (!sys_rst_n) point_turn_limit <= 32'sd126;
+        else point_turn_limit <= inspection_owned ? tune_p[511:480] : tune_p[159:128];
+    end
     nav_point_ctrl u_nav_point_ctrl (
         .clk(i_clk_50m), .rst_n(sys_rst_n),
         .i_cmd_valid(planner_cmd_valid), .i_emergency_stop(planner_emergency_stop | (inspection_force_stop && !manual_drive)),
@@ -1799,7 +1805,7 @@ module falcons_top (
         .i_yaw_centi(navigation_yaw_cdeg), .i_v_mms(odom_v_mms), .i_stall(stall_vec),
         .i_v_cruise(point_cruise), .i_d_slow(tune_p[63:32]),
         .i_align_in(tune_p[95:64]), .i_align_out(tune_p[127:96]),
-        .i_max_diff_cruise(tune_p[159:128]), .i_kp_yaw(tune_p[191:160]),
+        .i_max_diff_cruise(point_turn_limit), .i_kp_yaw(tune_p[191:160]),
         .i_ki_yaw(tune_p[223:192]), .i_kd_yaw(tune_p[255:224]),
         .i_i_limit(tune_p[287:256]), .i_k_slow_q10(point_k_slow),
         .o_auto_valid(obs_auto_valid), .o_center(obs_auto_center), .o_diff(obs_auto_diff),
@@ -1990,18 +1996,19 @@ module falcons_top (
     wire signed [31:0] nt_v11 = tune_page ? tune_disp[383:352] : 32'sd0;
     wire signed [31:0] nt_v12 = tune_page ? tune_disp[415:384] : 32'sd0;
     wire signed [31:0] nt_v13 = tune_page ? tune_disp[447:416] : 32'sd0;
+    wire signed [31:0] nt_v15 = tune_page ? tune_disp[511:480] : 32'sd0;
     wire signed [31:0] nt_v14 = tune_page ? tune_disp[479:448] : 32'sd0;
     // ★ 2026-10-20（综合报错后补）：哪些字段"带小数"（= num_text 里"整数部分至少几位"）。
     //   数据页：字段 6 中心速度 / 7 航位 x / 8 航位 y / 9 准心 x / 10 准心 y，均 2 位小数
     //           → bit 6..10 置 1 → 12'b0111_1100_0000（= 0x7C0）
-    //   参数页：15 项全是整数 → 全 0。否则航向 Kd=6 会显示成 "  006"，
+    //   参数页：16 项全是整数 → 全 0。否则航向 Kd=6 会显示成 "  006"，
     //           且 ui_render 的 field_dec 还会在百位后画点，变成 "  0.06"。
-    wire [14:0] nt_frac_mask = tune_page ? 15'd0 : 15'b000_0111_1100_0000;
+    wire [15:0] nt_frac_mask = tune_page ? 16'd0 : 16'b000_0111_1100_0000;
 
     num_text #(
         .CLK_HZ     (CLK_HZ),
         .REFRESH_MS (100),
-        .NUM_FIELDS (15)
+        .NUM_FIELDS (16)
     ) u_num_text (
         .clk    (i_clk_50m),
         .rst_n  (sys_rst_n),
@@ -2022,6 +2029,7 @@ module falcons_top (
         .i_v11  (nt_v11),            // 字段 11：参数 11 速度环 Kd（数据页恒 0）
         .i_v12  (nt_v12),            // 前探格数
         .i_v13  (nt_v13),            // 车宽 mm
+        .i_v15  (nt_v15),
         .i_v14  (nt_v14),            // 规划窗口格数
         .i_frac_mask(nt_frac_mask),   // 哪些字段带小数（按页面切换，见声明处）
         .o_we   (dyn_we),

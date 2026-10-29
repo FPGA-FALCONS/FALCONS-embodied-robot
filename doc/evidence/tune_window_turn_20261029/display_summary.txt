@@ -1,0 +1,8 @@
+================ 汇总 ================
+
+测试        结果 检查数 说明
+----        ---- ------ ----
+ui_pipeline PASS      6 pass=6 / CHECKS=6
+tune_page   PASS     73 pass=73 / CHECKS=73
+
+全部 2 个测试通过

@@ -20,10 +20,13 @@ module nav_planner_limit_tb;
             if(n==2 && (x!=1 || y!=1)) shape_ok=0;
             if(n==3 && (x!=(count==1 ? 57 : 1) || y!=1)) shape_ok=0;
             if(n==4 && (x!=1+count*63 || y!=1)) shape_ok=0;
-            if(last!=(n==2 || count==2)) shape_ok=0;
+            if(n==5 && (x!=(count==1 ? 128 : 1) || y!=1)) shape_ok=0;
+            if(n==6 && (x!=1 || y!=1)) shape_ok=0;
+            if(n==7 && (x!=255 || y!=1)) shape_ok=0;
+            if(last!=(n==2 || n>=6 || count==2)) shape_ok=0;
         end
     end
-    nav_planner #(.GRID_W(128),.GRID_H(16)) dut (
+    nav_planner #(.GRID_W(256),.GRID_H(16)) dut (
         .clk(clk),.reset_n(reset_n),.req_valid(request),.req_ready(ready),
         .w_max(window),
         .allow_start_escape(1'b0),.start_x(sx),.start_y(16'd1),.goal_x(gx),.goal_y(gy),
@@ -43,20 +46,20 @@ module nav_planner_limit_tb;
     endtask
     initial begin
         repeat(3) @(negedge clk); reset_n=1;
-        for(n=0;n<5;n=n+1) begin
+        for(n=0;n<8;n=n+1) begin
             count=0; shape_ok=1;
             @(negedge clk);
-            sx=n==3 ? 120 : 1;
-            gx=n==0 ? 14 : n==4 ? 127 : 1;
+            sx=n==3 ? 120 : (n==5 || n==6) ? 255 : 1;
+            gx=n==0 ? 14 : n==4 ? 127 : n==7 ? 255 : 1;
             gy=n==2 || n>=3 ? 1 : 14;
-            window=n>=3 ? 64 : n==1 ? 2 : 5;
+            window=n>=6 ? 255 : n==5 ? 128 : n>=3 ? 64 : n==1 ? 2 : 5;
             request=1;
             @(negedge clk); request=0;
-            window=n>=3 ? 2 : 64;
+            window=n>=3 ? 2 : 255;
             wait_count=0;
             while(busy && wait_count<1000000) begin @(negedge clk); wait_count=wait_count+1; end
             check(!busy && success && !no_path && ready,"capacity prefix drains pipeline and accepts next request");
-            check(shape_ok && count==(n==2 ? 1 : 2),"relay spacing and truncated last flag are correct");
+            check(shape_ok && count==(n==2 || n>=6 ? 1 : 2),"relay spacing and truncated last flag are correct");
         end
         $display("CHECKS: %0d",checks);
         $display("METRICS: nav_planner_limit_tb cycles=%0d errors=%0d",cycles,errors);

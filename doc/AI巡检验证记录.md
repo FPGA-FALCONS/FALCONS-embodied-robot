@@ -51,6 +51,8 @@
 
 远程AI分支已快进到`f962c05`，本轮完整构建成功、81项应用回归通过、136项输入指纹一致。生成位流SHA256为`393dc996c4fa8d4a82b34076a3025834600a60307de3f11ff085578ce2dd2727`；系统50/50.100MHz、像素49/50.796MHz、FX2 30.030/37.191MHz；16行同钟域setup/hold TNS为0，全局仍有setup58、hold18个违例端点；Logic54104、寄存器26934。该生成位流未加载，板上保持上述用户指定位流。见[本次源码构建记录](evidence/remote_f962c05_20261029/VALIDATION.json)与[时序及指纹核对](evidence/remote_f962c05_20261029/fpga_validation.json)。
 
+本地规划窗口128/上限255、独立AI转向参数版已完成综合及布局布线，尚未烧录。137项输入一致，16行同钟域setup/hold TNS为0；系统50/50.072MHz、像素49/50.353MHz、FX2 30.030/37.191MHz。系统最差setup仅0.029ns；全局setup58、hold18端点违例及HDMI复位跨域recovery违例仍在，不能宣称全路径闭合。生成位流SHA256为`1838bb34092de3ac45ec8d15006aa9a51f36ef3c8774e3aa7bc045b88618ac48`；本轮未改板上SRAM或Flash。见[参数版时序核对](evidence/tune_window_turn_20261029/fpga_validation.json)及[关键路径](evidence/tune_window_turn_20261029/path_review.json)。
+
 上一版已验收显示位流SHA256为`82164f871f3ebd76b9a3cc4fcaaa780f999a141b29ccd02536f4b93ab3e99a8d`，包含DDR仲裁与HDMI垂直正同步修复；用户确认原屏绿纹全部消失、各页正常。该版136项源/约束/头文件指纹一致，79项应用回归通过；系统50/51.186MHz、像素49/58.320MHz、FX2 30.030/36.908MHz；16行同钟域setup/hold TNS为0。既有跨域setup58、hold18个违例端点仍在，不能宣称所有路径闭合。Logic54080、寄存器26947。见[历史输入指纹](evidence/hdmi_green_stripes_20261028/fpga_inputs.json)及[历史构建结果](evidence/hdmi_green_stripes_20261028/fpga_validation.json)。该版2026-10-28的Flash写入记录已由本次指定文件固化取代。
 
 本轮未写FX2 EEPROM。RK与FPGA需使用配套的16位mm/s巡检协议；脱机测试只拔电脑侧JTAG，保留RK到FPGA J5高速线和控制串口。之前的[50%阈值/手转/固化](evidence/encoder_cruise_confidence_20261028/VALIDATION.json)与[简化入口验收](evidence/ai_entry_simple_20261028/VALIDATION.json)保留历史记录，不当作当前指定位流的运动验收。

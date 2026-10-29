@@ -21,7 +21,7 @@ module tune_ctrl_tb;
     reg i_confirm = 1'b0, i_back = 1'b0;
 reg signed [11:0] i_throttle = 12'sd0;   // CH2：选行（向上 = 行号减 1）
 
-    wire [479:0]       o_param, o_disp;
+    wire [511:0]       o_param, o_disp;
     wire [3:0]         o_sel;
     wire signed [31:0] o_k_slow_q10;
     wire               o_exit, o_div_busy;
@@ -198,9 +198,12 @@ reg signed [11:0] i_throttle = 12'sd0;   // CH2：选行（向上 = 行号减 1�
         for (k = 0; k < 13; k = k + 1) pulse_aux_down;
         chk_int("g4_sel14", o_sel, 14);
         pulse_aux_down;
+        chk_int("g4_sel15", o_sel, 15);
+        pulse_aux_down;
         chk_int("g4_sel_wrap0", o_sel, 0);
         pulse_aux_up;
-        chk_int("g4_sel_wrap14", o_sel, 14);
+        chk_int("g4_sel_wrap15", o_sel, 15);
+        pulse_aux_up;
         pulse_aux_up;
         chk_int("g4_sel13", o_sel, 13);
 
@@ -367,17 +370,26 @@ reg signed [11:0] i_throttle = 12'sd0;   // CH2：选行（向上 = 行号减 1�
         i_manual = 0;
         pulse_aux_down;
         chk_int("window_row", o_sel, 14);
-        chk_int("window_default", `P(14), 5);
-        chk_int("window_disp", `D(14), 5);
+        chk_int("window_default", `P(14), 128);
+        chk_int("window_disp", `D(14), 128);
         push_pos;
-        chk_int("window_add", `P(14), 6);
-        repeat (70) push_neg;
+        chk_int("window_add", `P(14), 129);
+        repeat (260) push_neg;
         chk_int("window_min", `P(14), 2);
-        repeat (70) push_pos;
-        chk_int("window_max", `P(14), 64);
+        repeat (260) push_pos;
+        chk_int("window_max", `P(14), 255);
         pulse_confirm;
-        chk_int("window_restore", `P(14), 5);
+        chk_int("window_restore", `P(14), 128);
 
+        pulse_aux_down;
+        chk_int("inspection_turn_row", o_sel, 15);
+        chk_int("inspection_turn_default", `P(15), 126);
+        push_pos;
+        chk_int("inspection_turn_changed", `P(15), 136);
+        chk_int("inspection_turn_display", `D(15), 32);
+        chk_int("base_turn_unchanged", `P(4), 126);
+        pulse_confirm;
+        chk_int("inspection_turn_restore", `P(15), 126);
         i_manual = 0;
 
         // ------------------------------------------------------------------

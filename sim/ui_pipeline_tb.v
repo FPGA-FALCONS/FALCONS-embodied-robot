@@ -52,7 +52,7 @@ module ui_pipeline_tb;
         expected[2] = 32'h71923fef;
         expected[3] = 32'h877039e8; // 避障完成态禁编辑并提示返回；其他页保持原指纹。
         expected[4] = 32'h1eaec97b;
-        expected[5] = 32'h533afd1b; // 参数页十五行、32px 行高；前五页指纹保持不变。
+        expected[5] = 32'he6e73667; // 参数页十六行、30px 行高；前五页指纹保持不变。
         for (n = 0; n < 128; n = n + 1) text_mem[n] = 8'd16 + n % 10;
         for (p = 0; p < 6; p = p + 1) begin
             @(negedge clk); rst_n = 0; page = p;

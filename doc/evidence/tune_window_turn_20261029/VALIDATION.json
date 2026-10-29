@@ -1,0 +1,38 @@
+{
+  "window_default": 128,
+  "window_min": 2,
+  "window_max": 255,
+  "turn_parameter_indices": {
+    "base": 4,
+    "inspection": 15
+  },
+  "turn_defaults_counts": 126,
+  "turn_display_default_deg_s": 30,
+  "scope": "行进纠偏限幅，原地对准仍使用MAX_DIFF=612",
+  "application_suites_passed": 81,
+  "note": "完整回归仅旧参数页像素指纹失败；核对前五页不变及参数页布局后更新指纹，ui_pipeline与tune_page重跑通过。",
+  "planner_boundary_checks": 16,
+  "tune_ctrl_checks": 96,
+  "tune_page_checks": 73,
+  "synthesis": "PASS",
+  "synthesis_seconds": 173.6,
+  "place_route": "PASS; 同钟域通过，全局仍有既有跨域setup/hold/recovery违例",
+  "programmed": false,
+  "input_sha256": {
+    "rtl/ui/tune_ctrl.v": "1c3063c4d3ae1952bf2d02d79d829c6fbac71d1b5605ecce8ba70dcba0ab02d7",
+    "rtl/ui/num_text.v": "ff5cd89878a4b295a698f9bc88af6126af69d51ed51f23fb04bdd67bef7f796f",
+    "rtl/ui/ui_render.v": "31a795e1157bd9feab788348df013df2a9e92c945085ec77cd7edd54228dfbda",
+    "rtl/top/falcons_top.v": "b43c9a5a407fac0e27b1a63f9727be4495f5c38053f0361972f4a045082267ec",
+    "vendor/verilog-reusable-modules/modules/auto_navigation/rtl/nav_planner.v": "556c3591dd4439434197830fde6eabc580d2e5a307886372441f43d1e94b8838",
+    "tools/font_chars.txt": "f8fd98a0af145a0e96df750d94d9ba6c3a28e37cbc69f158c3821cfb626e89d7",
+    "rtl/common/ui_text_rom.v": "b60805e2343ea3240fc04a03948140fc3b11952bbae21719b0969936c43927e0",
+    "rtl/ui/ui_text_index.vh": "45d565109d87b6089117b7edb1faaa39136dc3404f6bafdda1c80de1c0101e0b"
+  },
+  "place_route_seconds": 700.9,
+  "input_count": 137,
+  "bitstream_sha256": "1838bb34092de3ac45ec8d15006aa9a51f36ef3c8774e3aa7bc045b88618ac48",
+  "system_setup_slack_ns": 0.029,
+  "worst_setup_ns": -2.26,
+  "worst_hold_ns": -2.036,
+  "worst_recovery_ns": -7.283
+}

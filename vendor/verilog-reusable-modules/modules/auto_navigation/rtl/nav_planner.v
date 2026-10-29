@@ -15,7 +15,7 @@ module nav_planner #(
     input  wire        mrd_ready,
     output wire [15:0] mrd_x, mrd_y,
     input  wire        mrd_rsp_valid, mrd_cost, mrd_raw,
-    // 包含起点的窗口格数，合法值 2..64；每轮请求锁存，UI 默认 5。
+    // 包含起点的窗口格数，合法值 2..255；每轮请求锁存，UI 默认 128。
     input  wire [7:0]  w_max,
     input  wire [15:0] wp_limit,
     output wire        wp_valid,
@@ -27,8 +27,8 @@ module nav_planner #(
     output wire [15:0] path_len
 );
     localparam [2:0] IDLE = 0, WAIT_POINT = 1, MEASURE = 2, MAKE_POINT = 3, OUTPUT = 4, DRAIN = 5;
-    reg [5:0] gap;
-    reg signed [6:0] negative_gap;
+    reg [7:0] gap;
+    reg signed [8:0] negative_gap;
     reg [2:0] state, run_dir;
     reg first_cell, corner_pending, corner_last, collecting_done, read_owner;
     reg [15:0] corner_x, corner_y;
@@ -86,13 +86,13 @@ module nav_planner #(
         end
     endfunction
     function [15:0] increment;
-        input [5:0] span;
-        input signed [6:0] negative_span;
+        input [7:0] span;
+        input signed [8:0] negative_span;
         input signed [1:0] direction;
         begin
             case(direction)
-                1:increment = {10'd0, span};
-                -1:increment = {{9{negative_span[6]}}, negative_span};
+                1:increment = {8'd0, span};
+                -1:increment = {{7{negative_span[8]}}, negative_span};
                 default:increment = 0;
             endcase
         end
@@ -144,7 +144,7 @@ module nav_planner #(
             remaining <= 0;
             count <= 0;
             limit <= 0;
-            gap <= 4;
+            gap <= 127;
             negative_gap <= 0;
             step_x <= 0;
             step_y <= 0;
