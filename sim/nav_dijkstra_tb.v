@@ -11,7 +11,8 @@ module nav_dijkstra_tb;
     reg [15:0] reference [0:4095];
     integer cycles = 0,checks = 0,errors = 0,delay_left,address;
     integer fd,result,count,index,ex,position,begin_cycle,peak,wait_count;
-    integer px,py,dx,dy,expected_cost,actual_cost,k,improved=0,stale=0,ties=0,wraps=0,expected_turns,old_direction,direction_now,saturation_cases=0;
+    integer px,py,dx,dy,expected_cost,actual_cost,k,improved=0,stale=0,penalties=0,wraps=0;
+    integer expected_turns,actual_turns,old_direction,actual_direction,direction_now,long_turn_cases=0;
     reg geometry_ok,reference_ok,stable_ok,held = 0;
     reg [35:0] hold_data;
     reg [2047:0] fixture_dir,file_name;
@@ -59,10 +60,10 @@ module nav_dijkstra_tb;
             if (rx>255 || ry>255) begin $display("FAIL: dijkstra out-of-map read"); errors = errors+1; end
         end
         if (dut.state>=7 && dut.state<=19 && 2048-dut.free_count>peak) peak = 2048-dut.free_count;
-        if (dut.state == 7 && dut.bucket_empty != 4'hf && dut.bucket_empty[dut.current_bucket] && dut.current_bucket == 3) wraps = wraps+1;
-        if (dut.state == 24) ties = ties+1;
-        if (dut.state == 23 && dut.shorter && dut.node_q[2]) improved = improved + 1;
-        if (dut.state == 11 && (!dut.node_q[2] || dut.node_q[1:0] != dut.current_bucket)) stale = stale + 1;
+        if (dut.state == 7 && dut.bucket_empty != 8'hff && dut.bucket_empty[dut.current_bucket] && dut.current_bucket == 7) wraps = wraps+1;
+        if (dut.state == 24 && dut.turn_step) penalties = penalties+1;
+        if (dut.state == 23 && dut.shorter && dut.node_q[3]) improved = improved + 1;
+        if (dut.state == 11 && (!dut.node_q[3] || dut.node_q[2:0] != dut.current_bucket)) stale = stale + 1;
         if (held && (!valid || {last,dir,y,x} !== hold_data)) stable_ok = 0;
         held = valid && !take;
         if (held) hold_data = {last,dir,y,x};
@@ -73,6 +74,9 @@ module nav_dijkstra_tb;
                 actual_cost = actual_cost + (x != px && y != py ? 3 : 2);
                 dx = $signed({1'b0,x})-px;
                 dy = $signed({1'b0,y})-py;
+                direction_now = dy*256+dx;
+                if (position>1 && direction_now != actual_direction) actual_turns=actual_turns+1;
+                actual_direction=direction_now;
                 if (dx>1 || dx< -1 || dy>1 || dy< -1 || (dx == 0 && dy == 0)) geometry_ok = 0;
                 if (dx != 0 && dy != 0 && (!allowed(px+dx,py) || !allowed(px,py+dy))) geometry_ok = 0;
             end
@@ -83,7 +87,7 @@ module nav_dijkstra_tb;
     end
     initial begin
         fixture_dir = "../logs/dijkstra/fixtures";
-        if ($value$plusargs("FIXTURE_DIR = %s",fixture_dir)) begin end
+        if ($value$plusargs("FIXTURE_DIR=%s",fixture_dir)) begin end
         file_name = {fixture_dir,"/cases.txt"}; fd = $fopen(file_name,"r");
         if (!fd) begin $display("FAIL: dijkstra missing fixtures"); $finish; end
         result = $fscanf(fd,"%d\n",count);
@@ -106,6 +110,8 @@ module nav_dijkstra_tb;
                 old_direction=direction_now;
             end
             actual_cost = 0;
+            actual_turns = 0;
+            actual_direction = 0;
             position = 0;
             peak = 0;
             geometry_ok = 1;
@@ -120,22 +126,21 @@ module nav_dijkstra_tb;
             while (busy && wait_count<10000000) begin @(negedge clk);
             wait_count = wait_count+1;
             end
-            check(!busy && (ex<0 ? no_path && !success : success && !no_path),"reachability matches independent Dijkstra");
-            check(ex<0 ? position == 0 : position == ex+1 && length == ex && actual_cost == expected_cost,"minimum 2/3 cost and reference steps");
+            check(!busy && (ex<0 ? no_path && !success : success && !no_path),"reachability matches independent single-label heap");
+            check(ex<0 ? position == 0 : position == ex+1 && length == ex && actual_cost+4*actual_turns == expected_cost+4*expected_turns,"2/3 movement plus four per turn matches heap cost and steps");
             check(reference_ok && geometry_ok,"all cells match straight-first reference and reject corner cutting");
             check(stable_ok && peak<=2048,"backpressure and queue bound");
             if (ex>=0) begin
-                check(dut.node_tag[sy*256+sx] == 3'b001 &&
-                      dut.turns[sy*256+sx] == (expected_turns>255 ? 255 : expected_turns),
-                      "settled state and saturating turn count");
-                if (expected_turns>255) saturation_cases=saturation_cases+1;
+                check(dut.node_tag[sy*256+sx] == 4'b0001 && actual_turns == expected_turns,
+                      "settled start and full path turn cost without saturation");
+                if (expected_turns>255) long_turn_cases=long_turn_cases+1;
             end
-            $display("METRICS: dijkstra case=%0d cycles=%0d steps=%0d peak=%0d",index,cycles-begin_cycle,length,peak);
+            $display("METRICS: dijkstra case=%0d cycles=%0d steps=%0d peak=%0d movement=%0d turns=%0d total=%0d",index,cycles-begin_cycle,length,peak,actual_cost,actual_turns,actual_cost+4*actual_turns);
             repeat(3) @(negedge clk);
         end
         $fclose(fd);
-        check(improved > 0 && stale > 0 && ties > 0 && wraps > 0 && saturation_cases > 0,"maps exercise distance improvements, turn ties and stale entries");
-        $display("METRICS: improvements=%0d stale=%0d ties=%0d wraps=%0d saturation=%0d",improved,stale,ties,wraps,saturation_cases);
+        check(improved > 0 && stale > 0 && penalties > 0 && wraps > 0 && long_turn_cases > 0,"maps exercise cost improvements, penalties, stale entries and eight-bucket wrap");
+        $display("METRICS: improvements=%0d stale=%0d penalties=%0d wraps=%0d long_turn_cases=%0d",improved,stale,penalties,wraps,long_turn_cases);
         $display("CHECKS: %0d",checks);
         $display("METRICS: nav_dijkstra_tb cycles=%0d errors=%0d",cycles,errors);
         if (!errors) $display("PASS: nav_dijkstra_tb");

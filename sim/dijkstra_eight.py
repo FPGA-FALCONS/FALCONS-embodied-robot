@@ -1,4 +1,4 @@
-"""Independent heap Dijkstra (2/3), indoor fixtures and corner checks; outputs only to logs/."""
+"""Single-label turn-cost search checked with a full-distance heap; outputs only to logs/."""
 import argparse
 import json
 from heapq import heappush, heappop
@@ -9,6 +9,14 @@ from bfs_indoor import scenes, N
 DIR = ((1, 0), (1, 1), (0, 1), (-1, 1),
        (-1, 0), (-1, -1), (0, -1), (1, -1))
 ORDER = (0, 1, -1, 2, -2, 3, -3, 4)
+TURN_COST = 4
+
+
+def route_cost(path):
+    directions = [(b % N-a % N, b // N-a // N) for a, b in zip(path, path[1:])]
+    distance = sum(3 if dx and dy else 2 for dx, dy in directions)
+    turns = sum(a != b for a, b in zip(directions, directions[1:]))
+    return distance, turns, distance + TURN_COST * turns
 
 
 def solve(scene):
@@ -26,15 +34,16 @@ def solve(scene):
     parent = {(gx, gy): None}
     distance = {(gx, gy): 0}
     heading = {}
-    turns = {(gx, gy): 0}
+    settled = set()
     root_vector = ((sx > gx)-(sx < gx), (sy > gy)-(sy < gy))
     heading[gx, gy] = DIR.index(root_vector) if root_vector != (0, 0) else 0
     q = [(0, 0, (gx, gy))]
     sequence, peak, expanded = 0, 1, 0
     while q:
         value, _, point = heappop(q)
-        if distance[point] != value:
+        if point in settled or distance[point] != value:
             continue
+        settled.add(point)
         if point == (sx, sy):
             break
         x, y = point
@@ -43,21 +52,17 @@ def solve(scene):
             direction = (heading[point] + offset) % 8
             dx, dy = DIR[direction]
             child = (x+dx, y+dy)
-            candidate = value + (3 if dx and dy else 2)
-            turn_count = min(255, turns[point] + int(point != (gx,gy) and direction != heading[point]))
+            candidate = value + (3 if dx and dy else 2) + TURN_COST * int(
+                point != (gx, gy) and direction != heading[point])
             old = distance.get(child, 1 << 30)
-            if (not allowed(*child) or candidate > old or
-                    (candidate == old and turn_count >= turns[child]) or
+            if (child in settled or not allowed(*child) or candidate >= old or
                     (dx and dy and not (allowed(x+dx, y) and allowed(x, y+dy)))):
                 continue
-            equal = candidate == old
             parent[child] = point
-            turns[child] = turn_count
             distance[child] = candidate
             heading[child] = direction
-            if not equal:
-                sequence += 1
-                heappush(q, (candidate, sequence, child))
+            sequence += 1
+            heappush(q, (candidate, sequence, child))
             peak = max(peak, len(q))
 
     path = []
@@ -66,6 +71,8 @@ def solve(scene):
         while point is not None:
             path.append(point[1]*N+point[0])
             point = parent[point]
+    if path:
+        assert route_cost(path)[2] == distance[sx, sy]
     return path, peak, expanded
 
 
@@ -99,7 +106,7 @@ def fixtures():
             raw[y*N+x] = 0
         cases.append(dict(name=f'room_furniture_random_{seed}', raw=raw, cost=bytearray(raw),
                           start=(112,112), goal=(143,139), escape=0))
-    # A single thin corridor with 258 right-angle turns; no diagonal corner cuts.
+    # More than 255 turns must still be charged; no diagonal corner cuts.
     raw = bytearray([1])*(N*N)
     cursor = [4,2]
     raw[cursor[1]*N+cursor[0]] = 0
@@ -112,8 +119,12 @@ def fixtures():
     for row in range(1,126):
         line_to(cursor[0],2+2*row)
         line_to(4 if row%2 else 20,2+2*row)
-    cases.append(dict(name='turn_count_saturates',raw=raw,cost=bytearray(raw),
+    cases.append(dict(name='many_turns_corridor',raw=raw,cost=bytearray(raw),
                       start=(4,2),goal=tuple(cursor),escape=0))
+    # Same room geometry, different endpoints: exercise fewer turns without artificial mazes.
+    for index, start, goal in [(0, (224,112), (176,112)), (2, (144,88), (208,80))]:
+        cases.append(dict(cases[index], name=cases[index]['name']+'_turn_cost',
+                          start=start, goal=goal))
     return cases
 
 
@@ -133,17 +144,24 @@ def main():
             ''.join(f'{p:04x}\n' for p in path) or '0000\n', encoding='ascii')
         manifest.append(' '.join(map(str, (index, *case['start'], *case['goal'],
                                           case['escape'], len(path)-1))))
-        weighted = sum(3 if abs(b%N-a%N) and abs(b//N-a//N) else 2 for a,b in zip(path,path[1:])) if path else -1
+        weighted, turns, total = route_cost(path) if path else (-1, -1, -1)
         if case['name'].startswith('unequal_diagonal_'):
             ax=abs(case['start'][0]-case['goal'][0]); ay=abs(case['start'][1]-case['goal'][1])
             assert weighted == 2*max(ax,ay)+min(ax,ay)
             directions = [(b%N-a%N,b//N-a//N) for a,b in zip(path,path[1:])]
             assert sum(a != b for a,b in zip(directions,directions[1:])) <= 1
-        if case['name']=='turn_count_saturates':
+            assert total == weighted + TURN_COST
+        if case['name'].startswith('open_direction_'):
+            assert turns == 0 and total == weighted
+        if case['name'] == 'room_furniture_random_1':
+            # This room trades the old movement cost 93 / eight turns for 97 / five.
+            assert weighted == 97 and turns == 5 and total == 117
+        if case['name']=='many_turns_corridor':
             directions=[(b%N-a%N,b//N-a//N) for a,b in zip(path,path[1:])]
             assert sum(a!=b for a,b in zip(directions,directions[1:]))>255
+            assert total > weighted + TURN_COST * 255
         records.append(dict(index=index, name=case['name'], steps=len(path)-1,
-                            cost=weighted, peak=peak, expanded=expanded))
+                            cost=weighted, turns=turns, total_cost=total, peak=peak, expanded=expanded))
     (args.output/'cases.txt').write_text('\n'.join(manifest)+'\n', encoding='ascii')
     (args.output/'reference.json').write_text(json.dumps(records, indent=2), encoding='utf-8')
     print(f'Generated {len(cases)} Dijkstra indoor/corner/unequal diagonal fixtures')

@@ -1,6 +1,6 @@
-// 八方向反向 Dijkstra：直步 2、斜步 3，四个循环桶内按 FIFO 排序。
-// 等代价优先累计转弯少，再保留先发现的父方向；单格单父，不保证全局最少转弯。
-// 每格仅存未发现/已确定/四桶编号；转弯计数饱和于 255。
+// 八方向反向单状态搜索：直步 2、斜步 3，方向改变另加 4，八桶 FIFO。
+// 每格只保留一个父方向，总代价相同保留直行优先的发现顺序；不保证全局最优。
+// 每格仅存未发现/已确定/八桶编号，不存独立距离表或转弯计数表。
 // 桶状态、父方向、条目格号和链指针均为同步 RAM，单写口；访问和比较分拍。
 // 输出包含起终点，path_len 仍为格步数；局部接出和斜向两侧格规则沿用规划器。
 module nav_dijkstra #(
@@ -33,7 +33,7 @@ module nav_dijkstra #(
     localparam integer N = GRID_W * GRID_H;
     localparam integer AW = $clog2(QMAX);
     localparam integer INIT_N = N > QMAX ? N : QMAX;
-    localparam [2:0] UNSEEN = 3'b000, SETTLED = 3'b001;
+    localparam [3:0] UNSEEN = 4'b0000, SETTLED = 4'b0001;
     localparam [4:0] IDLE = 0, START_READ = 1, GOAL_READ = 2,
                      READ_WAIT = 3, READ_TAKE = 4, CLEAR = 5, SEED = 6,
                      PICK = 7, POP_READ = 8, POP_TAKE = 9,
@@ -41,23 +41,22 @@ module nav_dijkstra #(
                      CACHE_NEXT = 13, EXPAND = 14, RELAX_READ = 15,
                      RELAX = 16, ALLOC_READ = 17, ENQUEUE = 18,
                      NEXT = 19, WALK_READ = 20, WALK_TAKE = 21, EMIT = 22,
-                     RELAX_TAKE = 23, TIE_MARK = 24,
+                     RELAX_TAKE = 23, STEP_COST = 24,
                      SETTLE = 25, RELATIVE = 26;
 
     reg [4:0] state, read_return;
-    reg [2:0] node_tag [0:N-1];
-    reg [7:0] turns [0:N-1];
+    reg [3:0] node_tag [0:N-1];
     reg [2:0] parent [0:N-1];
     reg [15:0] entry_cell [0:QMAX-1];
     reg [AW-1:0] link [0:QMAX-1];
-    reg [AW-1:0] bucket_head [0:3], bucket_tail [0:3];
-    reg [3:0] bucket_empty;
+    reg [AW-1:0] bucket_head [0:7], bucket_tail [0:7];
+    reg [7:0] bucket_empty;
     reg [AW-1:0] free_head, pop_slot, alloc_slot;
     reg [AW:0] free_count;
-    reg [1:0] current_bucket, trial_bucket, trial_step, node_offset;
-    reg [2:0] node_q;
-    reg [7:0] current_turns, trial_turns, turns_q;
-    reg shorter, equal_cost, fewer_turns;
+    reg [2:0] current_bucket, trial_bucket, trial_step, node_offset;
+    reg [3:0] node_q;
+    reg turn_step;
+    reg shorter;
     reg [AW-1:0] link_q;
     reg [15:0] cell_q;
     reg [2:0] parent_q;
@@ -137,7 +136,6 @@ module nav_dijkstra #(
     wire clear_en = reset_n && state == CLEAR;
     wire seed_en = reset_n && state == SEED;
     wire push_en = reset_n && state == ENQUEUE;
-    wire tie_en = reset_n && state == TIE_MARK;
     wire settle_en = reset_n && state == SETTLE;
     wire pop_en = reset_n && state == POP_TAKE;
 
@@ -146,9 +144,8 @@ module nav_dijkstra #(
     wire tag_we = init_node || seed_en || push_en || settle_en;
     wire [15:0] table_wa = clear_en ? clear_cell :
                              (seed_en ? goal_cell : (settle_en ? current : next_cell));
-    wire [2:0] tag_wd = clear_en ? UNSEEN :
-                           (settle_en ? SETTLED : {1'b1,seed_en ? 2'd0 : trial_bucket});
-    wire turns_we = init_node || seed_en || push_en || tie_en;
+    wire [3:0] tag_wd = clear_en ? UNSEEN :
+                           (settle_en ? SETTLED : {1'b1,seed_en ? 3'd0 : trial_bucket});
     wire [15:0] table_ra = state == RELAX_READ ? next_cell : current;
     wire [15:0] parent_ra = state == WALK_READ ? walk_cell : current;
     wire cell_we = seed_en || push_en;
@@ -163,12 +160,10 @@ module nav_dijkstra #(
     wire [AW-1:0] link_ra = state == POP_READ ? pop_slot : free_head;
     always @(posedge clk) begin
         if (tag_we) node_tag[table_wa] <= tag_wd;
-        if (turns_we) turns[table_wa] <= clear_en || seed_en ? 8'd0 : trial_turns;
-        if (push_en || tie_en) parent[next_cell] <= next_dir ^ 3'd4;
+        if (push_en) parent[next_cell] <= next_dir ^ 3'd4;
         if (cell_we) entry_cell[cell_wa] <= cell_wd;
         if (link_we) link[link_wa] <= link_wd;
         if (state == NODE_READ || state == RELAX_READ) node_q <= node_tag[table_ra];
-        if (state == NODE_READ || state == RELAX_READ) turns_q <= turns[table_ra];
         if (state == NODE_READ || state == WALK_READ) parent_q <= parent[parent_ra];
         if (state == POP_READ || state == ALLOC_READ) link_q <= link[link_ra];
         if (state == POP_READ) cell_q <= entry_cell[pop_slot];
@@ -215,17 +210,14 @@ module nav_dijkstra #(
             trial_bucket <= 0;
             trial_step <= 0;
             node_offset <= 0;
-            current_turns <= 0;
-            trial_turns <= 0;
+            turn_step <= 0;
             shorter <= 0;
-            equal_cost <= 0;
-            fewer_turns <= 0;
             free_head <= 0;
             free_count <= 0;
             pop_slot <= 0;
             alloc_slot <= 0;
-            bucket_empty <= 4'b1111;
-            for (i = 0; i < 4; i = i + 1) begin
+            bucket_empty <= 8'hff;
+            for (i = 0; i < 8; i = i + 1) begin
                 bucket_head[i] <= 0;
                 bucket_tail[i] <= 0;
             end
@@ -288,7 +280,7 @@ module nav_dijkstra #(
             SEED: begin
                 bucket_head[0] <= 0;
                 bucket_tail[0] <= 0;
-                bucket_empty <= 4'b1110;
+                bucket_empty <= 8'hfe;
                 free_head <= 1;
                 free_count <= QMAX-1;
                 current_bucket <= 0;
@@ -312,13 +304,12 @@ module nav_dijkstra #(
                 state <= NODE_READ;
             end
             NODE_READ: state <= NODE_TAKE;
-            NODE_TAKE: state <= node_q[2] && node_q[1:0] == current_bucket ? SETTLE : PICK;
+            NODE_TAKE: state <= node_q[3] && node_q[2:0] == current_bucket ? SETTLE : PICK;
             // 只有从最小代价桶取出起点，才确定最终父链；旧条目直接跳过。
             SETTLE: if (current == start_cell) begin
                 walk_cell <= start_cell;
                 state <= WALK_READ;
             end else begin
-                current_turns <= turns_q;
                 heading <= current == goal_cell ? seed_heading : parent_q ^ 3'd4;
                 cache_dir <= 0;
                 free_cells <= 0;
@@ -346,22 +337,23 @@ module nav_dijkstra #(
             else begin
                 next_cell <= expand_cell[15:0];
                 next_dir <= expand_dir;
-                trial_step <= expand_dir[0] ? 2'd3 : 2'd2;
-                trial_bucket <= current_bucket + (expand_dir[0] ? 2'd3 : 2'd2);
-                trial_turns <= current_turns +
-                    {7'd0,current != goal_cell && expand_dir != heading && !(&current_turns)};
+                turn_step <= current != goal_cell && expand_dir != heading;
+                state <= STEP_COST;
+            end
+            // 方向判断先登记；费用直接拼位，下一拍只做三位桶号相加。
+            STEP_COST: begin
+                trial_step <= {turn_step, 1'b1, next_dir[0]};
+                trial_bucket <= current_bucket + {turn_step, 1'b1, next_dir[0]};
                 state <= RELAX_READ;
             end
             RELAX_READ: state <= RELATIVE;
-            // 有效未确定代价仅在 d..d+3，模 4 相减即可恢复相对代价。
+            // 有效未确定代价仅在 d..d+7，模 8 相减恢复相对代价。
             RELATIVE: begin
-                node_offset <= node_q[1:0] - current_bucket;
+                node_offset <= node_q[2:0] - current_bucket;
                 state <= RELAX;
             end
             RELAX: begin
-                shorter <= node_q == UNSEEN || (node_q[2] && trial_step < node_offset);
-                equal_cost <= node_q[2] && trial_step == node_offset;
-                fewer_turns <= trial_turns < turns_q;
+                shorter <= node_q == UNSEEN || (node_q[3] && trial_step < node_offset);
                 state <= RELAX_TAKE;
             end
             RELAX_TAKE: if (shorter) begin
@@ -369,9 +361,7 @@ module nav_dijkstra #(
                     no_path <= 1;
                     state <= IDLE;
                 end else state <= ALLOC_READ;
-            end else state <= equal_cost && fewer_turns ? TIE_MARK : NEXT;
-            // 所有边代价均为正：等价父链更新先于该节点出桶，不需要重复入桶。
-            TIE_MARK: state <= NEXT;
+            end else state <= NEXT;
             ALLOC_READ: begin
                 alloc_slot <= free_head;
                 state <= ENQUEUE;

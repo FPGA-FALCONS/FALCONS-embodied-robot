@@ -282,7 +282,7 @@ $tests = @(
     @{ Name = 'nav_line_cells'; Top = 'nav_line_cells_tb'; Desc = 'Eight-direction inclusive segments and flank cells' },
     @{ Name = 'nav_drive'; Top = 'nav_drive_tb'; Desc = 'Eight-direction raw front checks / lateral / behind / invalid pose' },
     @{ Name = 'nav_dijkstra_pool'; Top = 'nav_dijkstra_pool_tb'; Desc = 'Shared pool full / reuse / restart / reset' },
-    @{ Name = 'nav_dijkstra'; Top = 'nav_dijkstra_tb'; Desc = 'Four buckets / 2-3 cost / straight first / no corner cuts / heap reference' },
+    @{ Name = 'nav_dijkstra'; Top = 'nav_dijkstra_tb'; Desc = 'Eight buckets / 2-3 plus turn cost / straight first / no corner cuts / heap reference' },
     @{ Name = 'yaw_pipeline'; Top = 'yaw_pipeline_tb'; Desc = '20000 cycle equivalence for optional yaw sum/wrap pipeline' },
     @{ Name = 'manual_takeover'; Top = 'manual_takeover_tb'; Desc = 'SWC stop before local stick takeover, fresh encoder feedback' },
     @{ Name = 'ai_video_gate'; Top = 'ai_video_gate_tb'; Desc = 'Shared display gate without inspection navigation authority' },
