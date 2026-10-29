@@ -1,0 +1,11 @@
+{
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/inspection_src_213a5d4b18af",
+  "files": [
+    "host/ai_coordinator/motion_intents.py",
+    "host/ai_coordinator/tests/test_motion_intents.py",
+    "host/semantic_nav/send_motion.py"
+  ],
+  "configuration_sha256": "b0dab41db922a5bc6f0bda3f998f63da18109e26accae17cfe0c38d2e86525fa",
+  "config_unchanged": true,
+  "tests_exit": 0
+}

@@ -1,0 +1,22 @@
+{
+  "speed_code": 229,
+  "center_counts_per_10ms": 916,
+  "theoretical_mm_s": 299.7602990300261,
+  "independent_of_inspection": true,
+  "local_tests": 384,
+  "platform_skips": 11,
+  "failures": 0,
+  "deployed": true,
+  "fpga_changed": false,
+  "motion_sent": false,
+  "rk_tests": 384,
+  "rk_failures": 0,
+  "service_active": true,
+  "service_restarts": 0,
+  "model_startup_ready": true,
+  "preview_commands": 4,
+  "preview_speed_code": 229,
+  "config_unchanged": true,
+  "serial_open": false,
+  "physical_speed_verified": false
+}

@@ -10,7 +10,7 @@
 |---|---|
 | 前进 / 后退 | `{"cmd":"forward/backward","duration_s":0.8}` |
 | 前进2秒 / 后退半秒 | 带 `duration_s`；0.1–5 s |
-| 前进1米 / 后退两米 | 保留 `distance_m`；仅当配置了**标定速度**才换算成 `timed_estimate` 时长 |
+| 前进1米 / 后退两米 | 保留 `distance_m`；按固定0.3m/s换算为 `timed_estimate` 时长，必要时分段发送 |
 | 左转 / 右转 / 左转90度 | `{"cmd":"turn","direction":"left/right","angle_deg":90}` |
 | 原地顺时针转一圈 / 逆时针转一圈 | `{"cmd":"spin","angle_deg":±360}` |
 | 顺时针转半圈 / 转180度 | 带整数角度 |
@@ -23,13 +23,9 @@
 
 ## 距离（阶段 1：定时估算）
 
-距离不是精确到达。只有协调器配置了 `voice_motion.distance.calibrated=true` 和
-`calibrated_speed_mps` 才生成定时帧；否则保留距离意图并返回
-`distance_speed_uncalibrated`，不发送。若 `距离 ÷ 标定速度` 超过单次 5 s 限制，
-返回 `distance_exceeds_max_duration`，明确拒绝，不会截断或自动分段。
+距离指令支持0.05–2m，固定按0.3m/s估算时长，使用速度码229；不要求实测标定开关。1m约3.333s、2m约6.667s。RK把超过5s的距离指令拆为每段不超过5s的MOT1帧，保持心跳，任务末尾发送STOP；取消或接管后不再发送后续段。普通定时指令仍限0.1–5s。
 
-UI/日志/可播报文本必须带“估算/到达未验证”。MOT1 直行字段是毫秒，不是编码器目标距离；
-阶段 2 才做编码器位移闭环和完成回执。
+UI/日志明确“按设定速度估算、到达未验证”。当前不使用里程计闭环控制距离。
 
 ## MOT1 帧
 
@@ -57,9 +53,9 @@ MOT1 (4B) + seq (1B) + cmd (1B) + value (int16 BE) + speed (1B) + flags (1B) + C
 python -m unittest -v test_voice_nav.py test_sender.py
 python voice_nav.py "左转90度"
 python send_motion.py --dry-run "原地顺时针转一圈"
-# 距离必须先标定；未标定会拒绝：
+# 距离按固定0.3m/s估算：
 python send_motion.py --dry-run "前进一米"
-python send_motion.py --dry-run --distance-calibrated --distance-speed 0.5 "前进一米"
+python send_motion.py --dry-run "后退两米"
 # Linux 板端，确认串口独占后：
 python3 send_motion.py --device /dev/serial/by-id/usb-... --speed 10 "前进"
 ```

@@ -2,9 +2,8 @@
 
 No serial device is opened here.  A valid ``wire_preview`` is only a protocol
 mapping; it is not a serial write, device acknowledgment or physical motion.
-Distance commands are preserved as distance.  Stage 1 converts them to a
-timed estimate only when an operator has supplied a **calibrated** speed; it
-never silently clips a distance or splits it into several drives.
+Distance commands use a nominal 0.3 m/s timed estimate, split into MOT1
+segments of at most 5 s. This is not measured distance feedback.
 """
 import argparse
 import json
@@ -14,9 +13,11 @@ import unicodedata
 from .motion_reference.voice_nav import parse_motion,cn_number
 from .motion_reference.mot1 import from_intent
 
-VERSION='zh-motion-fixed-drive30-3'
+VERSION='zh-motion-drive300mms-distance-5'
 DEFAULT_SPEED_CODE=40
-DRIVE_SPEED_CODE=30
+# MOT1: code * 4 counts/10 ms; 61440 counts/rev and 64 mm wheel diameter.
+# 229 -> 916 counts/10 ms -> 299.76 mm/s. Independent of inspection config.
+DRIVE_SPEED_CODE=229
 HINT=re.compile(r'前进|后退|前行|倒退|向前|向后|往前|往后|左转|右转|向左转|向右转|顺时针|逆时针|巡航|巡逻')
 GUARD=re.compile(r'不要|别|不许|禁止|不用|不能|如果|假如|等到|找到|完成|然后|之后|以后|再|解释|什么意思|怎么|能不能|可以|是否|吗|[?，,;；:：“”"\n]')
 DIGITS='一二两三四五六七八九'
@@ -25,7 +26,7 @@ TOKEN=re.compile(r'[0-9零〇一二两三四五六七八九十百半点.]+')
 
 
 def speed_for_intent(intent, configured_speed):
-    """RK-side policy: every forward/backward frame uses speed code 30."""
+    """Every forward/backward frame targets approximately 300 mm/s."""
     return DRIVE_SPEED_CODE if intent.get('cmd') in ('forward','backward') else configured_speed
 
 
@@ -47,66 +48,35 @@ def _number(value,name):
     return float(value)
 
 
-def _distance_policy(cfg):
-    cfg=cfg or {}
-    speed=cfg.get('calibrated_speed_mps')
-    return {
-        'calibrated':cfg.get('calibrated') is True,
-        'calibrated_speed_mps':speed,
-        'min_speed_mps':cfg.get('min_speed_mps',.05),
-        'max_speed_mps':cfg.get('max_speed_mps',.5),
-        'max_distance_m':cfg.get('max_distance_m',2.0),
-        'max_duration_s':cfg.get('max_duration_s',5.0),
-    }
+def motion_frames(intent, seq=0, speed=DEFAULT_SPEED_CODE):
+    durations=intent.get('segments_ms')
+    if durations is None:return [from_intent(intent,seq=seq,speed=speed_for_intent(intent,speed))]
+    return [from_intent({**intent,'duration_s':ms/1000},seq=(seq+i)&255,
+                        speed=speed_for_intent(intent,speed)) for i,ms in enumerate(durations)]
 
 
 def _distance_result(intent,policy,speed_code):
     distance=_number(intent['distance_m'],'distance')
-    intent={**intent,'distance_mode':'timed_estimate','distance_target_m':distance}
-    intent.pop('duration_s',None)
-    if distance<.05 or distance>policy['max_distance_m']:
-        return {'valid':False,'reason':'distance_out_of_range',
-                'detail':f"distance {distance} outside [0.05, {policy['max_distance_m']}]",
-                'intent':intent,'execution_supported':False,'wire_preview':None}
-    speed=policy['calibrated_speed_mps']
-    if not policy['calibrated'] or speed is None:
-        return {'valid':True,'intent':intent,'wire_preview':None,'protocol':'MOT1',
-                'execution_supported':False,'reason':'distance_speed_uncalibrated',
-                'distance_estimate':True,'arrival_verified':False}
-    try:speed=_number(speed,'calibrated_speed_mps')
-    except ValueError as exc:
-        return {'valid':False,'reason':'distance_speed_invalid','detail':str(exc),
-                'intent':intent,'execution_supported':False,'wire_preview':None}
-    low,high=_number(policy['min_speed_mps'],'min_speed_mps'),_number(policy['max_speed_mps'],'max_speed_mps')
-    if not 0<low<=speed<=high or not low<high:
-        return {'valid':False,'reason':'distance_speed_out_of_range',
-                'detail':f"speed {speed} outside ({low}, {high}]",'intent':intent,
-                'execution_supported':False,'wire_preview':None}
-    duration=distance/speed
-    max_duration=float(policy['max_duration_s'])
-    if duration>max_duration or round(duration*1000)>5000:
-        return {'valid':False,'reason':'distance_exceeds_max_duration',
-                'detail':f'{distance} m at {speed} m/s needs {duration:.3f} s, limit {max_duration} s; no truncation or split',
-                'intent':intent,'execution_supported':False,'wire_preview':None,
-                'distance_estimate':True,'arrival_verified':False}
-    if round(duration*1000)<50:
-        return {'valid':False,'reason':'distance_duration_too_short','intent':intent,
-                'execution_supported':False,'wire_preview':None}
-    intent.update(duration_s=round(duration,3),estimated_speed_mps=speed)
-    frame=from_intent(intent,seq=0,speed=speed_for_intent(intent,speed_code))
-    if frame is None:raise ValueError('Reviewed distance intent has no MOT1 mapping')
-    return {'valid':True,'intent':intent,'wire_preview':frame.encode().hex(),'protocol':'MOT1',
-            'wire_preview_only':True,'execution_supported':True,
-            'reason':'timed_distance_estimate','distance_estimate':True,
-            'arrival_verified':False,'reference_frame':frame.__dict__}
+    maximum=policy.get('max_distance_m',2.)
+    if not .05<=distance<=maximum:
+        return dict(valid=False,reason='distance_out_of_range',execution_supported=False,
+                    wire_preview=None,intent=intent)
+    total_ms=round(distance/.3*1000)
+    full,remainder=divmod(total_ms,5000)
+    segments=[5000]*full+([remainder] if remainder else [])
+    intent={**intent,'distance_mode':'timed_estimate','distance_target_m':distance,
+            'duration_s':total_ms/1000,'estimated_speed_mps':.3,'segments_ms':segments}
+    frames=motion_frames(intent,speed=speed_code)
+    return dict(valid=True,intent=intent,wire_preview=frames[0].encode().hex(),
+                wire_previews=[f.encode().hex() for f in frames],protocol='MOT1',
+                wire_preview_only=True,execution_supported=True,reason='timed_distance_estimate',
+                distance_estimate=True,arrival_verified=False,reference_frame=frames[0].__dict__)
 
 
 def inspect_motion(text,distance=None,speed_code=DEFAULT_SPEED_CODE):
     """None for the existing C1b domain; otherwise a complete motion decision.
 
-    ``distance`` is the operator-provided stage-1 policy.  Without a
-    calibrated speed, a distance request remains valid as an intent but has no
-    wire frame and reports ``distance_speed_uncalibrated``.
+    ``distance`` optionally supplies max_distance_m; speed is nominal 0.3 m/s.
     """
     value=unicodedata.normalize('NFKC',text).strip()
     compact=re.sub(r'\s+','',value).rstrip('。.!')
@@ -133,7 +103,7 @@ def inspect_motion(text,distance=None,speed_code=DEFAULT_SPEED_CODE):
     if 'angle_deg' in intent and intent['angle_deg']!=int(intent['angle_deg']):
         return {'valid':False,'reason':'mot1_requires_integer_degrees'}
     if 'distance_m' in intent:
-        return _distance_result(intent,_distance_policy(distance),speed_code)
+        return _distance_result(intent,distance or {},speed_code)
     if 'duration_s' in intent:
         duration=float(intent['duration_s'])
         if not .1<=duration<=5.0 or round(duration*1000)>5000:

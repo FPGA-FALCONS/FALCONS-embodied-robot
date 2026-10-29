@@ -8,12 +8,7 @@
   "turn_window_s": 8.5,
   "drive_margin_s": 0.3,
   "distance": {
-    "calibrated": false,
-    "calibrated_speed_mps": null,
-    "min_speed_mps": 0.05,
-    "max_speed_mps": 0.5,
-    "max_distance_m": 2.0,
-    "max_duration_s": 5.0
+    "max_distance_m": 2.0
   },
   "note": "Merge as config.voice_motion. The backend shares config.gateway.device under one exclusive serial owner; it never opens a second UART. enabled=true is not enough: live_commissioned must be set by an operator after the wheels-up/estop/RC check. FPGA MOT1 has no task acknowledgment; host timers and serial writes are not physical completion or stop evidence."
 }

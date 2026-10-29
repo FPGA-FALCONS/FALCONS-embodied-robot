@@ -1,0 +1,65 @@
+{
+  "policy": "zh-motion-drive300mms-distance-5",
+  "startup_ready": true,
+  "serial_open": false,
+  "distance_policy": {
+    "mode": "timed_estimate",
+    "policy": {
+      "max_distance_m": 2.0,
+      "estimated_speed_mps": 0.3
+    },
+    "arrival_verified": false
+  },
+  "previews": [
+    {
+      "text": "前进半米",
+      "duration_s": 1.667,
+      "segments_ms": [
+        1667
+      ],
+      "speed": 229,
+      "sent": false
+    },
+    {
+      "text": "后退一米",
+      "duration_s": 3.333,
+      "segments_ms": [
+        3333
+      ],
+      "speed": 229,
+      "sent": false
+    },
+    {
+      "text": "前进1.5米",
+      "duration_s": 5.0,
+      "segments_ms": [
+        5000
+      ],
+      "speed": 229,
+      "sent": false
+    },
+    {
+      "text": "后退两米",
+      "duration_s": 6.667,
+      "segments_ms": [
+        5000,
+        1667
+      ],
+      "speed": 229,
+      "sent": false
+    }
+  ],
+  "local_tests": 385,
+  "local_platform_skips": 11,
+  "rk_tests": 385,
+  "failures": 0,
+  "source_hashes_verified": true,
+  "fpga_changed": false,
+  "motion_sent": false,
+  "field_validation": {
+    "date": "2026-10-29",
+    "source": "用户反馈",
+    "result": "测试正常",
+    "distance_error_measured": false
+  }
+}

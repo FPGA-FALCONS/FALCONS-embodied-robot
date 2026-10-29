@@ -16,7 +16,7 @@ from ai_coordinator.tests import test_runtime as runtime_fixtures
 
 
 class MotionIntentTests(unittest.TestCase):
-    def test_all_drive_previews_use_30_regardless_of_turn_speed(self):
+    def test_all_drive_previews_use_229_regardless_of_turn_speed(self):
         from semantic_nav.send_motion import prepare_frame
         for speed in (1,10,30,40):
             for text in ('前进','后退','向前走','向后走','往前走','倒退','前进2秒','后退半秒','前进一米','后退一米'):
@@ -25,10 +25,10 @@ class MotionIntentTests(unittest.TestCase):
                     decision=inspect_motion(text,distance=distance,speed_code=speed)
                     frames,rest,errors=decode_frames(bytes.fromhex(decision['wire_preview']))
                     self.assertEqual((rest,errors),(b'',0))
-                    self.assertEqual(frames[0].speed,30)
+                    self.assertEqual(frames[0].speed,229)
                     _,frame=prepare_frame(text,speed=speed,distance=distance)
-                    self.assertEqual(frame.speed,30)
-                    self.assertEqual(frame.encode()[8],30)
+                    self.assertEqual(frame.speed,229)
+                    self.assertEqual(frame.encode()[8],229)
             for text in ('左转','右转','原地顺时针转一圈'):
                 self.assertEqual(inspect_motion(text,speed_code=speed)['reference_frame']['speed'],speed)
             self.assertEqual(inspect_motion('停止',speed_code=speed)['reference_frame']['speed'],0)
@@ -65,35 +65,20 @@ class MotionIntentTests(unittest.TestCase):
                 self.assertEqual((frames[0].cmd,frames[0].value),(cmd,value))
                 self.assertTrue(decision['execution_supported'])
 
-    def test_distance_stage_one_is_explicit_and_never_clipped(self):
-        policy={'calibrated':True,'calibrated_speed_mps':.5,'min_speed_mps':.05,
-                'max_speed_mps':.5,'max_distance_m':2.,'max_duration_s':5.}
-        value=inspect_motion('前进两米',distance=policy,speed_code=10)
-        self.assertTrue(value['valid']);self.assertEqual(value['reason'],'timed_distance_estimate')
-        self.assertEqual(value['intent']['distance_m'],2.)
-        self.assertEqual(value['intent']['distance_target_m'],2.)
-        self.assertEqual(value['intent']['distance_mode'],'timed_estimate')
-        self.assertEqual(value['intent']['estimated_speed_mps'],.5)
-        self.assertEqual(value['intent']['duration_s'],4.)
-        self.assertFalse(value['arrival_verified'])
-        frames,_,errors=decode_frames(bytes.fromhex(value['wire_preview']))
-        self.assertEqual((frames[0].cmd,frames[0].value),(1,4000));self.assertEqual(errors,0)
-        # No calibrated speed: preserve the distance, but never invent a
-        # duration or a wire frame.
-        for missing_policy in (None,{}, {'calibrated':False,'calibrated_speed_mps':.5}):
-            with self.subTest(policy=missing_policy):
-                missing=inspect_motion('后退一米',distance=missing_policy,speed_code=10)
-                self.assertTrue(missing['valid']);self.assertEqual(missing['reason'],'distance_speed_uncalibrated')
-                self.assertIsNone(missing['wire_preview'])
-                self.assertEqual(missing['intent']['distance_m'],1.)
-                self.assertNotIn('duration_s',missing['intent'])
-        # At 0.1 m/s, 2 m needs 20 s.  The documented limit is 5 s, so the
-        # request is refused explicitly instead of being clipped or split.
-        too_long=inspect_motion('前进两米',distance={**policy,'calibrated_speed_mps':.1},speed_code=10)
-        self.assertFalse(too_long['valid']);self.assertEqual(too_long['reason'],'distance_exceeds_max_duration')
-        self.assertIsNone(too_long['wire_preview'])
-        bad_speed=inspect_motion('前进一米',distance={**policy,'calibrated_speed_mps':.9},speed_code=10)
-        self.assertFalse(bad_speed['valid']);self.assertEqual(bad_speed['reason'],'distance_speed_out_of_range')
+    def test_distance_estimate_uses_fixed_speed_and_preserves_all_segments(self):
+        for text,total,segments in [('前进半米',1667,[1667]),('后退一米',3333,[3333]),
+                                    ('前进1.5米',5000,[5000]),('后退两米',6667,[5000,1667])]:
+            with self.subTest(text=text):
+                value=inspect_motion(text)
+                self.assertTrue(value['execution_supported'])
+                self.assertEqual(value['intent']['estimated_speed_mps'],.3)
+                self.assertEqual(value['intent']['segments_ms'],segments)
+                self.assertEqual(round(value['intent']['duration_s']*1000),total)
+                frames=[decode_frames(bytes.fromhex(w))[0][0] for w in value['wire_previews']]
+                self.assertEqual([f.value for f in frames],segments)
+                self.assertTrue(all(f.speed==229 for f in frames))
+                self.assertFalse(value['arrival_verified'])
+        self.assertFalse(inspect_motion('前进一米',distance={'max_distance_m':.5})['valid'])
 
     def test_distance_negative_compound_and_out_of_range_are_refused(self):
         policy={'calibrated':True,'calibrated_speed_mps':.5}
@@ -181,7 +166,7 @@ class MotionRuntimeTests(unittest.IsolatedAsyncioTestCase):
                         'max_speed_mps':.5,'max_distance_m':2.,'max_duration_s':5.}}
         self.runtime.gateway=FakeGateway();self.runtime.gateway.start()
 
-    async def test_actual_backend_queues_drive_speed_30_and_keeps_turn_speed(self):
+    async def test_actual_backend_queues_drive_speed_229_and_keeps_turn_speed(self):
         self.live()
         for speed in (10,40):
             self.runtime.cfg['voice_motion']['speed']=speed
@@ -193,7 +178,7 @@ class MotionRuntimeTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(errors,0)
                     drive=[f for f in frames if f.cmd in (1,2)]
                     self.assertTrue(drive)
-                    self.assertTrue(all(f.speed==30 for f in drive))
+                    self.assertTrue(all(f.speed==229 for f in drive))
                     self.runtime.stop('test_cleanup')
             for text in ('左转','右转','原地顺时针转一圈'):
                 result=self.runtime.submit_text(text)
@@ -203,7 +188,7 @@ class MotionRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 turns=[f for f in frames if f.cmd in (3,4,5)]
                 self.assertEqual(turns[-1].speed,speed)
                 self.runtime.stop('test_cleanup')
-            self.assertEqual(self.runtime.motion.settings()['drive_speed'],30)
+            self.assertEqual(self.runtime.motion.settings()['drive_speed'],229)
 
     async def asyncTearDown(self):
         self.runtime.motion.closed=True  # teardown must not queue a second STOP
@@ -326,18 +311,31 @@ class MotionRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any(frame.cmd==1 for frame in frames[-3:]))
         self.runtime.stop()
 
-    async def test_distance_requires_calibration_and_estimates_only(self):
-        self.live();self.runtime.cfg['voice_motion']['distance']={'calibrated':True,'calibrated_speed_mps':.5}
+    async def test_distance_runs_without_measured_calibration(self):
+        self.live();self.runtime.cfg['voice_motion']['distance']={}
         result=self.runtime.submit_text('前进一米')
-        self.assertTrue(result['accepted']);self.assertTrue(result['distance']['arrival_verified'] is False)
+        self.assertTrue(result['accepted']);self.assertFalse(result['distance']['arrival_verified'])
         frames,_,_=decode_frames(b''.join(self.runtime.gateway.transport.sent))
-        self.assertEqual(frames[0].value,2000)
+        self.assertEqual((frames[0].value,frames[0].speed),(3333,229))
+        self.runtime.stop()
+
+    async def test_distance_second_segment_and_stop_cancellation(self):
+        self.live()
+        result=self.runtime.submit_text('后退两米');self.assertTrue(result['accepted'])
+        action=self.runtime.motion._current
+        self.runtime.motion._advance_segment(action,action['segment_end']-.01)
+        frames,_,_=decode_frames(b''.join(self.runtime.gateway.transport.sent))
+        self.assertEqual([(f.value,f.speed) for f in frames if f.cmd==2],[(5000,229)])
+        self.runtime.motion._advance_segment(action,action['segment_end'])
+        frames,_,_=decode_frames(b''.join(self.runtime.gateway.transport.sent))
+        self.assertEqual([(f.value,f.speed) for f in frames if f.cmd==2],[(5000,229),(1667,229)])
         self.runtime.stop()
         self.runtime.gateway.transport.sent.clear()
-        self.runtime.cfg['voice_motion']['distance']={'calibrated':False}
-        result=self.runtime.submit_text('后退一米')
-        self.assertEqual(result['reason'],'distance_speed_uncalibrated')
-        self.assertEqual(self.runtime.gateway.transport.sent,[])
+        self.runtime.submit_text('前进两米');action=self.runtime.motion._current
+        self.runtime.stop('manual_takeover')
+        before=bytes(b''.join(self.runtime.gateway.transport.sent))
+        self.runtime.motion._advance_segment(action,action['segment_end']+1)
+        self.assertEqual(bytes(b''.join(self.runtime.gateway.transport.sent)),before)
 
     async def test_no_open_serial_never_sends(self):
         self.live();self.runtime.gateway.transport.fd=None

@@ -17,7 +17,7 @@ from pathlib import Path
 HOST=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(HOST))
 from semantic_nav.mot1 import Frame, from_intent, heartbeat, STOP
-from ai_coordinator.motion_intents import inspect_motion,speed_for_intent
+from ai_coordinator.motion_intents import inspect_motion,motion_frames
 
 
 def prepare_frame(text,seq=1,speed=40,distance=None):
@@ -26,7 +26,7 @@ def prepare_frame(text,seq=1,speed=40,distance=None):
     decision=inspect_motion(text,distance=distance,speed_code=speed)
     if decision is None or not decision['valid']:raise ValueError('Not a single supported immediate motion command')
     if not decision.get('wire_preview'):raise ValueError(decision['reason'])
-    return decision['intent'],from_intent(decision['intent'],seq,speed_for_intent(decision['intent'],speed))
+    return decision['intent'],motion_frames(decision['intent'],seq=seq,speed=speed)[0]
 
 
 def write_frame(fd,wire):
@@ -74,24 +74,20 @@ def main(argv=None):
     parser.add_argument('--device')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--speed', type=int, default=10,
-                        help='Turn/spin speed code; forward/backward are fixed at 30 on RK')
+                        help='Turn/spin speed code; forward/backward use code 229 (~300 mm/s) on RK')
     parser.add_argument('--seq', type=int, default=1)
-    parser.add_argument('--distance-speed', type=float)
-    parser.add_argument('--distance-calibrated', action='store_true')
     args = parser.parse_args(argv)
-    distance=None
-    if args.distance_speed is not None:
-        distance={'calibrated':args.distance_calibrated,'calibrated_speed_mps':args.distance_speed}
-    try:intent,frame=prepare_frame(''.join(args.text),args.seq,args.speed,distance)
+    try:intent,frame=prepare_frame(''.join(args.text),args.seq,args.speed)
     except ValueError as exc:
         print(json.dumps({'error':str(exc),'sent':False,'executed':False,'physical_task_completed':False,
-                          'distance_estimate':bool(distance)},ensure_ascii=False))
+                          'distance_estimate':False},ensure_ascii=False))
         return 2
+    frames=motion_frames(intent,seq=args.seq,speed=args.speed)
     wire = frame.encode()
     output = {'intent': intent, 'frame': frame.__dict__, 'hex': wire.hex(),
               'preview_only':bool(args.dry_run or not args.device),'physical_task_completed':False,
               'distance_estimate':bool(intent.get('distance_mode')=='timed_estimate'),
-              'arrival_verified':False}
+              'arrival_verified':False,'frames':[f.__dict__ for f in frames]}
     print(json.dumps(output, ensure_ascii=False, indent=2))
     if args.dry_run or not args.device:
         return 0
@@ -104,8 +100,15 @@ def main(argv=None):
             duration = frame.value / 1000.0
         elif frame.cmd in (3, 4, 5):
             duration = 6.0
-        deadline = time.monotonic() + duration + 1.0
+        segment_end=time.monotonic()+duration
+        remaining_frames=frames[1:]
+        deadline = time.monotonic() + sum(f.value for f in frames)/1000 + 1.0 if frame.cmd in (1,2) else time.monotonic()+duration+1.0
         while time.monotonic() < deadline:
+            if remaining_frames and time.monotonic()>=segment_end:
+                part=remaining_frames.pop(0);seq=(seq+1)&255
+                write_frame(fd,Frame(seq,part.cmd,part.value,part.speed,part.flags).encode())
+                segment_end=time.monotonic()+part.value/1000
+                deadline=segment_end+sum(f.value for f in remaining_frames)/1000+1.0
             seq = (seq + 1) & 0xFF
             write_frame(fd,heartbeat(seq).encode())
             time.sleep(0.2)

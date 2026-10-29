@@ -18,7 +18,7 @@ import time
 import uuid
 from .motion_reference.mot1 import (BACKWARD,FORWARD,PATROL_START,PATROL_STOP,
                                      SPIN,STOP,TURN_LEFT,TURN_RIGHT,Frame,from_intent,heartbeat)
-from .motion_intents import DRIVE_SPEED_CODE,speed_for_intent
+from .motion_intents import DRIVE_SPEED_CODE,motion_frames
 
 VERSION='mot1-shared-serial-1'
 WATCHDOG_MS=500
@@ -74,7 +74,7 @@ class MotionBackend:
             raise ValueError('voice_motion.drive_margin_s must be 0..1')
         return float(value)
 
-    def distance_policy(self):return self._voice().get('distance',{}) or {}
+    def distance_policy(self):return {'max_distance_m':self._voice().get('distance',{}).get('max_distance_m',2.),'estimated_speed_mps':.3}
 
     def settings(self):
         return {'enabled':self._voice().get('enabled') is True,
@@ -120,9 +120,9 @@ class MotionBackend:
                                 'estimated_speed_mps':intent.get('estimated_speed_mps'),
                                 'estimated_duration_s':intent.get('duration_s'),
                                 'arrival_verified':False,
-                                'text':'按标定速度估算时长；到达距离未验证'}
+                                'text':'按设定速度估算时长；到达距离未验证'}
             if intent.get('estimated_speed_mps') is not None:
-                result['operator_message']=(f"按 {intent['estimated_speed_mps']:.2f} m/s 估算约 "
+                result['operator_message']=(f"按设定 {intent['estimated_speed_mps']:.2f} m/s 估算约 "
                     f"{intent['duration_s']:.1f} s，目标 {intent.get('distance_target_m',intent.get('distance_m')):.2f} m；"
                     "到达未验证。")
         return result
@@ -216,8 +216,9 @@ class MotionBackend:
             result['reason']=reason;return result
         transport=self.transport
         try:
-            frame=from_intent(decision['intent'],seq=self._next_seq(),
-                              speed=speed_for_intent(decision['intent'],self._speed_code()))
+            frames=motion_frames(decision['intent'],seq=self._next_seq(),speed=self._speed_code())
+            frame=frames[0]
+            self._seq=frames[-1].seq
             if frame is None:raise ValueError('Reviewed intent has no MOT1 mapping')
             if frame.cmd in (FORWARD,BACKWARD) and not 1<=frame.value<=5000:raise ValueError('drive duration outside 1..5000 ms')
             if frame.cmd in (TURN_LEFT,TURN_RIGHT,SPIN) and not 1<=abs(frame.value)<=360:raise ValueError('turn angle outside 1..360 degrees')
@@ -242,9 +243,11 @@ class MotionBackend:
         self._owns_control=True
         result.update(accepted=True,action_id=action_id,reason='accepted_no_device_receipt',
                       motion_authorized=True,action_state='queued')
-        window=(frame.value/1000.0+self._drive_margin_s()) if frame.cmd in (FORWARD,BACKWARD) else self._turn_window_s()
+        window=(sum(f.value for f in frames)/1000.0+self._drive_margin_s()) if frame.cmd in (FORWARD,BACKWARD) else self._turn_window_s()
         action={'id':action_id,'epoch':epoch,'ticket':ticket,'result':result,
-                'deadline':time.monotonic()+window,'window_s':window,'heartbeats':0}
+                'deadline':time.monotonic()+window,'window_s':window,'heartbeats':0,
+                'remaining_frames':frames[1:],'segment_end':time.monotonic()+frame.value/1000,
+                'segments_sent':1}
         self._current=action;self.last_result=result;self._sync(action)
         try:
             self._task=asyncio.create_task(self._run(action))
@@ -252,6 +255,18 @@ class MotionBackend:
             self._current=None;self._stop_frame('motion_task_start_failure')
             result.update(accepted=False,reason='event_loop_unavailable: '+str(exc)[:200],action_state='failed')
         return result
+
+    def _advance_segment(self,action,now):
+        if action['epoch']!=self._epoch or not action['remaining_frames'] or now<action['segment_end']:return
+        frame=action['remaining_frames'].pop(0)
+        # Use the shared sequence after any intervening heartbeats.
+        frame=Frame(self._next_seq(),frame.cmd,frame.value,frame.speed,frame.flags)
+        action['ticket']=self.transport.enqueue(frame.encode(),tag='motion')
+        self.transport.flush()
+        action['segments_sent']+=1
+        action['result']['segments_sent']=action['segments_sent']
+        action['segment_end']=now+frame.value/1000
+        action['deadline']=action['segment_end']+sum(f.value for f in action['remaining_frames'])/1000+self._drive_margin_s()
 
     async def _run(self,action):
         try:
@@ -261,9 +276,12 @@ class MotionBackend:
                 if transport is None or getattr(transport,'fd',None) is None:
                     raise OSError('serial link lost during motion')
                 transport.flush();self._sync(action)
+                self._advance_segment(action,time.monotonic())
                 remaining=action['deadline']-time.monotonic()
                 if remaining<=0:break
-                await asyncio.sleep(min(self._heartbeat_s(),remaining))
+                delay=min(self._heartbeat_s(),remaining)
+                if action['remaining_frames']:delay=min(delay,max(0,action['segment_end']-time.monotonic()))
+                await asyncio.sleep(delay)
                 if self._epoch!=action['epoch']:return
                 transport.enqueue(heartbeat(self._next_seq()).encode(),tag='motion')
                 transport.flush();action['heartbeats']+=1;self._sync(action)
