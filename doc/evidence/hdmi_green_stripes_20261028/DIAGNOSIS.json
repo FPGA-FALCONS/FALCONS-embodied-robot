@@ -1,0 +1,315 @@
+{
+  "date": "2026-10-28",
+  "status": "positive HDMI VS final application loaded into SRAM; user confirmed all stripes gone and all checked pages normal; Flash unchanged",
+  "user_observation": "Dense vertical green stripes flicker in every area matching the left menu background; predates the latest AI frame fix",
+  "separate_from_resolved_ai_frame_underflow": true,
+  "source_review": {
+    "normal_menu_background_rgb": "101828",
+    "frozen_menu_background_rgb": "0B1019",
+    "navigation_aux_background_rgb": "101828",
+    "background_source": "FPGA combinational UI palette, no RK or DDR pixel fetch"
+  },
+  "simulation": {
+    "ui_render_checks": 50,
+    "disp_driver_checks": 5267,
+    "background_palette_probe": {
+      "scanned_menu_pixels": 374400,
+      "unexpected_colors": 0,
+      "unknown_pixels": 0,
+      "normal_and_frozen_palette_checked": true,
+      "notes": "Map/route inputs held inactive; dynamic text RAM left uninitialized for first two frames. Digital RTL simulation does not model analog HDMI transmission or hardware timing."
+    },
+    "ai_edge_probe": {
+      "expected_background_pixels": 6272,
+      "unexpected_pixels": 0,
+      "root_features": 4,
+      "inspection_views": 3,
+      "hardware_timing_not_simulated": true
+    }
+  },
+  "production_timing_observation": {
+    "pixel_required_mhz": 49,
+    "pixel_fmax_mhz": 52.743,
+    "green_oser10_reset_worst_recovery_slack_ns": -8.858,
+    "reset_source": "pixel_pwr_cnt_3_s1/Q",
+    "reset_destination": "u_hdmi/u_dvi_tx/rgb2dvi_inst/u_OSER10_g/RESET",
+    "interpretation": "A reset release concern requiring separate validation; not proof of the persistent stripe cause. Ordinary pixel same-clock timing passes."
+  },
+  "remaining_hypotheses": [],
+  "independent_probe": {
+    "fs_sha256": "ebe48b3fbc203f7c23961be36c3f94f3fc7fbe2b84639568af1d1ad2e8d97807",
+    "pixel_clock_mhz": 49,
+    "serial_clock_mhz": 245,
+    "pixel_fmax_mhz": 147.754,
+    "same_clock_tns_zero": true,
+    "uses_same_hdmi_vendor_sources": true,
+    "top_half_128px_bars_left_to_right": [
+      "101828",
+      "0B1019",
+      "000000",
+      "202020",
+      "FF0000",
+      "00FF00",
+      "0000FF",
+      "FFFFFF"
+    ],
+    "bottom_half_rgb": "101828",
+    "motor_outputs_constant_zero": true,
+    "camera_held_in_reset_and_powerdown": true,
+    "no_ddr_or_rk_pixel_source": true,
+    "sram_loaded": true,
+    "flash_written": false,
+    "formal_restore_sha256": "ef18c910da7025ffc31dc27eded61a2032e081a6c48ec51345f638ac30dfa58a",
+    "sram_program_seconds": 7.01,
+    "programmer_status": "0x00026230",
+    "onsite_all_colors_normal": true,
+    "onsite_stripes_absent": true,
+    "formal_restored": true,
+    "formal_restore_seconds": 7.85
+  },
+  "next_experiment": null,
+  "jtag": {
+    "cable_detected": true,
+    "fpga_target_detected": true,
+    "scan_exit_code": 0
+  },
+  "production_rtl_changed_for_stripes": true,
+  "movement_command_sent": false,
+  "user_conditions": {
+    "stripes_present_with_ai_master_off": true,
+    "other_colors_reported_normal": true,
+    "hdmi_direct_connection": true
+  },
+  "formal_after_restore": {
+    "user_observation": "stripes currently only at left edge of AI content; also present on AI feature selection or text pages",
+    "not_limited_to_highspeed_video": true,
+    "map_observation": "Inspection map touches the left content boundary; same green stripes cover its left edge even where the map color differs from the affected UI backgrounds.",
+    "specific_background_color_is_not_required": true
+  },
+  "full_probe": {
+    "status": "onsite comparison completed; formal image restored",
+    "source": "build/hdmi_green_stripes_full_20261028/falcons_top_probe.v",
+    "source_sha256": "4da1f80dfd0a61f13aff9eb089889dbf5b3ef300db6b80e72a7f4c074c5142db",
+    "production_sources_modified": false,
+    "sram_loaded": true,
+    "flash_written": false,
+    "selector": "hold S4 for pattern, release for UI; selection latched at frame boundary",
+    "led2": "sticky unexpected AI left background pixel at x208..223,y64..107",
+    "led3": "sticky unexpected menu background at x4..19,y520..531",
+    "led7": "pattern selected",
+    "motor_pins_held_zero": true,
+    "fs_sha256": "a9749c9e790fe30ad43f6fe53bec94d17f637f8d642f0226f5a0c7e642ae6eb9",
+    "sram_program_seconds": 8.11,
+    "programmer_status": "0x00026230",
+    "same_clock_timing_pass": true,
+    "pixel_fmax_mhz": 49.023,
+    "pixel_required_mhz": 49,
+    "logic": 55043,
+    "registers": 26819,
+    "formal_restored_after_full_probe": true,
+    "onsite_comparison": {
+      "normal_ui_stripes": true,
+      "held_s4_color_pattern_stripes": false,
+      "same_bitstream_same_background_logic": true,
+      "led2": false,
+      "led3": false
+    },
+    "formal_restore_seconds": 7.78
+  },
+  "candidate_reset_fix": {
+    "status": "did not resolve stripes; reverted from production sources",
+    "release_domain_mhz": 245,
+    "targeted_reset_checks": 13,
+    "full_application_regression": "80 tests passed",
+    "sram_loaded": true,
+    "flash_written": false,
+    "inputs": 137,
+    "standalone_camera_example": "dependency lists updated; XML and dependency path checked; example not rebuilt",
+    "fs_sha256": "66963d4df2976be87acbf3305072b971caac1c43b4ea1c94f87f21df67046425",
+    "sram_program_seconds": 7.74,
+    "programmer_status": "0x00026230",
+    "same_clock_timing_pass": true,
+    "onsite_stripes_remain": true,
+    "reported_oser_negative_paths": [],
+    "remaining_reset_synchronizer_recovery_slack_ns": [
+      -6.488,
+      -6.144,
+      -5.761
+    ],
+    "source_files_removed": true
+  },
+  "cable_swap": {
+    "fpga_kept_powered": true,
+    "stripes_remain_after_replacing_hdmi_cable": true,
+    "source": "user feedback"
+  },
+  "display_swap": {
+    "fpga_image_unchanged": true,
+    "other_display_stripes_absent": true,
+    "original_display_model": null,
+    "original_display_power_source": null,
+    "source": "user feedback"
+  },
+  "row_pattern_observation": "AI-area stripes span rows but stop over menu text row heights; map shows a thinner stripe at the strongest stripe position.",
+  "power_swap": {
+    "original_source": "power bank rated 5V 3A",
+    "alternative_source_stripes_worse": true,
+    "details": "whole dark-blue region affected; text rows shift stripe positions; dimming can remove menu stripes"
+  },
+  "sequence_probe": {
+    "fs_sha256": "490898f2670b7f7c772276bbc04dc770faace7e38947363108a0650f32198b04",
+    "pixel_required_mhz": 49,
+    "pixel_fmax_mhz": 151.894,
+    "sram_load_seconds": 6.76,
+    "onsite_dim_sidebar_reproduces_stripes": true,
+    "onsite_text_rows_interrupt_stripes": true,
+    "no_rk_ddr_or_full_ui_renderer": true,
+    "formal_restored_seconds": 8.2
+  },
+  "pc_comparison": {
+    "display_live_identification": "MPI7002",
+    "framebuffer_size": [
+      1024,
+      600
+    ],
+    "same_test_drawing_colors_and_geometry": true,
+    "not_a_claim_of_identical_encoded_tmds_bitstream": true,
+    "normal_sidebar_no_stripes": true,
+    "dim_sidebar_no_stripes": true,
+    "test_form_closed": true,
+    "previous_clone_layout_restored": true
+  },
+  "edid": {
+    "source": "Windows active MPI7002 monitor EDID; cached raw read matches identified product",
+    "sha256": "01fed1e2888f1d63c9fa9c9190c46d37231ae327ed57016b9db898833702e5bc",
+    "display_name": "MPI7002",
+    "detailed_timing": {
+      "pixel_clock_hz": 49000000,
+      "width": 1024,
+      "height": 600,
+      "htotal": 1312,
+      "vtotal": 622,
+      "hfront": 5,
+      "hsync": 13,
+      "hback": 270,
+      "vfront": 2,
+      "vsync": 3,
+      "vback": 17,
+      "flags": "0x1C",
+      "hsync_positive": false,
+      "vsync_positive": true
+    },
+    "flag_definition_primary_source": "https://github.com/torvalds/linux/blob/master/include/drm/drm_edid.h",
+    "block_checksums_mod_256": [
+      0,
+      0
+    ]
+  },
+  "polarity_probe": {
+    "fs_sha256": "98f68b5b994b2ff88e4299956228ee3fac1876f74ac3d94e0ceb810e229a8433",
+    "pixel_fmax_mhz": 147.106,
+    "same_clock_timing_pass": true,
+    "last_sram_reload_seconds": 6.42,
+    "sram_reload_result": "Finished; status 0x00026230; CLI exit0",
+    "positive_vs_removes_stripes": true,
+    "switch_back_negative_reproduces_stripes": true,
+    "switch_positive_again_removes_stripes": true,
+    "physical_motor_outputs_zero": true,
+    "sram_loaded": true,
+    "flash_written": false,
+    "reversible_test_confirmed": true,
+    "negative_positive_negative_positive_result": "negative VS: stripes; positive VS: clear; releasing S3 to negative: stripes return; positive again: clear",
+    "currently_running": false
+  },
+  "final_vsync_fix": {
+    "status": "onsite display acceptance passed; SRAM only",
+    "change": "invert video_vs only at DVI_TX_Top I_rgb_vs input",
+    "internal_frame_sync_unchanged": true,
+    "pixels_and_palette_unchanged": true,
+    "source_inputs": 136,
+    "sram_loaded": true,
+    "flash_written": false,
+    "onsite_final_acceptance": {
+      "date": "2026-10-28",
+      "source": "user feedback after final SRAM reload",
+      "all_green_stripes_gone": true,
+      "ai_feature_selection_normal": true,
+      "ai_text_page_normal": true,
+      "inspection_map_normal": true,
+      "standalone_camera_normal": true,
+      "standalone_radar_normal": true,
+      "menus_normal": true,
+      "motion_tested": false,
+      "flash_written": false
+    },
+    "application_regression_tests_passed": 79,
+    "full_vehicle_motion_tested": false,
+    "fs_sha256": "82164f871f3ebd76b9a3cc4fcaaa780f999a141b29ccd02536f4b93ab3e99a8d",
+    "sram_program_seconds": 7.95,
+    "programmer_status": "0x00026230",
+    "same_clock_timing_pass": true,
+    "frequency": {
+      "i_clk_50m": {
+        "required_mhz": 50.0,
+        "actual_mhz": 51.186
+      },
+      "camera_pclk": {
+        "required_mhz": 52.499,
+        "actual_mhz": 132.294
+      },
+      "clk_fx2": {
+        "required_mhz": 30.03,
+        "actual_mhz": 36.908
+      },
+      "clk_pixel": {
+        "required_mhz": 49.0,
+        "actual_mhz": 58.32
+      },
+      "clk_cam200": {
+        "required_mhz": 200.0,
+        "actual_mhz": 2240.145
+      },
+      "clk_cam50": {
+        "required_mhz": 50.0,
+        "actual_mhz": 92.328
+      },
+      "clk_ddrf": {
+        "required_mhz": 50.0,
+        "actual_mhz": 61.536
+      }
+    },
+    "logic": 54080,
+    "registers": 26947,
+    "global_setup_violated_endpoints": 58,
+    "global_hold_violated_endpoints": 18,
+    "all_paths_timing_closed": false,
+    "diagnostic_key_overrides_removed": true,
+    "source_files_match_manifest": true,
+    "latest_sram_reload": {
+      "date": "2026-10-28",
+      "seconds": 7.93,
+      "status": "0x00026230",
+      "result": "Finished.",
+      "fs_sha256": "82164f871f3ebd76b9a3cc4fcaaa780f999a141b29ccd02536f4b93ab3e99a8d",
+      "flash_written": false,
+      "onsite_acceptance": "passed"
+    }
+  },
+  "production_rtl_candidate_cleanup": {
+    "reset_candidate_reverted": true,
+    "temporary_diagnostic_top_not_in_production_sources": true,
+    "retained_changes": [
+      "prior accepted DDR arbitration fix",
+      "HDMI VS polarity correction"
+    ],
+    "rejected_candidate_bitstreams_archived": "build/hdmi_tx_reset_20261028/rejected_pnr"
+  },
+  "confirmed_cause": "Application HDMI VS polarity was negative while active MPI7002 EDID detailed timing requires positive; same-bitstream reversible polarity test removes/reintroduces/removes stripe artifact.",
+  "not_claimed": "No internal reverse-engineering of the panel receiver chip; mechanism inside its decoder is not measured.",
+  "active_fpga_image": {
+    "type": "full application with DDR arbitration fix and positive HDMI VS",
+    "fs_sha256": "82164f871f3ebd76b9a3cc4fcaaa780f999a141b29ccd02536f4b93ab3e99a8d",
+    "volatile_sram": true,
+    "flash_written": false
+  }
+}

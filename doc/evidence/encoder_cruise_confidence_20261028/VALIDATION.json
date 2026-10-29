@@ -1,0 +1,147 @@
+{
+  "date": "2026-10-28",
+  "scope": "Shared obstacle-navigation cruise, confidence 50%, left-front encoder investigation",
+  "bundle": {
+    "tag": "feb569ca81ca",
+    "sha256": "b807db8e8df525d2003301487848d1bf03a196d40c9ac8db6942bf925e441f00",
+    "source_files": 245
+  },
+  "fpga": {
+    "fs_sha256": "afd02bf635c752f15f9a7894016765650813ff3864ce4c74b53da53110d56893",
+    "source_constraint_header_files": 135,
+    "frequency": {
+      "i_clk_50m": {
+        "required_mhz": 50.0,
+        "actual_mhz": 50.322
+      },
+      "camera_pclk": {
+        "required_mhz": 52.499,
+        "actual_mhz": 120.929
+      },
+      "clk_fx2": {
+        "required_mhz": 30.03,
+        "actual_mhz": 36.908
+      },
+      "clk_pixel": {
+        "required_mhz": 49.0,
+        "actual_mhz": 55.211
+      },
+      "clk_cam200": {
+        "required_mhz": 200.0,
+        "actual_mhz": 2240.145
+      },
+      "clk_cam50": {
+        "required_mhz": 50.0,
+        "actual_mhz": 92.747
+      },
+      "clk_ddrf": {
+        "required_mhz": 50.0,
+        "actual_mhz": 67.59
+      }
+    },
+    "same_clock_zero_tns_rows": 16,
+    "global_setup_violated_endpoints": 58,
+    "global_hold_violated_endpoints": 18,
+    "logic": 54026,
+    "registers": 26764,
+    "load": "SRAM only",
+    "seconds": 8.23,
+    "status": "0x00026230",
+    "all_paths_closed": false,
+    "flash": {
+      "date": "2026-10-28",
+      "scope": "Program latest production whole-vehicle image to external configuration Flash",
+      "fs_sha256": "afd02bf635c752f15f9a7894016765650813ff3864ce4c74b53da53110d56893",
+      "fpga": "GW5AT-138B",
+      "jtag_device_id": "0x0011081B",
+      "flash_id": "0xC22018",
+      "operation": "54: exFlash Erase,Program,Verify Arora V",
+      "program_and_verify_success": true,
+      "seconds": 119.36,
+      "build_inputs_verified": 135,
+      "input_manifest": "fpga_inputs.json",
+      "raw_log_sha256": "3f9f781beb2dcd9b4e386f1a673350b59af55e55547dc9c372fb4e8a07538bd0",
+      "raw_log_bytes": 1450341,
+      "result_log": "flash_result.txt",
+      "cold_boot_test_confirmed": false,
+      "diagnostic_encoder_image": false,
+      "encoder_production_logic": "unchanged",
+      "motion_command_sent": false,
+      "fx2_eeprom_written": false,
+      "source_base_commit": "167b7ffe78f09278230d8e4a2b5d054718177606",
+      "source_changes_uncommitted": true
+    }
+  },
+  "tests": {
+    "host": {
+      "total": 355,
+      "passed": 344,
+      "skipped": 11
+    },
+    "application": {
+      "inspection_application": 10,
+      "inspection_control": 24,
+      "obstacle_motion": 15,
+      "nav_point_ctrl": 17,
+      "chassis_ctrl": 25,
+      "encoder_chain": 7
+    },
+    "motor_package": [
+      "motor_pwm",
+      "quad_decoder",
+      "speed_measure",
+      "stall_detect",
+      "motor_top"
+    ],
+    "pin_constraints": "passed",
+    "rk": {
+      "ai_coordinator_tests.tests.log": 355,
+      "semantic_nav.tests.log": 12,
+      "fx2_camera_tests.tests.log": 36
+    }
+  },
+  "changes": {
+    "inspection_cruise": "FPGA obstacle-navigation cruise parameter, default 300 mm/s; output register preserved",
+    "confidence_threshold": 0.5,
+    "wire": "Existing v1 byte layout retained; cruise comes from FPGA navigation settings",
+    "encoder_production_logic": "unchanged"
+  },
+  "encoder": {
+    "reported": "Left-front wheel spins fast while display is zero, including manual driving",
+    "channel": "A / bit0",
+    "pins": [
+      "D15",
+      "C15"
+    ],
+    "simulated_counts_per_10ms": [
+      10000,
+      5000,
+      2000,
+      1000
+    ],
+    "simulated_missing_phase": "One phase toggles; forward/reverse increments cancel to zero net count",
+    "root_cause": "not confirmed on hardware",
+    "hand_capture": {
+      "valid_csv_rows": 1492,
+      "duration_s": 30,
+      "uart_writes": 0,
+      "nonzero_feedback_rows": 1336,
+      "min_rpm": -44,
+      "max_rpm": 62,
+      "any_driver_duty": false,
+      "any_run_enable": false,
+      "conclusion": "Hand turning produces valid feedback; powered intermittent zero-speed fault not reproduced in this test",
+      "raw_uart_sha256": "683e21e88a2d9b79fd9a17be6896d608ec7e85034b2b93b004793beec5dd32eb",
+      "rk_directory": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/encoder_diagnostics/20261028_hand_left_front"
+    }
+  },
+  "deployment": {
+    "rk": "activated inspection_src_feb569ca81ca; user service enabled",
+    "fpga": "SRAM loaded successfully, 8.23 seconds, status 0x00026230",
+    "flash": "Latest production image programmed and verified; cold boot acceptance pending",
+    "autonomous_motion_started": false,
+    "onsite_acceptance": "patrol movement and confidence effect pending",
+    "fx2_ifclk_hz": 30005827,
+    "software_motion_commands": "No movement commands; service restart performs its existing STOP cleanup"
+  }
+}

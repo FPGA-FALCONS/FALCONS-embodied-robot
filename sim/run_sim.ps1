@@ -163,6 +163,7 @@ $sources = @(
     "$PSScriptRoot\reset_sync_tb.v",
     "$PSScriptRoot\ht10a_input_tb.v",
     "$PSScriptRoot\chassis_ctrl_tb.v",
+    "$PSScriptRoot\encoder_chain_tb.v",
     "$PSScriptRoot\num_text_tb.v",
     "$PSScriptRoot\ui_render_tb.v",
     "$PSScriptRoot\ui_pipeline_tb.v",
@@ -200,7 +201,7 @@ $sources += @("$VendorRoot\m10_radar\rtl\m10_radar.v", "$VendorRoot\m10_radar\rt
               "$ProjectRoot\rtl\ui\nav_obstacle_ui.v",
               "$PSScriptRoot\obstacle_page_tb.v",
               "$PSScriptRoot\obstacle_display_tb.v", "$PSScriptRoot\obstacle_plan_tb.v",
-              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v", "$PSScriptRoot\nav_dijkstra_tb.v", "$PSScriptRoot\nav_dijkstra_pool_tb.v", "$PSScriptRoot\nav_line_cells_tb.v", "$PSScriptRoot\nav_route_tb.v", "$PSScriptRoot\nav_center_tb.v", "$PSScriptRoot\nav_planner_limit_tb.v", "$PSScriptRoot\nav_drive_tb.v")
+              "$PSScriptRoot\obstacle_motion_tb.v", "$PSScriptRoot\nav_scan_accumulator_tb.v", "$PSScriptRoot\nav_scanner_tb.v", "$PSScriptRoot\nav_geometry_tb.v", "$PSScriptRoot\radar_coordinates_tb.v", "$PSScriptRoot\nav_planner_tb.v", "$PSScriptRoot\nav_dijkstra_tb.v", "$PSScriptRoot\nav_dijkstra_pool_tb.v", "$PSScriptRoot\nav_line_cells_tb.v", "$PSScriptRoot\nav_route_tb.v", "$PSScriptRoot\nav_lock_tb.v", "$PSScriptRoot\nav_center_tb.v", "$PSScriptRoot\nav_planner_limit_tb.v", "$PSScriptRoot\nav_drive_tb.v")
 
 $sources += @("$ProjectRoot\rtl\common\display_mm_to_cm.v", "$PSScriptRoot\display_mm_to_cm_tb.v", "$PSScriptRoot\ui_layers_tb.v")
 
@@ -211,15 +212,72 @@ $sources += @("$VendorRoot\voice_motion_bridge\rtl\voice_motion_bridge.v",
               "$VendorRoot\voice_motion_bridge\sim\tb_voice_motion_bridge.sv",
               "$PSScriptRoot\tb_uart_command_router.sv", "$PSScriptRoot\voice_motion_integration_tb.sv")
 
+$sources += @("$ProjectRoot\rtl\ai\ai_video_gate.v", "$PSScriptRoot\ai_video_gate_tb.v")
 $sources += @("$ProjectRoot\rtl\ai\ai_rc_control.v", "$ProjectRoot\rtl\ai\ai_uart_tx.v",
               "$ProjectRoot\rtl\ai\ai_display_link.v", "$ProjectRoot\rtl\common\ai_menu_font.v",
               "$PSScriptRoot\manual_takeover_tb.v", "$PSScriptRoot\ai_rc_control_tb.v", "$PSScriptRoot\ai_uart_tx_tb.v", "$PSScriptRoot\ai_display_link_tb.v")
 $sources += @("$VendorRoot\yaw_integrate\rtl\yaw_integrate.v", "$PSScriptRoot\yaw_pipeline_tb.v")
 $sources += @("$VendorRoot\ov5640_capture\rtl\ov5640_init_table_rgb.v", "$PSScriptRoot\camera_rotation_tb.v")
+$sources += @("$ProjectRoot\rtl\ai\inspection_packet_rx.v", "$PSScriptRoot\inspection_packet_tb.v",
+              "$PSScriptRoot\nav_visual_layer_tb.v", "$PSScriptRoot\visual_navigation_tb.v")
+$sources += @("$ProjectRoot\rtl\ai\inspection_nav_control.v", "$ProjectRoot\rtl\ai\inspection_dispatch.v",
+              "$ProjectRoot\rtl\ai\inspection_speed_params.v", "$PSScriptRoot\inspection_speed_tb.v",
+              "$ProjectRoot\rtl\ai\inspection_packet_tx.v", "$ProjectRoot\rtl\ai\inspection_telemetry.v", "$ProjectRoot\rtl\ai\inspection_application.v",
+              "$PSScriptRoot\inspection_control_tb.v", "$PSScriptRoot\inspection_tx_tb.v", "$PSScriptRoot\inspection_dispatch_tb.v", "$PSScriptRoot\inspection_uart_tb.v", "$PSScriptRoot\inspection_application_tb.v", "$PSScriptRoot\inspection_ui_tb.v")
+$sources += @("$ProjectRoot\rtl\ai\inspection_fx2_phy.v", "$ProjectRoot\rtl\ai\inspection_stream_rx.v", "$ProjectRoot\rtl\ai\inspection_highspeed.v", "$ProjectRoot\rtl\ai\inspection_fx2_clock.v",
+              "$ProjectRoot\rtl\ai\inspection_stream_tx.v", "$ProjectRoot\rtl\common\stream_async_fifo.v",
+              "$VendorRoot\camera_fx2_direct\rtl\acg_async_fifo.v", "$PSScriptRoot\inspection_fx2_tb.v",
+              "$PSScriptRoot\inspection_stream_tb.v", "$PSScriptRoot\stream_async_fifo_tb.v", "$PSScriptRoot\inspection_highspeed_tb.v", "$PSScriptRoot\nav_map_arb_tb.v", "$PSScriptRoot\stall_monitor_tb.v", "$PSScriptRoot\inspection_fx2_clock_tb.v")
+$sources += @(
+    "$ProjectRoot\rtl\ai\inspection_mailbox_rx.v",
+    "$PSScriptRoot\inspection_mailbox_tb.v",
+    "$PSScriptRoot\inspection_timebase_tb.v",
+    "$ProjectRoot\rtl\ai\inspection_epoch_tracker.v",
+    "$PSScriptRoot\inspection_epoch_tb.v",
+    "$ProjectRoot\rtl\ai\inspection_route_export.v",
+    "$PSScriptRoot\inspection_route_export_tb.v",
+    "$ProjectRoot\rtl\ai\inspection_ddr_arb.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_tokens.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_writer.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_reader.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_pixels.v",
+    "$ProjectRoot\rtl\ai\inspection_frame_store.v",
+    "$ProjectRoot\rtl\ai\inspection_map_export.v",
+    "$PSScriptRoot\inspection_ddr_arb_tb.v",
+    "$PSScriptRoot\inspection_frame_tb.v", "$PSScriptRoot\inspection_ddr_deadline_tb.v",
+    "$PSScriptRoot\inspection_map_export_tb.v"
+)
 $tests = @(
+    @{ Name = 'inspection_epoch'; Top = 'inspection_epoch_tb'; Desc = 'Held IMU valid level / event-only epoch / origin clear / reboot handshake' },
+    @{ Name = 'inspection_route_export'; Top = 'inspection_route_export_tb'; Desc = 'Passive navigation prefix / bounded CRC / context and publication' },
+    @{ Name = 'inspection_timebase'; Top = 'inspection_timebase_tb'; Desc = 'Device clock exchange / nonce and epoch isolation / no authority' },
+    @{ Name = 'inspection_mailbox'; Top = 'inspection_mailbox_tb'; Desc = 'Validated layer-only USB mailbox / UART authority isolation' },
+    @{ Name = 'inspection_ddr_arb'; Top = 'inspection_ddr_arb_tb'; Desc = 'Independent DDR AI display / passive map export' },
+    @{ Name = 'inspection_frame'; Top = 'inspection_frame_tb'; Desc = 'Independent DDR AI display / passive map export' },
+    @{ Name = 'inspection_ddr_deadline'; Top = 'inspection_ddr_deadline_tb'; Desc = 'Display read deadline while camera writes are backpressured' },
+    @{ Name = 'inspection_map_export'; Top = 'inspection_map_export_tb'; Desc = 'Independent DDR AI display / passive map export' },
+
+    @{ Name = 'inspection_fx2_clock'; Top = 'inspection_fx2_clock_tb'; Desc = 'Independent Gray frequency measurement / wrong clock / loss and return' },
+    @{ Name = 'nav_map_arb'; Top = 'nav_map_arb_tb'; Desc = 'Registered selection / cancellation / stable owner / timeout' },
+    @{ Name = 'stall_monitor'; Top = 'stall_monitor_tb'; Desc = 'Coherent monitor pipeline / live PWM inhibit / explicit clear' },
+    @{ Name = 'inspection_highspeed'; Top = 'inspection_highspeed_tb'; Desc = 'Whole diagnostic / physical bus / two independent clocks / small FIFO backpressure' },
+    @{ Name = 'inspection_stream'; Top = 'inspection_stream_tb'; Desc = 'Host AIF1 vectors / full 816x420 CRC / stale view / bounded mailboxes / transmit backpressure' },
+    @{ Name = 'inspection_fx2'; Top = 'inspection_fx2_tb'; Desc = 'Bidirectional Slave FIFO / direction turnaround / short-packet flush / fairness' },
+    @{ Name = 'stream_async_fifo'; Top = 'stream_async_fifo_tb'; Desc = 'Independent clocks / full FIFO / tagged stream / backpressure' },
+    @{ Name = 'inspection_ui'; Top = 'inspection_ui_tb'; Desc = 'Nested AI task views / CH8 scope / manual preservation / child back' },
+    @{ Name = 'inspection_application'; Top = 'inspection_application_tb'; Desc = 'Python transaction to production authority and actual-stop handshake' },
+    @{ Name = 'inspection_speed'; Top = 'inspection_speed_tb'; Desc = 'RK physical cruise / iterative slow gain / actual point controller / base independence' },
+    @{ Name = 'inspection_dispatch'; Top = 'inspection_dispatch_tb'; Desc = 'Synchronous message RAM / authenticated layer stream / stopped commit' },
+    @{ Name = 'inspection_uart'; Top = 'inspection_uart_tb'; Desc = 'Physical UART arbitration / whole CSV / indivisible inspection transaction' },
+    @{ Name = 'inspection_control'; Top = 'inspection_control_tb'; Desc = 'Actual stopped handshake, physical confirm, manual priority and local lease' },
+    @{ Name = 'inspection_tx'; Top = 'inspection_tx_tb'; Desc = 'Status snapshot / whole transaction / CRC under byte backpressure' },
+    @{ Name = 'visual_navigation'; Top = 'visual_navigation_tb'; Desc = 'Camera-only wall changes actual Dijkstra route; AI exit restores radar map' },
+    @{ Name = 'inspection_packet'; Top = 'inspection_packet_tb'; Desc = 'Python/RTL transaction CRC, synchronous RAM, corruption and timeout' },
+    @{ Name = 'nav_visual_layer'; Top = 'nav_visual_layer_tb'; Desc = 'Atomic visual raw/cost layer, stopped commit, CRC and epoch isolation' },
     @{ Name = 'camera_rotation'; Top = 'camera_rotation_tb'; Desc = 'Camera flip and mirror / all 253 initialization register entries' },
     @{ Name = 'nav_planner_limit'; Top = 'nav_planner_limit_tb'; Desc = 'Post-centering relays / capacity prefix / repeated request / same goal' },
     @{ Name = 'nav_center'; Top = 'nav_center_tb'; Desc = 'Eight-direction intersections / minimum gaps / budget / full-segment rejection' },
+    @{ Name = 'nav_lock'; Top = 'nav_lock_tb'; Desc = 'Short locked segments / farthest target / real background origin / runtime window' },
     @{ Name = 'nav_route'; Top = 'nav_route_tb'; Desc = 'Eight-direction locked prefix / farthest target / candidate isolation' },
     @{ Name = 'nav_line_cells'; Top = 'nav_line_cells_tb'; Desc = 'Eight-direction inclusive segments and flank cells' },
     @{ Name = 'nav_drive'; Top = 'nav_drive_tb'; Desc = 'Eight-direction raw front checks / lateral / behind / invalid pose' },
@@ -227,6 +285,7 @@ $tests = @(
     @{ Name = 'nav_dijkstra'; Top = 'nav_dijkstra_tb'; Desc = 'Four buckets / 2-3 cost / straight first / no corner cuts / heap reference' },
     @{ Name = 'yaw_pipeline'; Top = 'yaw_pipeline_tb'; Desc = '20000 cycle equivalence for optional yaw sum/wrap pipeline' },
     @{ Name = 'manual_takeover'; Top = 'manual_takeover_tb'; Desc = 'SWC stop before local stick takeover, fresh encoder feedback' },
+    @{ Name = 'ai_video_gate'; Top = 'ai_video_gate_tb'; Desc = 'Shared display gate without inspection navigation authority' },
     @{ Name = 'ai_rc_control'; Top = 'ai_rc_control_tb'; Desc = 'AI master/submenu/SWB recording/failsafe' },
     @{ Name = 'ai_uart_tx'; Top = 'ai_uart_tx_tb'; Desc = 'AI control CRC and whole-line CSV UART arbitration' },
     @{ Name = 'ai_display_link'; Top = 'ai_display_link_tb'; Desc = 'Atomic display commit, CRC, stale host and transaction isolation' },
@@ -240,6 +299,7 @@ $tests = @(
     @{ Name = 'imu_calib'; Top = 'imu_calib_tb'; Desc = 'IMU calibration pipeline / coherent samples / seed / reject / completion / timeout' },
     @{ Name = 'radar_coordinates'; Top = 'radar_coordinates_tb'; Desc = 'UART quadrants / world map / display / 72 captured packets' },
     @{ Name = 'nav_geometry'; Top = 'nav_geometry_tb'; Desc = '50 mm grid quantization / signed map boundaries / 10 m rays' },
+    @{ Name = 'nav_scanner'; Top = 'nav_scanner_tb'; Desc = '10 m shadow veto / exact cells / octants / backpressure' },
     @{ Name = 'nav_scan_accumulator'; Top = 'nav_scan_accumulator_tb'; Desc = 'Circle hit priority / deferred clears / concurrent circle updates' },
     @{ Name = 'nav_pose'; Top = 'nav_pose_tb'; Desc = 'Real odometry pipeline to navigation pose' },
     @{ Name = 'obstacle_motion'; Top = 'obstacle_motion_tb'; Desc = 'UI / real BFS / point controller / moving differential vehicle' },
@@ -256,6 +316,7 @@ $tests = @(
     @{ Name = 'ht10a_input'; Top = 'ht10a_input_tb'; Desc = 'HT10A mapping/calibration/switches/loss/manual drive integration' },
     @{ Name = 'rc_input';     Top = 'rc_input_tb';     Desc = '遥控槽位映射：归一化/死区/模式两档/按钮 select+confirm/丢信号/取反/摇杆拨动/掩码有效性' },
     @{ Name = 'chassis_ctrl'; Top = 'chassis_ctrl_tb'; Desc = '★ 差速分解/限幅/安全逻辑/闭环方向/rpm 换算' },
+    @{ Name = 'encoder_chain'; Top = 'encoder_chain_tb'; Desc = 'Four real encoder channels / fast pulses / 10ms windows / missing phase reproduction' },
     @{ Name = 'num_text';     Top = 'num_text_tb';     Desc = '实时数值格式化（9 字段、负数、前导空格、饱和）' },
     @{ Name = 'ui_render';    Top = 'ui_render_tb';    Desc = '★ 中文界面：菜单/高亮随 menu_sel/状态栏/光标档文案/动态数值/占位页/非避障导航页' },
     @{ Name = 'nav_free';     Top = 'nav_free_tb';     Desc = '原非避障调试选点（保持原功能）' },

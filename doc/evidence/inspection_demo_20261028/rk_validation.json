@@ -1,0 +1,196 @@
+{
+  "startup": {
+    "enabled": true,
+    "ready": true,
+    "state": "ready",
+    "required_models": [
+      "asr",
+      "llm",
+      "chat",
+      "tts"
+    ],
+    "loaded": {
+      "asr": {
+        "load_s": 2.641096379000146,
+        "ready_at_s": 1236.202052437
+      },
+      "llm": {
+        "load_s": 0.0006311560000540339,
+        "ready_at_s": 1241.161127277
+      },
+      "chat": {
+        "load_s": 2.3668770320000476,
+        "ready_at_s": 1243.625267046
+      },
+      "tts": {
+        "load_s": 3.291507061999937,
+        "ready_at_s": 1247.020145406
+      },
+      "vision": {
+        "load_s": 0.37646370599986767,
+        "ready_at_s": 1247.556072815
+      }
+    },
+    "errors": {},
+    "ready_tone_played": false,
+    "ready_tone_error": "ValueError: USB role speaker has 0 matches; explicit identity/disambiguation required"
+  },
+  "inspection": {
+    "localization": "stop_then_wait_0.5s_then_three_frames",
+    "mission": {
+      "session_id": 3084910408,
+      "task_id": 0,
+      "epoch": 2,
+      "state": "edit",
+      "phase": "outbound",
+      "view": "map",
+      "reason": null,
+      "goal_m": null,
+      "trace_m": [],
+      "return_trace_m": [],
+      "pose": {
+        "epoch": 2,
+        "x_m": 0.0,
+        "y_m": 0.0,
+        "yaw_rad": -0.0029670597283903604,
+        "at_s": 1611.763014883
+      },
+      "trace_truncated": false,
+      "start_m": null,
+      "return_policy": "latest_map",
+      "return_index": 0,
+      "return_count": 0,
+      "layer_version": 0,
+      "manual": false
+    },
+    "actual": {
+      "session_id": 3084910408,
+      "task_id": 0,
+      "epoch": 2,
+      "command_id": 0,
+      "kind": "hello",
+      "layer_version": 0,
+      "stopped": false,
+      "manual": false,
+      "error_code": 0,
+      "flags": 64
+    },
+    "usb": {
+      "verified": false,
+      "ifclk_hz": null,
+      "last_diagnostic_s": null,
+      "error": "USB role inspection_link has 0 matches; explicit identity/disambiguation required",
+      "generation": 0,
+      "pending_control": 0,
+      "pending_display": false
+    },
+    "calibration_model": {
+      "projection_model": "undistorted_homography",
+      "static_geometry_config_ready": true,
+      "pending": [],
+      "pixel_domain": "undistorted_pixels_P_K",
+      "focus": 260,
+      "max_range_m": 2.1,
+      "ground_hull_cm": [
+        [
+          60.0,
+          180.0
+        ],
+        [
+          0.0,
+          210.0
+        ],
+        [
+          -60.0,
+          180.0
+        ],
+        [
+          -60.0,
+          120.0
+        ],
+        [
+          -20.0,
+          40.0
+        ],
+        [
+          20.0,
+          40.0
+        ],
+        [
+          60.0,
+          120.0
+        ]
+      ]
+    },
+    "observation_frames": 0
+  },
+  "camera_frames": [
+    {
+      "sequence": 1,
+      "source_sequence": 6,
+      "width": 1280,
+      "height": 720,
+      "focus_value": 260,
+      "focus_locked": true,
+      "autofocus": false,
+      "focus_verification": "v4l2_control_readback_each_frame",
+      "negotiated": {
+        "width": 1280,
+        "height": 720,
+        "fps": 30.0,
+        "fourcc": "MJPG",
+        "focus": 260,
+        "autofocus": false
+      }
+    },
+    {
+      "sequence": 2,
+      "source_sequence": 7,
+      "width": 1280,
+      "height": 720,
+      "focus_value": 260,
+      "focus_locked": true,
+      "autofocus": false,
+      "focus_verification": "v4l2_control_readback_each_frame",
+      "negotiated": {
+        "width": 1280,
+        "height": 720,
+        "fps": 30.0,
+        "fourcc": "MJPG",
+        "focus": 260,
+        "autofocus": false
+      }
+    },
+    {
+      "sequence": 3,
+      "source_sequence": 8,
+      "width": 1280,
+      "height": 720,
+      "focus_value": 260,
+      "focus_locked": true,
+      "autofocus": false,
+      "focus_verification": "v4l2_control_readback_each_frame",
+      "negotiated": {
+        "width": 1280,
+        "height": 720,
+        "fps": 30.0,
+        "fourcc": "MJPG",
+        "focus": 260,
+        "autofocus": false
+      }
+    }
+  ],
+  "activation": {
+    "installed": true,
+    "linger": "yes",
+    "backup": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/autostart_backups/20261028_104948_127b65ea",
+    "service": "/home/orangepi/.config/systemd/user/falcons-ai-coordinator.service",
+    "models_ready_verified": false,
+    "note": "Inspect /status startup readiness; enabled service alone is not model-load acceptance",
+    "models_ready": true,
+    "inspection_enabled": true,
+    "automatic_motion_started": false
+  },
+  "service": "NRestarts=0\nActiveState=active\n",
+  "hardware_motion_tested": false
+}

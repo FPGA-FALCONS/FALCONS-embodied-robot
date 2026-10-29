@@ -1,0 +1,5 @@
+================ 测试：ui_render ================
+  PASS: ui_render all checks passed
+  PASS: disp_driver_tb 5267 checks, 0 errors
+ui_render   PASS     50 pass=50
+disp_driver PASS   5267 pass=5267 / CHECKS=5267

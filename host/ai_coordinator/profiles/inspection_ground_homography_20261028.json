@@ -1,0 +1,115 @@
+{
+  "projection_model": "undistorted_homography",
+  "camera_serial": "200901010001",
+  "image_size": [
+    1280,
+    720
+  ],
+  "focus": 260,
+  "autofocus": false,
+  "intrinsics_measured": true,
+  "homography_measured": true,
+  "ground_plane_verified": true,
+  "extrinsics_measured": false,
+  "timing_verified": false,
+  "K": [
+    [
+      1015.379551025016,
+      0.0,
+      606.5698883791207
+    ],
+    [
+      0.0,
+      1016.0375199312585,
+      410.9406941121432
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "distortion": [
+    0.07739903219510189,
+    -0.0996528842553065,
+    0.010924225302207942,
+    -0.0005583486134736033,
+    0.0
+  ],
+  "T_base_camera": null,
+  "max_range_m": 2.1,
+  "xy_error_m": null,
+  "homography": {
+    "H_pixel_to_ground_cm": [
+      [
+        2.774046879821301,
+        0.007751786736096518,
+        -1695.1837739644195
+      ],
+      [
+        0.04190155425051494,
+        0.4062230451178255,
+        2972.473680800834
+      ],
+      [
+        0.0010146150432150073,
+        0.12569225742649565,
+        1.0
+      ]
+    ],
+    "pixel_domain": "undistorted_pixels_P_K",
+    "ground_axes": "right_forward_cm",
+    "ground_hull_cm": [
+      [
+        60.0,
+        180.0
+      ],
+      [
+        0.0,
+        210.0
+      ],
+      [
+        -60.0,
+        180.0
+      ],
+      [
+        -60.0,
+        120.0
+      ],
+      [
+        -20.0,
+        40.0
+      ],
+      [
+        20.0,
+        40.0
+      ],
+      [
+        60.0,
+        120.0
+      ]
+    ],
+    "origin": "ground projection of lidar center",
+    "model_sha256": "bc235f8be2454f74a56847331c35b35132107ef57bdd2e288c4e0ad60b5ef705",
+    "model_source": "ground_homography_combined_20261028.json",
+    "intrinsics_sha256": "6a290c0eb48566b765dc7f0ab9b133ae84d8ad9fb5bb63ed74b261e43672f7a6",
+    "independent_validation_sha256": "b1ac14699a9a0f6160ee7065bf7678f2fa7682ce29294dc9efc7ef92b5fc31cd",
+    "independent_rms_cm": 0.8319761327748609,
+    "independent_max_cm": 1.0020062382728367,
+    "trained_point_count": 14,
+    "independent_point_count": 7,
+    "region_extension": {
+      "revision": "near40_20261028",
+      "minimum_forward_cm": 40,
+      "points_source": "ground_homography_points_near_20261028.json",
+      "points_sha256": "b8bdb45f07cdfebce9d84491cff9fb18e649790ea17398276fc1b713a5ca4997",
+      "validation_source": "ground_homography_near_validation_20261028.json",
+      "validation_sha256": "689a1e21be1fe7c4e360d06ebed91c107561202e5ec8854be2359f999ddc4d0d",
+      "near_rms_cm": 0.6161196990403748,
+      "near_max_cm": 0.8694097340137453,
+      "matrix_refitted": false,
+      "boundary_rule": "convex hull of original measured region plus five independently checked near points"
+    }
+  },
+  "note": "User selected the independently checked undistorted 14-point H for static ground calibration. Timing, operational XY error bound, class contact anchors, vehicle/speed checks remain uncommissioned. Never interpret the static fit error as an operational error bound."
+}

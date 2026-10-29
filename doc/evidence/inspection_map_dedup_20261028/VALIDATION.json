@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-28",
+  "scope": "Map/class dedup before stopping, capture-time historical pose frozen before inference, 0.3s wait and three frames",
+  "bundle": {
+    "tag": "213a5d4b18af",
+    "sha256": "be6c1a3ee039a1c53fc86eb527e9dbf747a16c96e381883bc2256842ed47558f",
+    "source_files": 245
+  },
+  "tests": {
+    "windows": {
+      "total": 363,
+      "passed": 352,
+      "skipped": 11
+    },
+    "rk": {
+      "ai_coordinator_tests.tests.log": 363,
+      "semantic_nav.tests.log": 12,
+      "fx2_camera_tests.tests.log": 36
+    },
+    "covered": [
+      "native frame time and pre-inference freeze",
+      "pose history retention and epoch reset",
+      "slow inference after history pruning",
+      "same class and 30cm boundary",
+      "known/new target mixture",
+      "known target records and speech unchanged",
+      "manual and return catalogue retention",
+      "new task catalogue clear",
+      "STOP receipt + 0.3s then three-frame observation",
+      "rough H outside formal bounds does not relax formal projection"
+    ]
+  },
+  "deduplication": {
+    "radius_m": 0.3,
+    "same_class_required": true,
+    "confirmed_only": true,
+    "pose_history_s": 2,
+    "pose_time": "native received_at_s minus 0.3 seconds",
+    "selection": "nearest",
+    "frozen_before_inference": true,
+    "frame_pose_retained_after_history_prune": true,
+    "inference_completion_time_used": false,
+    "rough_coordinates_published": false,
+    "rough_H_requires_measured_hull": false,
+    "formal_H_bounds_unchanged": true,
+    "pose_samples_at_verification": 20,
+    "retained_during": [
+      "outbound",
+      "paused",
+      "manual_takeover",
+      "returning"
+    ],
+    "cleared_on": "new task or localization/link reset"
+  },
+  "localization": {
+    "stop_receipt_required": true,
+    "wait_s": 0.3,
+    "frames": 3
+  },
+  "unchanged": {
+    "ground_anchors": {
+      "tape": "box_center",
+      "screwdriver": "box_center",
+      "ad_calcium_milk": "bottom_center",
+      "nutri_express": "bottom_center"
+    },
+    "radius_generation": true,
+    "catalogue_footprint_accumulation": true,
+    "nominal_total_inflation_radius_m": 0.28,
+    "cruise_speed_mm_s": 300,
+    "confidence_threshold": 0.5,
+    "fpga_inputs": 136,
+    "fpga_bitstream_sha256": "b04faaee1f77302926a5297ef05fa4f26495dd06ac105aed2b2449f6e59ecb00"
+  },
+  "runtime": {
+    "models_ready": true,
+    "service": "NRestarts=0\nActiveState=active\n",
+    "fx2": {
+      "verified": true,
+      "ifclk_hz": 30005819,
+      "last_diagnostic_s": 368.628069776,
+      "error": null,
+      "generation": 1,
+      "pending_control": 0,
+      "pending_display": false
+    },
+    "movement_command_sent": false,
+    "onsite_moving_dedup_test": "pending"
+  }
+}

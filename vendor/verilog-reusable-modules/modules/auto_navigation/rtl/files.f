@@ -2,6 +2,7 @@ auto_navigation.v
 lidar_scan_monitor.v
 nav_polar.v
 nav_map.v
+nav_visual_layer.v
 nav_scanner.v
 nav_scan_accumulator.v
 nav_dijkstra.v

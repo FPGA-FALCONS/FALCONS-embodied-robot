@@ -108,7 +108,8 @@ class StartupTests(unittest.IsolatedAsyncioTestCase):
         played=AsyncMock()
         with patch('ai_coordinator.startup.ALSAPlayer',return_value=played) as factory:
             await StartupModels.tone(self.startup)
-        factory.assert_called_once_with('plughw:CARD=Device,DEV=0')
+        factory.assert_called_once()
+        self.assertEqual(factory.call_args.args[0],'plughw:CARD=Device,DEV=0')
         clip=played.call_args.args[0]
         with wave.open(str(clip['path'])) as wav:
             self.assertEqual(wav.getparams()[:3],(1,2,44100))

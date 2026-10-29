@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-28",
+  "feature": "RK ordered inspection waypoints; existing single-goal FPGA navigation",
+  "local_tests": {
+    "total": 343,
+    "skipped": 11,
+    "failures": 0,
+    "final_ui_recording_checks": 13,
+    "final_affected_checks": 74
+  },
+  "rk_tests": {
+    "coordinator": 343,
+    "coordinator_skipped": 0,
+    "fx2_tools": 36,
+    "semantic": 12,
+    "failures": 0
+  },
+  "fpga": {
+    "rtl_changed": false,
+    "programmed_this_task": false,
+    "control_simulation_checks": 24,
+    "passed": true
+  },
+  "source_bundle": {
+    "name": "inspection_src_ec4f025785d1.zip",
+    "sha256": "a15498943b258750cb51f84003a3194bf064e4f8489afa89945d6d4425f98aa0",
+    "source_files": 245
+  },
+  "recording_test": "one dual 10Hz MP4 session spans waypoint progress, manual pause and return; both streams have matching frame counts",
+  "source_and_deployment_match": true,
+  "source_based_screen_previews": true,
+  "previews_use_simulated_data": true,
+  "hardware_patrol_tested": false,
+  "fx2_deferred_by_user": true,
+  "speaker_tested": false,
+  "automatic_motion_started": false,
+  "unrelated_staged_patch_sha256": "ee23d583ab00e56c820a76f3944457ea793a9f3e63480950334b2d8e0aa60c2f"
+}

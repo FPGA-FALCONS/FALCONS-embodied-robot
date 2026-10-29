@@ -1,0 +1,104 @@
+{
+  "date": "2026-10-28",
+  "scope": "RK-configured inspection cruise, physical 16-bit mm/s, no old 120-count clamp",
+  "bundle": {
+    "tag": "69fbf5c62a88",
+    "sha256": "a60fa11fd03d10ae239586575870519c6d9c49e19c5c05e647ec27ecb9967bd6",
+    "source_files": 245
+  },
+  "fpga": {
+    "fs_sha256": "b04faaee1f77302926a5297ef05fa4f26495dd06ac105aed2b2449f6e59ecb00",
+    "source_constraint_header_files": 136,
+    "frequency": {
+      "i_clk_50m": {
+        "required_mhz": 50.0,
+        "actual_mhz": 51.328
+      },
+      "camera_pclk": {
+        "required_mhz": 52.499,
+        "actual_mhz": 123.826
+      },
+      "clk_fx2": {
+        "required_mhz": 30.03,
+        "actual_mhz": 35.691
+      },
+      "clk_pixel": {
+        "required_mhz": 49.0,
+        "actual_mhz": 50.991
+      },
+      "clk_cam200": {
+        "required_mhz": 200.0,
+        "actual_mhz": 2240.145
+      },
+      "clk_cam50": {
+        "required_mhz": 50.0,
+        "actual_mhz": 87.969
+      },
+      "clk_ddrf": {
+        "required_mhz": 50.0,
+        "actual_mhz": 58.337
+      }
+    },
+    "same_clock_zero_tns_rows": 16,
+    "global_setup_violated_endpoints": 58,
+    "global_hold_violated_endpoints": 18,
+    "logic": 54200,
+    "registers": 26945,
+    "load": "SRAM then external Flash",
+    "sram_seconds": 7.99,
+    "flash_seconds": 118.98,
+    "flash_id": "0xC22018",
+    "flash_program_and_verify_success": true,
+    "cold_boot_test_confirmed": false,
+    "all_paths_closed": false,
+    "raw_sram_log_sha256": "f18b63466c0e179e2edcf25752a799ac3a1062360cb77dc9dac83355da718b93",
+    "raw_flash_log_sha256": "abf6f45c0f4f2a9e94c276690e8583c2ccd93c0b5115f8b63b62121b93c9c9c1",
+    "raw_restore_sram_log_sha256": "574fdb460aa58a5a84ca1e237bbbc44936924ac21e1036d0ce66e51d09061938",
+    "final_sram_restore_seconds": 7.98
+  },
+  "tests": {
+    "windows": {
+      "total": 356,
+      "passed": 345,
+      "skipped": 11
+    },
+    "rk": {
+      "ai_coordinator_tests.tests.log": 356,
+      "semantic_nav.tests.log": 12,
+      "fx2_camera_tests.tests.log": 36
+    },
+    "application": {
+      "inspection_application": 10,
+      "inspection_speed": 8,
+      "inspection_dispatch": 7,
+      "inspection_control": 24,
+      "manual_takeover": 18,
+      "nav_point_ctrl": 17,
+      "obstacle_motion": 15
+    }
+  },
+  "protocol": {
+    "control_words": 8,
+    "last_word": "cruise_speed_mm_s[31:16] | layer_version[15:0]",
+    "old_drive_code_removed": true,
+    "legacy_protocol_fallback": false
+  },
+  "behavior": {
+    "cruise_speed_mm_s": 300,
+    "setting": "RK config.json inspection.cruise_speed_mm_s",
+    "base_navigation": "FPGA V_CRUISE remains independent of RK",
+    "deceleration_gain": "26-clock iterative division of RK cruise*1024 by FPGA D_SLOW",
+    "registered_controller_inputs": true,
+    "old_120_count_limit": false,
+    "confidence_threshold": 0.5,
+    "production_encoder_logic": "unchanged",
+    "movement_command_sent": false
+  },
+  "limitations": [
+    "Cold boot acceptance pending",
+    "Patrol movement and physical cruise measurement not performed",
+    "Left-front powered intermittent encoder fault remains unconfirmed"
+  ],
+  "source_base_commit": "167b7ffe78f09278230d8e4a2b5d054718177606",
+  "source_changes_uncommitted": true
+}

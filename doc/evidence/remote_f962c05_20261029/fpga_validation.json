@@ -1,0 +1,137 @@
+{
+  "fs_sha256": "393dc996c4fa8d4a82b34076a3025834600a60307de3f11ff085578ce2dd2727",
+  "inputs_verified": 136,
+  "frequency": {
+    "i_clk_50m": {
+      "required_mhz": 50.0,
+      "actual_mhz": 50.1
+    },
+    "camera_pclk": {
+      "required_mhz": 52.499,
+      "actual_mhz": 132.117
+    },
+    "clk_fx2": {
+      "required_mhz": 30.03,
+      "actual_mhz": 37.191
+    },
+    "clk_pixel": {
+      "required_mhz": 49.0,
+      "actual_mhz": 50.796
+    },
+    "clk_cam200": {
+      "required_mhz": 200.0,
+      "actual_mhz": 2240.145
+    },
+    "clk_cam50": {
+      "required_mhz": 50.0,
+      "actual_mhz": 86.423
+    },
+    "clk_ddrf": {
+      "required_mhz": 50.0,
+      "actual_mhz": 56.221
+    }
+  },
+  "same_clock_tns_rows": [
+    [
+      "i_clk_50m",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "i_clk_50m",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "camera_pclk",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "camera_pclk",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_fx2",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_fx2",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_pixel",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_pixel",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_serial",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_serial",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam200",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam200",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam50",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_cam50",
+      "Hold",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_ddrf",
+      "Setup",
+      "0.000",
+      "0"
+    ],
+    [
+      "clk_ddrf",
+      "Hold",
+      "0.000",
+      "0"
+    ]
+  ],
+  "global_setup_violated_endpoints": 58,
+  "global_hold_violated_endpoints": 18,
+  "logic": 54104,
+  "registers": 26934,
+  "same_clock_timing_pass": true
+}

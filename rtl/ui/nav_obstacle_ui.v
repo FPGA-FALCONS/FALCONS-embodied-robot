@@ -313,8 +313,20 @@ module nav_obstacle_ui #(
                                     (car_px_raw > 32'sd1023) ? 32'sd1023 : car_px_raw;
     wire signed [31:0] car_py_w   = (car_py_raw < 32'sd0)    ? 32'sd0 :
                                     (car_py_raw > 32'sd599)  ? 32'sd599 : car_py_raw;
-    wire signed [31:0] cur_px_w = PX_ORIGIN + (((o_cur_x_mm * SCALE_Q16) >>> 16));
-    wire signed [31:0] cur_py_w = PY_ORIGIN - (((o_cur_y_mm * SCALE_Q16) >>> 16));
+    // Split the display-only multiply from the cursor feedback/enable cone.
+    // These products update every clock; manual takeover still pauses the
+    // state machine and chassis through the original direct safety paths.
+    reg signed [31:0] cur_x_scaled /* synthesis syn_preserve=1 */;
+    reg signed [31:0] cur_y_scaled /* synthesis syn_preserve=1 */;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin cur_x_scaled <= 0; cur_y_scaled <= 0; end
+        else begin
+            cur_x_scaled <= o_cur_x_mm * SCALE_Q16;
+            cur_y_scaled <= o_cur_y_mm * SCALE_Q16;
+        end
+    end
+    wire signed [31:0] cur_px_w = PX_ORIGIN + (cur_x_scaled >>> 16);
+    wire signed [31:0] cur_py_w = PY_ORIGIN - (cur_y_scaled >>> 16);
 
     reg [9:0] car_px_r, car_py_r, cur_px_r, cur_py_r;
     reg [9:0] pt_px_r [0:MAX_POINTS-1];

@@ -1,0 +1,13 @@
+{
+  "enabled": false,
+  "backend": "v4l2",
+  "device": "/dev/v4l/by-id/usb-Generic_USB_Cam_200901010001-video-index0",
+  "expected_size": [
+    1280,
+    720
+  ],
+  "fps": 30.0,
+  "fourcc": "MJPG",
+  "warmup_frames": 10,
+  "storage": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/camera_frames"
+}

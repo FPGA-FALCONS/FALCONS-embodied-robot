@@ -1,0 +1,237 @@
+{
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/inspection_src_213a5d4b18af",
+  "source_files_verified": 246,
+  "tests": {
+    "ai_coordinator_tests.tests.log": 363,
+    "semantic_nav.tests.log": 12,
+    "fx2_camera_tests.tests.log": 36
+  },
+  "service": "NRestarts=0\nActiveState=active\n",
+  "dedup_distance_m": 0.3,
+  "settle_s": 0.3,
+  "camera_pose_offset_s": 0.3,
+  "pose_history_s": 2.0,
+  "ground_anchors": {
+    "tape": "box_center",
+    "screwdriver": "box_center",
+    "ad_calcium_milk": "bottom_center",
+    "nutri_express": "bottom_center"
+  },
+  "radius_generation_unchanged": true,
+  "catalogue_radius_accumulation_unchanged": true,
+  "confidence_threshold": 0.5,
+  "cruise_speed_mm_s": 300,
+  "protected_configuration_unchanged": [
+    "asr",
+    "llm",
+    "chat",
+    "tts",
+    "models",
+    "audio",
+    "audio_roles",
+    "motion",
+    "motion_backend",
+    "microphone",
+    "ai_module",
+    "inspection.calibration",
+    "camera_except_native_helper"
+  ],
+  "focus": 260,
+  "autofocus": false,
+  "startup": {
+    "enabled": true,
+    "ready": true,
+    "state": "ready",
+    "required_models": [
+      "asr",
+      "llm",
+      "chat",
+      "tts"
+    ],
+    "loaded": {
+      "asr": {
+        "load_s": 2.839497207000022,
+        "ready_at_s": 370.447266286
+      },
+      "llm": {
+        "load_s": 0.0006784070000094289,
+        "ready_at_s": 375.223905586
+      },
+      "chat": {
+        "load_s": 2.0660445490000257,
+        "ready_at_s": 377.400187084
+      },
+      "tts": {
+        "load_s": 3.182525826000017,
+        "ready_at_s": 380.679409732
+      },
+      "vision": {
+        "load_s": 0.37793767099998377,
+        "ready_at_s": 381.153959934
+      }
+    },
+    "errors": {},
+    "ready_tone_played": false,
+    "ready_tone_error": "ValueError: USB role speaker has 0 matches; explicit identity/disambiguation required"
+  },
+  "ai": {
+    "configured": true,
+    "active": false,
+    "mode": "semantic_navigation",
+    "selected": 0,
+    "paused_manual": false,
+    "vision_resume_required": false,
+    "vision_enabled": false,
+    "state": "off",
+    "instruction": "",
+    "reply": "",
+    "detections": [],
+    "last_error": null,
+    "control_link_available": true,
+    "record_armed": false
+  },
+  "camera_state": "configured",
+  "inspection": {
+    "enabled": true,
+    "active": false,
+    "mission": {
+      "session_id": 234242631,
+      "task_id": 0,
+      "epoch": 2,
+      "state": "edit",
+      "phase": "outbound",
+      "view": "map",
+      "reason": null,
+      "goal_m": null,
+      "trace_m": [],
+      "waypoints_m": [],
+      "waypoint_index": 0,
+      "waypoint_count": 0,
+      "waypoints_completed": 0,
+      "waypoint_arrivals": [],
+      "started_at_s": null,
+      "return_trace_m": [],
+      "pose": {
+        "epoch": 2,
+        "x_m": -0.001,
+        "y_m": -0.001,
+        "yaw_rad": -0.19687313962496036,
+        "at_s": 449.005759183
+      },
+      "trace_truncated": false,
+      "start_m": null,
+      "return_policy": "latest_map",
+      "return_index": 0,
+      "return_count": 0,
+      "layer_version": 0,
+      "manual": false
+    },
+    "readiness": {
+      "calibration": true,
+      "camera": false,
+      "fpga": true,
+      "map": false,
+      "layer": false
+    },
+    "notice": "地图移动准心，SWA打开路径点菜单",
+    "error": null,
+    "report": null,
+    "usb": {
+      "verified": true,
+      "ifclk_hz": 30005819,
+      "last_diagnostic_s": 368.628069776,
+      "error": null,
+      "generation": 1,
+      "pending_control": 0,
+      "pending_display": false
+    },
+    "actual": {
+      "session_id": 234242631,
+      "task_id": 0,
+      "epoch": 2,
+      "command_id": 0,
+      "kind": "hello",
+      "layer_version": 0,
+      "stopped": false,
+      "manual": false,
+      "error_code": 0,
+      "flags": 72
+    },
+    "objects": [],
+    "recording": null,
+    "edit_action": null,
+    "exit_requested": false,
+    "recognition_display": false,
+    "discovery_speech": {
+      "enabled": true,
+      "queued": 0,
+      "preparing": false,
+      "attempted_object_ids": [],
+      "last_error": null
+    },
+    "archive": {
+      "root": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/inspection_recordings",
+      "url": "http://127.0.0.1:18766",
+      "error": null
+    },
+    "calibration_model": {
+      "projection_model": "undistorted_homography",
+      "static_geometry_config_ready": true,
+      "pending": [],
+      "pixel_domain": "undistorted_pixels_P_K",
+      "focus": 260,
+      "max_range_m": 2.1,
+      "ground_hull_cm": [
+        [
+          60.0,
+          180.0
+        ],
+        [
+          0.0,
+          210.0
+        ],
+        [
+          -60.0,
+          180.0
+        ],
+        [
+          -60.0,
+          120.0
+        ],
+        [
+          -20.0,
+          40.0
+        ],
+        [
+          20.0,
+          40.0
+        ],
+        [
+          60.0,
+          120.0
+        ]
+      ]
+    },
+    "deduplication": {
+      "distance_m": 0.3,
+      "pose_history_s": 2.0,
+      "pose_offset_s": 0.3,
+      "pose_samples": 20
+    },
+    "serial_owner": "coordinator",
+    "localization": "stop_then_wait_0.3s_then_three_frames",
+    "observation_round": 1,
+    "observation_frames": 0
+  },
+  "activation": {
+    "installed": true,
+    "linger": "yes",
+    "backup": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/autostart_backups/20261028_183357_d8af749d",
+    "service": "/home/orangepi/.config/systemd/user/falcons-ai-coordinator.service",
+    "models_ready_verified": false,
+    "note": "Inspect /status startup readiness; enabled service alone is not model-load acceptance",
+    "models_ready": true,
+    "inspection_enabled": true,
+    "automatic_motion_started": false
+  }
+}

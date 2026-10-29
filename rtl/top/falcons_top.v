@@ -98,6 +98,13 @@ module falcons_top (
     input  wire        camera_href,        // B2 （HREF 行有效）
     input  wire        camera_vsync,       // M20（VSYNC 场同步）
 
+    // ACG720 J5 high-speed USB FIFO; RK camera images only, no DVP upload.
+    input wire i_fx2_ifclk,i_fx2_flagb,i_fx2_flagc,
+    inout wire [15:0] io_fx2_fd,
+    output wire [1:0] o_fx2_faddr,
+    output wire o_fx2_slrd_n,o_fx2_slwr_n,o_fx2_sloe_n,o_fx2_pktend_n,o_fx2_slcs_n,
+    output wire o_fx2_pa0,
+
     // ---- DDR3 帧缓存（SSTL15 / BANK_VCCIO=1.5；与官方管脚表逐针一致）----
     output wire [13:0] O_ddr_addr,
     output wire [2:0]  O_ddr_ba,
@@ -400,10 +407,34 @@ module falcons_top (
     wire obs_ctrl_done, obs_linear_active, obs_ctrl_fault;
     wire obs_auto_valid;
     wire signed [31:0] obs_auto_center, obs_auto_diff;
+    wire inspection_owned,inspection_goal_valid,inspection_motion_enable,inspection_force_stop,inspection_pending_motion;
+    wire [7:0] inspection_goal_x,inspection_goal_y,inspection_status;
+    wire [15:0] inspection_cruise_mm_s;
+    wire inspection_begin,inspection_commit,inspection_word_valid,inspection_stopped;
+    wire inspection_word_ready,inspection_layer_valid,inspection_committed,inspection_error,inspection_layer_busy;
+    wire [31:0] inspection_layer_epoch,inspection_layer_crc,inspection_layer_word;
+    wire [15:0] inspection_begin_version,inspection_layer_version;
+    wire [12:0] inspection_word_index;
+    wire [3:0] inspection_error_code;
+    wire [7:0] inspection_tx_data;
+    wire inspection_tx_valid,inspection_tx_last,inspection_tx_ready;
+    wire [31:0] inspection_session,inspection_task_id,inspection_context;
+    reg inspection_auto_valid;
+    reg signed [31:0] inspection_auto_center,inspection_auto_diff;
     wire obs_owns_control = planner_cmd_valid || planner_emergency_stop;
-    wire nav_selected_valid = obs_owns_control ? obs_auto_valid : nav_auto_valid;
-    wire signed [31:0] nav_selected_center = obs_owns_control ? obs_auto_center : nav_auto_center;
-    wire signed [31:0] nav_selected_diff = obs_owns_control ? obs_auto_diff : nav_auto_diff;
+    wire nav_selected_valid = inspection_owned ? inspection_auto_valid : obs_owns_control ? obs_auto_valid : nav_auto_valid;
+    wire signed [31:0] nav_selected_center = inspection_owned ? inspection_auto_center : obs_owns_control ? obs_auto_center : nav_auto_center;
+    wire signed [31:0] nav_selected_diff = inspection_owned ? inspection_auto_diff : obs_owns_control ? obs_auto_diff : nav_auto_diff;
+    // Inspection shares the obstacle-navigation controller; RK sets its cruise.
+    // Keep the register boundary before the final ownership mux.
+    always @(posedge i_clk_50m or negedge sys_rst_n)begin
+        if(!sys_rst_n)begin inspection_auto_valid<=0;inspection_auto_center<=0;inspection_auto_diff<=0;end
+        else if(inspection_owned && !inspection_force_stop)begin
+            inspection_auto_valid<=obs_auto_valid;
+            inspection_auto_center<=obs_auto_center;
+            inspection_auto_diff<=obs_auto_diff;
+        end else begin inspection_auto_valid<=0;inspection_auto_center<=0;inspection_auto_diff<=0;end
+    end
     wire voice_owned, voice_auto_valid;
     wire signed [31:0] voice_auto_center, voice_auto_diff;
     wire auto_selected_valid;
@@ -412,7 +443,7 @@ module falcons_top (
     // Ownership persists after STOP/completion/fault. Never fall back to a
     // still-running navigation command when a voice action finishes.
     voice_nav_arbiter u_voice_nav_arbiter (
-        .i_voice_owned(voice_owned), .i_voice_valid(voice_auto_valid),
+        .i_voice_owned(voice_owned && !inspection_owned), .i_voice_valid(voice_auto_valid),
         .i_voice_center(voice_auto_center), .i_voice_diff(voice_auto_diff),
         .i_nav_valid(nav_selected_valid), .i_nav_center(nav_selected_center),
         .i_nav_diff(nav_selected_diff), .o_valid(auto_selected_valid),
@@ -437,8 +468,10 @@ module falcons_top (
     wire [15:0] ai_flags;
     wire [7:0] ai_controls;
     wire [1:0] ai_mode,ai_selected;
+    wire ai_inspection_open,ai_inspection_close;
+    wire [1:0] ai_inspection_view;
     wire [7:0] ai_display_ack;
-    wire ai_display_bank,ai_host_alive;
+    wire ai_display_bank,ai_host_alive,ai_reset_pending;
     wire nav_page_now = (page == PAGE_NAV_FREE);
     wire nav_page_any = (page == PAGE_NAV_FREE) || (page == PAGE_NAV_OBS);
 
@@ -633,15 +666,15 @@ module falcons_top (
     reg signed [15:0] kp_r, ki_r, kd_r;
 
     // ------------------------------------------------------------------
-    // 参数整定页的 14 项参数（2026-10-20，一期：存 RAM，掉电丢失）
-    //   ★ 位序：第 k 项在 tune_p[k*32 +: 32]，k = 0..13，与 rtl\ui\tune_ctrl.v
+    // 参数整定页的 15 项参数（2026-10-20，一期：存 RAM，掉电丢失）
+    //   ★ 位序：第 k 项在 tune_p[k*32 +: 32]，k = 0..14，与 rtl\ui\tune_ctrl.v
     //     的 o_sel、ui_render 的字段号、num_text 的字段号**四处一致**。
     //   ★ 这里只声明 wire，实例 u_tune_ctrl 在文件末尾（第 12c 节）—— Verilog
     //     允许先声明后实例化，但不能先使用后声明。
     // ------------------------------------------------------------------
-    wire [447:0] tune_p;        // 参数值本身（给 nav_ctrl / speed_pid）
-    wire [447:0] tune_disp;     // 显示值（已按单位换算，给 num_text）
-    wire [3:0]   tune_sel;      // 当前选中行 0..13
+    wire [479:0] tune_p;        // 参数值本身（给 nav_ctrl / speed_pid）
+    wire [479:0] tune_disp;     // 显示值（已按单位换算，给 num_text）
+    wire [3:0]   tune_sel;      // 当前选中行 0..14
     wire signed [31:0] tune_k_slow;   // = V_CRUISE×1024/D_SLOW，由 tune_ctrl 的除法器算
 
     //   速度环 PID 的两路写方（串口 / 页面）：靠"页面值变化沿"触发，避免每拍覆盖
@@ -673,7 +706,7 @@ module falcons_top (
         .clk          (i_clk_50m),
         .rst_n        (sys_rst_n),
         .i_enable     (manual_drive ? run_en : (auto_selected_valid && rc_signal_ok && cursor_mode)),
-        .i_estop      (estop_latch | key4_press | tof_estop | !rc_signal_ok | manual_takeover_brake | (!manual_drive && planner_emergency_stop)),
+        .i_estop      (estop_latch | key4_press | tof_estop | !rc_signal_ok | manual_takeover_brake | (!manual_drive && (planner_emergency_stop | inspection_force_stop))),
         .i_manual     (chassis_manual),
         .i_steer      (steer_in),
         .i_throttle   (throttle_in),
@@ -1101,7 +1134,7 @@ module falcons_top (
     // wired to a fresh, explicitly confirmed waypoint task in this release.
     wire voice_nav_release_ready = 1'b0;
     // SWB on the existing CH6/J6.5 starts/stops recording. No extra PWM pins.
-    ai_rc_control #(.CLK_HZ(CLK_HZ)) u_ai_control(
+    ai_rc_control #(.CLK_HZ(CLK_HZ),.INSPECTION_ENABLE(1)) u_ai_control(
         .clk(i_clk_50m),.rst_n(sys_rst_n),
         .i_enter_confirm(rc_confirm && menu_sel==PAGE_AI && !nav_lock && !tune_lock && !ai_master),
         .i_ai_page(page==PAGE_AI),.i_back(rc_back | key1_press | count_clear_r | yaw_clear_r),
@@ -1109,8 +1142,10 @@ module falcons_top (
         .i_feature_confirm(rc_confirm && page==PAGE_AI && ai_master),
         .i_rc_valid(rc_signal_ok),.i_manual(manual_drive),
         .i_host_alive(ai_host_alive),
-        .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | planner_emergency_stop | (|stall_vec)),
+        .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | (planner_emergency_stop && !inspection_owned) | (|stall_vec)),
         .i_swb_pwm(i_rc_pwm[4]),
+        .i_inspection_close(ai_inspection_close),
+        .o_inspection_open(ai_inspection_open),.o_inspection_view(ai_inspection_view),
         .o_master(ai_master),.o_chat(ai_chat),.o_record(ai_record),.o_vision(ai_vision),
         .o_mode(ai_mode),.o_selected(ai_selected),
         .o_flags(ai_flags),.o_controls(ai_controls));
@@ -1121,13 +1156,22 @@ module falcons_top (
     wire ai_local_release=!ai_master && nav_run && !legacy_nav_run_d &&
         (page==PAGE_NAV_FREE || page==PAGE_NAV_OBS) && rc_signal_ok && !manual_drive &&
         !(estop_latch | key4_press | tof_estop | planner_emergency_stop | (|stall_vec));
+    // Separate the multiplier's registered DSP output from voice turn-state
+    // comparisons. Keep sample and angle coherent; live health still revokes
+    // immediately, independently of this one-clock measurement pipeline.
+    reg signed [31:0] voice_yaw_r /* synthesis syn_preserve=1 */;
+    reg voice_yaw_valid_r,voice_yaw_sample_r;
+    always @(posedge i_clk_50m or negedge sys_rst_n)begin
+        if(!sys_rst_n)begin voice_yaw_r<=0;voice_yaw_valid_r<=0;voice_yaw_sample_r<=0;end
+        else begin voice_yaw_r<=yaw_deg;voice_yaw_valid_r<=yaw_valid;voice_yaw_sample_r<=imu_degree_sample;end
+    end
     voice_motion_bridge #(.CLK_HZ(CLK_HZ), .YAW_SIGN(1),.LOCAL_RELEASE_EN(1)) u_voice_motion (
         .clk(i_clk_50m), .rst_n(sys_rst_n),
         .i_rx_data(motion_rx_data), .i_rx_valid(motion_rx_valid),
         .i_enable(cursor_mode && rc_signal_ok && ai_master && ai_mode==0 && !ai_record),
         .i_estop(estop_latch | key1_press | key4_press | count_clear_r | yaw_clear_r | tof_estop | planner_emergency_stop | (|stall_vec)),
-        .i_manual(manual_drive), .i_yaw_deg(yaw_deg), .i_yaw_valid(yaw_valid),
-        .i_imu_sample_valid(imu_degree_sample), .i_imu_healthy(voice_imu_healthy),
+        .i_manual(manual_drive), .i_yaw_deg(voice_yaw_r), .i_yaw_valid(yaw_valid && voice_yaw_valid_r),
+        .i_imu_sample_valid(voice_yaw_sample_r), .i_imu_healthy(voice_imu_healthy),
         .i_nav_release_ready(voice_nav_release_ready),
         .i_local_release(ai_local_release),
         .o_owned(voice_owned), .o_auto_valid(voice_auto_valid),
@@ -1166,11 +1210,12 @@ module falcons_top (
 
     wire [7:0] csv_stream_data;
     wire csv_stream_valid,csv_stream_ready;
-    ai_uart_tx #(.CLK_HZ(CLK_HZ),.BAUD_RATE(BAUD_DEBUG)) u_ai_uart_tx(
+    ai_uart_tx #(.CLK_HZ(CLK_HZ),.BAUD_RATE(BAUD_DEBUG),.INSPECTION_ENABLE(1)) u_ai_uart_tx(
         .clk(i_clk_50m),.rst_n(sys_rst_n),.i_csv_data(csv_stream_data),
         .i_csv_valid(csv_stream_valid),.o_csv_ready(csv_stream_ready),
-        .i_flags({ai_display_ack,2'd0,ai_display_bank,ai_flags[4:0]}),.i_controls(ai_controls),
-        .i_ai_link_active(ai_host_alive),.o_uart_tx(o_uart_tx));
+        .i_flags({ai_display_ack,1'b0,ai_reset_pending,ai_display_bank,ai_flags[4:0]}),.i_controls(ai_controls),
+        .i_ai_link_active(ai_host_alive),.i_inspection_data(inspection_tx_data),.i_inspection_valid(inspection_tx_valid),
+        .i_inspection_last(inspection_tx_last),.o_inspection_ready(inspection_tx_ready),.o_uart_tx(o_uart_tx));
     speed_report #(
         .CLK_FREQ_HZ    (CLK_HZ),
         .BAUD_RATE      (BAUD_DEBUG),
@@ -1203,6 +1248,7 @@ module falcons_top (
     // ==================================================================
     wire        pixel_clk, pixel_req, frame_start, frame_sync, video_active, pll_lock;
     wire [11:0] pixel_x, pixel_y;
+    wire [11:0] pixel_x_ui, pixel_y_ui, pixel_x_ai, pixel_y_ai;
     wire [23:0] ui_rgb_raw;     // ui_render 生成的 UI 像素
     wire [23:0] ui_rgb;         // 经 cam_overlay 二选一后的最终像素（送 u_hdmi）
 
@@ -1269,6 +1315,8 @@ module falcons_top (
         .pixel_req     (pixel_req),
         .pixel_x       (pixel_x),
         .pixel_y       (pixel_y),
+        .pixel_x_ui    (pixel_x_ui), .pixel_y_ui(pixel_y_ui),
+        .pixel_x_ai    (pixel_x_ai), .pixel_y_ai(pixel_y_ai),
         .frame_start   (frame_start),
         .frame_sync    (frame_sync),
         .video_active  (video_active),
@@ -1542,29 +1590,140 @@ module falcons_top (
         .pose_yaw_cdeg(navigation_yaw_cdeg)
     );
     wire map_disp_valid, map_disp_occupied, map_disp_start, map_disp_done;
+    wire [15:0] navigation_map_version,navigation_route_id;
+    wire inspection_usb_valid,inspection_usb_release,inspection_usb_read;
+    wire [8:0] inspection_usb_words;
+    wire [7:0] inspection_usb_address;
+    wire [15:0] inspection_usb_data;
+    wire inspection_frame_begin,inspection_frame_commit,inspection_frame_abort,inspection_frame_ready,inspection_pixel_valid,inspection_pixel_ready;
+    wire [15:0] inspection_pixel;
+    wire [31:0] inspection_frame_sequence;
+    wire inspection_map_valid,inspection_map_release,inspection_map_read;
+    wire [11:0] inspection_map_address;
+    wire [15:0] inspection_map_data;
+    wire [31:0] inspection_map_session,inspection_map_task,inspection_map_epoch,inspection_map_context,inspection_map_sequence,inspection_map_crc;
+    wire [1:0] inspection_map_view;
+    wire inspection_route_valid,inspection_route_release,inspection_route_read;
+    wire [6:0] inspection_route_words,inspection_route_address;
+    wire [15:0] inspection_route_data;
+    wire [31:0] inspection_route_session,inspection_route_task,inspection_route_epoch,inspection_route_context,inspection_route_sequence,inspection_route_crc;
+    wire [1:0] inspection_route_view;
+    wire [31:0] inspection_epoch;
+    inspection_epoch_tracker u_inspection_epoch(.clk(i_clk_50m),.rst_n(sys_rst_n),
+        .i_origin_clear(count_clear_r || yaw_clear_r),.i_calib_done(imu_calib_done),.o_epoch(inspection_epoch));
+    reg [15:0] inspection_user_token;
+    wire inspection_permission=ai_master && ai_mode==3 && ai_inspection_open && page==PAGE_AI;
+    wire ai_video_enabled;
+    wire [1:0] ai_video_view;
+    ai_video_gate u_ai_video_gate(.clk(i_clk_50m),.rst_n(sys_rst_n),
+        .i_ai_page(page==PAGE_AI),.i_master(ai_master),.i_link(ai_host_alive),.i_manual(manual_drive),
+        .i_mode(ai_mode),.i_inspection_open(ai_inspection_open),.i_inspection_view(ai_inspection_view),
+        .o_enabled(ai_video_enabled),.o_view(ai_video_view));
+    wire navigation_sensors_valid;
+    always @(posedge i_clk_50m or negedge sys_rst_n)begin
+        if(!sys_rst_n)begin inspection_user_token<=0;end
+        else begin
+            if(inspection_permission && !manual_drive && rc_confirm)inspection_user_token<=inspection_user_token+1'b1;
+        end
+    end
+    inspection_application #(.CLK_HZ(CLK_HZ),.UI_ENABLE(1),.HIGHSPEED_ENABLE(1),.CLOCK_ENABLE(1)) u_inspection(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.i_rx_data(motion_rx_data),.i_rx_valid(motion_rx_valid),
+        .i_usb_valid(inspection_usb_valid),.i_usb_words(inspection_usb_words),.o_usb_release(inspection_usb_release),
+        .o_usb_read(inspection_usb_read),.o_usb_address(inspection_usb_address),.i_usb_data(inspection_usb_data),
+        .i_permission(inspection_permission),.i_manual(manual_drive),
+        .i_safety(rc_signal_ok && voice_imu_healthy && navigation_pose_valid && navigation_sensors_valid &&
+                  !estop_latch && !tof_estop && !(|stall_vec)),
+        .i_link(ai_host_alive),.i_local_pause((rc_confirm || rc_back || ai_record) && (inspection_motion_enable || inspection_pending_motion)),
+        .i_user_token(inspection_user_token),.i_epoch(inspection_epoch),
+        .i_ui_open(ai_inspection_open),.i_ui_master(ai_master),.i_ui_record(ai_record),.i_ui_rc_valid(rc_signal_ok),
+        .i_ui_confirm(rc_confirm),.i_ui_back(rc_back),.i_ui_view(ai_video_view),
+        .i_ui_steer(rc_steer),.i_ui_throttle(rc_throttle),.i_vehicle_width_mm(tune_p[431:416]),
+        .i_forward_check_cells(tune_p[391:384]),.o_ui_close(ai_inspection_close),
+        .o_session(inspection_session),.o_task(inspection_task_id),.o_context(inspection_context),
+        .i_pose_tick(navigation_pose_tick),.i_pose_valid(navigation_pose_valid),
+        .i_x_mm(navigation_x_mm),.i_y_mm(navigation_y_mm),.i_yaw_cdeg(navigation_yaw_cdeg),
+        .i_ctrl_done(obs_ctrl_done),.i_command_idle(!planner_cmd_valid && !planner_emergency_stop && !obs_ctrl_done),
+        .i_ctrl_fault(obs_ctrl_fault),.i_nav_state(planner_nav_state),
+        .o_owned(inspection_owned),.o_goal_valid(inspection_goal_valid),.o_motion_enable(inspection_motion_enable),
+        .o_force_stop(inspection_force_stop),.o_goal_x(inspection_goal_x),.o_goal_y(inspection_goal_y),
+        .o_cruise_mm_s(inspection_cruise_mm_s),
+        .o_pending_motion(inspection_pending_motion),
+        .o_layer_begin(inspection_begin),.o_layer_commit(inspection_commit),.o_layer_word_valid(inspection_word_valid),
+        .o_layer_epoch(inspection_layer_epoch),.o_layer_crc(inspection_layer_crc),.o_layer_word(inspection_layer_word),
+        .o_layer_version(inspection_begin_version),.o_layer_word_index(inspection_word_index),
+        .i_layer_ready(inspection_word_ready),.i_layer_valid(inspection_layer_valid),.i_layer_committed(inspection_committed),
+        .i_layer_error(inspection_error),.i_layer_busy(inspection_layer_busy),.i_layer_version(inspection_layer_version),
+        .i_layer_error_code(inspection_error_code),.o_stopped(inspection_stopped),.o_status(inspection_status),
+        .o_tx_data(inspection_tx_data),.o_tx_valid(inspection_tx_valid),.o_tx_last(inspection_tx_last),.i_tx_ready(inspection_tx_ready));
+    // ACG720 L13 is FX2 PA0, not USB_RESET. Vendor firmware polls PA0 and
+    // clears EP6 while it is high; match the vendor Slave FIFO example.
+    assign o_fx2_pa0=1'b0;
     wire route_disp_valid, route_disp_start, route_disp_done;
+    inspection_highspeed #(.CLK_HZ(CLK_HZ),.CLOCK_PROBE_ENABLE(1)) u_inspection_usb(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.fx2_clk(i_fx2_ifclk),.fx2_fd(io_fx2_fd),
+        .fx2_flagb(i_fx2_flagb),.fx2_flagc(i_fx2_flagc),.fx2_address(o_fx2_faddr),
+        .fx2_slrd_n(o_fx2_slrd_n),.fx2_slwr_n(o_fx2_slwr_n),.fx2_sloe_n(o_fx2_sloe_n),
+        .fx2_pktend_n(o_fx2_pktend_n),.fx2_slcs_n(o_fx2_slcs_n),
+        .i_display_enabled(ai_video_enabled),.i_session(inspection_session),.i_task(inspection_task_id),
+        .i_epoch(inspection_epoch),.i_context(inspection_context),.i_view(ai_video_view),
+        .o_frame_begin(inspection_frame_begin),.o_frame_commit(inspection_frame_commit),.o_frame_abort(inspection_frame_abort),.o_frame_sequence(inspection_frame_sequence),
+        .i_frame_ready(inspection_frame_ready),.o_frame_data(inspection_pixel),.o_frame_valid(inspection_pixel_valid),.i_frame_word_ready(inspection_pixel_ready),
+        .i_route_valid(inspection_route_valid),.o_route_release(inspection_route_release),
+        .i_route_session(inspection_route_session),.i_route_task(inspection_route_task),.i_route_epoch(inspection_route_epoch),.i_route_context(inspection_route_context),
+        .i_route_sequence(inspection_route_sequence),.i_route_crc(inspection_route_crc),.i_route_view(inspection_route_view),.i_route_words(inspection_route_words),
+        .o_route_read(inspection_route_read),.o_route_address(inspection_route_address),.i_route_data(inspection_route_data),
+        .i_map_valid(inspection_map_valid),.o_map_release(inspection_map_release),
+        .i_map_session(inspection_map_session),.i_map_task(inspection_map_task),.i_map_epoch(inspection_map_epoch),.i_map_context(inspection_map_context),
+        .i_map_sequence(inspection_map_sequence),.i_map_crc(inspection_map_crc),.i_map_view(inspection_map_view),
+        .o_map_read(inspection_map_read),.o_map_address(inspection_map_address),.i_map_data(inspection_map_data),
+        .o_control_valid(inspection_usb_valid),.o_control_words(inspection_usb_words),.i_control_ready(inspection_usb_release),.i_control_read(inspection_usb_read),
+        .i_control_address(inspection_usb_address),.o_control_data(inspection_usb_data),.o_diagnostics());
+    inspection_map_export u_inspection_map(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.i_enabled(inspection_permission && ai_host_alive),
+        .i_valid(map_disp_valid),.i_occupied(map_disp_occupied),.i_start(map_disp_start),.i_done(map_disp_done),.i_version(navigation_map_version),
+        .i_session(inspection_session),.i_task(inspection_task_id),.i_epoch(inspection_epoch),.i_context(inspection_context),.i_view(ai_inspection_view),
+        .o_valid(inspection_map_valid),.i_release(inspection_map_release),.o_session(inspection_map_session),.o_task(inspection_map_task),
+        .o_epoch(inspection_map_epoch),.o_context(inspection_map_context),.o_sequence(inspection_map_sequence),.o_crc(inspection_map_crc),.o_view(inspection_map_view),
+        .i_read(inspection_map_read),.i_address(inspection_map_address),.o_data(inspection_map_data),.o_error());
+    inspection_route_export u_inspection_route(
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.i_enabled(inspection_permission && ai_host_alive),
+        .i_valid(route_disp_valid),.i_x(route_disp_x),.i_y(route_disp_y),.i_start(route_disp_start),.i_done(route_disp_done),
+        .i_route_id(navigation_route_id),.i_map_version(navigation_map_version),
+        .i_session(inspection_session),.i_task(inspection_task_id),.i_epoch(inspection_epoch),.i_context(inspection_context),.i_view(ai_inspection_view),
+        .o_valid(inspection_route_valid),.i_release(inspection_route_release),.o_session(inspection_route_session),.o_task(inspection_route_task),
+        .o_epoch(inspection_route_epoch),.o_context(inspection_route_context),.o_sequence(inspection_route_sequence),.o_crc(inspection_route_crc),.o_view(inspection_route_view),
+        .o_words(inspection_route_words),.i_read(inspection_route_read),.i_address(inspection_route_address),.o_data(inspection_route_data),.o_error());
     wire [7:0] route_disp_x, route_disp_y;
     reg navigation_motion_enable;
     always @(posedge i_clk_50m or negedge sys_rst_n) begin
         if (!sys_rst_n) navigation_motion_enable <= 0;
-        else navigation_motion_enable <= obs_run && !manual_drive && rc_signal_ok &&
+        else navigation_motion_enable <= (inspection_owned?inspection_motion_enable:obs_run) && !manual_drive && rc_signal_ok &&
                                          !estop_latch && !tof_estop && !obs_ctrl_fault;
     end
-    radar_navigation u_radar_navigation (
+    radar_navigation #(.AI_LAYER_ENABLE(1)) u_radar_navigation (
         .forward_check_cells(tune_p[391:384]), .vehicle_width_mm(tune_p[431:416]),
+        .w_max(tune_p[455:448]),
         .clk(i_clk_50m), .reset_n(nav_reset_n),
-        .map_enable(navigation_pose_valid), .plan_enable(obs_goal_valid),
+        .map_enable(navigation_pose_valid), .plan_enable(inspection_owned?inspection_goal_valid:obs_goal_valid),
         .motion_enable(navigation_motion_enable),
         .radar_rx(i_radar_rx), .pose_valid(navigation_pose_valid),
         .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
         .pose_yaw_cdeg(navigation_yaw_cdeg),
-        .goal_valid(obs_goal_valid), .goal_x_cell(obs_goal_x), .goal_y_cell(obs_goal_y),
+        .goal_valid(inspection_owned?inspection_goal_valid:obs_goal_valid),
+        .goal_x_cell(inspection_owned?inspection_goal_x:obs_goal_x),.goal_y_cell(inspection_owned?inspection_goal_y:obs_goal_y),
+        .ai_enable(inspection_owned),.ai_begin(inspection_begin),.ai_abort(!inspection_permission || manual_drive || !ai_host_alive),.ai_commit(inspection_commit),
+        .ai_word_valid(inspection_word_valid),.ai_stopped(inspection_stopped),.ai_epoch(inspection_epoch),
+        .ai_begin_epoch(inspection_layer_epoch),.ai_expected_crc(inspection_layer_crc),.ai_word(inspection_layer_word),
+        .ai_begin_version(inspection_begin_version),.ai_word_index(inspection_word_index),
+        .ai_word_ready(inspection_word_ready),.ai_layer_valid(inspection_layer_valid),.ai_layer_version(inspection_layer_version),
+        .ai_committed(inspection_committed),.ai_error(inspection_error),.ai_error_code(inspection_error_code),.ai_layer_busy(inspection_layer_busy),
         .ctrl_done(obs_ctrl_done), .ctrl_linear_active(obs_linear_active),
         .cmd_valid(planner_cmd_valid), .emergency_stop(planner_emergency_stop),
         .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
         .target_line_dir(planner_target_line_dir),
-        .nav_state(planner_nav_state),
-        .display_enable((page == PAGE_RADAR) || (page == PAGE_NAV_OBS)),
+        .nav_state(planner_nav_state),.sensors_valid(navigation_sensors_valid),
+        .route_id(navigation_route_id),.map_version(navigation_map_version),
+        .display_enable((page == PAGE_RADAR) || (page == PAGE_NAV_OBS) || inspection_permission),
         .map_disp_valid(map_disp_valid), .map_disp_occupied(map_disp_occupied),
         .map_disp_frame_start(map_disp_start), .map_disp_frame_done(map_disp_done),
         .route_disp_valid(route_disp_valid), .route_disp_x_cell(route_disp_x),
@@ -1627,17 +1786,22 @@ module falcons_top (
         .o_cur_py   (free_nav_cur_py)
     );
 
+    wire signed [31:0] point_cruise,point_k_slow;
+    inspection_speed_params u_inspection_speed (
+        .clk(i_clk_50m),.rst_n(sys_rst_n),.i_owned(inspection_owned),.i_cruise_mm_s(inspection_cruise_mm_s),
+        .i_base_cruise(tune_p[31:0]),.i_d_slow(tune_p[63:32]),.i_base_k_slow(tune_k_slow),
+        .o_cruise(point_cruise),.o_k_slow(point_k_slow));
     nav_point_ctrl u_nav_point_ctrl (
         .clk(i_clk_50m), .rst_n(sys_rst_n),
-        .i_cmd_valid(planner_cmd_valid), .i_emergency_stop(planner_emergency_stop),
+        .i_cmd_valid(planner_cmd_valid), .i_emergency_stop(planner_emergency_stop | (inspection_force_stop && !manual_drive)),
         .i_target_x_mm(planner_target_x), .i_target_y_mm(planner_target_y),
         .i_tick(navigation_pose_tick), .i_x_mm(navigation_x_mm), .i_y_mm(navigation_y_mm),
         .i_yaw_centi(navigation_yaw_cdeg), .i_v_mms(odom_v_mms), .i_stall(stall_vec),
-        .i_v_cruise(tune_p[31:0]), .i_d_slow(tune_p[63:32]),
+        .i_v_cruise(point_cruise), .i_d_slow(tune_p[63:32]),
         .i_align_in(tune_p[95:64]), .i_align_out(tune_p[127:96]),
         .i_max_diff_cruise(tune_p[159:128]), .i_kp_yaw(tune_p[191:160]),
         .i_ki_yaw(tune_p[223:192]), .i_kd_yaw(tune_p[255:224]),
-        .i_i_limit(tune_p[287:256]), .i_k_slow_q10(tune_k_slow),
+        .i_i_limit(tune_p[287:256]), .i_k_slow_q10(point_k_slow),
         .o_auto_valid(obs_auto_valid), .o_center(obs_auto_center), .o_diff(obs_auto_diff),
         .o_done(obs_ctrl_done), .o_linear_active(obs_linear_active), .o_fault(obs_ctrl_fault)
     );
@@ -1826,22 +1990,23 @@ module falcons_top (
     wire signed [31:0] nt_v11 = tune_page ? tune_disp[383:352] : 32'sd0;
     wire signed [31:0] nt_v12 = tune_page ? tune_disp[415:384] : 32'sd0;
     wire signed [31:0] nt_v13 = tune_page ? tune_disp[447:416] : 32'sd0;
+    wire signed [31:0] nt_v14 = tune_page ? tune_disp[479:448] : 32'sd0;
     // ★ 2026-10-20（综合报错后补）：哪些字段"带小数"（= num_text 里"整数部分至少几位"）。
     //   数据页：字段 6 中心速度 / 7 航位 x / 8 航位 y / 9 准心 x / 10 准心 y，均 2 位小数
     //           → bit 6..10 置 1 → 12'b0111_1100_0000（= 0x7C0）
-    //   参数页：14 项全是整数 → 全 0。否则航向 Kd=6 会显示成 "  006"，
+    //   参数页：15 项全是整数 → 全 0。否则航向 Kd=6 会显示成 "  006"，
     //           且 ui_render 的 field_dec 还会在百位后画点，变成 "  0.06"。
-    wire [13:0] nt_frac_mask = tune_page ? 14'b00_0000_0000_0000 : 14'b00_0111_1100_0000;
+    wire [14:0] nt_frac_mask = tune_page ? 15'd0 : 15'b000_0111_1100_0000;
 
     num_text #(
         .CLK_HZ     (CLK_HZ),
         .REFRESH_MS (100),
-        .NUM_FIELDS (14)
+        .NUM_FIELDS (15)
     ) u_num_text (
         .clk    (i_clk_50m),
         .rst_n  (sys_rst_n),
         // ★ 2026-10-20：参数整定页复用这 11 个字段（字段号 = 参数行号）。
-        //   两页互斥（page 不同），按页选择来源；14 个字段使用 128 字节字符 RAM。
+        //   两页互斥（page 不同），按页选择来源；15 个字段使用 128 字节字符 RAM。
         //   切换页时字段可能短暂混写（num_text 100 ms 刷新一轮），视觉可接受。
         .i_v0   (nt_v0),             // 字段 0：航向角 / 参数 0 车速
         .i_v1   (nt_v1),             // 字段 1：A 右后轮 / 参数 1 减速距离
@@ -1857,6 +2022,7 @@ module falcons_top (
         .i_v11  (nt_v11),            // 字段 11：参数 11 速度环 Kd（数据页恒 0）
         .i_v12  (nt_v12),            // 前探格数
         .i_v13  (nt_v13),            // 车宽 mm
+        .i_v14  (nt_v14),            // 规划窗口格数
         .i_frac_mask(nt_frac_mask),   // 哪些字段带小数（按页面切换，见声明处）
         .o_we   (dyn_we),
         .o_addr (dyn_waddr),
@@ -1904,9 +2070,10 @@ module falcons_top (
     wire ai_glyph,ai_connected,ai_local_region,ai_highlight;
     ai_display_link #(.CLK_HZ(CLK_HZ)) u_ai_display(
         .clk(i_clk_50m),.rst_n(sys_rst_n),.rx_data(motion_rx_data),.rx_valid(motion_rx_valid),
-        .pixel_clk(pixel_clk),.pixel_rst_n(pixel_rst_n),.pixel_x(pixel_x),.pixel_y(pixel_y),
-        .selected(ai_selected),.o_glyph(ai_glyph),.o_connected(ai_connected),.o_local_region(ai_local_region),.o_highlight(ai_highlight),
-        .o_display_ack(ai_display_ack),.o_display_bank(ai_display_bank),.o_host_alive(ai_host_alive));
+        .pixel_clk(pixel_clk),.pixel_rst_n(pixel_rst_n),.pixel_x(pixel_x_ai),.pixel_y(pixel_y_ai),
+        .selected(ai_inspection_open?ai_inspection_view:ai_selected),.i_inspection(ai_inspection_open),
+        .o_glyph(ai_glyph),.o_connected(ai_connected),.o_local_region(ai_local_region),.o_highlight(ai_highlight),
+        .o_display_ack(ai_display_ack),.o_display_bank(ai_display_bank),.o_host_alive(ai_host_alive),.o_reset_pending(ai_reset_pending));
     assign ui_rgb_raw=(page_ps2==PAGE_AI && pixel_x>=208 &&
         (ai_local_region || (ai_connected && pixel_y>=120 && pixel_y<540)))
         ? (ai_glyph ? (ai_highlight?24'hffe066:24'he8f0f8) : (ai_highlight?24'h1d4ed8:24'h101820)) : ui_rgb_base;
@@ -1914,8 +2081,8 @@ module falcons_top (
         .i_map_pixel(map_pixel), .i_route_pixel(route_pixel), .i_obstacle_state(obstacle_state_ps2),
         .i_pixel_clk    (pixel_clk),
         .i_reset_n      (pixel_rst_n),
-        .i_pixel_x      (pixel_x),
-        .i_pixel_y      (pixel_y),
+        .i_pixel_x      (pixel_x_ui),
+        .i_pixel_y      (pixel_y_ui),
         .i_pixel_req    (pixel_req),
         .i_video_active (video_active),
         .o_pixel_rgb888 (ui_rgb_base),
@@ -1972,13 +2139,18 @@ module falcons_top (
     wire cam_pll_lock_unused;
 
     cam_overlay #(
-        .IMAGE_WIDTH  (1024),
+        .AI_DISPLAY_ENABLE(1),        .IMAGE_WIDTH  (1024),
         .IMAGE_HEIGHT (600),
         .MENU_W       (208),            // 与 ui_render 的菜单宽度（208 px）保持一致
         .SYS_CLOCK    (CLK_HZ)
     ) u_cam (
         .sys_clk      (i_clk_50m),
         .sys_rst_n    (sys_rst_n),
+        .ai_begin(inspection_frame_begin),.ai_commit(inspection_frame_commit),.ai_abort(inspection_frame_abort),
+        .ai_session(inspection_session),.ai_task(inspection_task_id),.ai_epoch(inspection_epoch),.ai_context(inspection_context),
+        .ai_sequence(inspection_frame_sequence),.ai_view(ai_video_view),.ai_frame_ready(inspection_frame_ready),
+        .ai_pixel(inspection_pixel),.ai_pixel_valid(inspection_pixel_valid),.ai_pixel_ready(inspection_pixel_ready),
+        .ai_show(ai_video_enabled && ai_host_alive && !manual_drive),.ai_fault(),
 
         // 摄像头物理引脚（直通到顶层）
         .camera_pwdn  (camera_pwdn),
@@ -2011,6 +2183,7 @@ module falcons_top (
         .pixel_clk    (pixel_clk),
         .pixel_req    (pixel_req),
         .pixel_x      (pixel_x),
+        .pixel_y      (pixel_y),
         .frame_sync   (frame_sync),
         // 摄像头页 = PAGE_CAMERA（2026-10-19 起编码为 1；此前是 0，换序后跟着变）
         .show_cam     (page_ps2 == PAGE_CAMERA),

@@ -1,0 +1,275 @@
+{
+  "axes": "right_forward_cm",
+  "origin": "ground projection of lidar center",
+  "image_size": [
+    1280,
+    720
+  ],
+  "camera_serial": "200901010001",
+  "focus": 260,
+  "autofocus": false,
+  "captured_at": "2026-10-28T00:39:03+08:00",
+  "source_images": [
+    {
+      "file": "frame_00.jpg",
+      "source_age_s": 0.0015819072723388672,
+      "sha256": "cec3fd968012fbc32b9983c4e9cc5f5bd1518babaed14290bf880601a81591df"
+    },
+    {
+      "file": "frame_01.jpg",
+      "source_age_s": 0.011311531066894531,
+      "sha256": "a016f26dd167b738e8061e47d753bc662752738acc635e7704a33e7e9d34abdd"
+    },
+    {
+      "file": "frame_02.jpg",
+      "source_age_s": 0.03259634971618652,
+      "sha256": "557b7a851a59e9c2b7a99fdd60e1e981dc836ee3f16684bfaf8522096311ef20"
+    }
+  ],
+  "point_selection": "Median of 3 stationary raw frames, manually reviewed battery contact midpoints. Central battery row-width checks exclude thin tile seam and trailing shadows. Input points selected before evaluating fixed H.",
+  "point_selection_rois_threshold_minwidth": [
+    [
+      603,
+      245,
+      626,
+      274,
+      85,
+      6
+    ],
+    [
+      604,
+      135,
+      622,
+      158,
+      85,
+      5
+    ],
+    [
+      602,
+      86,
+      622,
+      113,
+      85,
+      5
+    ],
+    [
+      1140,
+      305,
+      1208,
+      417,
+      100,
+      0
+    ],
+    [
+      19,
+      312,
+      82,
+      422,
+      100,
+      0
+    ],
+    [
+      870,
+      138,
+      900,
+      199,
+      100,
+      0
+    ],
+    [
+      321,
+      140,
+      353,
+      204,
+      100,
+      0
+    ]
+  ],
+  "per_frame_selection": [
+    {
+      "frame": "frame_00.jpg",
+      "points_uv": [
+        [
+          613.5,
+          265
+        ],
+        [
+          612.0,
+          151
+        ],
+        [
+          611.0,
+          104
+        ],
+        [
+          1174.0,
+          405
+        ],
+        [
+          53.0,
+          410
+        ],
+        [
+          885.5,
+          191
+        ],
+        [
+          336.0,
+          194
+        ]
+      ]
+    },
+    {
+      "frame": "frame_01.jpg",
+      "points_uv": [
+        [
+          614.0,
+          265
+        ],
+        [
+          612.5,
+          151
+        ],
+        [
+          611.5,
+          104
+        ],
+        [
+          1174.0,
+          405
+        ],
+        [
+          51.5,
+          411
+        ],
+        [
+          885.0,
+          191
+        ],
+        [
+          336.5,
+          194
+        ]
+      ]
+    },
+    {
+      "frame": "frame_02.jpg",
+      "points_uv": [
+        [
+          613.5,
+          265
+        ],
+        [
+          612.5,
+          151
+        ],
+        [
+          611.0,
+          104
+        ],
+        [
+          1174.0,
+          405
+        ],
+        [
+          53.0,
+          410
+        ],
+        [
+          885.5,
+          191
+        ],
+        [
+          336.5,
+          194
+        ]
+      ]
+    }
+  ],
+  "points": [
+    {
+      "id": 1,
+      "ground_cm": [
+        0.0,
+        90.0
+      ],
+      "pixel_uv": [
+        613.5,
+        265.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 2,
+      "ground_cm": [
+        0.0,
+        150.0
+      ],
+      "pixel_uv": [
+        612.5,
+        151.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 3,
+      "ground_cm": [
+        0.0,
+        210.0
+      ],
+      "pixel_uv": [
+        611.0,
+        104.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 4,
+      "ground_cm": [
+        30.0,
+        60.0
+      ],
+      "pixel_uv": [
+        1174.0,
+        405.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 5,
+      "ground_cm": [
+        -30.0,
+        60.0
+      ],
+      "pixel_uv": [
+        53.0,
+        410.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 6,
+      "ground_cm": [
+        30.0,
+        120.0
+      ],
+      "pixel_uv": [
+        885.5,
+        191.0
+      ],
+      "capture_set": "independent_003903"
+    },
+    {
+      "id": 7,
+      "ground_cm": [
+        -30.0,
+        120.0
+      ],
+      "pixel_uv": [
+        336.5,
+        194.0
+      ],
+      "capture_set": "independent_003903"
+    }
+  ]
+}

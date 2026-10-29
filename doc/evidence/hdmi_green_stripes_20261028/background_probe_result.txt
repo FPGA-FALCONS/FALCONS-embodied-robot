@@ -1,0 +1,2 @@
+# BOOT_MENU: pixels=374400 unexpected_colors=0 unknown=0
+# PASS: ui_background_probe_tb

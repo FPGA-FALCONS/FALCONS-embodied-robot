@@ -92,9 +92,9 @@ module tune_page_tb;
 
     // 布局常量（与 ui_render.v 一致）
     localparam integer TUNE_Y0   = 72;
-    localparam integer TUNE_STEP = 36;
-    localparam integer TUNE_TDY  = 6;
-    localparam integer TUNE_VDY  = 10;
+    localparam integer TUNE_STEP = 32;
+    localparam integer TUNE_TDY  = 4;
+    localparam integer TUNE_VDY  = 4;
     localparam integer LBL_X0    = 240;
     localparam integer LBL_X1    = 359;
     localparam integer VAL_X0    = 384;
@@ -119,8 +119,8 @@ module tune_page_tb;
     integer wcnt;           // scan_color 的结果
     integer x, y;
     integer i;
-    integer row_lbl [0:13];
-    integer row_val [0:13];
+    integer row_lbl [0:14];
+    integer row_val [0:14];
 
     task scan_color;
         input integer x0;
@@ -244,7 +244,7 @@ module tune_page_tb;
         // ------------------------------------------------------------------
         // G3 12 行标签逐行有白字
         // ------------------------------------------------------------------
-        for (i = 0; i < 14; i = i + 1) begin
+        for (i = 0; i < 15; i = i + 1) begin
             scan_color(LBL_X0, LBL_X1,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_TDY,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_TDY + 23,
@@ -265,6 +265,7 @@ module tune_page_tb;
         chk_pos("g3_label_row11", row_lbl[11]);
         chk_pos("g3_label_row12", row_lbl[12]);
         chk_pos("g3_label_row13", row_lbl[13]);
+        chk_pos("g3_label_row14", row_lbl[14]);
 
         // ------------------------------------------------------------------
         // G4 12 行数值逐行有绿字（5 字符 × 16 = 80 px）
@@ -272,7 +273,7 @@ module tune_page_tb;
         //     16 宽 × 24 高 —— 正好漏掉了「下部被截断」这个上板 bug。
         //     这里扫满 24 行，截断会立刻失败。
         // ------------------------------------------------------------------
-        for (i = 0; i < 14; i = i + 1) begin
+        for (i = 0; i < 15; i = i + 1) begin
             scan_color(VAL_X0, VAL_X1,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_VDY,
                        TUNE_Y0 + i * TUNE_STEP + TUNE_VDY + 23,
@@ -293,6 +294,7 @@ module tune_page_tb;
         chk_pos("g4_value_row11", row_val[11]);
         chk_pos("g4_value_row12", row_val[12]);
         chk_pos("g4_value_row13", row_val[13]);
+        chk_pos("g4_value_row14", row_val[14]);
 
         // ------------------------------------------------------------------
         // G5 单位：第 0..4 行有，第 5..10 行无
@@ -321,50 +323,56 @@ module tune_page_tb;
         scan_color(UNI_X0, UNI_X1, TUNE_Y0 + 10 * TUNE_STEP + TUNE_VDY,
                    TUNE_Y0 + 10 * TUNE_STEP + TUNE_VDY + 15, C_WHITE);
         chk_zero("g5_unit_row10_none", wcnt);
-        scan_color(UNI_X0, UNI_X1, TUNE_Y0 + 12*TUNE_STEP + 6,
-                   TUNE_Y0 + 12*TUNE_STEP + 29, C_WHITE);
+        scan_color(UNI_X0, UNI_X1, TUNE_Y0 + 12*TUNE_STEP + 4,
+                   TUNE_Y0 + 12*TUNE_STEP + 27, C_WHITE);
         chk_pos("front_cells_unit", wcnt);
-        scan_color(UNI_X0, UNI_X1, TUNE_Y0 + 13*TUNE_STEP + 6,
-                   TUNE_Y0 + 13*TUNE_STEP + 29, C_WHITE);
+        scan_color(UNI_X0, UNI_X1, TUNE_Y0 + 13*TUNE_STEP + 4,
+                   TUNE_Y0 + 13*TUNE_STEP + 27, C_WHITE);
         chk_pos("width_mm_unit", wcnt);
         tsel_i = 13;
         repeat (5) @(posedge pixel_clk);
-        scan_color(HL_X0, HL_X1, 540, 575, C_BLUE);
+        scan_color(HL_X0, HL_X1, 488, 519, C_BLUE);
         chk_pos("width_last_row_highlight", wcnt);
+        tsel_i = 14;
+        repeat (5) @(posedge pixel_clk);
+        scan_color(HL_X0, HL_X1, 520, 551, C_BLUE);
+        chk_pos("window_row_highlight", wcnt);
+        scan_color(UNI_X0, UNI_X1, 524, 547, C_WHITE);
+        chk_pos("window_cells_unit", wcnt);
         // ------------------------------------------------------------------
         // G6 高亮条随 i_tune_sel 移动
         // ------------------------------------------------------------------
         tsel_i = 4'd0;
         repeat (5) @(posedge pixel_clk);
-        scan_color(HL_X0, HL_X1, 72, 107, C_BLUE);
+        scan_color(HL_X0, HL_X1, 72, 103, C_BLUE);
         chk_pos("g6_hl_sel0", wcnt);
-        scan_color(HL_X0, HL_X1, 252, 287, C_BLUE);
+        scan_color(HL_X0, HL_X1, 232, 263, C_BLUE);
         chk_zero("g6_hl_sel0_other_row_empty", wcnt);
 
         tsel_i = 4'd5;
         repeat (5) @(posedge pixel_clk);
-        scan_color(HL_X0, HL_X1, 252, 287, C_BLUE);
+        scan_color(HL_X0, HL_X1, 232, 263, C_BLUE);
         chk_pos("g6_hl_sel5", wcnt);
-        scan_color(HL_X0, HL_X1, 72, 107, C_BLUE);
+        scan_color(HL_X0, HL_X1, 72, 103, C_BLUE);
         chk_zero("g6_hl_sel5_row0_empty", wcnt);
 
         tsel_i = 4'd10;
         repeat (5) @(posedge pixel_clk);
-        scan_color(HL_X0, HL_X1, 432, 467, C_BLUE);
+        scan_color(HL_X0, HL_X1, 392, 423, C_BLUE);
         chk_pos("g6_hl_sel10", wcnt);
-        scan_color(HL_X0, HL_X1, 252, 287, C_BLUE);
+        scan_color(HL_X0, HL_X1, 232, 263, C_BLUE);
         chk_zero("g6_hl_sel10_row5_empty", wcnt);
 
         // 高亮条左界 224（不应侵入左侧菜单条 x<208）
         tsel_i = 4'd0;
         repeat (5) @(posedge pixel_clk);
-        scan_color(0, 207, 72, 107, C_BLUE);
+        scan_color(0, 207, 72, 103, C_BLUE);
         // 左侧菜单条在该 y 区间本来就有"第 1 项"的高亮带（menusel=5 时没有），
         // 这里 menusel=5 → 菜单条高亮在 y 420..468，与 72..107 不重叠
         chk_zero("g6_hl_left_edge_clear", wcnt);
 
         // 高亮条右界 656：656..1023 内不应有蓝条（单位段最右 543，留 113 px 余量）
-        scan_color(656, 1023, 72, 107, C_BLUE);
+        scan_color(656, 1023, 72, 103, C_BLUE);
         chk_zero("g6_hl_right_edge_clear", wcnt);
 
         // ------------------------------------------------------------------
@@ -381,9 +389,9 @@ module tune_page_tb;
         // ------------------------------------------------------------------
         page = 3'd0;
         repeat (5) @(posedge pixel_clk);
-        scan_color(HL_X0, HL_X1, 252, 287, C_BLUE);
+        scan_color(HL_X0, HL_X1, 232, 263, C_BLUE);
         chk_zero("g8_hl_hidden_on_data_page", wcnt);
-        scan_color(HL_X0, HL_X1, 72, 107, C_BLUE);
+        scan_color(HL_X0, HL_X1, 72, 103, C_BLUE);
         chk_zero("g8_hl_hidden_row0_data_page", wcnt);
 
         // 参数页标题也不应在数据页出现（y 24..47 x 240..335 白色）
@@ -404,7 +412,7 @@ module tune_page_tb;
         chk_zero("g9_idle_menu_not_dim_sel", wcnt);
         scan_color(24, 200, 496, 532, C_MENUBG);
         chk_pos("g9_idle_menu_bg_bright", wcnt);
-        scan_color(HL_X0, HL_X1, 72, 107, C_BLUE);
+        scan_color(HL_X0, HL_X1, 72, 103, C_BLUE);
         chk_zero("g9_idle_no_hl_band", wcnt);
         scan_color(LBL_X0, LBL_X0 + 95, 24, 47, C_WHITE);
         chk_pos("g9_idle_title_still_shown", wcnt);

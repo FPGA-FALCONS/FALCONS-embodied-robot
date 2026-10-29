@@ -1,0 +1,19 @@
+{
+  "main_parent": "a45eab0c0fc30e1aad14238a2b3f6eccdcb3f9c4",
+  "ai_parent": "3262bec82691a32310a9a980ab2a7666c67774c2",
+  "resolved_documents": [
+    "README.md",
+    "doc/README.md",
+    "rtl/README.md"
+  ],
+  "resolution": "保留简洁结构，补入主分支独立规划、RTL检查器及设计入口，明确未接生产导航。",
+  "application_tests": 81,
+  "host_tests": 363,
+  "host_platform_skips": 11,
+  "planning_reference_tests": 14,
+  "standalone_rtl_cases": 461,
+  "standalone_rtl_accepted_reads": 8771,
+  "standalone_rtl_simulator": "ModelSim SE-64 10.6d",
+  "pin_constraints": "PASS",
+  "synthesis_or_hardware_changed_this_merge": false
+}

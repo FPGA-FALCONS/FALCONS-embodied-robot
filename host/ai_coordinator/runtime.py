@@ -18,6 +18,9 @@ from .motion_intents import inspect_motion,VERSION as MOTION_POLICY_VERSION
 from .motion_backend import MotionBackend
 from .ai_module import AiModule
 from .startup import StartupModels
+from .inspection.controller import InspectionController
+from .device_roles import audio_device
+from .ai_link import RESET_ACK
 
 
 class Audit:
@@ -40,8 +43,9 @@ class Runtime:
         self.config=Path(config).resolve();self.cfg=loads(self.config.read_text(encoding='utf-8'))
         self.root=Path(self.cfg['root']).resolve();self.run_dir=self.root/'runs'/uuid.uuid4().hex
         self.audit=Audit(self.run_dir);self.core=PatrolMission(Policy(**self.cfg.get('policy',{})),self.cfg.get('mode','shadow'))
-        self.announcements=Announcements(self.cfg.get('announcements',{}),self.audit)
-        self.cue=RecordingCue(self.cfg.get('microphone',{}).get('cue',{}),self.audit,self.root)
+        self.announcements=Announcements({**self.cfg.get('announcements',{}),'selector':self.cfg.get('audio_roles',{}).get('speaker'),
+            'ai_speaker_device':self.cfg.get('ai_module',{}).get('speaker_device')},self.audit)
+        self.cue=RecordingCue({**self.cfg.get('microphone',{}).get('cue',{}),'selector':self.cfg.get('audio_roles',{}).get('speaker')},self.audit,self.root)
         if self.core.mode=='live' and self.cfg.get('gateway',{}).get('mode')!='serial':raise ValueError('live mode requires serial gateway')
         self.gateway=Gateway(self.cfg.get('gateway',{}),self.core.session_id,self.audit)
         # The lambda is deliberate: tests and deployment can replace the
@@ -51,7 +55,7 @@ class Runtime:
         self.model_server=ModelServer(self.cfg['models']['llm'],self.run_dir)
         self.generation=0;self.jobs=OrderedDict();self.tasks=set();self.parse_lock=asyncio.Lock();self.server_lock=asyncio.Lock()
         self.ticker=None;self.last_tick=None;self.max_tick_gap=0;self.latest_image=None;self.image_pump=None;self.lock_file=None
-        self.camera_task=None
+        self.camera_task=None;self.next_camera_retry=0.
         self.camera_time_verified=False
         self.last_motion=None
         self.camera_backend=self.cfg.get('camera',{}).get('backend','fx2')
@@ -61,8 +65,28 @@ class Runtime:
             if self.cfg.get('model_loads_enabled',True) is True:
                 self.workers['camera']=Worker('camera',self.config,self.run_dir);self.camera_state='configured'
         self.ai=AiModule(self)
+        self.inspection=InspectionController(self)
         self.startup=StartupModels(self)
         self.next_link_retry=0.
+        self.fpga_reset_pending=False
+
+    def on_ai_controls(self,event,now):
+        pending=event['reset_pending']
+        if pending and not self.fpga_reset_pending:
+            self.generation+=1
+            for task in list(self.tasks):task.cancel()
+            self.motion.link_lost('fpga_reset')
+            self.ai.fpga_reset()
+            self.inspection.fpga_reset(now)
+            self.announcements._clear('fpga_reset')
+            self.core.stop(now,'fpga_reset');self.core.drain();self.core.drain_notices()
+            port=self.gateway.transport
+            port.drop('ai_ui_ping')
+            port.enqueue(RESET_ACK,priority=True,tag='ai_reset')
+            self.audit({'type':'fpga_reset_initialized','tasks_resumed':False})
+        self.fpga_reset_pending=pending
+        self.ai.on_controls(event,now)
+        self.inspection.on_ai_controls(event,now)
 
     async def start(self):
         if self.root.exists() and __import__('os').name=='posix':
@@ -76,6 +100,7 @@ class Runtime:
             self.audit({'type':'ai_uart_waiting','error':str(exc)[:200]})
         self.ticker=asyncio.create_task(self._tick())
         self.startup.start()
+        self.inspection.start()
         if 'camera' in self.workers and not self.ai.enabled:self.camera_task=asyncio.create_task(self._camera())
         self.audit({'type':'coordinator_started','run_dir':str(self.run_dir),'mode':self.core.mode})
 
@@ -93,6 +118,16 @@ class Runtime:
             self.audit({'type':'ai_uart_waiting','error':str(exc)[:200]})
             return False
 
+    def retry_camera(self,now):
+        if (not (self.ai.vision or getattr(getattr(self,'inspection',None),'video_required',False)) or 'camera' not in self.workers or now<self.next_camera_retry
+                or (self.camera_task is not None and not self.camera_task.done())
+                or self.ai.vision_lock.locked() or any(not task.done() for task in self.ai.cleanup)):
+            return False
+        self.next_camera_retry=now+1.
+        self.camera_task=asyncio.create_task(self._camera())
+        self.audit({'type':'camera_identity_reprobe','tasks_resumed':False})
+        return True
+
     async def _tick(self):
         while True:
             now=time.monotonic()
@@ -101,16 +136,21 @@ class Runtime:
             self.reconnect_ai_link(now)
             for event in self.gateway.poll(now):
                 if event.get('kind')=='ai_controls':
-                    self.ai.on_controls(event,now)
+                    self.on_ai_controls(event,now)
+                elif event.get('kind')=='inspection_packet':
+                    self.inspection.on_packet(event['message'],now)
                 elif event.get('kind') in ('link_lost','link_reset'):
                     # Cancel host heartbeats and record the failed action.  The
                     # FPGA watchdog remains the independent physical stop.
+                    self.inspection.link_lost(event['kind'],now)
                     self.motion.link_lost(event['kind'])
                     self.ai.link_lost(event['kind'])
                     if self.core.state in self.core.ACTIVE:self.core.fail(now,event['kind'])
                 else:self.core.on_status(event,now)
                 self.audit({'type':'fpga_event','event':event})
             self.ai.tick(now)
+            self.retry_camera(now)
+            self.inspection.tick(now)
             self.core.tick(now);self.dispatch()
             await asyncio.sleep(.02)
 
@@ -272,7 +312,8 @@ class Runtime:
         if self.ai.enabled and not self.ai.active:raise RuntimeError('AI master is off')
         payload={}
         if request.get('capture'):
-            cfg=self.cfg.get('microphone',{})
+            cfg=dict(self.cfg.get('microphone',{}))
+            cfg['device']=audio_device(self.cfg.get('audio_roles',{}).get('microphone'),'microphone',cfg.get('device'))
             if not cfg.get('device'):raise RuntimeError('USB microphone not configured / pending hardware arrival')
             if self.announcements.microphone_blocked:raise RuntimeError('Announcement playing; microphone temporarily paused')
             payload={'capture':dict(cfg)}
@@ -324,6 +365,8 @@ class Runtime:
                 response=await self.workers['vision'].call(payload,timeout=self.cfg.get('vision_timeout_s',10))
                 event={**tag,**response['result'],'sequence':time.monotonic_ns()}
                 self.ai.observe_vision(event.get('detections',[]))
+                if tag.get('camera_metadata'):
+                    await self.inspection.observe(tag['camera_metadata'],{**response['result'],'worker_elapsed_s':response.get('elapsed_s')},time.monotonic())
                 if tag.get('source_timestamp_verified') is True and tag.get('replay') is False:self.camera_time_verified=True
                 accepted=self.core.on_frame(event,time.monotonic());self.dispatch()
                 if not future.done():future.set_result({'frame':event,'admitted_to_mission':accepted,'elapsed_s':response['elapsed_s']})
@@ -348,11 +391,14 @@ class Runtime:
                 response=await self.workers['camera'].call({'op':'next_frame'},timeout=5);frame=response['result']
                 if frame.get('status')=='frame':
                     self.camera_state='streaming'
+                    frame['inspection_round']=self.inspection.observation_round
+                    self.inspection.capture_pose(frame)
                     payload={k:frame[k] for k in ('image','format','width','height','byteorder')};payload['_temporary']=True
                     tag={'task_id':self.core.task_id,'goal_id':self.core.goal_id,'captured_at_s':frame['received_at_s'],
                          'replay':False,'source_timestamp_verified':False,'timestamp_origin':'host_receipt_only',
                          'source_sequence':frame['sequence'],'camera_backend':self.camera_backend,
-                         'sequence_origin':frame.get('sequence_origin','transport_sequence')}
+                         'sequence_origin':frame.get('sequence_origin','transport_sequence'),
+                         'camera_metadata':frame}
                     self.enqueue_image(payload,tag)
                 else:await asyncio.sleep(.02)
         except asyncio.CancelledError:raise
@@ -362,6 +408,9 @@ class Runtime:
     def stop(self,reason='operator_stop'):
         if hasattr(self,'ai'):self.ai.external_stop()
         self.generation+=1
+        if hasattr(self,'inspection') and self.inspection.enabled:
+            self.inspection.pause(time.monotonic(),reason)
+            self.inspection._actions(time.monotonic())
         # STOP is enqueued first and never waits for ASR/LLM/vision shutdown.
         motion_stop=self.motion.stop_now(reason)
         self.core.stop(time.monotonic(),reason);self.dispatch()
@@ -369,6 +418,7 @@ class Runtime:
         try:current=asyncio.current_task()
         except RuntimeError:current=None
         for pending in list(self.tasks):
+            if pending is self.image_pump and self.inspection.video_required:continue
             if pending is not current:pending.cancel()
         async def cleanup():
             if not self.startup.enabled:
@@ -404,9 +454,10 @@ class Runtime:
                             'last_instruction':self.last_motion},
             'policy_version':POLICY_VERSION,'language_profile':self.cfg.get('language_profile','unspecified'),
             'model_loads_enabled':self.cfg.get('model_loads_enabled',True),'ai_module':self.ai.snapshot(),
-            'startup':self.startup.snapshot()}
+            'startup':self.startup.snapshot(),'inspection':self.inspection.snapshot()}
 
     async def close(self):
+        await self.inspection.close()
         await self.startup.close()
         # Best-effort STOP while the shared serial owner is still open.
         self.motion.close()

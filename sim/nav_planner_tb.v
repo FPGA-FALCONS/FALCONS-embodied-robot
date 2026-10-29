@@ -7,7 +7,7 @@ module nav_planner_check #(parameter integer CENTER_EN=0) (
 );
     reg clk=0, reset_n=0, request=0, escape=0;
     always #10 clk=~clk;
-    reg [15:0] sx,sy,gx,gy,limit=512;
+    reg [15:0] sx,sy,gx,gy,limit=1024;
     wire ready,busy,success,no_path,rd,valid,last;
     wire [15:0] rx,ry,x,y,length;
     reg response=0,raw=0,cost=0,pending=0;
@@ -24,6 +24,7 @@ module nav_planner_check #(parameter integer CENTER_EN=0) (
     wire take=cycles%7>=2;
     nav_planner #(.GRID_W(256),.GRID_H(256),.CENTER_EN(CENTER_EN)) dut (
         .clk(clk),.reset_n(reset_n),.req_valid(request),.req_ready(ready),
+        .w_max(8'd5),
         .allow_start_escape(escape),.start_x(sx),.start_y(sy),.goal_x(gx),.goal_y(gy),
         .mrd_valid(rd),.mrd_ready(rd_ready),.mrd_x(rx),.mrd_y(ry),
         .mrd_rsp_valid(response),.mrd_raw(raw),.mrd_cost(cost),
@@ -80,6 +81,7 @@ module nav_planner_check #(parameter integer CENTER_EN=0) (
             step_y=dy==0 ? 0 : dy>0 ? 1 : -1;
             if (dx!=0 && dy!=0 && (dx<0 ? -dx : dx)!=(dy<0 ? -dy : dy)) geometry_ok=0;
             n=(dx<0 ? -dx : dx)>(dy<0 ? -dy : dy) ? (dx<0 ? -dx : dx) : (dy<0 ? -dy : dy);
+            if (n > 4) geometry_ok=0;
             repeat(n) begin
                 if (step_x!=0 && step_y!=0 && (!allowed(px+step_x,py) || !allowed(px,py+step_y))) geometry_ok=0;
                 px=px+step_x;

@@ -164,7 +164,8 @@ module motor_unit #(
         .STARTUP_WINDOWS (STALL_STARTUP_WINDOWS),
         .STALL_WINDOWS   (STALL_WINDOWS),
         .DUTY_TH         (STALL_DUTY_TH),
-        .MOVE_TH         (STALL_MOVE_TH)
+        .MOVE_TH         (STALL_MOVE_TH),
+        .PIPE_MONITOR_INPUT(1)
     ) u_stall (
         .i_clock       (i_clock),
         .i_reset_n     (i_reset_n),

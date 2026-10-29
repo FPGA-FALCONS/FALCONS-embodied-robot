@@ -1,0 +1,78 @@
+{
+  "success": true,
+  "frames": [
+    {
+      "status": "frame",
+      "image": "/home/orangepi/workspace/falcons_uvc_prepare_20261025_v2/worker_frames/d4f8c48d85144bcfa1e471424498873b.png",
+      "format": "image",
+      "byteorder": null,
+      "width": 1280,
+      "height": 720,
+      "sequence": 1,
+      "received_at_s": 1191.119905547,
+      "backend": "v4l2",
+      "device": "/dev/v4l/by-id/usb-Generic_USB_Cam_200901010001-video-index0",
+      "negotiated": {
+        "width": 1280,
+        "height": 720,
+        "fps": 30.0,
+        "fourcc": "MJPG"
+      },
+      "sequence_origin": "host_frame_counter",
+      "timestamp_origin": "host_receipt_only",
+      "replay": false,
+      "source_timestamp_verified": false,
+      "sha256": "8e1b3e079f1b1353733ba5f2b9ab9ef857e75c7e729bd26b5cacf6926ff9b0d1"
+    },
+    {
+      "status": "frame",
+      "image": "/home/orangepi/workspace/falcons_uvc_prepare_20261025_v2/worker_frames/3640f010103845afbbec1c9de304d7a1.png",
+      "format": "image",
+      "byteorder": null,
+      "width": 1280,
+      "height": 720,
+      "sequence": 2,
+      "received_at_s": 1191.172854262,
+      "backend": "v4l2",
+      "device": "/dev/v4l/by-id/usb-Generic_USB_Cam_200901010001-video-index0",
+      "negotiated": {
+        "width": 1280,
+        "height": 720,
+        "fps": 30.0,
+        "fourcc": "MJPG"
+      },
+      "sequence_origin": "host_frame_counter",
+      "timestamp_origin": "host_receipt_only",
+      "replay": false,
+      "source_timestamp_verified": false,
+      "sha256": "4e5d762d276c94feb162a52f4cd2603c58c2be562de8c2f02c21404309561ef0"
+    },
+    {
+      "status": "frame",
+      "image": "/home/orangepi/workspace/falcons_uvc_prepare_20261025_v2/worker_frames/93f29e6445784fb790135722bf2c9f6d.png",
+      "format": "image",
+      "byteorder": null,
+      "width": 1280,
+      "height": 720,
+      "sequence": 3,
+      "received_at_s": 1191.220047987,
+      "backend": "v4l2",
+      "device": "/dev/v4l/by-id/usb-Generic_USB_Cam_200901010001-video-index0",
+      "negotiated": {
+        "width": 1280,
+        "height": 720,
+        "fps": 30.0,
+        "fourcc": "MJPG"
+      },
+      "sequence_origin": "host_frame_counter",
+      "timestamp_origin": "host_receipt_only",
+      "replay": false,
+      "source_timestamp_verified": false,
+      "sha256": "7fa3d379444e28b5fe1036e4ca91df273068b71aca32333b93b77d4c6c774434"
+    }
+  ],
+  "source_timestamp_verified": false,
+  "models_loaded": false,
+  "active_config_changed": false,
+  "motion_commands_sent": false
+}

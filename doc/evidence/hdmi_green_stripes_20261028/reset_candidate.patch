@@ -1,0 +1,65 @@
+diff --git a/vendor/verilog-reusable-modules/modules/hdmi_1024x600/README.md b/vendor/verilog-reusable-modules/modules/hdmi_1024x600/README.md
+index 49cace6..98da795 100644
+--- a/vendor/verilog-reusable-modules/modules/hdmi_1024x600/README.md
++++ b/vendor/verilog-reusable-modules/modules/hdmi_1024x600/README.md
+@@ -22,6 +22,10 @@
+ 
+ `display_pll.v`和加密的`dvi_tx.v`面向 GW5AT-LV138PG484AC1/I0；移植到其他器件时需要重生成这两个 IP。ACG720 管脚见`constraints/acg720_hdmi.cst`。
+ 
++## 发送器复位
++
++扫描逻辑继续使用`reset_n & pll_lock`；`hdmi_tx_reset.v`把发送器复位异步拉低，并在245 MHz串行时钟的三个上升沿后释放。应用像素域的复位树不再直接驱动OSER10复位端。修改后必须检查串行域复位路径及完整应用时序，不能只依据像素Fmax判断；绿纹现场验证状态见主工程`doc/AI巡检验证记录.md`。
++
+ ## 仿真
+ 
+ `sim/disp_driver_tb.v`连续检查三帧的总周期、有效像素数、有效区坐标范围和`frame_start`脉宽。在 ModelSim Transcript 中执行：
+@@ -30,3 +34,5 @@
+ cd D:/path/to/verilog-reusable-modules/modules/hdmi_1024x600/sim
+ do run_test.do
+ ```
++
++整车回归入口`sim/run_sim.ps1`还包含`hdmi_tx_reset_tb`，验证停钟/失锁时仍能异步复位，以及恢复后按串行时钟释放。数字仿真不替代HDMI现场显示验收。
+diff --git a/vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/hdmi_1024x600.v b/vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/hdmi_1024x600.v
+index 7cb1a1d..955d8e9 100644
+--- a/vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/hdmi_1024x600.v
++++ b/vendor/verilog-reusable-modules/modules/hdmi_1024x600/rtl/hdmi_1024x600.v
+@@ -57,8 +57,14 @@ module hdmi_1024x600(
+         .Disp_PCLK   ()
+     );
+ 
++    wire tx_reset_n;
++    hdmi_tx_reset u_tx_reset (
++        .serial_clk(clk_serial_5x),.reset_n(reset_n),
++        .pll_lock(pll_lock),.tx_reset_n(tx_reset_n)
++    );
++
+     DVI_TX_Top u_dvi_tx (
+-        .I_rst_n       (reset_n & pll_lock),
++        .I_rst_n       (tx_reset_n),
+         .I_serial_clk  (clk_serial_5x),
+         .I_rgb_clk     (clk_pixel),
+         .I_rgb_vs      (video_vs),
+diff --git a/vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/acg720_ov5640_ddr3_hdmi.gprj b/vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/acg720_ov5640_ddr3_hdmi.gprj
+index fa9e427..4893a53 100644
+--- a/vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/acg720_ov5640_ddr3_hdmi.gprj
++++ b/vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/acg720_ov5640_ddr3_hdmi.gprj
+@@ -14,6 +14,7 @@
+         <File path="../../../hdmi_1024x600/rtl/display_pll.v" type="file.verilog" enable="1"/>
+         <File path="../../../hdmi_1024x600/rtl/disp_driver.v" type="file.verilog" enable="1"/>
+         <File path="../../../hdmi_1024x600/rtl/dvi_tx.v" type="file.verilog" enable="1"/>
++        <File path="../../../hdmi_1024x600/rtl/hdmi_tx_reset.v" type="file.verilog" enable="1"/>
+         <File path="../../../hdmi_1024x600/rtl/hdmi_1024x600.v" type="file.verilog" enable="1"/>
+         <File path="ip/ddr3_ctrl_2port/ddr3_ctrl_2port.v" type="file.verilog" enable="1"/>
+         <File path="ip/ddr3_ctrl_2port/fifo_ddr3_adapter.v" type="file.verilog" enable="1"/>
+diff --git a/vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/build.tcl b/vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/build.tcl
+index 599ef75..5d0bea2 100644
+--- a/vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/build.tcl
++++ b/vendor/verilog-reusable-modules/modules/ov5640_capture/examples/acg720_ddr3_hdmi/build.tcl
+@@ -8,6 +8,7 @@ set sources {
+     ../../../hdmi_1024x600/rtl/display_pll.v
+     ../../../hdmi_1024x600/rtl/disp_driver.v
+     ../../../hdmi_1024x600/rtl/dvi_tx.v
++    ../../../hdmi_1024x600/rtl/hdmi_tx_reset.v
+     ../../../hdmi_1024x600/rtl/hdmi_1024x600.v
+     ip/ddr3_ctrl_2port/ddr3_ctrl_2port.v
+     ip/ddr3_ctrl_2port/fifo_ddr3_adapter.v

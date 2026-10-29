@@ -1,0 +1,151 @@
+
+================ 编译（FALCONS 仿真）================
+Source list: 182 files; simulator: ModelSim
+
+================ 测试：inspection_application ================
+  Python transaction to production authority and actual-stop handshake
+  pass host HELLO produces capability transaction without authority
+  pass task entry completes actual stop before host goal
+  pass on transaction reaches registered goal and 16-bit 300mm/s cruise
+  pass physical input snapshot retains confirmation and joystick axes
+  pass host cannot close child page while chassis is moving
+  pass rejected moving close revision can retry after actual stopped
+  pass old page close cannot close a newly entered page
+  pass manual revokes application output locally
+  pass cursor return holds current task stopped
+  pass lost sensor health cannot release motion
+  PASS: inspection_application 10 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_application.log）
+
+================ 测试：inspection_speed ================
+  RK physical cruise / iterative slow gain / actual point controller / base independence
+  pass base navigation retains FPGA cruise and gain without RK ownership
+  pass 300mm/s and its deceleration gain arrive without 8-bit truncation
+  pass real point controller executes 300mm/s without old 120-count clamp
+  pass FPGA cruise knob does not replace RK inspection cruise
+  pass RK speed update also changes real controller output and slow gain
+  pass FPGA deceleration-distance tuning recalculates gain with RK speed
+  pass a newer speed restarts the iterative parameter calculation
+  pass releasing AI restores standalone base-navigation parameters
+  PASS: inspection_speed 8 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_speed.log）
+
+================ 测试：inspection_dispatch ================
+  Synchronous message RAM / authenticated layer stream / stopped commit
+  pass hello decoded after synchronous word read
+  pass invalid goal generates rejection instead of wrapped cell
+  pass authenticated layer begin reaches RAM writer
+  pass streamed words and delayed commit retain exact CRC
+  pass short data header refused without out of range reads
+  pass wrong epoch cannot begin replacement layer
+  pass stalled writer times out and releases packet without publishing
+  PASS: inspection_dispatch 7 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_dispatch.log）
+
+================ 测试：inspection_control ================
+  Actual stopped handshake, physical confirm, manual priority and local lease
+  pass hello cannot claim motor authority outside AI task
+  pass page entry claims zero and requests real stop
+  pass actual done low-high allows stationary upload
+  pass uncommissioned goal is refused
+  pass valid goal waits for old stop handshake release
+  pass physical confirm admits goal and full 300mm/s cruise
+  pass first waypoint arrival reports actual stopped
+  pass second waypoint reuses authorized task and physical token
+  pass second waypoint also waits for actual stopped
+  pass third waypoint continues without another physical confirm
+  pass internal visual pause waits for actual stopped
+  pass internal layer pause may continue same authorized task
+  pass armed old task cannot authorize a new task with reused token
+  pass new task requires fresh physical confirmation
+  pass local pause revokes goal without a host round trip
+  pass fresh confirmation resumes locally paused task
+  pass manual revokes autonomous output without RK round trip
+  pass cursor return never resumes old task
+  pass old physical token cannot resume after manual
+  pass new confirmation can resume after manual
+  pass operator pause still requests a real stop
+  pass next accepted goal updates RK cruise without a speed-code gate
+  pass local lease timeout brakes independently
+  pass old localization epoch cannot authorize movement
+  PASS: inspection_control 24 checks
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_inspection_control.log）
+
+================ 测试：manual_takeover ================
+  SWC stop before local stick takeover, fresh encoder feedback
+  pass cursor leaves manual guard inactive
+  pass SWC manual immediately brakes before sticks
+  pass actual chassis brakes override ongoing autonomous target
+  pass time alone cannot release while wheel moving
+  pass two stopped samples are insufficient
+  pass steering must also return to center
+  pass fresh stopped feedback and centered sticks release handover
+  pass eld autonomous commands cannot leak into centered manual control
+  pass normal stick driving remains armed
+  pass after stop the real chassis follows manual sticks
+  pass leaving manual discards handover readiness
+  pass held throttle cannot drive on manual reentry
+  pass center releases new manual takeover
+  pass physical estop still overrides manual
+  pass estop recovery cannot use stale encoder feedback
+  pass fresh stop confirmation permits manual after recovery
+  pass RC loss immediately disables manual
+  pass RC recovery requires fresh stopped samples
+  PASS: manual_takeover
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_manual_takeover.log）
+
+================ 测试：obstacle_motion ================
+  UI / real BFS / point controller / moving differential vehicle
+  pass first user destination submitted
+  pass actual BFS starts point execution
+  pass pause preserves destination and acknowledges stopped
+  pass paused vehicle remains stopped while planning advances
+  pass movement crosses cells without consuming destination or resuming
+  pass resume replans forward from moved pose
+  pass near raw obstacle stops vehicle without cancelling destination
+  pass clear observation permits replanning and resumption
+  pass arrival advances to second user destination
+  pass second destination reached and stopped after corner turn
+  pass final completion releases goal and control request
+  pass confirm cannot restart finished navigation
+  pass return-to-editor submits an independent new task
+  pass second complete navigation stops and releases its task
+  pass background planner runs throughout vehicle motion
+  PASS: obstacle_motion_tb
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_obstacle_motion.log）
+
+================ 测试：nav_point_ctrl ================
+  Point task / live target / emergency handshake
+  pass startup stop first observes done low
+  pass startup stop is acknowledged without a target
+  pass stop completion is held
+  pass stop release clears completion
+  pass side target turns before translating
+  pass aligned task starts translating
+  pass live target extension does not complete old target
+  pass live target shortening changes deceleration
+  pass arrival includes stopped confirmation
+  pass normal completion is held until request withdrawn
+  pass new emergency clears stale normal completion
+  pass new emergency gets its own stopped confirmation
+  pass normal and emergency request release
+  pass emergency preempts in-flight calculation
+  pass decelerating car remains in linear phase
+  pass linear phase clears only after stopped
+  pass stall revokes propulsion
+  PASS: nav_point_ctrl_tb
+  （完整输出：D:\Programs\FPGA Projects\FALCONS-embodied-robot\logs\sim_nav_point_ctrl.log）
+
+================ 汇总 ================
+
+测试                   结果 检查数 说明
+----                   ---- ------ ----
+inspection_application PASS     10 pass=10 / CHECKS=10
+inspection_speed       PASS      8 pass=8 / CHECKS=8
+inspection_dispatch    PASS      7 pass=7 / CHECKS=7
+inspection_control     PASS     24 pass=24 / CHECKS=24
+manual_takeover        PASS     18 pass=18 / CHECKS=18
+obstacle_motion        PASS     15 pass=15 / CHECKS=15
+nav_point_ctrl         PASS     17 pass=17 / CHECKS=17
+
+全部 7 个测试通过

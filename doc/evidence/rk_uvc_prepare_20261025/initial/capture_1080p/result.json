@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "success": false,
+  "output": "/home/orangepi/workspace/falcons_uvc_prepare_20261025/capture_1080p",
+  "active_config_changed": false,
+  "motion_commands_sent": false,
+  "returncode": 2,
+  "stdout": "",
+  "stderr": ""
+}

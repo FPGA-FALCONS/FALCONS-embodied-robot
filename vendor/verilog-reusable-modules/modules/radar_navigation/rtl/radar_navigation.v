@@ -7,6 +7,7 @@
 // 接线、坐标、启动和控制流程见 ../docs/delivery_handoff.md。
 // ============================================================================
 module radar_navigation #(
+    parameter integer AI_LAYER_ENABLE = 0,
     // 规划时障碍向横纵各预留的格数，同时用于停后局部接出和路线复核。
     parameter integer PLAN_INFLATE_CELLS  = 4
 ) (
@@ -14,9 +15,21 @@ module radar_navigation #(
     input  wire               clk,
     input  wire               reset_n,
 
+    // Optional AI visual map transaction. Disabled builds retain the original
+    // map path; production enables it and supplies stopped/epoch explicitly.
+    input wire ai_enable,ai_begin,ai_abort,ai_commit,ai_word_valid,ai_stopped,
+    input wire [31:0] ai_epoch,ai_begin_epoch,ai_expected_crc,ai_word,
+    input wire [15:0] ai_begin_version,
+    input wire [12:0] ai_word_index,
+    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,ai_layer_busy,
+    output wire [15:0] ai_layer_version,
+    output wire [3:0] ai_error_code,
+
     // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
     input  wire         [7:0] forward_check_cells,
     input  wire        [15:0] vehicle_width_mm,
+    // 包含起点的规划窗口格数，2..64，默认 5；下一轮规划生效。
+    input  wire         [7:0] w_max,
 
     // 建图、规划和自动动作分别授权；撤销运动授权会先要求停车。
     input  wire               map_enable,
@@ -48,10 +61,13 @@ module radar_navigation #(
 
     // 界面任务状态：0 关闭，1 运行中，2 暂停，3 已到达，4 无路。
     output wire         [3:0] nav_state,
+    output wire               sensors_valid,
 
     // 同时控制地图和路线显示；点云输出不受此开关影响。
     input  wire               display_enable,
     // 全地图按 x 递增、再 y 递增输出；首尾标志均伴随有效格。
+    output wire [15:0]        route_id,
+    output wire [15:0]        map_version, // UI export version; no new map reader
     output wire               map_disp_valid,
     output wire               map_disp_occupied,
     output wire               map_disp_frame_start,
@@ -69,11 +85,33 @@ module radar_navigation #(
     output wire        [15:0] cloud_distance_mm   // 毫米；0/FFFF 等值由显示端过滤。
 );
     nav_radar_adapter #(
-        .PLAN_INFLATE_CELLS  (PLAN_INFLATE_CELLS)
+        .PLAN_INFLATE_CELLS  (PLAN_INFLATE_CELLS),
+        .AI_LAYER_ENABLE (AI_LAYER_ENABLE)
     ) u_adapter (
         .clk                    (clk),
         .reset_n                (reset_n),
+
+        .ai_enable(ai_enable),
+        .ai_begin(ai_begin),
+        .ai_abort(ai_abort),
+        .ai_commit(ai_commit),
+        .ai_word_valid(ai_word_valid),
+        .ai_stopped(ai_stopped),
+        .ai_epoch(ai_epoch),
+        .ai_begin_epoch(ai_begin_epoch),
+        .ai_expected_crc(ai_expected_crc),
+        .ai_word(ai_word),
+        .ai_begin_version(ai_begin_version),
+        .ai_word_index(ai_word_index),
+        .ai_word_ready(ai_word_ready),
+        .ai_layer_valid(ai_layer_valid),
+        .ai_committed(ai_committed),
+        .ai_error(ai_error),
+        .ai_layer_version(ai_layer_version),
+        .ai_error_code(ai_error_code),
+        .ai_layer_busy(ai_layer_busy),
         .forward_check_cells    (forward_check_cells),
+        .w_max               (w_max),
         .vehicle_width_mm       (vehicle_width_mm),
         .map_enable             (map_enable),
         .plan_enable            (plan_enable),
@@ -109,7 +147,7 @@ module radar_navigation #(
         .cloud_distance_mm      (cloud_distance_mm),
 
         // 不向交付接口引出诊断信号；不改变内部导航和停车判断。
-        .st_sensors_valid       (),
+        .st_sensors_valid       (sensors_valid),
         .st_brake_clear         (),
         .st_stop_cause          (),
         .st_at_target           (),
@@ -117,8 +155,8 @@ module radar_navigation #(
         .st_plan_busy           (),
         .st_target_index        (),
         .st_route_length        (),
-        .st_route_id            (),
-        .st_map_version         (),
+        .st_route_id            (route_id),
+        .st_map_version         (map_version),
         .st_map_dropped         (),
         .st_plan_rounds         (),
         .st_occupied_cells      (),

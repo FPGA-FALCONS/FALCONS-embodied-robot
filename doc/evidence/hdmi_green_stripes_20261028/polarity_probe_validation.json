@@ -1,0 +1,14 @@
+{
+  "fs_sha256": "98f68b5b994b2ff88e4299956228ee3fac1876f74ac3d94e0ceb810e229a8433",
+  "frequency_rows": [
+    [
+      "1",
+      "clk_pixel",
+      "49.000(MHz)",
+      "147.106(MHz)",
+      "10",
+      "TOP"
+    ]
+  ],
+  "same_clock_timing_pass": true
+}

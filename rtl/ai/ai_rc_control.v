@@ -1,12 +1,16 @@
 // Application-only AI controls. Existing six J6 assignments are unchanged.
 module ai_rc_control #(
-    parameter integer CLK_HZ=50_000_000
+    parameter integer CLK_HZ=50_000_000,
+    parameter integer INSPECTION_ENABLE=0
 )(
     input wire clk, rst_n,
     input wire i_enter_confirm, i_ai_page, i_back,
     input wire i_select_prev,i_select_next,i_feature_confirm,
     input wire i_rc_valid, i_manual, i_estop,i_host_alive,
     input wire i_swb_pwm,
+    input wire i_inspection_close,
+    output reg o_inspection_open,
+    output reg [1:0] o_inspection_view,
     output reg o_master,
     output reg o_record,
     output wire o_chat,o_vision,
@@ -33,15 +37,27 @@ module ai_rc_control #(
     always @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
             o_master<=0;o_mode<=0;o_selected<=0;o_record<=0;
+            o_inspection_open<=0;o_inspection_view<=1;
             swb_candidate<=0;swb_seen<=0;swb_ready<=0;swb_down<=0;record_armed<=0;mode_d<=0;confirm_toggle<=0;
         end else begin
-            if(!i_host_alive || !i_rc_valid || i_estop) o_master<=0;
-            else if(i_enter_confirm && !i_manual) begin o_master<=1;o_mode<=0;o_selected<=0;end
-            else if(!i_ai_page || i_back) o_master<=0;
+            if(!i_host_alive || !i_rc_valid || i_estop) begin o_master<=0;o_inspection_open<=0;end
+            else if(i_enter_confirm && !i_manual) begin o_master<=1;o_mode<=0;o_selected<=0;o_inspection_open<=0;end
+            else if(!i_ai_page || (i_back && !o_inspection_open)) begin o_master<=0;o_inspection_open<=0;end
             else if(o_master && !i_manual) begin
-                if(i_select_prev) o_selected<=o_selected==0?2:o_selected-1'b1;
-                else if(i_select_next) o_selected<=o_selected==2?0:o_selected+1'b1;
-                if(i_feature_confirm) begin o_mode<=o_selected;confirm_toggle<=!confirm_toggle;end
+                if(o_inspection_open)begin
+                    if(i_select_prev)o_inspection_view<=o_inspection_view==0?2:o_inspection_view-1'b1;
+                    else if(i_select_next)o_inspection_view<=o_inspection_view==2?0:o_inspection_view+1'b1;
+                    // A child-task back gesture is consumed by its state
+                    // machine on RK. Closing requires a stationary receipt.
+                    if(i_inspection_close)o_inspection_open<=0;
+                end else begin
+                    if(i_select_prev) o_selected<=o_selected==0?(INSPECTION_ENABLE!=0?3:2):o_selected-1'b1;
+                    else if(i_select_next) o_selected<=o_selected==(INSPECTION_ENABLE!=0?3:2)?0:o_selected+1'b1;
+                    if(i_feature_confirm) begin
+                        o_mode<=o_selected;confirm_toggle<=!confirm_toggle;
+                        if(INSPECTION_ENABLE!=0 && o_selected==3)begin o_inspection_open<=1;o_inspection_view<=1;end
+                    end
+                end
             end
             if(!swb_valid) begin swb_seen<=0;swb_ready<=0;end
             else if(swb_update && swb_classifiable) begin

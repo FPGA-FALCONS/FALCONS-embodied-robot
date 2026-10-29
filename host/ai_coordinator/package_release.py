@@ -18,7 +18,7 @@ def main():
                    'host/semantic_nav','host/usb_camera_v4l2','host/vision_training',
                    'host/vision_bridge','host/voice_task_demo'):
         for p in (repo/folder).rglob('*'):
-            if p.is_file() and '__pycache__' not in p.parts and p.suffix in ('.py','.md','.json','.txt','.ps1','.sh','.cpp'):
+            if p.is_file() and '__pycache__' not in p.parts and p.suffix in ('.py','.md','.json','.txt','.ps1','.sh','.cpp','.c','.iic','.rules'):
                 files[p.relative_to(repo).as_posix()]=p
     for p in args.speech.iterdir():
         if p.is_file() and p.suffix in ('.wav','.json'):files['speech/'+p.name]=p

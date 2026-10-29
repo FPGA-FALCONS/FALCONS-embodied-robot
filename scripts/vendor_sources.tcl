@@ -53,6 +53,9 @@ proc get_app_sources {} {
     global APP_RTL_DIR
     set out {}
     foreach f [lsort [glob -nocomplain "$APP_RTL_DIR/*/*.v"]] { lappend out $f }
+    # Reuse only the generic Gray FIFO utility. The FPGA camera-to-RK
+    # transmitter is not instantiated or included by the inspection path.
+    lappend out "vendor/verilog-reusable-modules/modules/camera_fx2_direct/rtl/acg_async_fifo.v"
     return $out
 }
 

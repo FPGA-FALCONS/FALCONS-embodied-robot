@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-28",
+  "status": "RTL fix built and loaded into SRAM; user confirmed both AI views no longer flicker and standalone FPGA camera page remains normal; Flash unchanged",
+  "user_observations": {
+    "fpga_camera_connected_required_to_trigger_flicker": true,
+    "inspection_functions_remain_usable_while_flickering": true,
+    "flicker": "picture and text alternate multiple times per second",
+    "rk_supply": "separate power bank, rated 5V 3A",
+    "rk_reboots_are_not_user_initiated": true
+  },
+  "reproduced_defect": "A pending camera write holds the DDR grant when write-data ready is low, preventing an otherwise serviceable AI display read",
+  "fix": "Register a grant switch to pending AI display reads when the current client has not accepted a command; preserve accepted command owner tags and existing round-robin behavior otherwise",
+  "tests": {
+    "before": "inspection_ddr_deadline fails its display-read deadline check",
+    "after": {
+      "inspection_ddr_deadline": 2,
+      "inspection_ddr_arb": 3,
+      "inspection_frame": 7,
+      "ai_video_gate": 9
+    },
+    "passed_checks_after": 21
+  },
+  "unchanged": ["inspection state machine", "navigation and motor control", "clock frequencies", "RK detection and localization logic"],
+  "runtime_diagnosis": {
+    "temporary_display_fps_probe": 1,
+    "restored_display_fps": 10,
+    "configuration_recovery": "restored from validated inspection_src_213a5d4b18af configuration with file and parent-directory fsync",
+    "models_ready_after_recovery": true,
+    "observed_usb_faults": ["descriptor read timeout -110", "descriptor protocol error -71", "CH340 disconnect"],
+    "reboot_cause_confirmed": false
+  },
+  "hardware_validation": {
+    "jtag_cable_detected": true,
+    "fpga_target_detected": true,
+    "scanned_device_id": "0x0011081B",
+    "candidate_sram_loaded": true,
+    "fs_sha256": "ef18c910da7025ffc31dc27eded61a2032e081a6c48ec51345f638ac30dfa58a",
+    "sram_program_seconds": 8.06,
+    "programmer_status": "0x00026230",
+    "programmer_result": "Finished.",
+    "flash_written": false,
+    "onsite_flicker_fixed": true,
+    "onsite_confirmation": {
+      "date": "2026-10-28",
+      "source": "user feedback after SRAM load, with FPGA direct camera connected",
+      "object_recognition_no_flicker": true,
+      "visual_inspection_no_flicker": true,
+      "standalone_fpga_camera_page_normal": true,
+      "cold_boot_flash_acceptance": false
+    },
+    "rk_post_load": {
+      "configuration_bytes": 12098,
+      "display_fps": 10,
+      "models_ready": true,
+      "camera_enumerated": true,
+      "control_serial_enumerated": true,
+      "fx2_verified": true,
+      "fx2_ifclk_hz": 30005868,
+      "mission_state": "edit",
+      "mission_error": null,
+      "map_ready": true,
+      "actual_stopped": true
+    },
+    "movement_command_sent": false
+  }
+}

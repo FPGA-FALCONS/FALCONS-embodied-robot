@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "source_archive_sha256": "e1bf708668831d06076b3af676c91bedfb77a6a1e27a4535b328445222a78ab0",
+  "source_files": 193,
+  "tool_root": "/home/orangepi/workspace/falcons_uvc_prepare_20261025_v2",
+  "board_tests": 22,
+  "state_before_equals_after": true,
+  "camera_control_readback": "exposure_dynamic_framerate: 1\nauto_exposure: 3 (Aperture Priority Mode)\nfocus_automatic_continuous: 1\n",
+  "capture": {
+    "schema_version": 1,
+    "success": true,
+    "output": "/home/orangepi/workspace/falcons_uvc_prepare_20261025_v2/capture_720p_fixed_rate",
+    "active_config_changed": false,
+    "motion_commands_sent": false,
+    "original_dynamic_frame_rate": 1,
+    "capture_uvc_controls": {
+      "exposure_dynamic_framerate": 0
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "uvc_control_restored": true,
+    "frames_read": 300,
+    "measured_host_fps": 29.96247013525524
+  },
+  "existing_camera_worker_verified": true,
+  "fpga_changed": false,
+  "models_changed": false,
+  "motion_commands_sent": false
+}

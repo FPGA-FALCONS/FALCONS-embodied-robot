@@ -1,0 +1,166 @@
+{
+  "status": "initial_measured_mount_candidate_pending_ground_validation",
+  "profile": {
+    "camera_serial": "200901010001",
+    "image_size": [
+      1280,
+      720
+    ],
+    "K": [
+      [
+        1017.363895539648,
+        0.0,
+        606.1694826003816
+      ],
+      [
+        0.0,
+        1017.7977284013954,
+        409.5399601786582
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "distortion": [
+      0.04996404294366457,
+      0.08103610736643896,
+      0.01066472956371098,
+      -0.000607045402186463,
+      -0.3259149626360114
+    ],
+    "T_base_camera": [
+      [
+        0,
+        -0.3420201433256687,
+        0.9396926207859084,
+        0.196
+      ],
+      [
+        -1,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        -0.9396926207859084,
+        -0.3420201433256687,
+        0.206
+      ],
+      [
+        0,
+        0,
+        0,
+        1
+      ]
+    ],
+    "intrinsics_measured": false,
+    "extrinsics_measured": false,
+    "ground_plane_verified": false,
+    "timing_verified": false,
+    "max_range_m": null,
+    "xy_error_m": null
+  },
+  "mount_measurements": {
+    "height_m": 0.206,
+    "forward_of_lidar_center_m": 0.196,
+    "left_of_lidar_center_m": 0,
+    "pitch_down_deg": 20,
+    "yaw_deg": 0,
+    "roll_deg": 0,
+    "source": "User-confirmed installation measurements, 2026-10-27"
+  },
+  "frame": {
+    "base_axes": "x forward, y left, z up",
+    "camera_axes": "x right, y down, z forward",
+    "translation_reference": "ground projection of lidar center",
+    "base_origin_assumption": "Existing navigation treats lidar and odom reference as coincident; physical coincidence not independently verified",
+    "reference": "doc/自动导航接入方案.md section 5.3"
+  },
+  "intrinsics_source": {
+    "path": "pinhole_calib.json",
+    "sha256": "7ccd62c2fd34ecdc2e2bca8a4dcd1b75efe83fe500be2b94c1fd38d407dbd644",
+    "focus": 260,
+    "autofocus": false
+  },
+  "validation_plan": [
+    {
+      "xy_base_m": [
+        0.5,
+        0.1
+      ],
+      "predicted_uv_initial_only": [
+        316.54383771340986,
+        670.6269367886448
+      ]
+    },
+    {
+      "xy_base_m": [
+        0.5,
+        -0.1
+      ],
+      "predicted_uv_initial_only": [
+        895.4247550112157,
+        670.4523289595944
+      ]
+    },
+    {
+      "xy_base_m": [
+        0.8,
+        0.15
+      ],
+      "predicted_uv_initial_only": [
+        366.2779653280462,
+        389.34235343264623
+      ]
+    },
+    {
+      "xy_base_m": [
+        0.8,
+        -0.15
+      ],
+      "predicted_uv_initial_only": [
+        845.8556781205417,
+        389.35419504525817
+      ]
+    },
+    {
+      "xy_base_m": [
+        1.1,
+        0.2
+      ],
+      "predicted_uv_initial_only": [
+        384.7340674803006,
+        282.1921483662053
+      ]
+    },
+    {
+      "xy_base_m": [
+        1.1,
+        -0.2
+      ],
+      "predicted_uv_initial_only": [
+        827.4102479866051,
+        282.25967092507886
+      ]
+    },
+    {
+      "xy_base_m": [
+        0.6,
+        0.0
+      ],
+      "predicted_uv_initial_only": [
+        606.1601258941216,
+        535.4081658399352
+      ]
+    }
+  ],
+  "optical_axis_ground_intersection_m": [
+    0.7619803484076522,
+    0.0,
+    0.0
+  ],
+  "note": "Mount estimates are not independently validated extrinsics. No motion authorization or live configuration change."
+}

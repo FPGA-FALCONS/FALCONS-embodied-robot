@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "success": true,
+  "output": "/home/orangepi/workspace/falcons_uvc_prepare_20261025_v2/capture_720p_fixed_rate",
+  "active_config_changed": false,
+  "motion_commands_sent": false,
+  "original_dynamic_frame_rate": 1,
+  "capture_uvc_controls": {
+    "exposure_dynamic_framerate": 0
+  },
+  "returncode": 0,
+  "stdout": "",
+  "stderr": "",
+  "uvc_control_restored": true,
+  "frames_read": 300,
+  "measured_host_fps": 29.96247013525524
+}

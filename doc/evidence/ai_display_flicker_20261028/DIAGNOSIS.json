@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-28",
+  "status": "unresolved; diagnosis only, no fix deployed",
+  "reported_by_user": "Object recognition and inspection alternate rapidly between actual picture and text status, multiple times per second",
+  "rk_release": "inspection_src_213a5d4b18af",
+  "fpga_bitstream_sha256": "b04faaee1f77302926a5297ef05fa4f26495dd06ac105aed2b2449f6e59ecb00",
+  "observations": {
+    "camera_state": "streaming",
+    "ai_mode": "visual_inspection",
+    "inspection_view": "map",
+    "inspection_state": "edit",
+    "fx2_verified": true,
+    "fx2_generation": 1,
+    "fx2_error": null,
+    "max_runtime_tick_gap_s": 0.2961898700000347,
+    "usbmon_capture_s": 8,
+    "display_container_headers": 63,
+    "display_submit_gap_s": {
+      "minimum": 0.112814,
+      "median": 0.125861,
+      "maximum": 0.1448235
+    },
+    "display_or_serial_errors_in_sampled_audit_events": false
+  },
+  "code_path": "cam_overlay selects AI pixels only while ai_rgb_valid is asserted; otherwise the existing text UI is visible",
+  "hypothesis_to_test": "Display FIFO underflow or frame-publication handoff may deassert image-valid during repeated frames; not confirmed",
+  "limitations": [
+    "USB submissions do not prove FPGA CRC acceptance, DDR publication or uninterrupted pixel output",
+    "No FPGA display signal trace or full-resolution reproducer captured yet",
+    "No display-flicker fix included in this submission"
+  ],
+  "movement_command_sent": false
+}

@@ -21,6 +21,7 @@
 //   - 不要用显示流控制底盘，也不要把诊断状态替代 cmd_valid / emergency_stop。
 // ============================================================================
 module auto_navigation #(
+    parameter integer AI_LAYER_ENABLE = 0,
     parameter integer PLAN_INFLATE_CELLS  = 4
 ) (
     // 50 MHz 公共时钟；所有控制/位姿多位输入需已同步到此域。
@@ -28,9 +29,21 @@ module auto_navigation #(
     // 异步低有效复位；同时清任务、路线、整圈状态并重新初始化地图。
     input  wire               reset_n,
 
+    // Optional AI visual map transaction. Disabled builds retain the original
+    // map path; production enables it and supplies stopped/epoch explicitly.
+    input wire ai_enable,ai_begin,ai_abort,ai_commit,ai_word_valid,ai_stopped,
+    input wire [31:0] ai_epoch,ai_begin_epoch,ai_expected_crc,ai_word,
+    input wire [15:0] ai_begin_version,
+    input wire [12:0] ai_word_index,
+    output wire ai_word_ready,ai_layer_valid,ai_committed,ai_error,ai_layer_busy,
+    output wire [15:0] ai_layer_version,
+    output wire [3:0] ai_error_code,
+
     // 运行时前探配置；每次扫描开始锁存。距离从定位中心点起算。
     input  wire         [7:0] forward_check_cells,
     input  wire        [15:0] vehicle_width_mm,
+    // 包含起点的规划窗口格数，2..64，默认 5；下一轮规划生效。
+    input  wire         [7:0] w_max,
 
     // 允许启动新规划轮次；撤销不取消在途计算，不清活动路线。
     input  wire               plan_enable,
@@ -174,6 +187,7 @@ module auto_navigation #(
     assign grid_ready = obs_ready;
     wire signed [31:0] observation_origin_x_mm, observation_origin_y_mm;
     wire signed [31:0] observation_ray_dx_q16, observation_ray_dy_q16;
+    wire [13:0] observation_range_mm;
 
     nav_polar u_polar (
         .clk             (clk),
@@ -197,6 +211,7 @@ module auto_navigation #(
         .out_origin_y_mm (observation_origin_y_mm),
         .out_ray_dx_q16  (observation_ray_dx_q16),
         .out_ray_dy_q16  (observation_ray_dy_q16),
+        .out_range_mm    (observation_range_mm),
         .out_rejected    (sample_rejected)
     );
 
@@ -220,11 +235,33 @@ module auto_navigation #(
         .CELL_MM            (50),
         .HALF_MM            (6400),
         .MAX_WP             (1024),
-        .PLAN_INFLATE_CELLS (PLAN_INFLATE_CELLS)
+        .PLAN_INFLATE_CELLS (PLAN_INFLATE_CELLS),
+        .AI_LAYER_ENABLE (AI_LAYER_ENABLE)
     ) u_nav (
         .clk               (clk),
         .reset_n           (reset_n),
+
+        .ai_enable(ai_enable),
+        .ai_begin(ai_begin),
+        .ai_abort(ai_abort),
+        .ai_commit(ai_commit),
+        .ai_word_valid(ai_word_valid),
+        .ai_stopped(ai_stopped),
+        .ai_epoch(ai_epoch),
+        .ai_begin_epoch(ai_begin_epoch),
+        .ai_expected_crc(ai_expected_crc),
+        .ai_word(ai_word),
+        .ai_begin_version(ai_begin_version),
+        .ai_word_index(ai_word_index),
+        .ai_word_ready(ai_word_ready),
+        .ai_layer_valid(ai_layer_valid),
+        .ai_committed(ai_committed),
+        .ai_error(ai_error),
+        .ai_layer_version(ai_layer_version),
+        .ai_error_code(ai_error_code),
+        .ai_layer_busy(ai_layer_busy),
         .forward_check_cells (forward_check_cells),
+        .w_max               (w_max),
         .vehicle_width_mm    (vehicle_width_mm),
         .pose_valid        (navigation_pose_valid),
         .pose_x_mm         (pose_x_mm),
@@ -248,6 +285,7 @@ module auto_navigation #(
         .obs_origin_y_mm   (observation_origin_y_mm),
         .obs_ray_dx_q16    (observation_ray_dx_q16),
         .obs_ray_dy_q16    (observation_ray_dy_q16),
+        .obs_range_mm      (observation_range_mm),
         .scan_valid        (scan_valid),
         .stream_error      (stream_error),
         .cmd_valid         (cmd_valid),

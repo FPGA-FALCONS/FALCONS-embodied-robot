@@ -16,11 +16,11 @@ module nav_command_tb;
         .sensors_valid(1'b1), .route_valid(1'b1),
         .segment_valid(1'b1), .segment_last(1'b0), .segment_final(1'b0),
         .segment_dir(segment_dir), .segment_x_mm(segment_x_mm),
-        .segment_y_mm(segment_y_mm), .segment_index(16'd0),
+        .segment_y_mm(segment_y_mm),
         .forward_clear(1'b1), .ctrl_linear_active(1'b1), .ctrl_done(ctrl_done),
         .cmd_valid(cmd_valid), .target_x_mm(target_x_mm), .target_y_mm(target_y_mm),
         .target_line_dir(target_line_dir), .emergency_stop(emergency_stop),
-        .advance(), .advance_index(), .arrived(), .at_target(), .stopped()
+        .advance(), .arrived(), .at_target(), .stopped()
     );
 
     task check;

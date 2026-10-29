@@ -1,0 +1,15 @@
+{
+  "source_file": "build/falcons.fs",
+  "sha256": "21836856649a9124cdbcb3af1e8014284b766ccbbb924cacc1a34b7e7bba1396",
+  "source_revision": "未验证该用户指定位流与源码提交的对应关系",
+  "flash_id": "0xC22018",
+  "flash_operation": 54,
+  "flash_program_verify": "success",
+  "flash_seconds": 163.23,
+  "flash_end_address": "0x0506A00",
+  "sram_reload": "success",
+  "sram_seconds": 10.82,
+  "sram_status": "0x00026230",
+  "cold_boot": "待现场确认",
+  "motion_commands_sent": false
+}

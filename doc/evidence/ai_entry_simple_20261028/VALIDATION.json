@@ -1,0 +1,100 @@
+{
+  "date": "2026-10-28",
+  "scope": "Simplify AI master and inspection entry/exit; remove host timing/sequence/rearm latches",
+  "bundle": {
+    "tag": "22c99544a7c0",
+    "sha256": "3bb72534197aa2a32e70c22e7bc3cf3911b9204c73af95b27329d728606527e4",
+    "source_files": 245
+  },
+  "fpga": {
+    "fs_sha256": "4375f1cfd5ac69967bf783b7a6a83505d56e8b95009cc24c9c6ebbb25a1d5535",
+    "source_constraint_header_files": 135,
+    "frequency": {
+      "i_clk_50m": {
+        "required_mhz": 50.0,
+        "actual_mhz": 50.562
+      },
+      "camera_pclk": {
+        "required_mhz": 52.499,
+        "actual_mhz": 118.368
+      },
+      "clk_fx2": {
+        "required_mhz": 30.03,
+        "actual_mhz": 36.908
+      },
+      "clk_pixel": {
+        "required_mhz": 49.0,
+        "actual_mhz": 54.726
+      },
+      "clk_cam200": {
+        "required_mhz": 200.0,
+        "actual_mhz": 2240.145
+      },
+      "clk_cam50": {
+        "required_mhz": 50.0,
+        "actual_mhz": 99.55
+      },
+      "clk_ddrf": {
+        "required_mhz": 50.0,
+        "actual_mhz": 66.081
+      }
+    },
+    "same_clock_zero_tns_rows": 16,
+    "global_setup_violated_endpoints": 58,
+    "global_hold_violated_endpoints": 18,
+    "logic": 53933,
+    "registers": 26775,
+    "load": "SRAM only",
+    "status": "0x00026230",
+    "seconds": 7.84,
+    "all_paths_closed": false
+  },
+  "tests": {
+    "windows_coordinator": {
+      "total": 354,
+      "skipped": 11,
+      "passed": true
+    },
+    "rk_coordinator": 354,
+    "rk_fx2_tools": 36,
+    "rk_semantic": 12,
+    "fpga_affected_benches": [
+      "inspection_application",
+      "inspection_ui",
+      "inspection_dispatch",
+      "inspection_uart"
+    ],
+    "passed": true
+  },
+  "behavior": [
+    "FPGA master state is authoritative; no host off/on rearm requirement",
+    "Each explicit entry clears old exit request and establishes fresh button counters",
+    "Exit waits only for stopped or released ownership; no command-id gate",
+    "FPGA accepts close for current input context; old page request cannot close a new page",
+    "Required camera/map/calibration/layer/highspeed inputs checked once at start/resume with named missing items"
+  ],
+  "physical": {
+    "active_release_verified": true,
+    "models_ready": true,
+    "fx2_diagnostic_verified": true,
+    "reset_handshake_verified": true,
+    "post_load_exit_requested": false,
+    "post_load_task_state": "edit",
+    "physical_menu_test_confirmed": true,
+    "onsite_feedback_date": "2026-10-28",
+    "onsite_feedback_source": "user confirmed all requested menu checks normal",
+    "onsite_confirmed_items": [
+      "enter inspection",
+      "open waypoint menu",
+      "add waypoint",
+      "return to AI feature overview",
+      "reenter and open menu without stale exit or master rearm prompt"
+    ],
+    "motion_command_sent": false,
+    "manual_priority_unchanged": true
+  },
+  "limitations": [
+    "This onsite check covers menus only; moving patrol was not started",
+    "Existing DDR/HDMI cross-domain setup58/hold18 endpoints remain; same-clock TNS is zero"
+  ]
+}

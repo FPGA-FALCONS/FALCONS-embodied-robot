@@ -1,7 +1,7 @@
 // 八方向规划流水：2/3 Dijkstra → 共线段终点 → 三段窗口居中 → 有限间距航点。
 // 中继放在居中之后，避免把长段提前截断而失去两端的转角上下文。
 module nav_planner #(
-    parameter integer GRID_W = 16, GRID_H = 16, QMAX = 2048, W_MAX = 39,
+    parameter integer GRID_W = 16, GRID_H = 16, QMAX = 2048,
                       BFS_RELAX = 4, CENTER_EN = 1, L_MIN = 4, PROBE_D = 20, PROBE_STEP = 4,
                       CLEAR_TRIGGER = 8, PATH_INC_MAX = 20
 ) (
@@ -15,6 +15,8 @@ module nav_planner #(
     input  wire        mrd_ready,
     output wire [15:0] mrd_x, mrd_y,
     input  wire        mrd_rsp_valid, mrd_cost, mrd_raw,
+    // 包含起点的窗口格数，合法值 2..64；每轮请求锁存，UI 默认 5。
+    input  wire [7:0]  w_max,
     input  wire [15:0] wp_limit,
     output wire        wp_valid,
     input  wire        wp_ready,
@@ -25,7 +27,8 @@ module nav_planner #(
     output wire [15:0] path_len
 );
     localparam [2:0] IDLE = 0, WAIT_POINT = 1, MEASURE = 2, MAKE_POINT = 3, OUTPUT = 4, DRAIN = 5;
-    localparam integer GAP = W_MAX-1;
+    reg [5:0] gap;
+    reg signed [6:0] negative_gap;
     reg [2:0] state, run_dir;
     reg first_cell, corner_pending, corner_last, collecting_done, read_owner;
     reg [15:0] corner_x, corner_y;
@@ -83,11 +86,13 @@ module nav_planner #(
         end
     endfunction
     function [15:0] increment;
+        input [5:0] span;
+        input signed [6:0] negative_span;
         input signed [1:0] direction;
         begin
             case(direction)
-                1:increment = GAP;
-                -1:increment = -GAP;
+                1:increment = {10'd0, span};
+                -1:increment = {{9{negative_span[6]}}, negative_span};
                 default:increment = 0;
             endcase
         end
@@ -139,6 +144,8 @@ module nav_planner #(
             remaining <= 0;
             count <= 0;
             limit <= 0;
+            gap <= 4;
+            negative_gap <= 0;
             step_x <= 0;
             step_y <= 0;
             point_last <= 0;
@@ -154,6 +161,7 @@ module nav_planner #(
                 cursor_y <= start_y;
                 count <= 0;
                 limit <= wp_limit;
+                gap <= w_max - 8'd1;
                 success <= 0;
                 no_path <= 0;
                 state <= WAIT_POINT;
@@ -168,16 +176,18 @@ module nav_planner #(
                 state <= IDLE;
             end
             MEASURE:begin
+                // 运行时负步距提前登记，下一拍只做方向选择与坐标相加。
+                negative_gap <= -$signed({1'b0, gap});
                 step_x <= end_x == cursor_x ? 0 : end_x>cursor_x ? 2'sd1 : -2'sd1;
                 step_y <= end_y == cursor_y ? 0 : end_y>cursor_y ? 2'sd1 : -2'sd1;
                 remaining <= distance(cursor_x, cursor_y, end_x, end_y);
                 state <= MAKE_POINT;
             end
             MAKE_POINT:begin
-                chunk_last <= (remaining <= GAP);
-                wp_x <= remaining>GAP ? cursor_x+increment(step_x) : end_x;
-                wp_y <= remaining>GAP ? cursor_y+increment(step_y) : end_y;
-                wp_last <= (point_last && remaining <= GAP) || count+16'd1 >= limit;
+                chunk_last <= (remaining <= gap);
+                wp_x <= remaining>gap ? cursor_x+increment(gap, negative_gap, step_x) : end_x;
+                wp_y <= remaining>gap ? cursor_y+increment(gap, negative_gap, step_y) : end_y;
+                wp_last <= (point_last && remaining <= gap) || count+16'd1 >= limit;
                 state <= OUTPUT;
             end
             OUTPUT:if(wp_ready) begin
@@ -187,7 +197,7 @@ module nav_planner #(
                 if(wp_last) state <= DRAIN;
                 else if(chunk_last) state <= WAIT_POINT;
                 else begin
-                    remaining <= remaining-GAP;
+                    remaining <= remaining-gap;
                     state <= MAKE_POINT;
                 end
             end

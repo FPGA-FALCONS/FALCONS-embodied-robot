@@ -90,6 +90,32 @@ class AnnouncementTests(unittest.IsolatedAsyncioTestCase):
         self.speech.queue[0]['queued_at_s']-=11;self.speech.end_capture();await self.drain()
         self.assertFalse(self.played)
 
+    async def test_prepared_ai_clip_plays_with_legacy_log_policy_and_is_cancelable(self):
+        speech=Announcements({'mode':'log'},self.log.append)
+        speech.prepared_player=self.speech.player
+        ev={**event('inspection_found'),'simulated':False}
+        try:
+            speech.emit_clip(ev,self.speech.clips['completed'],'发现胶带')
+            await asyncio.wait_for(self.started.wait(),1)
+            self.assertTrue(speech.microphone_blocked)
+            with self.assertRaises(RuntimeError):speech.begin_capture()
+            speech.cancel_task('other','unrelated');self.assertFalse(self.cancelled)
+            speech.cancel_task(ev['task_id'],'manual');await speech.pump
+            self.assertEqual(len(self.cancelled),1)
+            speech.emit_clip(ev,self.speech.clips['completed'],'发现胶带')
+            self.assertFalse(speech.queue) # no replay of interrupted object
+        finally:await speech.close()
+
+    async def test_prepared_ai_clip_waits_for_capture_and_expires_from_discovery_time(self):
+        speech=Announcements({'mode':'log'},self.log.append);speech.prepared_player=self.speech.player
+        ev={**event('inspection_found'),'simulated':False}
+        try:
+            speech.begin_capture();speech.emit_clip(ev,self.speech.clips['completed'],'发现胶带')
+            await asyncio.sleep(0);self.assertFalse(self.played)
+            speech.queue[0]['discovered_at_s']=__import__('time').monotonic()-11
+            speech.end_capture();await speech.pump;self.assertFalse(self.played)
+        finally:await speech.close()
+
     async def test_actual_private_playback_process_is_reaped_on_cancel(self):
         real_exec=asyncio.create_subprocess_exec;created=asyncio.Event();children=[];argv=[]
         async def fake_aplay(*args,**kwargs):

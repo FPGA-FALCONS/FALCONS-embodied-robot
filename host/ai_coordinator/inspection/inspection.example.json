@@ -1,0 +1,102 @@
+{
+  "enabled": false,
+  "recording": {
+    "ffmpeg": "ffmpeg",
+    "segment_seconds": 60,
+    "max_task_bytes": 4294967296,
+    "max_archive_bytes": 17179869184,
+    "min_free_bytes": 2147483648,
+    "max_duration_s": 7200,
+    "source_timeout_s": 5,
+    "playback_port": 18766
+  },
+  "highspeed": {
+    "enabled": true,
+    "selector": {
+      "vid": 1204,
+      "pid": 241
+    },
+    "interface": 0,
+    "out_endpoint": 2,
+    "in_endpoint": 134,
+    "display_fps": 10,
+    "firmware": "acg720_volatile_30mhz"
+  },
+  "camera": {
+    "backend": "v4l2_native",
+    "selector": {
+      "vid": 3034,
+      "pid": 22614,
+      "serial": "200901010001"
+    },
+    "expected_size": [
+      1280,
+      720
+    ],
+    "fourcc": "MJPG",
+    "fps": 30,
+    "warmup_frames": 5,
+    "storage": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/camera_frames",
+    "native_helper": null,
+    "fixed_frame_rate": true,
+    "focus": 260,
+    "autofocus": false
+  },
+  "lens_description": {
+    "focal_length_mm": 6,
+    "approximate_fov_deg": 60,
+    "low_distortion": true
+  },
+  "calibration": {
+    "camera_serial": "200901010001",
+    "image_size": [
+      1280,
+      720
+    ],
+    "intrinsics_measured": false,
+    "extrinsics_measured": false,
+    "ground_plane_verified": false,
+    "timing_verified": false,
+    "K": null,
+    "distortion": null,
+    "T_base_camera": null,
+    "max_range_m": null,
+    "xy_error_m": null
+  },
+  "vehicle_swept_radius_m": null,
+  "return_policy": "latest_map",
+  "cruise_speed_mm_s": 300,
+  "dedup_distance_m": 0.30,
+  "speed_mapping_verified": false,
+  "ground_anchor_policies": {},
+  "object_footprints_m": {},
+  "note": "Device identity survives USB socket changes. Lens catalogue values do not replace measured calibration.",
+  "vehicle_braking_verified": false,
+  "classes": [
+    "tape",
+    "screwdriver",
+    "ad_calcium_milk",
+    "nutri_express"
+  ],
+  "capture_timing": {
+    "measured": false,
+    "camera_serial": "200901010001",
+    "image_size": [
+      1280,
+      720
+    ],
+    "mode": {
+      "width": 1280,
+      "height": 720,
+      "fps": 30,
+      "fourcc": "MJPG"
+    },
+    "timestamp_source": "start_of_exposure",
+    "driver_to_exposure_s": null,
+    "error_bound_s": null
+  },
+  "discovery_speech": {
+    "enabled": true,
+    "names": {}
+  }
+}

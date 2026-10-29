@@ -2,12 +2,12 @@
 module ai_display_link_tb;
     reg clk=0,pclk=0,rst=0,valid=0;reg [7:0] data=0;
     always #10 clk=~clk;always #11 pclk=~pclk;
-    wire glyph,connected,host_alive,bank;wire [7:0] ack;
+    wire glyph,connected,host_alive,bank,reset_pending;wire [7:0] ack;
     integer checks=0,errors=0;
     ai_display_link #(.CLK_HZ(1000)) dut(.clk(clk),.rst_n(rst),.rx_data(data),.rx_valid(valid),
         .pixel_clk(pclk),.pixel_rst_n(rst),.pixel_x(12'd0),.pixel_y(12'd0),
-        .selected(2'd0),.o_glyph(glyph),.o_connected(connected),.o_local_region(),
-        .o_host_alive(host_alive),.o_display_ack(ack),.o_display_bank(bank));
+        .selected(2'd0),.i_inspection(1'b0),.o_glyph(glyph),.o_connected(connected),.o_local_region(),
+        .o_host_alive(host_alive),.o_display_ack(ack),.o_display_bank(bank),.o_reset_pending(reset_pending));
     function [15:0] crc_byte;
         input [15:0] old;input [7:0] value;integer n;reg [15:0] c;
         begin c=old^{value,8'd0};for(n=0;n<8;n=n+1)c=c[15]?(c<<1)^16'h1021:c<<1;crc_byte=c;end
@@ -31,6 +31,10 @@ module ai_display_link_tb;
     endtask
     initial begin
         #100;rst=1;#100;check(!connected,"reset disconnected");
+        check(reset_pending,"reset request persists before host initialization");
+        packet(0,8'h43,0,0,0,0);check(reset_pending,"ordinary heartbeat cannot acknowledge reset");
+        packet(0,8'h43,1,0,0,1);check(reset_pending,"bad CRC cannot acknowledge reset");
+        packet(0,8'h43,1,0,0,0);check(!reset_pending,"explicit host acknowledgement completes reset handshake");
         packet(1,8'h40,2,0,0,0);font(1,33);font(1,34);packet(1,8'h41,33,0,0,0);packet(1,8'h41,34,1,0,0);
         check(dut.read_count==0,"uncommitted text invisible");
         packet(1,8'h42,2,0,0,0);#300;
@@ -54,6 +58,8 @@ module ai_display_link_tb;
         check(ack==6,"missing font row cannot expose partial glyph");
         #17000;check(!host_alive,"FPGA detects host loss before content display lease");
         #70000;check(!connected,"missing host blanks stale display");
+        rst=0;#100;rst=1;#100;
+        check(reset_pending && ack==0 && bank==0,"quick FPGA reset reasserts request and resets display receipts");
         $display("CHECKS: %0d",checks);$display("%0d FAIL",errors);$display("PASS: ai_display_link");$finish;
     end
 endmodule

@@ -10,7 +10,7 @@
 //   - load_valid && load_ready 写一个格坐标和方向；load_last 标记本轮候选完整。
 //   - publish 单拍且候选完整才翻 bank；route_id 16 位回绕，复位清零。
 //   - target_index/candidate_index 为同步读；显示航点和首尾标志同步输出。
-//   - target_x/y 保留当前段；drive_x/y/index 为最远控制目标，final_target 属于这个输出目标。
+//   - target_x/y 保留当前段；drive_valid 后 drive_x/y/index 为最远同向控制目标，final_target 属于它。
 // 关键不变量：
 //   - 活动路线在候选失败时保持；只有 publish 更新 active_length/route_id。
 //   - X 字高三位存方向，低 16 位是格号；锁定段保留，仅输出时跨同向边界取最远点。
@@ -41,9 +41,10 @@ module nav_route #(
                               target_y,
     output reg          [2:0] target_dir,
     output wire               final_target,
-    output wire        [15:0] drive_x,
+    output reg         [15:0] drive_x,
                               drive_y,
                               drive_index,
+    output wire               drive_valid,
     output wire               candidate_complete,
     output wire        [15:0] candidate_length,
     input  wire        [15:0] candidate_index,
@@ -62,43 +63,25 @@ module nav_route #(
     // X 字扩为 19 位，保存三位方向，共用已有同步读口。
     reg [18:0] wp_x[0:1][0:MAX_WP-1];
     reg [15:0] wp_y[0:1][0:MAX_WP-1];
+    localparam integer INDEX_BITS = MAX_WP > 1 ? $clog2(MAX_WP) : 1;
     reg bank, done;
-    reg [15:0] count, first_x, first_y;
-    reg [1:0] publish_hold;
-    reg [2:0] first_dir;
-    // 后续路线已经合并同向点，只有锁定首段与其后第一段可能同向。
-    reg [15:0] first_drive_x, first_drive_y, active_drive_x, active_drive_y;
-    reg first_joined, active_joined;
-    wire [15:0] read_index = target_index < active_length ? target_index : active_length - 1'b1;
-    assign drive_x = target_index == 0 && active_joined ? active_drive_x : target_x;
-    assign drive_y = target_index == 0 && active_joined ? active_drive_y : target_y;
-    assign drive_index = target_index == 0 && active_joined ? 16'd1 : read_index;
-    assign final_target = active_valid && drive_index + 16'd1 >= active_length;
+    reg [INDEX_BITS-1:0] last_index;
+    reg [15:0] count;
+    wire switch_bank = publish && done && !load_abort && !load_begin;
     assign load_full          = count >= MAX_WP;
     assign load_ready         = reset_n && !done && !load_full && !load_begin && !load_abort;
     assign candidate_complete = done;
     assign candidate_length   = count;
+
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             bank          <= 0;
             done          <= 0;
             count         <= 0;
-            first_x       <= 0;
-            first_y       <= 0;
-            publish_hold  <= 0;
             active_valid  <= 0;
             active_length <= 0;
             route_id      <= 0;
-            target_x      <= 0;
-            target_y      <= 0;
-            target_dir    <= 0;
-            first_dir     <= 0;
-            first_drive_x <= 0;
-            first_drive_y <= 0;
-            active_drive_x <= 0;
-            active_drive_y <= 0;
-            first_joined  <= 0;
-            active_joined <= 0;
+            last_index    <= 0;
         end else begin
             if (load_begin || load_abort) begin
                 count <= 0;
@@ -106,40 +89,87 @@ module nav_route #(
             end else if (load_valid && load_ready) begin
                 wp_x[!bank][count] <= {load_dir, load_x};
                 wp_y[!bank][count] <= load_y;
-                if (count == 0) begin
-                    first_x   <= load_x;
-                    first_y   <= load_y;
-                    first_dir <= load_dir;
-                    first_drive_x <= load_x;
-                    first_drive_y <= load_y;
-                    first_joined <= 0;
-                end else if (count == 1 && load_dir == first_dir) begin
-                    first_drive_x <= load_x;
-                    first_drive_y <= load_y;
-                    first_joined <= 1;
-                end
                 count <= count + 1'b1;
                 if (load_last) done <= 1;
             end
-            if (publish && done && !load_abort && !load_begin) begin
-                active_drive_x <= first_drive_x;
-                active_drive_y <= first_drive_y;
-                active_joined  <= first_joined;
+            if (switch_bank) begin
                 bank          <= !bank;
                 active_length <= count;
+                last_index    <= count[INDEX_BITS-1:0] - 1'b1;
                 active_valid  <= 1;
                 route_id      <= route_id + 1'b1;
-                target_x      <= first_x;
-                target_y      <= first_y;
-                target_dir    <= first_dir;
                 count         <= 0;
                 done          <= 0;
-                publish_hold  <= 2;
-            end else if (publish_hold != 0) publish_hold <= publish_hold - 1'b1;
-            else if (active_valid) begin
-                {target_dir, target_x} <= wp_x[bank][read_index];
-                target_y               <= wp_y[bank][read_index];
             end
+        end
+    end
+
+    // 每点两拍：读 RAM 同拍登记是否末点，下一拍只比较方向和已登记标志。
+    // 索引仅保留实际 RAM 地址位，递增不再串接长度比较。
+    localparam [1:0] READ = 0, CHECK = 1, READY = 2, SETTLE = 3;
+    reg [1:0] state;
+    reg first_read, read_last, drive_last;
+    reg [15:0] scan_target;
+    reg [INDEX_BITS-1:0] scan_index;
+    reg [18:0] read_x;
+    reg [15:0] read_y;
+    wire [15:0] read_index = target_index < active_length ? target_index : active_length - 1'b1;
+    // 发布沿之前仍属于旧 bank；顶层在 R_PUB 屏蔽描述符，不将 publish_ok 接回此链。
+    assign drive_valid = reset_n && active_valid &&
+                         state == READY && scan_target == target_index;
+    assign final_target = drive_valid && drive_last;
+
+    always @(posedge clk) begin
+        if (state == READ && active_valid) begin
+            read_x <= wp_x[bank][scan_index];
+            read_y <= wp_y[bank][scan_index];
+            read_last <= scan_index == last_index;
+        end
+    end
+
+    always @(posedge clk or negedge reset_n) begin
+        if (!reset_n) begin
+            state       <= READ;
+            first_read  <= 1;
+            scan_target <= 0;
+            scan_index  <= 0;
+            target_x    <= 0;
+            target_y    <= 0;
+            target_dir  <= 0;
+            drive_x     <= 0;
+            drive_y     <= 0;
+            drive_index <= 0;
+            drive_last  <= 0;
+        end else if (switch_bank || (active_valid && scan_target != target_index)) begin
+            state       <= READ;
+            first_read  <= 1;
+            scan_target <= switch_bank ? 16'd0 : target_index;
+            scan_index  <= switch_bank ? {INDEX_BITS{1'b0}} : read_index[INDEX_BITS-1:0];
+        end else if (active_valid) begin
+            case (state)
+                READ: state <= CHECK;
+                CHECK: begin
+                    if (first_read) begin
+                        target_x   <= read_x[15:0];
+                        target_y   <= read_y;
+                        target_dir <= read_x[18:16];
+                    end
+                    if (first_read || read_x[18:16] == target_dir) begin
+                        drive_x     <= read_x[15:0];
+                        drive_y     <= read_y;
+                        drive_index <= scan_index;
+                        drive_last  <= read_last;
+                        if (!read_last) begin
+                            scan_index <= scan_index + 1'b1;
+                            first_read <= 0;
+                            state      <= READ;
+                        end else state <= SETTLE;
+                    end else state <= SETTLE;
+                end
+                SETTLE: state <= READY;
+                READY: ;
+                default: state <= READ;
+            endcase
         end
     end
     always @(posedge clk) begin

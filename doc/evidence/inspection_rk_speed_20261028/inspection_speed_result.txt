@@ -1,0 +1,39 @@
+# 测试：inspection_speed  top=inspection_speed_tb  模拟器=ModelSim  退出码=0
+# 下面是完整输出（屏幕只回显了检查行与结论）
+Reading D:/Apps/modeltech64_10.6d/tcl/vsim/pref.tcl
+
+# 10.6d
+
+# vsim -c -do "run -all; quit -f" work_sim.inspection_speed_tb
+# Start time: 17:12:02 on Oct 28,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# //  ModelSim SE-64 10.6d Feb 24 2018
+# //
+# //  Copyright 1991-2018 Mentor Graphics Corporation
+# //  All Rights Reserved.
+# //
+# //  ModelSim SE-64 and its associated documentation contain trade
+# //  secrets and commercial or financial information that are the property of
+# //  Mentor Graphics Corporation and are privileged, confidential,
+# //  and exempt from disclosure under the Freedom of Information Act,
+# //  5 U.S.C. Section 552. Furthermore, this information
+# //  is prohibited from disclosure under the Trade Secrets Act,
+# //  18 U.S.C. Section 1905.
+# //
+# Loading work.inspection_speed_tb(fast)
+# run -all
+# pass base navigation retains FPGA cruise and gain without RK ownership
+# pass 300mm/s and its deceleration gain arrive without 8-bit truncation
+# RK_CRUISE_OUTPUT center=892 diff=-1 cruise=300 gain=3072
+# pass real point controller executes 300mm/s without old 120-count clamp
+# pass FPGA cruise knob does not replace RK inspection cruise
+# pass RK speed update also changes real controller output and slow gain
+# pass FPGA deceleration-distance tuning recalculates gain with RK speed
+# pass a newer speed restarts the iterative parameter calculation
+# pass releasing AI restores standalone base-navigation parameters
+# CHECKS: 8
+# PASS: inspection_speed 8 checks
+# ** Note: $finish    : D:/Programs/FPGA Projects/FALCONS-embodied-robot/sim/inspection_speed_tb.v(48)
+#    Time: 16 us  Iteration: 1  Instance: /inspection_speed_tb
+# End time: 17:12:03 on Oct 28,2026, Elapsed time: 0:00:01
+# Errors: 0, Warnings: 0

@@ -1,0 +1,116 @@
+{
+  "axes": "right_forward_cm",
+  "origin": "ground projection of lidar center",
+  "image_size": [
+    1280,
+    720
+  ],
+  "camera_serial": "200901010001",
+  "focus": 260,
+  "autofocus": false,
+  "captured_at": "2026-10-28T00:23:53+08:00",
+  "source_images": [
+    {
+      "file": "frame_00.jpg",
+      "source_age_s": 0.012906074523925781,
+      "sha256": "253b01c042a56a52ed6df7c61b058d662654d4a5424d35534940e0f541d3bf9b"
+    },
+    {
+      "file": "frame_01.jpg",
+      "source_age_s": 0.028975248336791992,
+      "sha256": "9ecf0441f3dbe3795837fb3371f25dc29345b041af5ccc9b4f59cda77abb263a"
+    },
+    {
+      "file": "frame_02.jpg",
+      "source_age_s": 0.01651597023010254,
+      "sha256": "964b4e4cf0188d250d8cbb390817cb7146c8af7cbb2ae397c9ec61cc2f008cff"
+    }
+  ],
+  "point_selection": "Battery bottom visible ground-contact midpoint; dark-body segmentation in manually reviewed ROIs across three raw frames. Median/visual review; one disconnected far-left dark component in frame_01 rejected. Approximate selection uncertainty 1-3 pixels; not a metrology bound.",
+  "points": [
+    {
+      "id": 1,
+      "ground_cm": [
+        0,
+        60
+      ],
+      "pixel_uv": [
+        614,
+        411
+      ],
+      "label": "[0, 60]"
+    },
+    {
+      "id": 2,
+      "ground_cm": [
+        0,
+        120
+      ],
+      "pixel_uv": [
+        610,
+        193
+      ],
+      "label": "[0, 120]"
+    },
+    {
+      "id": 3,
+      "ground_cm": [
+        0,
+        180
+      ],
+      "pixel_uv": [
+        610,
+        124
+      ],
+      "label": "[0, 180]"
+    },
+    {
+      "id": 4,
+      "ground_cm": [
+        60,
+        120
+      ],
+      "pixel_uv": [
+        1167,
+        188
+      ],
+      "label": "[60, 120]"
+    },
+    {
+      "id": 5,
+      "ground_cm": [
+        60,
+        180
+      ],
+      "pixel_uv": [
+        980,
+        119
+      ],
+      "label": "[60, 180]"
+    },
+    {
+      "id": 6,
+      "ground_cm": [
+        -60,
+        120
+      ],
+      "pixel_uv": [
+        55.5,
+        192
+      ],
+      "label": "[-60, 120]"
+    },
+    {
+      "id": 7,
+      "ground_cm": [
+        -60,
+        180
+      ],
+      "pixel_uv": [
+        245.5,
+        124
+      ],
+      "label": "[-60, 180]"
+    }
+  ]
+}

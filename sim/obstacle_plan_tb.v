@@ -38,11 +38,12 @@ module obstacle_plan_tb;
     endtask
     wire [15:0] route_length;
     nav_top core(
+        .w_max(8'd5),
         .forward_check_cells(8'd4), .vehicle_width_mm(16'd180),.clk(clk),.reset_n(rst_n),.pose_valid(1'b1),.pose_x_mm(32'sd1000),.pose_y_mm(32'sd0),
         .goal_valid(goal),.goal_x({8'd0,gx}),.goal_y({8'd0,gy}),.plan_enable(goal),.motion_enable(1'b0),
         .display_enable(1'b0),.map_enable(1'b1),.ctrl_done(1'b0),.ctrl_linear_active(1'b0),
         .obs_scan_start(1'b0),.obs_valid(1'b0),.obs_grid_x(16'sd0),.obs_grid_y(16'sd0),.obs_grid_valid(1'b0),
-        .obs_origin_x_mm(32'sd0),.obs_origin_y_mm(32'sd0),.obs_ray_dx_q16(32'sd0),.obs_ray_dy_q16(32'sd0),
+        .obs_origin_x_mm(32'sd0),.obs_origin_y_mm(32'sd0),.obs_ray_dx_q16(32'sd0),.obs_ray_dy_q16(32'sd0),.obs_range_mm(14'd10000),
         .scan_valid(1'b1),.stream_error(1'b0),.nav_state(feedback),.st_route_length(route_length));
 
     initial begin

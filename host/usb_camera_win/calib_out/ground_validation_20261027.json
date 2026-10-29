@@ -1,0 +1,204 @@
+{
+  "source_sha256": "39520d91c29ef9d6bddfe19ebcb4a1df0269b548a2697c5f75ddf50d0c10e1db",
+  "source_size": [
+    1280,
+    720
+  ],
+  "calibration_timestamp": "20261027_233022",
+  "K": [
+    [
+      1015.379551025016,
+      0.0,
+      606.5698883791207
+    ],
+    [
+      0.0,
+      1016.0375199312585,
+      410.9406941121432
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "D": [
+    0.07739903219510189,
+    -0.0996528842553065,
+    0.010924225302207942,
+    -0.0005583486134736033,
+    0.0
+  ],
+  "assumption": "Near/middle/far red dot corresponds to 0.6/1.2/1.8 m from lidar ground projection, stationary same focus/mode and planar ground.",
+  "nominal_mount": {
+    "height_m": 0.206,
+    "forward_offset_m": 0.196,
+    "pitch_deg": 20
+  },
+  "rows": [
+    {
+      "measured_x_m": 0.6,
+      "pixel_uv": [
+        606.808,
+        410.208
+      ],
+      "red_component_area_px": 125,
+      "normalized": [
+        0.0002345091056343385,
+        -0.0007211467926128602
+      ],
+      "geometric_xy_m_without_horizon_gate": [
+        0.7632528222502231,
+        -0.00014152611409257051
+      ],
+      "longitudinal_error_m": 0.16325282225022308,
+      "relative_longitudinal_error_pct": 27.208803708370517,
+      "ray_down_angle_deg": 19.95868076739644,
+      "production_projection_accepted": true,
+      "production_rejection_reason": null,
+      "expected_pixel_uv_nominal_mount": [
+        606.5612990478033,
+        536.6501401390135
+      ],
+      "conditional_height_m_at_pitch20": 0.1467141224081715,
+      "conditional_pitch_deg_at_height0206": 27.058398167061487
+    },
+    {
+      "measured_x_m": 1.2,
+      "pixel_uv": [
+        606.752688172043,
+        197.2688172043011
+      ],
+      "red_component_area_px": 93,
+      "normalized": [
+        0.00020518585464503278,
+        -0.21107324430557542
+      ],
+      "geometric_xy_m_without_horizon_gate": [
+        1.6468187634147151,
+        -0.0002941913409411459
+      ],
+      "longitudinal_error_m": 0.44681876341471516,
+      "relative_longitudinal_error_pct": 37.23489695122627,
+      "ray_down_angle_deg": 8.081338350899799,
+      "production_projection_accepted": false,
+      "production_rejection_reason": "Near horizon or ray not towards ground",
+      "expected_pixel_uv_nominal_mount": [
+        606.557511028069,
+        261.29485077620564
+      ],
+      "conditional_height_m_at_pitch20": 0.1425567446572095,
+      "conditional_pitch_deg_at_height0206": 23.513645236754215
+    },
+    {
+      "measured_x_m": 1.8,
+      "pixel_uv": [
+        606.9508196721312,
+        130.7377049180328
+      ],
+      "red_component_area_px": 61,
+      "normalized": [
+        0.0004182388301662077,
+        -0.2768117651017282
+      ],
+      "geometric_xy_m_without_horizon_gate": [
+        2.7976376633278366,
+        -0.0010519525756781882
+      ],
+      "longitudinal_error_m": 0.9976376633278365,
+      "relative_longitudinal_error_pct": 55.42431462932426,
+      "ray_down_angle_deg": 4.527285085202611,
+      "production_projection_accepted": false,
+      "production_rejection_reason": "Near horizon or ray not towards ground",
+      "expected_pixel_uv_nominal_mount": [
+        606.5411814458718,
+        183.15756157028235
+      ],
+      "conditional_height_m_at_pitch20": 0.12700615641355084,
+      "conditional_pitch_deg_at_height0206": 22.791089134761744
+    }
+  ],
+  "fits": {
+    "height_only": {
+      "height_m": 0.14465896001580064,
+      "pitch_deg": 20.0,
+      "vertical_pixel_residuals": [
+        -4.573002655834216,
+        2.1668770655233516,
+        11.87676803056425
+      ],
+      "vertical_pixel_rms": 7.453529999474319,
+      "inverse_ground_x_m": [
+        0.5943407928774034,
+        1.2148055023639932,
+        2.022942712208459
+      ],
+      "inverse_longitudinal_errors_m": [
+        -0.005659207122596599,
+        0.01480550236399325,
+        0.22294271220845885
+      ]
+    },
+    "pitch_only": {
+      "height_m": 0.206,
+      "pitch_deg": 24.34316629788406,
+      "vertical_pixel_residuals": [
+        48.26480180951211,
+        -15.3463315340951,
+        -29.774778110225242
+      ],
+      "vertical_pixel_rms": 33.91920988063152,
+      "inverse_ground_x_m": [
+        0.6522002017859483,
+        1.1310347568242534,
+        1.5159416671329908
+      ],
+      "inverse_longitudinal_errors_m": [
+        0.05220020178594831,
+        -0.0689652431757466,
+        -0.2840583328670092
+      ]
+    },
+    "height_and_pitch": {
+      "height_m": 0.15353561742298527,
+      "pitch_deg": 20.802777056265782,
+      "vertical_pixel_residuals": [
+        0.8381953214210967,
+        -3.4984748753087445,
+        2.617603937551479
+      ],
+      "vertical_pixel_rms": 2.568640900288436,
+      "inverse_ground_x_m": [
+        0.6010058450394646,
+        1.1782394605366957,
+        1.8416752285984543
+      ],
+      "inverse_longitudinal_errors_m": [
+        0.001005845039464659,
+        -0.02176053946330425,
+        0.041675228598454295
+      ]
+    }
+  },
+  "two_point_fit_third_point_check": {
+    "fit_points_m": [
+      0.6,
+      1.2
+    ],
+    "check_point_m": 1.8,
+    "height_m": 0.15007705999653775,
+    "pitch_deg": 20.42023601657308,
+    "predicted_check_pixel": [
+      606.528756926022,
+      138.29161816824825
+    ],
+    "observed_check_pixel": [
+      606.9508196721312,
+      130.7377049180328
+    ],
+    "check_inverse_distance_m": 1.9296760493560248,
+    "check_error_m": 0.12967604935602473
+  },
+  "note": "Distances for rejected rays are diagnostic geometric extrapolation only, not production-accepted localization. Fitted parameters are candidates, not deployed or full extrinsics.",
+  "live_config_changed": false
+}

@@ -34,3 +34,8 @@ set_option -verilog_std v2001
 set_option -output_base_name falcons
 set_option -print_all_synthesis_warning 1
 set_option -show_all_warn 1
+# Explicit pin registers need IOB placement for the 48MHz external FX2 budget.
+# SUG1220: placement-only options, no logical latency or clock changes.
+set_option -oreg_in_iob 1
+set_option -ioreg_in_iob 1
+set_option -ireg_in_iob 1

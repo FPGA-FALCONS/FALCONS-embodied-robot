@@ -63,7 +63,7 @@ class RecordingCue:
         cfg = cfg or {}
         self.audit = audit
         self.enabled = cfg.get('enabled') is True
-        self.device = cfg.get('device')
+        self.device = cfg.get('device');self.selector=cfg.get('selector')
         self.directory = Path(cfg.get('directory') or (Path(root or '.') / 'cues'))
         self.last_error = None
         self.plays = 0
@@ -85,8 +85,10 @@ class RecordingCue:
             raise ValueError('Unknown recording cue')
         async with self.lock:
             try:
+                from .device_roles import audio_device
+                device=audio_device(self.selector,'speaker',self.device)
                 proc = await asyncio.create_subprocess_exec(
-                    'aplay', '-q', '-D', self.device, str(self.paths[name]),
+                    'aplay', '-q', '-D', device, str(self.paths[name]),
                     stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
                 try:
                     code = await asyncio.wait_for(proc.wait(), self.lengths[name] + 2)

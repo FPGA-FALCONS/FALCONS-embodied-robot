@@ -3,7 +3,8 @@
 module nav_planner_limit_tb;
     reg clk=0,reset_n=0,request=0,response=0;
     always #10 clk=~clk;
-    reg [15:0] gx=14,gy=14;
+    reg [15:0] sx=1,gx=14,gy=14;
+    reg [7:0] window=5;
     wire ready,rd,valid,last,busy,success,no_path;
     wire [15:0] rx,ry,x,y,length;
     integer cycles=0,checks=0,errors=0,n,count,px,py,wait_count;
@@ -14,15 +15,18 @@ module nav_planner_limit_tb;
         response<=rd;
         if(valid && take) begin
             count=count+1;
-            if(n==0 && (x!=1+count*3 || y!=1+count*3)) shape_ok=0;
-            if(n==1 && (x!=1 || y!=1+count*3)) shape_ok=0;
+            if(n==0 && (x!=1+count*(n==1 ? 1 : 4) || y!=1+count*(n==1 ? 1 : 4))) shape_ok=0;
+            if(n==1 && (x!=1 || y!=1+count*(n==1 ? 1 : 4))) shape_ok=0;
             if(n==2 && (x!=1 || y!=1)) shape_ok=0;
+            if(n==3 && (x!=(count==1 ? 57 : 1) || y!=1)) shape_ok=0;
+            if(n==4 && (x!=1+count*63 || y!=1)) shape_ok=0;
             if(last!=(n==2 || count==2)) shape_ok=0;
         end
     end
-    nav_planner #(.GRID_W(16),.GRID_H(16),.W_MAX(4)) dut (
+    nav_planner #(.GRID_W(128),.GRID_H(16)) dut (
         .clk(clk),.reset_n(reset_n),.req_valid(request),.req_ready(ready),
-        .allow_start_escape(1'b0),.start_x(16'd1),.start_y(16'd1),.goal_x(gx),.goal_y(gy),
+        .w_max(window),
+        .allow_start_escape(1'b0),.start_x(sx),.start_y(16'd1),.goal_x(gx),.goal_y(gy),
         .mrd_valid(rd),.mrd_ready(1'b1),.mrd_x(rx),.mrd_y(ry),
         .mrd_rsp_valid(response),.mrd_raw(1'b0),.mrd_cost(1'b0),
         .wp_limit(16'd2),.wp_valid(valid),.wp_ready(take),.wp_x(x),.wp_y(y),.wp_last(last),
@@ -39,12 +43,18 @@ module nav_planner_limit_tb;
     endtask
     initial begin
         repeat(3) @(negedge clk); reset_n=1;
-        for(n=0;n<3;n=n+1) begin
+        for(n=0;n<5;n=n+1) begin
             count=0; shape_ok=1;
-            @(negedge clk); gx=n==0 ? 14 : 1; gy=n==2 ? 1 : 14; request=1;
+            @(negedge clk);
+            sx=n==3 ? 120 : 1;
+            gx=n==0 ? 14 : n==4 ? 127 : 1;
+            gy=n==2 || n>=3 ? 1 : 14;
+            window=n>=3 ? 64 : n==1 ? 2 : 5;
+            request=1;
             @(negedge clk); request=0;
+            window=n>=3 ? 2 : 64;
             wait_count=0;
-            while(busy && wait_count<100000) begin @(negedge clk); wait_count=wait_count+1; end
+            while(busy && wait_count<1000000) begin @(negedge clk); wait_count=wait_count+1; end
             check(!busy && success && !no_path && ready,"capacity prefix drains pipeline and accepts next request");
             check(shape_ok && count==(n==2 ? 1 : 2),"relay spacing and truncated last flag are correct");
         end
@@ -53,5 +63,5 @@ module nav_planner_limit_tb;
         if(!errors) $display("PASS: nav_planner_limit_tb");
         $finish;
     end
-    initial begin #10000000; $display("FAIL: prefix timeout"); $finish; end
+    initial begin #100000000; $display("FAIL: prefix timeout"); $finish; end
 endmodule

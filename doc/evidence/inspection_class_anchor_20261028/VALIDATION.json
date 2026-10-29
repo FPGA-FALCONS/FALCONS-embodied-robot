@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-28",
+  "scope": "Class-specific ground anchors only; requested radius change cancelled before deployment",
+  "bundle": {
+    "tag": "8d240bb3ec88",
+    "sha256": "05f5ab4a0fb6b91e875fb4181086f0edd2c6c2d79f03e24a120421bf50ed4ffb",
+    "source_files": 245
+  },
+  "tests": {
+    "windows": {
+      "total": 357,
+      "passed": 346,
+      "skipped": 11
+    },
+    "rk": {
+      "ai_coordinator_tests.tests.log": 357,
+      "semantic_nav.tests.log": 12,
+      "fx2_camera_tests.tests.log": 36
+    }
+  },
+  "ground_anchors": {
+    "tape": "box_center",
+    "screwdriver": "box_center",
+    "ad_calcium_milk": "bottom_center",
+    "nutri_express": "bottom_center"
+  },
+  "inflation": {
+    "changed": false,
+    "cancelled_18cm_10cm_bundle_deployed": false,
+    "raw_radius_m": 0.05,
+    "location_margin_m": 0.03,
+    "vehicle_radius_m": 0.2,
+    "nominal_total_radius_m": 0.28,
+    "catalogue_radius_accumulation": "unchanged",
+    "grid_source_sha256": "552997e2a4d1ff370b2943d372488fb8aefde0291f6b77698a8df0f79aac9337"
+  },
+  "fpga": {
+    "changed": false,
+    "source_inputs_verified": 136,
+    "bitstream_sha256": "b04faaee1f77302926a5297ef05fa4f26495dd06ac105aed2b2449f6e59ecb00"
+  },
+  "runtime": {
+    "models_ready": true,
+    "service": "NRestarts=0\nActiveState=active\n",
+    "cruise_speed_mm_s": 300,
+    "confidence_threshold": 0.5,
+    "fx2": {
+      "verified": true,
+      "ifclk_hz": 30005806,
+      "last_diagnostic_s": 11156.616069431,
+      "error": null,
+      "generation": 1,
+      "pending_control": 0,
+      "pending_display": false
+    },
+    "movement_command_sent": false,
+    "onsite_anchor_localization_test": "pending"
+  }
+}

@@ -1,7 +1,7 @@
 """Physical AI master switch, mode selection and release-to-transcribe audio.
 
-Controls have a short lease. A mode change, manual takeover, emergency stop or
-lost link cancels old work before it can publish speech or authorize motion.
+The FPGA master/mode switches define availability. Manual takeover, emergency
+stop or a real transport disconnect cancels old work; RK adds no rearm latch.
 """
 import asyncio
 from collections import deque
@@ -12,6 +12,7 @@ from .announcements import ALSAPlayer, NAMES
 from .motion_reference.mot1 import Frame
 from .processes import ModelServer, Worker
 from .switched_capture import capture
+from .device_roles import audio_device
 
 
 def wrapped(text, rows):
@@ -36,7 +37,6 @@ class AiModule:
         self.paused_manual = False
         self.vision_resume_required = False
         self.confirm_toggle = None
-        self.rearm_required = runtime.cfg.get('startup', {}).get('enabled') is True
         self.chat = False
         self.mode = 'semantic_navigation'
         self.selected = 0
@@ -67,7 +67,7 @@ class AiModule:
     def rejection(self, need_vision=False):
         if not self.enabled:
             return None
-        if not self.active or self.last_rx is None or self.clock()-self.last_rx > self.cfg.get('control_timeout_s',.5):
+        if not self.active:
             return 'ai_master_off_or_control_link_unavailable'
         if self.mode != 'semantic_navigation':
             return self.mode + '_mode_cannot_control_motion'
@@ -108,10 +108,7 @@ class AiModule:
     def on_controls(self, event, now):
         if not self.enabled:
             return
-        seq = event['sequence']
-        if self.sequence is not None and not 0 < ((seq - self.sequence) & 255) < 128:
-            return
-        self.sequence = seq
+        self.sequence = event['sequence']
         self.last_rx = now
         self.controls = event
         toggle=event.get('confirm_toggle',False)
@@ -119,25 +116,19 @@ class AiModule:
         self.confirm_toggle=toggle
         self.display_ack=event.get('display_ack',0)
         self.display_bank=event.get('display_bank',0)
-        if not event['enabled'] and event['rc_valid'] and not event['manual'] and not event['estop']:
-            self.rearm_required=False
         previous_pause=self.paused_manual
         paused=bool(event['enabled'] and event['manual'] and event['rc_valid'] and not event['estop'])
-        startup=getattr(self.rt,'startup',None)
-        usable = (event['enabled'] and event['rc_valid'] and event['swb_valid'] and
-                  not self.rearm_required and
-                  not event['manual'] and not event['estop'] and
-                  (startup is None or startup.ready) and
-                  self.rt.cfg.get('model_loads_enabled') is True)
+        usable = event['enabled'] and event['rc_valid'] and not event['manual'] and not event['estop']
+        previous_mode=self.mode
         self.mode, self.selected = event['mode'], event['selected']
         chat = event['chat']
         if paused:
             self.vision_resume_required=True
         elif usable and (confirmed or event['mode']!='object_recognition'):
             self.vision_resume_required=False
-        vision = bool(usable and not chat and event['vision'] and not self.vision_resume_required)
+        vision = bool(usable and not chat and (event['vision'] or (self.mode=='visual_inspection' and self.rt.cfg.get('inspection',{}).get('enabled') is True)) and not self.vision_resume_required)
         changed = ((usable, chat, vision, paused) != (self.active, self.chat, self.vision, self.paused_manual)
-                   or (usable and confirmed))
+                   or (usable and (confirmed or previous_mode!=self.mode)))
         self.active, self.chat, self.vision = usable, chat, vision
         self.paused_manual=paused
         if changed:
@@ -154,6 +145,10 @@ class AiModule:
             elif not chat:
                 self._task(self._release_chat(self.work))
         if not usable:
+            return
+        if self.mode == 'visual_inspection':
+            # The deterministic inspection controller owns child gestures and
+            # recording. Do not interpret them as semantic drive requests.
             return
         if not event['record']:
             self.released.set()
@@ -185,6 +180,10 @@ class AiModule:
 
     async def _change_vision(self, enabled):
         if enabled != self.vision:
+            return
+        # A running inspection recording owns an independent camera/inference
+        # lease through manual takeover and pauses. AI exits end that lease.
+        if not enabled and getattr(getattr(self.rt,'inspection',None),'video_required',False):
             return
         if self.rt.camera_task:
             self.rt.camera_task.cancel()
@@ -229,8 +228,7 @@ class AiModule:
             await self.chat_server.close()
 
     def _current(self, epoch, chat):
-        return (self.active and self.epoch == epoch and self.chat == chat and self.last_rx is not None and
-                self.clock()-self.last_rx<=self.cfg.get('control_timeout_s',.5))
+        return self.active and self.epoch == epoch and self.chat == chat
 
     async def _utterance(self, epoch, chat, released):
         path = None
@@ -254,7 +252,7 @@ class AiModule:
             private.mkdir(mode=0o700, parents=True, exist_ok=True)
             path = private / (uuid.uuid4().hex + '.wav')
             mic = self.rt.cfg.get('microphone', {})
-            metadata = await capture(mic.get('device'), path, released,
+            metadata = await capture(audio_device(self.rt.cfg.get('audio_roles',{}).get('microphone'),'microphone',mic.get('device')), path, released,
                                      maximum_s=self.cfg.get('max_recording_s', 30))
             self.rt.announcements.end_capture()
             capturing = False
@@ -306,7 +304,7 @@ class AiModule:
             if not self._current(epoch, chat):
                 return
             self.state = 'speaking'
-            player = ALSAPlayer(self.cfg.get('speaker_device'))
+            player = ALSAPlayer(self.cfg.get('speaker_device'),selector=self.rt.cfg.get('audio_roles',{}).get('speaker'))
             await player(tts['result'], {})
             self.state = 'idle'
         except asyncio.CancelledError:
@@ -329,6 +327,8 @@ class AiModule:
                                for x in detections[:8] if self.target is None or x['class'] == self.target]
 
     def lines(self):
+        if self.mode=='visual_inspection' and getattr(self.rt,'inspection',None) and self.rt.inspection.enabled:
+            return self.rt.inspection.lines()
         found = ' '.join(NAMES.get(x['class'], x['class']) + ' %.0f%%' % (100*x['confidence'])
                          for x in self.detections)
         labels = {'off':'关闭','idle':'待命','recording':'录音中','recognizing':'语音识别中',
@@ -336,7 +336,8 @@ class AiModule:
                   'no_speech':'未识别到语音','error':'功能暂不可用',
                   'semantic_navigation':'处理导航指令','object_recognition':'目标识别中',
                   'paused_manual':'手动接管，任务已暂停','waiting_next':'等待确认或新的录音任务'}
-        mode = {'semantic_navigation':'语义导航','object_recognition':'目标识别','chat':'聊天机器人 Qwen3.5-0.8B'}[self.mode]
+        mode = {'semantic_navigation':'语义导航','object_recognition':'目标识别','chat':'聊天机器人 Qwen3.5-0.8B',
+                'visual_inspection':'视觉巡检'}[self.mode]
         requested = self.controls and self.controls.get('enabled')
         state = labels.get(self.state,self.state)
         motion=getattr(self.rt,'motion',None)
@@ -347,17 +348,31 @@ class AiModule:
             startup=getattr(self.rt,'startup',None)
             if not self.controls.get('manual') and startup and not startup.ready:
                 state='模型加载中，请稍候' if startup.state!='retrying' else '模型加载重试中'
-            if self.rearm_required:state='请先返回再确认开启AI'
+        startup=getattr(self.rt,'startup',None)
+        if requested and self.active and startup and not startup.ready:
+            state='模型加载中，可选择功能'
         return ['AI模块 总开关: ' + ('开启' if requested else '关闭'),
                 'CH8选择 SWA确认/返回 SWB录音/结束',
                 '功能: '+mode, '状态: '+state,
                 '当前指令:'] + wrapped(self.instruction, 2) + ['识别目标:'] + wrapped(found, 2) + \
                ['聊天回复:'] + wrapped(self.reply, 5) + wrapped(self.error or '', 2)
 
+    def fpga_reset(self):
+        """Discard FPGA-dependent state without unloading the ready models."""
+        if not self.enabled:return
+        self.external_stop()
+        self.active=self.vision=self.chat=False
+        self.paused_manual=self.vision_resume_required=False
+        self.controls=self.last_rx=self.sequence=self.confirm_toggle=None
+        self.mode='semantic_navigation';self.selected=0;self.state='off'
+        self.instruction=self.reply='';self.detections=[];self.target=None;self.history=[];self.error=None
+        self.display_ack=self.display_bank=self.transaction=0
+        self._invalidate_display()
+        self._task(self._set_vision(False))
+
     def link_lost(self,reason):
         if not self.enabled:return
         self.last_rx=None;self.sequence=None
-        self.rearm_required=True
         self.active=self.vision=False
         self.paused_manual=False
         self.vision_resume_required=True
@@ -369,8 +384,6 @@ class AiModule:
     def tick(self, now):
         if not self.enabled:
             return
-        if self.last_rx is not None and now-self.last_rx > self.cfg.get('control_timeout_s', .5):
-            self.link_lost('ai_control_link_timeout')
         if self.vision and self.rt.camera_state=='unavailable':
             self.error='camera_unavailable';self.state='error'
         try:
@@ -424,7 +437,7 @@ class AiModule:
                 'vision_enabled': self.vision, 'state': self.state,
                 'instruction': self.instruction, 'reply': self.reply,
                 'detections': self.detections, 'last_error': self.error,
-                'control_link_fresh': self.last_rx is not None and self.clock()-self.last_rx<=self.cfg.get('control_timeout_s',.5),
+                'control_link_available': self.last_rx is not None,
                 'record_armed': self.record_armed}
 
     async def close(self):

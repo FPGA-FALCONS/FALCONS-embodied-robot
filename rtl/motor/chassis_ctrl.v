@@ -191,12 +191,39 @@ module chassis_ctrl #(
     wire signed [31:0] e0, e1, e2, e3;
     wire               s0, s1, s2, s3;
 
+    // Four local reset-release branches keep the large DSP reset/data gates
+    // close to each PID. Assertion is still asynchronous; only release waits
+    // two clocks. Preserve branches so synthesis cannot merge the fanout back.
+    reg [3:0] pid_reset_a /* synthesis syn_preserve=1 */;
+    reg [3:0] pid_reset_b /* synthesis syn_preserve=1 */;
+    always @(posedge clk or negedge rst_n)begin
+        if(!rst_n)begin pid_reset_a<=0;pid_reset_b<=0;end
+        else begin pid_reset_a<=4'b1111;pid_reset_b<=pid_reset_a;end
+    end
+
+    // Coherent computation snapshot, separate from the live PWM inhibit.
+    // One clock of latency applies equally to gains, setpoint, feedback and
+    // enable. A disable/estop still zeros physical duty/enable immediately.
+    reg pid_enable,pid_sample;
+    reg signed [31:0] pid_left,pid_right,pid_delta0,pid_delta1,pid_delta2,pid_delta3;
+    reg signed [15:0] pid_kp,pid_ki,pid_kd;
+    always @(posedge clk or negedge rst_n)begin
+        if(!rst_n)begin
+            pid_enable<=0;pid_sample<=0;pid_left<=0;pid_right<=0;
+            pid_delta0<=0;pid_delta1<=0;pid_delta2<=0;pid_delta3<=0;pid_kp<=0;pid_ki<=0;pid_kd<=0;
+        end else begin
+            pid_enable<=run_en;pid_sample<=i_delta_valid;pid_left<=tgt_left;pid_right<=tgt_right;
+            pid_delta0<=i_delta0;pid_delta1<=i_delta1;pid_delta2<=i_delta2;pid_delta3<=i_delta3;
+            pid_kp<=i_kp;pid_ki<=i_ki;pid_kd<=i_kd;
+        end
+    end
+
     speed_pid #(
         .PWM_BITS(PWM_BITS), .KP_INIT(KP_INIT), .KI_INIT(KI_INIT), .KD_INIT(KD_INIT)
     ) u_pid_lf (
-        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
-        .i_setpoint(tgt_left),  .i_feedback(i_delta0), .i_fb_valid(i_delta_valid),
-        .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
+        .i_clock(clk), .i_reset_n(pid_reset_b[0]), .i_enable(pid_enable),
+        .i_setpoint(pid_left),  .i_feedback(pid_delta0), .i_fb_valid(pid_sample),
+        .i_kp(pid_kp), .i_ki(pid_ki), .i_kd(pid_kd),
         .i_clear(1'b0),
         .o_u(u0), .o_err(e0), .o_sat(s0)
     );
@@ -204,9 +231,9 @@ module chassis_ctrl #(
     speed_pid #(
         .PWM_BITS(PWM_BITS), .KP_INIT(KP_INIT), .KI_INIT(KI_INIT), .KD_INIT(KD_INIT)
     ) u_pid_rf (
-        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
-        .i_setpoint(tgt_right), .i_feedback(i_delta1), .i_fb_valid(i_delta_valid),
-        .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
+        .i_clock(clk), .i_reset_n(pid_reset_b[1]), .i_enable(pid_enable),
+        .i_setpoint(pid_right), .i_feedback(pid_delta1), .i_fb_valid(pid_sample),
+        .i_kp(pid_kp), .i_ki(pid_ki), .i_kd(pid_kd),
         .i_clear(1'b0),
         .o_u(u1), .o_err(e1), .o_sat(s1)
     );
@@ -214,9 +241,9 @@ module chassis_ctrl #(
     speed_pid #(
         .PWM_BITS(PWM_BITS), .KP_INIT(KP_INIT), .KI_INIT(KI_INIT), .KD_INIT(KD_INIT)
     ) u_pid_lr (
-        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
-        .i_setpoint(tgt_left),  .i_feedback(i_delta2), .i_fb_valid(i_delta_valid),
-        .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
+        .i_clock(clk), .i_reset_n(pid_reset_b[2]), .i_enable(pid_enable),
+        .i_setpoint(pid_left),  .i_feedback(pid_delta2), .i_fb_valid(pid_sample),
+        .i_kp(pid_kp), .i_ki(pid_ki), .i_kd(pid_kd),
         .i_clear(1'b0),
         .o_u(u2), .o_err(e2), .o_sat(s2)
     );
@@ -224,9 +251,9 @@ module chassis_ctrl #(
     speed_pid #(
         .PWM_BITS(PWM_BITS), .KP_INIT(KP_INIT), .KI_INIT(KI_INIT), .KD_INIT(KD_INIT)
     ) u_pid_rr (
-        .i_clock(clk), .i_reset_n(rst_n), .i_enable(run_en),
-        .i_setpoint(tgt_right), .i_feedback(i_delta3), .i_fb_valid(i_delta_valid),
-        .i_kp(i_kp), .i_ki(i_ki), .i_kd(i_kd),
+        .i_clock(clk), .i_reset_n(pid_reset_b[3]), .i_enable(pid_enable),
+        .i_setpoint(pid_right), .i_feedback(pid_delta3), .i_fb_valid(pid_sample),
+        .i_kp(pid_kp), .i_ki(pid_ki), .i_kd(pid_kd),
         .i_clear(1'b0),
         .o_u(u3), .o_err(e3), .o_sat(s3)
     );

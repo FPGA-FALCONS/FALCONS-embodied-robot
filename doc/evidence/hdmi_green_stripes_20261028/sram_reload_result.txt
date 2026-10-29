@@ -1,0 +1,18 @@
+位流：D:\Programs\FPGA Projects\FALCONS-embodied-robot\impl\pnr\falcons.fs
+      生成于 2026/10/28 22:35:29，大小 39.4 MB
+      新鲜度检查通过：rtl\ 下 74 个 .v/.vh 都不晚于位流。
+
+执行：D:\Apps\Gowin\Gowin_V1.9.12.03_x64\Programmer\bin\programmer_cli.exe -d GW5AT-138B -r 2 -f D:\Programs\FPGA Projects\FALCONS-embodied-robot\impl\pnr\falcons.fs --cable Gowin USB Cable(FT2CH)
+
+ Target Cable: Gowin USB Cable(FT2CH)/0/None/null@2.5MHz
+ Target Device: GW5AT-138B(0x0011081B)
+ Operation "SRAM Program" for device#1...
+ Frequency Updated: "15MHz"
+
+ User Code is: 0x000070E7
+ Status Code is: 0x00026230
+ Finished.
+ Cost 7.93 second(s)
+
+
+完成。

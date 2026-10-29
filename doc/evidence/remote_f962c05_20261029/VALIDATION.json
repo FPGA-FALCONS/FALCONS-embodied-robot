@@ -1,0 +1,9 @@
+{
+  "source_commit": "f962c057c866665b4e8612ea388d9ae1ffb506b2",
+  "application_tests_passed": 81,
+  "build_exit": 0,
+  "build_seconds": 1524.0,
+  "generated_bitstream": "impl/pnr/falcons.fs",
+  "programmed": false,
+  "reason": "用户随后指定build/falcons.fs固化，板上保留该指定位流；本目录仅记录源码构建与仿真。"
+}

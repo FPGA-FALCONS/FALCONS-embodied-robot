@@ -171,7 +171,9 @@ module voice_motion_bridge #(
     localparam [31:0] IMU_FRESH_MS = 32'd200;
     reg [31:0] ms_div, wd_ms, remaining_ms, timeout_ms, imu_age_ms;
     reg imu_seen;
-    reg signed [31:0] target_angle, accum, yaw_prev;
+    reg [8:0] target_angle;
+    reg signed [31:0] accum;
+    reg signed [8:0] yaw_prev;
     reg signed [31:0] drive_center, turn_diff;
     reg desired_sign; // 1 = left/CCW, 0 = right/CW
     reg [1:0] mode;
@@ -183,15 +185,18 @@ module voice_motion_bridge #(
     wire imu_fresh = i_imu_healthy && i_yaw_valid && yaw_in_range &&
                      (sample_ok || (imu_seen && imu_age_ms < IMU_FRESH_MS &&
                                    !(ms_tick && imu_age_ms == IMU_FRESH_MS-1)));
-    wire signed [31:0] yaw_eff = (YAW_SIGN != 0) ? i_yaw_deg : -i_yaw_deg;
+    // Only in-range samples/commands may write yaw_prev or target_angle.
+    // [-180,180] fits signed9, their difference fits signed10, and [1,360]
+    // fits unsigned9. Keep the cumulative signed angle at the original32 bits.
+    wire signed [8:0] yaw_eff = (YAW_SIGN != 0) ? $signed(i_yaw_deg[8:0]) : -$signed(i_yaw_deg[8:0]);
     wire signed [31:0] cmd_value32 = {{16{cmd_value[15]}}, cmd_value};
     wire signed [31:0] abs_angle = cmd_value32 < 0 ? -cmd_value32 : cmd_value32;
     wire signed [31:0] raw_speed = $signed({22'd0, cmd_speed, 2'b00});
     wire signed [31:0] speed_scaled = raw_speed > MAX_CENTER ? MAX_CENTER : raw_speed;
-    wire signed [31:0] yaw_delta_raw = yaw_eff - yaw_prev;
-    wire signed [31:0] yaw_delta = yaw_delta_raw > 32'sd180 ? yaw_delta_raw-32'sd360 :
-                                 yaw_delta_raw < -32'sd180 ? yaw_delta_raw+32'sd360 : yaw_delta_raw;
-    wire signed [31:0] next_accum = accum + yaw_delta;
+    wire signed [9:0] yaw_delta_raw = $signed({yaw_eff[8],yaw_eff}) - $signed({yaw_prev[8],yaw_prev});
+    wire signed [9:0] yaw_delta = yaw_delta_raw > 10'sd180 ? yaw_delta_raw-10'sd360 :
+                                 yaw_delta_raw < -10'sd180 ? yaw_delta_raw+10'sd360 : yaw_delta_raw;
+    wire signed [31:0] next_accum = accum + $signed({{22{yaw_delta[9]}},yaw_delta});
     wire turn_cmd = cmd_code == CMD_LEFT || cmd_code == CMD_RIGHT || cmd_code == CMD_SPIN;
     wire drive_cmd = cmd_code == CMD_FORWARD || cmd_code == CMD_BACKWARD;
     wire semantic_ok = (cmd_code == CMD_STOP || cmd_code == CMD_PATROL_STOP ||
@@ -291,7 +296,7 @@ module voice_motion_bridge #(
                     // -1 into a giant unsigned "completed" angle.
                     if (mode == MODE_TURN && sample_ok) begin
                         accum <= next_accum; yaw_prev <= yaw_eff;
-                        if (desired_sign ? next_accum >= target_angle : next_accum <= -target_angle) begin
+                        if (desired_sign ? next_accum >= $signed({23'd0,target_angle}) : next_accum <= -$signed({23'd0,target_angle})) begin
                             mode <= MODE_IDLE; turn_diff <= 0;
                         end
                     end
