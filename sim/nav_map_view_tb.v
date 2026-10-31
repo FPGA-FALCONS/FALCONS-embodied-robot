@@ -11,6 +11,7 @@ module nav_map_view_tb;
     reg [1:0] target_line_dir = 0;
     reg signed [31:0] pose_x_mm = 0, pose_y_mm = 0;
     reg signed [31:0] target_x_mm = 0, target_y_mm = 0;
+    reg zoom_out = 1;
     reg frame_start = 0;
     reg [11:0] pixel_x = 475, pixel_y = 297;
     wire map_pixel, route_pixel;
@@ -18,6 +19,7 @@ module nav_map_view_tb;
     always @(posedge clk) cycles <= cycles + 1;
 
     nav_map_view dut (
+        .zoom_out(zoom_out),
         .clk(clk), .rst_n(rst_n),
         .map_valid(map_valid), .map_occupied(map_occupied),
         .map_start(map_start), .map_done(map_done),
@@ -92,8 +94,8 @@ module nav_map_view_tb;
         input integer x, y;
         begin
             @(negedge pixel_clk);
-            pixel_x = x * 6 - 356 + 3;
-            pixel_y = 1068 - y * 6 - 3;
+            pixel_x = zoom_out ? x * 3 + 28 : x * 6 - 356 + 3;
+            pixel_y = zoom_out ? 684 - y * 3 - 1 : 1068 - y * 6 - 3;
             repeat (3) @(negedge pixel_clk);
         end
     endtask
@@ -144,6 +146,26 @@ module nav_map_view_tb;
         check(!map_pixel, "next frame removes old obstacle");
         sample_cell(140, 128);
         check(map_pixel, "next frame displays new obstacle");
+
+        // 100 world cells = 5m = 300px, both axes use the same zoom.
+        check(dut.grid_x==140 && dut.grid_y==128, "zoomed obstacle retains world cell address");
+        zoom_out=0;sample_cell(140,128);
+        check(map_pixel, "standalone radar retains original six-pixel scale");
+        zoom_out=1;sample_cell(140,128);
+        map_frame(128*256+50);next_frame();
+        // Aliased cell50 would appear at screen x946 inside the content area.
+        @(negedge pixel_clk);pixel_x=306*3+28;pixel_y=299;
+        repeat(3) @(negedge pixel_clk);
+        check(!map_pixel && !route_pixel, "outside world map never wraps to occupied cell");
+        map_frame(228*256+128);next_frame();
+        @(negedge pixel_clk);pixel_x=412;pixel_y=0;
+        repeat(3) @(negedge pixel_clk);
+        check(map_pixel, "positive five metres reaches top row");
+        map_frame(28*256+128);next_frame();
+        @(negedge pixel_clk);pixel_x=412;pixel_y=599;
+        repeat(3) @(negedge pixel_clk);
+        check(map_pixel, "negative five metre region reaches bottom row");
+        map_frame(128*256+140);next_frame();sample_cell(140,128);
 
         @(negedge clk);
         map_start = 1;

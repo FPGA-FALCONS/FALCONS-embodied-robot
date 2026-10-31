@@ -1,0 +1,96 @@
+# 测试：nav_map_view  top=nav_map_view_tb  模拟器=ModelSim  退出码=0
+# 下面是完整输出（屏幕只回显了检查行与结论）
+Reading D:/Apps/modeltech64_10.6d/tcl/vsim/pref.tcl
+
+# 10.6d
+
+# vsim -c -do "run -all; quit -f" work_sim.nav_map_view_tb 
+# Start time: 21:31:11 on Oct 31,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# //  ModelSim SE-64 10.6d Feb 24 2018
+# //
+# //  Copyright 1991-2018 Mentor Graphics Corporation
+# //  All Rights Reserved.
+# //
+# //  ModelSim SE-64 and its associated documentation contain trade
+# //  secrets and commercial or financial information that are the property of
+# //  Mentor Graphics Corporation and are privileged, confidential,
+# //  and exempt from disclosure under the Freedom of Information Act,
+# //  5 U.S.C. Section 552. Furthermore, this information
+# //  is prohibited from disclosure under the Trade Secrets Act,
+# //  18 U.S.C. Section 1905.
+# //
+# Loading work.nav_map_view_tb(fast)
+# run -all
+# pass uninitialized RAM is hidden
+# pass completed map waits for frame boundary
+# pass first full map appears at frame boundary
+# pass writing next map preserves old front image
+# pass next frame removes old obstacle
+# pass next frame displays new obstacle
+# pass zoomed obstacle retains world cell address
+# pass standalone radar retains original six-pixel scale
+# pass outside world map never wraps to occupied cell
+# pass positive five metres reaches top row
+# pass negative five metre region reaches bottom row
+# pass interrupted map cannot publish partial back image
+# pass new map start replaces interrupted frame
+# pass completed route waits for frame boundary
+# pass horizontal segment includes cells between waypoints
+# pass vertical segment includes cells between waypoints
+# pass route does not fill unrelated cells
+# pass new route start discards incomplete prior points
+# pass empty replacement leaves old route until frame boundary
+# pass empty route clears independently of map
+# pass route replacement preserves obstacle image
+# pass display layers stay inside map viewport
+# METRICS: command axis=0 pose=(-400,175) target=(500,25) draw_cycles=65558
+# pass east current segment includes negative-world start region
+# pass single waypoint draws missing east segment
+# pass horizontal line ignores lateral pose error
+# METRICS: command axis=0 pose=(100,-275) target=(500,25) draw_cycles=65548
+# pass moving forward clears old current-segment tail
+# pass moving forward keeps remaining current segment
+# METRICS: command axis=0 pose=(100,125) target=(800,25) draw_cycles=65554
+# pass same-direction target extension appears
+# METRICS: command axis=0 pose=(100,125) target=(300,25) draw_cycles=65544
+# pass target shortening clears old extension
+# pass target shortening keeps new prefix
+# METRICS: command axis=0 pose=(500,175) target=(-400,25) draw_cycles=65558
+# pass west current segment is horizontal
+# pass west segment does not follow lateral offset
+# METRICS: command axis=2 pose=(275,-400) target=(25,500) draw_cycles=65558
+# pass north current segment is vertical
+# pass vertical line ignores lateral pose error
+# pass axis change clears old horizontal segment
+# METRICS: command axis=2 pose=(-175,500) target=(25,-400) draw_cycles=65558
+# pass south current segment is vertical
+# pass south segment does not follow lateral offset
+# METRICS: command axis=2 pose=(25,-400) target=(25,-400) draw_cycles=65540
+# pass zero-length current segment draws endpoint
+# pass zero-length replacement clears prior segment
+# pass invalid command removes supplemental segment on refresh
+# pass invalid command preserves normal route waypoint
+# pass cancelled empty route clears all lines
+# pass current prefix joins stored route with locked intermediate point
+# pass drawing current prefix preserves following corner segment
+# pass prefix and future route do not create lateral connector
+# METRICS: command axis=1 pose=(-400,-250) target=(500,500) draw_cycles=65557
+# pass positive diagonal current segment ignores lateral offset
+# pass diagonal prefix does not create an L-shaped connector
+# METRICS: command axis=1 pose=(500,650) target=(-400,-400) draw_cycles=65559
+# pass southwest current segment uses the same diagonal family
+# METRICS: command axis=3 pose=(500,-250) target=(-400,650) draw_cycles=65558
+# pass northwest current segment follows negative diagonal
+# METRICS: command axis=3 pose=(-400,650) target=(500,-250) draw_cycles=65558
+# pass southeast current segment follows negative diagonal
+# METRICS: command axis=1 pose=(-6375,-6375) target=(-6375,6375) draw_cycles=65540
+# pass projection clips to the map boundary endpoint
+# pass clipped diagonal projection never wraps into map interior
+# CHECKS: 52
+# METRICS: nav_map_view_tb cycles=1639244 errors=0
+# PASS: nav_map_view_tb
+# ** Note: $finish    : D:/Programs/FPGA Projects/FALCONS-embodied-robot/sim/nav_map_view_tb.v(337)
+#    Time: 32784884 ns  Iteration: 1  Instance: /nav_map_view_tb
+# End time: 21:31:13 on Oct 31,2026, Elapsed time: 0:00:02
+# Errors: 0, Warnings: 0

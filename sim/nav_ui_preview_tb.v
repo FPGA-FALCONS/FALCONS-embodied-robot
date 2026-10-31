@@ -11,7 +11,7 @@ module nav_ui_preview_tb;
     reg [1:0] ui_mode = 1;
     reg running = 0, paused = 0, editing = 0, estop = 0, signal_ok = 1;
     reg [2:0] obstacle_state = 0;
-    reg [9:0] car_x = 415, car_y = 297, cursor_x = 745, cursor_y = 165;
+    reg [9:0] car_x = 413, car_y = 299, cursor_x = 578, cursor_y = 233;
     reg [159:0] pt_x = 0, pt_y = 0;
     reg [15:0] pt_v = 0;
     reg map_valid = 0, occupied = 0, map_start = 0, map_done = 0;
@@ -29,6 +29,7 @@ module nav_ui_preview_tb;
         scan_py <= py;
     end
     nav_map_view view (
+        .zoom_out(page == 3),
         .clk(clk), .rst_n(rst_n), .map_valid(map_valid), .map_occupied(occupied),
         .map_start(map_start), .map_done(map_done),
         .route_valid(route_valid), .route_x(route_x), .route_y(route_y),
@@ -146,19 +147,19 @@ module nav_ui_preview_tb;
         capture("01_navigation_idle");
         editing = 1; obstacle_state = 1;
         capture("02_empty_selection");
-        pt_x[9:0] = 505; pt_y[9:0] = 165;
-        pt_x[19:10] = 745; pt_y[19:10] = 165; pt_v = 3;
+        pt_x[9:0] = 458; pt_y[9:0] = 233;
+        pt_x[19:10] = 578; pt_y[19:10] = 233; pt_v = 3;
         capture("03_destinations");
         aux = 1; capture("04_undo_selected");
         aux = 3; capture("05_clear_selected");
         aux = 2; capture("06_ready_start");
-        route_image(0); running = 1; obstacle_state = 2; car_x = 505; car_y = 231;
+        route_image(0); running = 1; obstacle_state = 2; car_x = 458; car_y = 266;
         capture("07_running");
         running = 0; paused = 1; obstacle_state = 3;
         capture("08_paused");
-        running = 0; paused = 0; obstacle_state = 4; car_x = 745; car_y = 165;
+        running = 0; paused = 0; obstacle_state = 4; car_x = 578; car_y = 233;
         capture("09_arrived");
-        route_image(1); map_image(1); running = 1; obstacle_state = 6; car_x = 505; car_y = 231;
+        route_image(1); map_image(1); running = 1; obstacle_state = 6; car_x = 458; car_y = 266;
         capture("10_no_path");
         running = 0; paused = 1; obstacle_state = 3; estop = 1;
         capture("11_emergency_stop");

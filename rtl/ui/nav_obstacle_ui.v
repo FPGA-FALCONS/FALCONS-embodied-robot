@@ -1,5 +1,5 @@
 // 避障导航选点页；原非避障页面不受本模块影响。
-// 世界位置为毫米，原点像素不变，每格显示 6 px；目标提交为 50 mm 地图格。
+// 世界位置为毫米，原点像素不变，每格显示 3 px（60 px/m）；目标提交为 50 mm 地图格。
 // 仅编辑态改点表；暂停/故障保留当前点。完成只读，返回后开始新任务。
 `timescale 1ns/1ps
 
@@ -8,13 +8,13 @@ module nav_obstacle_ui #(
     parameter integer CURSOR_SPEED = 500,     // mm/s @ 满杆
     parameter integer DEADZONE     = 100,     // 摇杆死区（±1000 归一化）
     parameter integer MAX_POINTS   = 16,
-    parameter integer X_MIN_MM     = -1700,
-    parameter integer X_MAX_MM     = 5091,
-    parameter integer Y_MIN_MM     = -2491,
-    parameter integer Y_MAX_MM     = 2500,
+    parameter integer X_MIN_MM     = -3400,
+    parameter integer X_MAX_MM     = 6375,
+    parameter integer Y_MIN_MM     = -4983,
+    parameter integer Y_MAX_MM     = 5000,
     parameter integer PX_ORIGIN    = 412,     // 原点像素 x
     parameter integer PY_ORIGIN    = 300,     // 原点像素 y
-    parameter integer SCALE_Q16    = 7864     // 0.12 px/mm 的 Q16（= 0.119995）
+    parameter integer SCALE_Q16    = 3932     // 0.06 px/mm 的 Q16；选点不越过地图 +6375mm
 )(
     input  wire                clk,
     input  wire                rst_n,

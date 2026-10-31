@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-31",
+  "origin_px": [
+    412,
+    300
+  ],
+  "pixels_per_metre": 60,
+  "cell_size_mm": 50,
+  "pixels_per_cell": 3,
+  "cursor_x_mm": [
+    -3400,
+    6375
+  ],
+  "cursor_y_mm": [
+    -4983,
+    5000
+  ],
+  "display_x_mm_approx": [
+    -3400,
+    10183
+  ],
+  "world_map_changed": false,
+  "standalone_radar_changed": false,
+  "tests": {
+    "nav_map_view": 52,
+    "obstacle_page": 45,
+    "radar_coordinates": 34,
+    "nav_free": 88,
+    "ui_pipeline": 6
+  },
+  "total_checks": 225,
+  "synthesis": "passed",
+  "pnr_run": true,
+  "programmed": true,
+  "synthesis_seconds": 217.1,
+  "full_build_seconds": 1098.2,
+  "bitstream_sha256": "0e6110e5445b334c3a155c832abcc8f06f15e30772f0a37cb65130b019762b52",
+  "same_clock_timing_pass": true,
+  "global_setup_violated_endpoints": 58,
+  "global_hold_violated_endpoints": 18,
+  "worst_slack_ns": {
+    "Setup_Slack_Table": -2.973,
+    "Hold_Slack_Table": -1.793,
+    "Recovery_Slack_Table": -8.354,
+    "Removal_Slack_Table": 0.269
+  },
+  "programming_mode": "SRAM",
+  "flash_written": true,
+  "programming_status": "0x00026230",
+  "programming_user_code": "0x0000865C",
+  "programming_seconds": 9.88,
+  "field_display_verified": false,
+  "flash_id": "0xC22018",
+  "flash_program_verify_pass": true,
+  "flash_program_seconds": 119.43,
+  "sram_restored_after_flash": true,
+  "cold_boot_verified": false
+}

@@ -13,6 +13,7 @@ module obstacle_page_tb;
     wire [15:0] points;
     wire run, paused, ui, goal;
     wire [7:0] gx, gy;
+    wire [9:0] car_px,car_py,cur_px,cur_py;
     wire signed [31:0] cx, cy;
     integer cycles = 0, checks = 0, errors = 0, n;
     reg signed [31:0] saved_x;
@@ -27,7 +28,7 @@ module obstacle_page_tb;
         .o_nav_state(state), .o_nav_ui_active(ui), .o_nav_run(run), .o_nav_paused(paused),
         .o_goal_valid(goal), .o_goal_x_cell(gx), .o_goal_y_cell(gy),
         .o_pt_px(), .o_pt_py(), .o_pt_v(points),
-        .o_car_px(), .o_car_py(), .o_cur_px(), .o_cur_py()
+        .o_car_px(car_px), .o_car_py(car_py), .o_cur_px(cur_px), .o_cur_py(cur_py)
     );
     task tick;
         input integer clocks;
@@ -63,6 +64,7 @@ module obstacle_page_tb;
         tick(4); rst_n=1; active=1; tick(8);
         check(state==OBS_EDIT && ui && count==0 && aux==0, "page enters a clean editor");
         check(cx==1000 && cy==0, "cursor initializes from current pose");
+        check(car_px==471 && car_py==300 && cur_px==471 && cur_py==300, "pose and cursor share sixty pixels per metre");
         start(); check(!run && !goal, "empty task cannot start");
         key(3); key(3); key(0);
         check(count==1 && points==1, "confirm stores exactly one destination");
@@ -128,13 +130,13 @@ module obstacle_page_tb;
         key(3); key(0);
         check(count==0 && points==0, "clear menu empties list");
         key(1); steer=1000; tick(30000); steer=0; tick(4);
-        check(cx==-1700, "cursor clamps at left boundary");
-        steer=-1000; tick(40000); steer=0; tick(4);
-        check(cx==5091, "cursor clamps at right boundary");
+        check(cx==-3400, "cursor clamps at left boundary");
+        steer=-1000; tick(45000); steer=0; tick(4);
+        check(cx==6375, "cursor clamps at right boundary");
         throttle=1000; tick(15000); throttle=0; tick(4);
-        check(cy==2500, "cursor clamps at upper boundary");
+        check(cy==5000, "cursor clamps at upper boundary");
         throttle=-1000; tick(25000); throttle=0; tick(4);
-        check(cy==-2491, "cursor clamps at lower boundary");
+        check(cy==-4983, "cursor clamps at lower boundary");
         key(0); start(); active=0; tick(5);
         check(state==OBS_BROWSE && !run && !goal && count==0, "forced page change cancels task");
         active=1; tick(6);

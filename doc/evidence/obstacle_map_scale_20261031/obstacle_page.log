@@ -1,0 +1,76 @@
+# 测试：obstacle_page  top=obstacle_page_tb  模拟器=ModelSim  退出码=0
+# 下面是完整输出（屏幕只回显了检查行与结论）
+Reading D:/Apps/modeltech64_10.6d/tcl/vsim/pref.tcl
+
+# 10.6d
+
+# vsim -c -do "run -all; quit -f" work_sim.obstacle_page_tb 
+# Start time: 21:31:14 on Oct 31,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# //  ModelSim SE-64 10.6d Feb 24 2018
+# //
+# //  Copyright 1991-2018 Mentor Graphics Corporation
+# //  All Rights Reserved.
+# //
+# //  ModelSim SE-64 and its associated documentation contain trade
+# //  secrets and commercial or financial information that are the property of
+# //  Mentor Graphics Corporation and are privileged, confidential,
+# //  and exempt from disclosure under the Freedom of Information Act,
+# //  5 U.S.C. Section 552. Furthermore, this information
+# //  is prohibited from disclosure under the Trade Secrets Act,
+# //  18 U.S.C. Section 1905.
+# //
+# Loading work.obstacle_page_tb(fast)
+# run -all
+# pass page enters a clean editor
+# pass cursor initializes from current pose
+# pass pose and cursor share sixty pixels per metre
+# pass empty task cannot start
+# pass confirm stores exactly one destination
+# pass second point keeps contiguous validity mask
+# pass start waits for old command release
+# pass first goal converts to map cells
+# pass no path retains running task
+# pass new route recovers without extra confirmation
+# pass running locks cursor and editor
+# pass confirm pauses while preserving goal
+# pass pause condition blocks resume
+# pass removing stop condition does not auto resume
+# pass manual mode cannot resume
+# pass manual movement preserves destination, not an arrival
+# pass explicit confirmation resumes existing task
+# pass intermediate arrival withdraws old goal
+# pass next goal still waits for command release
+# pass next destination follows old release
+# pass fault holds current task and reports fault
+# pass manual switch keeps fault state
+# pass stop condition blocks retry
+# pass fault retry stays at second destination
+# pass final arrival releases task and preserves read-only result
+# pass done ignores cursor, confirm and auxiliary keys
+# pass manual switch cannot turn a finished task into pause
+# pass one back opens a clean editor at current pose
+# pass second navigation submits new destination without old points
+# pass second task finishes independently
+# pass running manual takeover pauses
+# pass returning to cursor mode stays paused
+# pass cancel clears all task state and exits interaction
+# pass reenter only opens editor, no duplicate click
+# pass undo removes the final point
+# pass fault cancellation clears task
+# pass full list ignores seventeenth destination
+# pass clear menu empties list
+# pass cursor clamps at left boundary
+# pass cursor clamps at right boundary
+# pass cursor clamps at upper boundary
+# pass cursor clamps at lower boundary
+# pass forced page change cancels task
+# pass page return has the same fresh-editor behavior
+# pass global clear releases UI and origin cursor
+# CHECKS: 45
+# METRICS: obstacle_page_tb cycles=117855 errors=0
+# PASS: obstacle_page_tb
+# ** Note: $finish    : D:/Programs/FPGA Projects/FALCONS-embodied-robot/sim/obstacle_page_tb.v(149)
+#    Time: 2357100 ns  Iteration: 1  Instance: /obstacle_page_tb
+# End time: 21:31:15 on Oct 31,2026, Elapsed time: 0:00:01
+# Errors: 0, Warnings: 0

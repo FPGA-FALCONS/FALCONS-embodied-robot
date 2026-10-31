@@ -24,6 +24,7 @@ module nav_map_view (
     input  wire        pixel_clk,
     input  wire        pixel_rst_n,
     input  wire        frame_start,
+    input  wire        zoom_out, // 避障页3px/格，独立雷达页保留6px/格。
     input  wire [11:0] pixel_x,
     input  wire [11:0] pixel_y,
     output wire        map_pixel,
@@ -256,16 +257,21 @@ module nav_map_view (
             end
         end
     end
-    // 原选点页每格约 6 像素。水平提前一像素，补偿块 RAM 同步读一拍。
-    wire [11:0] grid_x = (pixel_x + 12'd357) / 12'd6;
-    wire [11:0] grid_y = (12'd1068 - pixel_y) / 12'd6;
+    // 原点(412,300)，50mm/格。水平提前1px补偿块RAM同步读。
+    // 两条路径都是常数除法，比例选择不引入可变除法器。
+    wire [11:0] grid_x = zoom_out ? (pixel_x - 12'd27) / 12'd3 :
+                                              (pixel_x + 12'd357) / 12'd6;
+    wire [11:0] grid_y = zoom_out ? (12'd684 - pixel_y) / 12'd3 :
+                                              (12'd1068 - pixel_y) / 12'd6;
     wire [15:0] read_address = {grid_y[7:0], grid_x[7:0]};
     reg map_bit, route_bit;
+    reg read_in_range;
     always @(posedge pixel_clk) begin
+        read_in_range <= grid_x < 256 && grid_y < 256;
         map_bit <= map_memory[{map_front, read_address}];
         route_bit <= route_memory[{route_front, read_address}];
     end
     wire content = pixel_x >= 208 && pixel_x < 1024 && pixel_y < 600;
-    assign map_pixel = map_show && content && map_bit;
-    assign route_pixel = route_show && content && route_bit;
+    assign map_pixel = map_show && content && read_in_range && map_bit;
+    assign route_pixel = route_show && content && read_in_range && route_bit;
 endmodule

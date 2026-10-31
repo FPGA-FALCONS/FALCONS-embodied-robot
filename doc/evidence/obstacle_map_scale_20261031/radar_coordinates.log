@@ -1,0 +1,122 @@
+# 测试：radar_coordinates  top=radar_coordinates_tb  模拟器=ModelSim  退出码=0
+# 下面是完整输出（屏幕只回显了检查行与结论）
+Reading D:/Apps/modeltech64_10.6d/tcl/vsim/pref.tcl
+
+# 10.6d
+
+# vsim -c -do "run -all; quit -f" work_sim.radar_coordinates_tb 
+# Start time: 21:30:14 on Oct 31,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2685) [TFMPC] - Too few port connections for 'dut'.  Expected 59, found 31.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'map_version'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'route_id'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'sensors_valid'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'nav_state'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'target_line_dir'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'target_y_mm'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'target_x_mm'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'emergency_stop'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'cmd_valid'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_error_code'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_layer_version'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_layer_busy'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_error'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_committed'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_layer_valid'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_word_ready'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_word_index'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_begin_version'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_word'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_expected_crc'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_begin_epoch'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_epoch'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_stopped'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_word_valid'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_commit'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_abort'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_begin'.
+# ** Warning: D:\Programs\FPGA Projects\FALCONS-embodied-robot\sim\radar_coordinates_tb.v(22): (vopt-2718) [TFMPC] - Missing connection for port 'ai_enable'.
+# //  ModelSim SE-64 10.6d Feb 24 2018
+# //
+# //  Copyright 1991-2018 Mentor Graphics Corporation
+# //  All Rights Reserved.
+# //
+# //  ModelSim SE-64 and its associated documentation contain trade
+# //  secrets and commercial or financial information that are the property of
+# //  Mentor Graphics Corporation and are privileged, confidential,
+# //  and exempt from disclosure under the Freedom of Information Act,
+# //  5 U.S.C. Section 552. Furthermore, this information
+# //  is prohibited from disclosure under the Trade Secrets Act,
+# //  18 U.S.C. Section 1905.
+# //
+# Loading work.radar_coordinates_tb(fast)
+# run -all
+# PARSED angle=4500 distance=1500 pose=(0,0,0)
+# CASE angle=4500 distance=1500 pose=(0,0,0) expected=(149,106) actual=(149,106)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=13500 distance=1500 pose=(0,0,0)
+# CASE angle=13500 distance=1500 pose=(0,0,0) expected=(106,106) actual=(106,106)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=22500 distance=1500 pose=(0,0,0)
+# CASE angle=22500 distance=1500 pose=(0,0,0) expected=(106,149) actual=(106,149)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=31500 distance=1500 pose=(0,0,0)
+# CASE angle=31500 distance=1500 pose=(0,0,0) expected=(149,149) actual=(149,149)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=1 distance=1234 pose=(0,0,0)
+# CASE angle=1 distance=1234 pose=(0,0,0) expected=(152,127) actual=(152,127)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=8999 distance=1234 pose=(0,0,0)
+# CASE angle=8999 distance=1234 pose=(0,0,0) expected=(128,103) actual=(128,103)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=27001 distance=1234 pose=(0,0,0)
+# CASE angle=27001 distance=1234 pose=(0,0,0) expected=(128,152) actual=(128,152)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=35999 distance=1234 pose=(0,0,0)
+# CASE angle=35999 distance=1234 pose=(0,0,0) expected=(152,128) actual=(152,128)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=0 distance=1250 pose=(0,0,0)
+# CASE angle=0 distance=1250 pose=(0,0,0) expected=(153,128) actual=(153,128)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=9000 distance=1250 pose=(0,0,0)
+# CASE angle=9000 distance=1250 pose=(0,0,0) expected=(128,103) actual=(128,103)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=18000 distance=1250 pose=(0,0,0)
+# CASE angle=18000 distance=1250 pose=(0,0,0) expected=(103,128) actual=(103,128)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=27000 distance=1250 pose=(0,0,0)
+# CASE angle=27000 distance=1250 pose=(0,0,0) expected=(128,153) actual=(128,153)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# PARSED angle=7500 distance=1500 pose=(3000,-500,3000)
+# CASE angle=7500 distance=1500 pose=(3000,-500,3000) expected=(209,96) actual=(209,96)
+# pass UART angle/distance maps to correct world cell
+# pass scanner stores geometry endpoint without changing coordinates
+# pass UART parser retains every input angle and distance
+# pass no UART parse or queue overflow errors
+# pass correct positive-x endpoint reaches the double-buffer display
+# pass display has no inverted endpoint for the translated pose
+# pass all control rays agree with independent trigonometry within 1 mm
+# METRICS: radar_coordinate_control cycles=2295163 packets=13 errors=0
+# pass 72 captured packets deliver all 2934 legal rays
+# pass captured UART rays agree with independent trigonometry within 1 mm
+# pass capture replay has no UART, parser or queue overflow errors
+# METRICS: radar_coordinate_capture cycles=15097600 packets=72 rays=2934 errors=0
+# CHECKS: 34
+# METRICS: radar_coordinates cycles=17458769 control_packets=13 checks=34 errors=0
+# PASS: radar_coordinates_tb
+# ** Note: $finish    : D:/Programs/FPGA Projects/FALCONS-embodied-robot/sim/radar_coordinates_tb.v(267)
+#    Time: 349175380 ns  Iteration: 1  Instance: /radar_coordinates_tb
+# End time: 21:30:27 on Oct 31,2026, Elapsed time: 0:00:13
+# Errors: 0, Warnings: 29

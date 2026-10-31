@@ -53,6 +53,7 @@ module radar_coordinates_tb;
     );
     defparam dut.u_adapter.u_navigation.u_nav.REPLAN_PERIOD = 23'd500000;
     nav_map_view view (
+        .zoom_out(1'b0),
         .clk            (clk),
         .rst_n          (rst_n),
         .map_valid      (mv),

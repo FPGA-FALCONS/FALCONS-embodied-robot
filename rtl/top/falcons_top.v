@@ -2071,6 +2071,7 @@ module falcons_top (
         .pose_x_mm(navigation_x_mm), .pose_y_mm(navigation_y_mm),
         .target_x_mm(planner_target_x), .target_y_mm(planner_target_y),
         .pixel_clk(pixel_clk), .pixel_rst_n(pixel_rst_n), .frame_start(frame_start),
+        .zoom_out(page == PAGE_NAV_OBS),
         .pixel_x(pixel_x), .pixel_y(pixel_y), .map_pixel(map_pixel), .route_pixel(route_pixel)
     );
 
