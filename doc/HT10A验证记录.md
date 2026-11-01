@@ -17,9 +17,9 @@
 ## 范围和版本
 
 - 基线：`701144bb2dce4109c5c859bdb782037bddd45a0c`，本地分支`feat/ht10a-channel-integration`。
-- 新仓库：HITSZ-FPGA-FALCONS/FALCONS-embodied-robot；用户确认的CH2/CH4及四开关分配见[接线与验收](HT10A接线与验收.md)。**（★ 合并时该分配中"CH7/SWC 返回、CH8/SWD select"已改为"CH7/SWC = select、CH8 闲置"）**
+- 本项目：用户确认的CH2/CH4及四开关分配见[接线与验收](HT10A接线与验收.md)。**（★ 合并时该分配中"CH7/SWC 返回、CH8/SWD select"已改为"CH7/SWC = select、CH8 闲置"）**
 - 仅改应用层、测试和相关工具/说明；vendor模块及两份需求原文没有修改。首次本地交付阶段未推送；没有烧录或实物操作。功能分支发布按后续用户明确授权执行，记录见工作记录。
-- 机器路径：`D:/HITSZ_FALCONS/FALCONS-embodied-robot`；工具Gowin V1.9.12.03、Icarus 12。本机未安装ModelSim，本轮未实跑ModelSim；同一测试清单保留其入口。（★ **2026-10-18 起本机已装 ModelSim 10.6d**，`sim\run_sim.ps1` 默认就用它；Icarus 仍可用 `-Simulator Icarus` 走）
+- 机器路径：`D:/FALCONS_workspace/FALCONS-embodied-robot`；工具Gowin V1.9.12.03、Icarus 12。本机未安装ModelSim，本轮未实跑ModelSim；同一测试清单保留其入口。（★ **2026-10-18 起本机已装 ModelSim 10.6d**，`sim\run_sim.ps1` 默认就用它；Icarus 仍可用 `-Simulator Icarus` 走）
 
 ## 实际执行结果
 

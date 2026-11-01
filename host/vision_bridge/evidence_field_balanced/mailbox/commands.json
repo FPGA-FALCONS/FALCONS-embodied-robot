@@ -6,17 +6,17 @@
     "-s",
     "vision_module_tb",
     "-o",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\vision_module_tb.vvp",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\sim\\vision_status_sink.v",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\sim\\vision_module_tb.v",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\pinned_sources\\rc_drive_guard.v",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\pinned_sources\\chassis_ctrl.v",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\pinned_sources\\speed_pid.v",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\pinned_sources\\uart_cmd_rx.v"
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\vision_module_tb.vvp",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\sim\\vision_status_sink.v",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\sim\\vision_module_tb.v",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\pinned_sources\\rc_drive_guard.v",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\pinned_sources\\chassis_ctrl.v",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\pinned_sources\\speed_pid.v",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\pinned_sources\\uart_cmd_rx.v"
   ],
   "simulate": [
     "C:\\iverilog\\bin\\vvp.EXE",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\vision_module_tb.vvp",
-    "+VECTORS=D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\replay_vectors.txt"
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\build\\vision_module_tb.vvp",
+    "+VECTORS=D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence_field_balanced\\mailbox\\replay_vectors.txt"
   ]
 }

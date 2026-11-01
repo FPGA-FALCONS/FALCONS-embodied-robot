@@ -15,7 +15,7 @@
     "rtl/debug/uart_cmd_rx.v": "a378178d6775c4634410a67ccf22deb6970235fb1ca477cec3127586d81c0cd5"
   },
   "top_tof_estop_tied_zero": true,
-  "input": "D:\\HITSZ_FALCONS\\ai部分\\ai_dual_model_poc\\deliverables\\improvement_v2\\holdout24\\predictions.jsonl",
+  "input": "D:\\FALCONS_workspace\\ai部分\\ai_dual_model_poc\\deliverables\\improvement_v2\\holdout24\\predictions.jsonl",
   "input_sha256": "2a3f01255211f0b04da0fa1cf6816bf8338a356b213123c239f69bc2b34440b5",
   "model_records": 24,
   "model_accepted_observations": 22,

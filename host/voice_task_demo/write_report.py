@@ -122,7 +122,7 @@ ASR、YOLO、加载、排队、CPU/NPU资源竞争和导航耗时均未得到板
 
 未接真实麦克风、FPGA实时图像、RK3588或实车；未改变板端系统、Python、驱动和竞赛环境。下一步是独立真人指令与环境噪声测试，再在现有板环境分别测ASR、RKLLM W8A8和视觉。重点保留停止、否定、相近名称、未知物体和返回超时负例。只有通过这些验收，才能讨论实车启用。
 
-仓库入口：`D:/HITSZ_FALCONS/FALCONS-embodied-robot/host/voice_task_demo/README.md`。本轮未提交或推送。
+仓库入口：`D:/FALCONS_workspace/FALCONS-embodied-robot/host/voice_task_demo/README.md`。本轮未提交或推送。
 '''
     (w/'验证报告.md').write_text(report,encoding='utf-8')
     inputs=[w/'e2e_run_1/summary.json',w/'policy_after_user_request_v2/summary.json',

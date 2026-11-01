@@ -105,8 +105,8 @@ source-raster/overflow failure), and sticky `fault`.
   `fx2_flagc -> fx2_pktend_n`, -3.674 ns).  Do not flash this bitstream without
   board-level FX2 timing measurement or a registered-output variant.
 
-Evidence: `D:/HITSZ_FALCONS/ai部分/camera_direct_20261024/` (simulation,
-crosscheck, synthesis) and `D:/HITSZ_FALCONS/camera_direct_candidate_20261024_r1/`
+Evidence: `D:/FALCONS_workspace/ai部分/camera_direct_20261024/` (simulation,
+crosscheck, synthesis) and `D:/FALCONS_workspace/camera_direct_candidate_20261024_r1/`
 (full application candidate).
 
 ## Integration example

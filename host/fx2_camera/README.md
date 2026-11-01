@@ -98,7 +98,7 @@ python3 host/fx2_camera/raw565.py --input frame.raw --width 1024 --height 600 --
 - `ch70_fx2_stream_in_ov5640_rgb.rar`：RGB 摄像头传输工程，已取得；实际为 RAR，教材名称写 ZIP。
 - 配套 FX2 固件及描述符／端点配置；第 70 章提到 `slave_for_adc.iic`、`slave_for_adc_clk_not.iic`，须核对实际工程和板卡版本后选择。
 
-官网直接下载入口：[高云 ACG720](https://www.gowinsemi.com.cn/university/board/17)。源码及下载校验记录位于 `D:/HITSZ_FALCONS/ai部分/acg720_official_20261024/`。原论坛入口直接打开超时，后续改从官网取得源码；现有本地教材中有复制和表述错误，应以原理图、固件描述符和实际时序为准；例如 USB 2.0 High Speed 不采用教材末尾所写的 8b/10b 编码。
+官网直接下载入口：[高云 ACG720](https://www.gowinsemi.com.cn/university/board/17)。源码及下载校验记录位于 `D:/FALCONS_workspace/ai部分/acg720_official_20261024/`。原论坛入口直接打开超时，后续改从官网取得源码；现有本地教材中有复制和表述错误，应以原理图、固件描述符和实际时序为准；例如 USB 2.0 High Speed 不采用教材末尾所写的 8b/10b 编码。
 
 用户反馈实板没有 DVP 接口。原理图第 11 页存在 P4、2×10 CMOS 接口，但尚未完成实物 PCB 版本／焊接状态比对。此前 2×9 描述是模块插头，不能等同于开发板连接器；新下载的厂家摄像头约束与现有 BY 模块约束不同，不直接覆盖应用。详见[摄像头物理接口核验](../../doc/摄像头物理接口核验_20261024.md)。
 

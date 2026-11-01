@@ -6,16 +6,16 @@
     "-s",
     "vision_serial_bridge_tb",
     "-o",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\build\\vision_serial_bridge_tb.vvp",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\sim\\vision_serial_bridge_tb.v",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\build\\ai_vision_link.v",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\build\\uart_byte_rx.v"
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\build\\vision_serial_bridge_tb.vvp",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\sim\\vision_serial_bridge_tb.v",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\build\\ai_vision_link.v",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\build\\uart_byte_rx.v"
   ],
   "simulate": [
     "C:\\iverilog\\bin\\vvp.EXE",
-    "D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\build\\vision_serial_bridge_tb.vvp",
-    "+HEX=D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\safe_frames.hex",
-    "+EXPECT=D:\\HITSZ_FALCONS\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\expectations.txt",
+    "D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\build\\vision_serial_bridge_tb.vvp",
+    "+HEX=D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\safe_frames.hex",
+    "+EXPECT=D:\\FALCONS_workspace\\FALCONS-embodied-robot\\host\\vision_bridge\\evidence\\candidate_uart\\expectations.txt",
     "+FRAMES=25"
   ]
 }

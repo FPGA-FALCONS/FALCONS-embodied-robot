@@ -1,7 +1,6 @@
 {
   "date": "2026-10-24",
   "board": "Orange Pi 5 / RK3588S, Ubuntu 22.04, kernel 6.1.99-rockchip-rk3588, aarch64",
-  "canonical_repo": "https://github.com/HITSZ-FPGA-FALCONS/FALCONS-embodied-robot",
   "branch": "feat/fullstack-motion-release-20261024",
   "release": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_181624_c7ae91",
   "previous_release": "/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1/releases/fullstack_20261024_181310_4a795c",

@@ -4,13 +4,13 @@
   "purpose": "Read-only host contract snapshot. No serial sender or RTL copied. Review wrapper before use.",
   "files": {
     "voice_nav.py": {
-      "source": "D:\\HITSZ_FALCONS\\ai部分\\semantic_nav_20261024\\voice_nav.py",
+      "source": "D:\\FALCONS_workspace\\ai部分\\semantic_nav_20261024\\voice_nav.py",
       "sha256": "0649e675778f35c659232ca26945d4e4cb3ec5eb886afe6deb86e1fb73744cee",
       "bytes": 5829,
       "sha256_lf": "b90fa2f04d34edeeec8723062801eb1c20d9b423dba0ca8ee13b84d24e362934"
     },
     "mot1.py": {
-      "source": "D:\\HITSZ_FALCONS\\ai部分\\semantic_nav_20261024\\mot1.py",
+      "source": "D:\\FALCONS_workspace\\ai部分\\semantic_nav_20261024\\mot1.py",
       "sha256": "e7cbd9d034929dec8776d03858a5845d24ea626b6d6dcf106b6f3868f6bcc819",
       "bytes": 3845,
       "sha256_lf": "5c8c2f260e417f51f47b827066964625d95b7d9079b703644587610214bfb5ef"

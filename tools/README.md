@@ -91,3 +91,10 @@ $c = [System.IO.File]::ReadAllText($p, [System.Text.Encoding]::UTF8)
 ## 独立手柄构建
 
 `build.ps1 -Tcl build_rc_led.tcl -ArtifactDirectory impl/rc_led_test/impl/pnr`构建并报告独立手柄位流；默认不传参数仍构建整车。测试约束由规范约束筛选生成，详见`doc/手柄LED上板测试.md`。文件和日志都落在已有忽略的impl/logs目录，不重复提交生成物。
+
+## 竞赛源码导出
+
+`python tools/package_competition_source.py --out '<仓库外的新英文目录>'`
+按生产依赖导出独立源码目录和 ZIP，保留 FPGA/RK 源码、标定、测试及项目训练工具，
+排除构建产物、历史过程证据、未接入模块及独立板卡例程。脚本同时导出文件哈希与排除清单，
+不删除原仓库文件，不包含模型权重及 RK 当前运行环境，详见 [竞赛源码提交说明](../doc/竞赛源码提交说明.md)。

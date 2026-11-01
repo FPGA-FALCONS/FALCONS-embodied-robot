@@ -1,6 +1,6 @@
 # FALCONS-embodied-robot
 
-高云ACG720四驱差速机器人，GW5AT-138B、50MHz。复用模块直接维护在本项目`vendor/verilog-reusable-modules/`，唯一推送仓库为`HITSZ-FPGA-FALCONS/FALCONS-embodied-robot`。
+高云ACG720四驱差速机器人，GW5AT-138B、50MHz。复用模块直接维护在本项目`vendor/verilog-reusable-modules/`。
 
 ## 当前状态（2026-10-28）
 

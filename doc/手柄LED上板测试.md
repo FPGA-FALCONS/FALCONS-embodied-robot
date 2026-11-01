@@ -67,7 +67,7 @@ RC,+00000,+00001,+00001,-01000,+00500,+01500,+02000,+01500,+02000,+01000,+00000,
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File sim/run_sim.ps1 -Simulator Icarus
-powershell -ExecutionPolicy Bypass -File tools/build.ps1 -Tcl build_rc_led.tcl -ArtifactDirectory 'impl/rc_led_test/impl/pnr' -GowinSh 'D:/HITSZ_FALCONS/Gowin/Gowin_V1.9.12.03_x64/IDE/bin/gw_sh.exe'
+powershell -ExecutionPolicy Bypass -File tools/build.ps1 -Tcl build_rc_led.tcl -ArtifactDirectory 'impl/rc_led_test/impl/pnr' -GowinSh 'D:/FALCONS_workspace/Gowin/Gowin_V1.9.12.03_x64/IDE/bin/gw_sh.exe'
 ```
 
 测试约束从`constr/falcons.cst`筛选生成31个管脚，产物全部放在`impl/rc_led_test/`，不覆盖主工程位流，也不把额外约束放进生产`constr/`目录。
@@ -75,7 +75,7 @@ powershell -ExecutionPolicy Bypass -File tools/build.ps1 -Tcl build_rc_led.tcl -
 首次只预览下载命令：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools/program_flash.ps1 -Action Sram -Fs 'impl/rc_led_test/impl/pnr/rc_led_test.fs' -Programmer 'D:/HITSZ_FALCONS/Gowin/Gowin_V1.9.12.03_x64/Programmer/bin/programmer_cli.exe' -DryRun
+powershell -ExecutionPolicy Bypass -File tools/program_flash.ps1 -Action Sram -Fs 'impl/rc_led_test/impl/pnr/rc_led_test.fs' -Programmer 'D:/FALCONS_workspace/Gowin/Gowin_V1.9.12.03_x64/Programmer/bin/programmer_cli.exe' -DryRun
 ```
 
 确认芯片型号与现场接线后，实际下载才去掉`-DryRun`。也可在Gowin Programmer里打开该文件，选择SRAM Program。不要选择主工程的`falcons.fs`来做本说明的LED验收。

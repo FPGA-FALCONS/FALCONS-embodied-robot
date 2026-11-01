@@ -1,3 +1,3 @@
 CHECKS=23 FAILURES=0
 PASS vision motion proposal -> chassis auto ports
-D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\sim\vision_motion_tb.v:185: $finish called at 26711000 (1ps)
+D:\FALCONS_workspace\FALCONS-embodied-robot\host\vision_bridge\sim\vision_motion_tb.v:185: $finish called at 26711000 (1ps)

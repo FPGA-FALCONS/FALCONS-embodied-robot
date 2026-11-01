@@ -1,2 +1,2 @@
-D:\HITSZ_FALCONS\FALCONS-embodied-robot\rtl\motor\speed_pid.v:49: warning: timescale for speed_pid inherited from another file.
-D:\HITSZ_FALCONS\FALCONS-embodied-robot\rtl\motor\chassis_ctrl.v:38: ...: The inherited timescale is here.
+D:\FALCONS_workspace\FALCONS-embodied-robot\rtl\motor\speed_pid.v:49: warning: timescale for speed_pid inherited from another file.
+D:\FALCONS_workspace\FALCONS-embodied-robot\rtl\motor\chassis_ctrl.v:38: ...: The inherited timescale is here.

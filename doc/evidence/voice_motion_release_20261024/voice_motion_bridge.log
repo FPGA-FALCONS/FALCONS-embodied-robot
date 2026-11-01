@@ -73,4 +73,4 @@ pass first frame after timeout accepted
 pass voice must retain zero ownership
 CHECKS: 71
 PASS: tb_voice_motion_bridge 71 checks: ownership/safety/IMU freshness/yaw wraps/reverse jitter/semantic limits/watchdog/priority/patrol
-D:\HITSZ_FALCONS\release_fullstack_motion_20261024\vendor\verilog-reusable-modules\modules\voice_motion_bridge\sim\tb_voice_motion_bridge.sv:178: $finish called at 3665110000 (1ps)
+D:\FALCONS_workspace\release_fullstack_motion_20261024\vendor\verilog-reusable-modules\modules\voice_motion_bridge\sim\tb_voice_motion_bridge.sv:178: $finish called at 3665110000 (1ps)

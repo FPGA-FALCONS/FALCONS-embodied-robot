@@ -15,7 +15,7 @@
     "rtl/debug/uart_cmd_rx.v": "a378178d6775c4634410a67ccf22deb6970235fb1ca477cec3127586d81c0cd5"
   },
   "top_tof_estop_tied_zero": true,
-  "input": "D:\\HITSZ_FALCONS\\ai部分\\field_adaptation_20261018_v4\\field_chain\\predictions.jsonl",
+  "input": "D:\\FALCONS_workspace\\ai部分\\field_adaptation_20261018_v4\\field_chain\\predictions.jsonl",
   "input_sha256": "376de598599b025436d2539eb55a43dfe5dc6e09ad9d9cb1f2bdf2c8a94c4cc2",
   "model_records": 12,
   "model_accepted_observations": 3,

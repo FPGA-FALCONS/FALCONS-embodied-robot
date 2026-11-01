@@ -18,4 +18,4 @@ pass first complete frame after both parser timeouts recovers
 pass STOP after truncated-frame recovery holds authority
 CHECKS: 16
 PASS: voice motion integration complete
-D:\HITSZ_FALCONS\release_fullstack_motion_20261024\sim\voice_motion_integration_tb.sv:87: $finish called at 766100000000 (1ps)
+D:\FALCONS_workspace\release_fullstack_motion_20261024\sim\voice_motion_integration_tb.sv:87: $finish called at 766100000000 (1ps)

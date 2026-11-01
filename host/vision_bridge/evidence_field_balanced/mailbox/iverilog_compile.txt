@@ -1,6 +1,6 @@
-D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\rc_drive_guard.v:3: warning: timescale for rc_drive_guard inherited from another file.
-D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\sim\vision_module_tb.v:1: ...: The inherited timescale is here.
-D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\speed_pid.v:49: warning: timescale for speed_pid inherited from another file.
-D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\chassis_ctrl.v:38: ...: The inherited timescale is here.
-D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\uart_cmd_rx.v:46: warning: timescale for uart_cmd_rx inherited from another file.
-D:\HITSZ_FALCONS\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\chassis_ctrl.v:38: ...: The inherited timescale is here.
+D:\FALCONS_workspace\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\rc_drive_guard.v:3: warning: timescale for rc_drive_guard inherited from another file.
+D:\FALCONS_workspace\FALCONS-embodied-robot\host\vision_bridge\sim\vision_module_tb.v:1: ...: The inherited timescale is here.
+D:\FALCONS_workspace\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\speed_pid.v:49: warning: timescale for speed_pid inherited from another file.
+D:\FALCONS_workspace\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\chassis_ctrl.v:38: ...: The inherited timescale is here.
+D:\FALCONS_workspace\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\uart_cmd_rx.v:46: warning: timescale for uart_cmd_rx inherited from another file.
+D:\FALCONS_workspace\FALCONS-embodied-robot\host\vision_bridge\evidence_field_balanced\mailbox\build\pinned_sources\chassis_ctrl.v:38: ...: The inherited timescale is here.

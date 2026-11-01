@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 来源 | `git@github.com:HITSZ-FPGA-FALCONS/verilog-reusable-modules.git` |
+| 来源 | 早期模块快照，现由本项目内嵌维护 |
 | 最后同步的 commit | **`c9b8025`**（`c9b8025589dcde7c3d5f261ec28d7358d08d9953`，2026-10-14，main） |
 | 转入直接维护 | 2026-10-15 |
 | 维护方式 | **本项目直接维护** —— `vendor\verilog-reusable-modules\` 里的模块就是本工程的代码，直接改、直接提交 |

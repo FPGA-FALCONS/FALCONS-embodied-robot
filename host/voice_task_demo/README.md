@@ -11,8 +11,8 @@
 在 PowerShell 中使用工作区现有环境，无需安装包：
 
 ```powershell
-Set-Location D:/HITSZ_FALCONS/FALCONS-embodied-robot
-$voicePython = 'D:/HITSZ_FALCONS/ai部分/FALCONS_AI_Agent_24h_20261018/FALCONS_AI_Agent_24h_20261018/.venv/Scripts/python.exe'
+Set-Location D:/FALCONS_workspace/FALCONS-embodied-robot
+$voicePython = 'D:/FALCONS_workspace/ai部分/FALCONS_AI_Agent_24h_20261018/FALCONS_AI_Agent_24h_20261018/.venv/Scripts/python.exe'
 & $voicePython host/voice_task_demo/demo.py --text '先找胶带，找不到再找螺丝刀，找到后返回起点。' --scene fallback --simulate-home-arrival
 ```
 
@@ -26,7 +26,7 @@ $voicePython = 'D:/HITSZ_FALCONS/ai部分/FALCONS_AI_Agent_24h_20261018/FALCONS_
 
 用 `--wav D:/实际文件.wav` 替换 `--text` 可使用已有 PCM16 音频；`--scene primary|fallback|absent` 选择固定图片回放。默认声音为 Microsoft Huihui Desktop，可通过 `--voice 'Microsoft Kangkang'` 选男声。TTS 直接写 WAV，不播放后重新录制，不经过麦克风。Windows 使用系统 SAPI；Linux 使用 `--wav`。
 
-每次输出保存在 `D:/HITSZ_FALCONS/ai部分/voice_domain_adaptation_20261024/demos/随机标识/`，包含音频、原始转写、纠错记录、模型输出、检测标框和任务路径。也可指定一个尚不存在的 `--out` 目录。
+每次输出保存在 `D:/FALCONS_workspace/ai部分/voice_domain_adaptation_20261024/demos/随机标识/`，包含音频、原始转写、纠错记录、模型输出、检测标框和任务路径。也可指定一个尚不存在的 `--out` 目录。
 
 ## “交代”禁用策略
 
@@ -41,7 +41,7 @@ $voicePython = 'D:/HITSZ_FALCONS/ai部分/FALCONS_AI_Agent_24h_20261018/FALCONS_
 
 ## 模型与证据
 
-语言产物位于 `D:/HITSZ_FALCONS/ai部分/voice_domain_adaptation_20261024/`：
+语言产物位于 `D:/FALCONS_workspace/ai部分/voice_domain_adaptation_20261024/`：
 
 | 文件 | 用途 |
 | --- | --- |
@@ -77,8 +77,8 @@ $voicePython = 'D:/HITSZ_FALCONS/ai部分/FALCONS_AI_Agent_24h_20261018/FALCONS_
 保留小型 transducer 默认路径，另提供 `sensevoice.py`，使用已有 sherpa-onnx 的 CPU 推理。模型数据从 sherpa-onnx 维护者 Hugging Face 仓库固定 revision 下载并校验；只取 ONNX、tokens、许可说明和 README，不运行上游代码：
 
 ```powershell
-& $voicePython host/voice_task_demo/download_sensevoice.py --out 'D:/HITSZ_FALCONS/ai部分/sensevoice_int8_20261024/新的模型目录'
-& $voicePython host/voice_task_demo/demo.py --text '请帮我寻找AD钙奶。' --asr-engine sensevoice --asr-model 'D:/HITSZ_FALCONS/ai部分/sensevoice_int8_20261024/hf_snapshot'
+& $voicePython host/voice_task_demo/download_sensevoice.py --out 'D:/FALCONS_workspace/ai部分/sensevoice_int8_20261024/新的模型目录'
+& $voicePython host/voice_task_demo/demo.py --text '请帮我寻找AD钙奶。' --asr-engine sensevoice --asr-model 'D:/FALCONS_workspace/ai部分/sensevoice_int8_20261024/hf_snapshot'
 ```
 
 来源：[sherpa-onnx 文档](https://k2-fsa.github.io/sherpa/onnx/sense-voice/pretrained.html)、[维护者模型仓库](https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17)。包内 LICENSE 只指向 FunASR 许可说明，不能据此宣称权重可按 MIT／Apache 自由再分发。最终结果见本机验证报告。
@@ -92,7 +92,7 @@ $voicePython = 'D:/HITSZ_FALCONS/ai部分/FALCONS_AI_Agent_24h_20261018/FALCONS_
 ```powershell
 & $voicePython -m unittest discover -s host/voice_bridge/tests -v
 & $voicePython -m unittest discover -s host/voice_task_demo/tests -v
-& $voicePython host/voice_task_demo/evaluate_policy.py --work 'D:/HITSZ_FALCONS/ai部分/voice_domain_adaptation_20261024' --pilot 'D:/HITSZ_FALCONS/ai部分/qwen_offline_distill_pilot_20261023' --asr-model 'D:/HITSZ_FALCONS/ai部分/ai_dual_model_poc/weights/asr' --out 'D:/HITSZ_FALCONS/ai部分/voice_domain_adaptation_20261024/新的政策结果目录'
+& $voicePython host/voice_task_demo/evaluate_policy.py --work 'D:/FALCONS_workspace/ai部分/voice_domain_adaptation_20261024' --pilot 'D:/FALCONS_workspace/ai部分/qwen_offline_distill_pilot_20261023' --asr-model 'D:/FALCONS_workspace/ai部分/ai_dual_model_poc/weights/asr' --out 'D:/FALCONS_workspace/ai部分/voice_domain_adaptation_20261024/新的政策结果目录'
 ```
 
 27 项语音模块与 13 项任务／词汇政策测试通过。`prepare.py`、`train_domain.py`、`validate_domain.py` 保留训练与导出审计流程；重跑应使用新目录。`run_eval.py` 保留未加政策的原始对照，当前使用入口是 `demo.py`。

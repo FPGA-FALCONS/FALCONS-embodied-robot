@@ -21,7 +21,7 @@ python host/vision_training/evaluate_head_repair.py --experiment '<实验目录>
 
 验收不只看AP：需mini召回6→至少7/8且FP不增加，困难集8/8且FP≤1，旧类TP≥12、FP≤1；同时有冻结AP和逐类退化门槛。具体以运行前protocol.json为准。失败结果保留，不能自动用较好看的指标替换门槛。
 
-本轮实验目录为 `D:/HITSZ_FALCONS/ai部分/yolo_head_repair_20261024/`。hard/mini各只有一个视频的8帧，旧类12图，且这些开发集已反复使用；没有足够独立组来给出可信的泛化区间。本轮只能报告开发回归，不能报告独立泛化、RK3588提速或实车能力。
+本轮实验目录为 `D:/FALCONS_workspace/ai部分/yolo_head_repair_20261024/`。hard/mini各只有一个视频的8帧，旧类12图，且这些开发集已反复使用；没有足够独立组来给出可信的泛化区间。本轮只能报告开发回归，不能报告独立泛化、RK3588提速或实车能力。
 
 电脑GPU由 `ai部分/AI_视觉优化协同_20261024.md` 协调；训练窗口结束前不与Claude的Qwen CUDA负载并发。板端重负载仍HOLD，电脑评估通过不构成板端验收许可。
 

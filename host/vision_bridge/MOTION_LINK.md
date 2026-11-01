@@ -39,12 +39,12 @@ schema-v2 JSONL (YOLO+Qwen)
 命令：
 
 ```powershell
-cd D:/HITSZ_FALCONS/FALCONS-embodied-robot/host/vision_bridge
+cd D:/FALCONS_workspace/FALCONS-embodied-robot/host/vision_bridge
 python run_motion_integration.py `
-  --predictions 'D:/HITSZ_FALCONS/ai部分/ai_dual_model_poc/deliverables/real_ad_v7/predictions.jsonl' `
+  --predictions 'D:/FALCONS_workspace/ai部分/ai_dual_model_poc/deliverables/real_ad_v7/predictions.jsonl' `
   --output evidence/motion_ad_v7 --allow-motion
 python run_motion_integration.py `
-  --predictions 'D:/HITSZ_FALCONS/ai部分/ai_dual_model_poc/deliverables/real_bull_tape_v7/predictions.jsonl' `
+  --predictions 'D:/FALCONS_workspace/ai部分/ai_dual_model_poc/deliverables/real_bull_tape_v7/predictions.jsonl' `
   --output evidence/motion_tape_v7 --allow-motion
 ```
 

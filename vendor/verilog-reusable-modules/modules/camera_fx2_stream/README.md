@@ -34,7 +34,7 @@ Primary reference: [Infineon AN61345](https://www.infineon.com/assets/row/public
 The dirty local production checkout is older than upstream. `tools/build_integration_candidate.py` exports exactly upstream commit `ec759b161f378fcf545a836fe8bed63295efe1a2` into a **new directory outside the checkout**, copies this package, and adds capture taps, the streamer instance, dependencies and constraint fragments. It refuses overwrites and checks every added FX2 pin against upstream CST. It preserves existing camera pins and continuous DDR `.rfifo_rden(pixel_req)`.
 
 ```powershell
-python vendor/verilog-reusable-modules/modules/camera_fx2_stream/tools/build_integration_candidate.py --repo . --out D:/HITSZ_FALCONS/camera_fx2_candidate_new
+python vendor/verilog-reusable-modules/modules/camera_fx2_stream/tools/build_integration_candidate.py --repo . --out D:/FALCONS_workspace/camera_fx2_candidate_new
 ```
 
 Use an ASCII output path for the installed Gowin build, which fails on non-ASCII working paths. Generation is **not flashing**. Firmware contract, external interface timing, PnR, physical USB reception, frame identity and detection quality remain separate acceptance gates. SDC's 5 ns I/O budgets are provisional, not derived electrical limits or timing sign-off; actual FX2 specifications, phase and board timing must determine accepted constraints. Synthesis is not timing closure.
@@ -48,4 +48,4 @@ Use an ASCII output path for the installed Gowin build, which fails on non-ASCII
 - Isolated upstream candidate synthesis: 283/340 BSRAM, 30,348 LUT + 7,091 ALU, 17,770 registers. Inherited application/IP synthesis warnings remain (including `nav_safety` swept); this is not a warning-free production sign-off. The final targeted CDC SDC replaces broad clock cuts; its hierarchy names are checked against the netlist, while PnR parsing/closure and external timing remain pending.
 - Local application regression at local HEAD a3cfcd8: all 13 tests pass (does not verify the separate upstream candidate).
 
-Evidence is under `D:/HITSZ_FALCONS/ai部分/camera_fx2_20261024/`. No hardware transfer or board update is claimed.
+Evidence is under `D:/FALCONS_workspace/ai部分/camera_fx2_20261024/`. No hardware transfer or board update is claimed.
