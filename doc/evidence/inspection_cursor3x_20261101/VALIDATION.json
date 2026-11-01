@@ -1,0 +1,15 @@
+{
+  "cursor_step_m": 0.15,
+  "previous_step_m": 0.05,
+  "interval_s": 0.12,
+  "speed_multiplier": 3,
+  "local_tests_passed": 56,
+  "rk_tests_passed": 56,
+  "source_hashes_verified": true,
+  "config_unchanged": true,
+  "service_active": true,
+  "service_restarts": 0,
+  "startup_ready": true,
+  "motion_sent": false,
+  "fpga_changed": false
+}

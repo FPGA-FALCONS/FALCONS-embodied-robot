@@ -247,7 +247,8 @@ class Recording:
                 deadline=self.started+self.frames/FPS
                 if self.stop.wait(max(0,deadline-self.clock())):break
                 now=self.clock()
-                if now-deadline>1:raise RuntimeError('Recording cannot maintain 10 Hz')
+                # Short rendering/encoding delays catch up on the shared timeline.
+                # Falling behind the target rate does not cancel the mission.
                 if now-self.started>time_limit:raise OSError('Recording duration limit reached')
                 with self.lock:snapshot=self.snapshot_data;report=self.report
                 utc=datetime.fromtimestamp((utc_ns+round(self.frames*1e9/FPS))/1e9,timezone.utc).isoformat(timespec='milliseconds')

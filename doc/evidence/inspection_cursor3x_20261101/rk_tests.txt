@@ -1,0 +1,7 @@
+test_view_change_and_manual_takeover_dismiss_panel_without_executing_it (ai_coordinator.tests.test_inspection_controller.ControllerTests) ... ok
+test_voice_start_does_not_replace_physical_confirmation (ai_coordinator.tests.test_inspection_controller.ControllerTests) ... ok
+
+----------------------------------------------------------------------
+Ran 56 tests in 0.847s
+
+OK

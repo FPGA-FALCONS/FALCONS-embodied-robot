@@ -11,7 +11,7 @@ import threading
 import urllib.request
 from http.server import ThreadingHTTPServer
 import numpy as np
-from ai_coordinator.inspection.recording import Recording,Lease,fragments,recover,segment_inventory,FORMAT
+from ai_coordinator.inspection.recording import Recording,Encoder,Lease,fragments,recover,segment_inventory,FORMAT
 from ai_coordinator.inspection.recording_cli import delete,catalog,handler
 
 
@@ -75,6 +75,28 @@ class ArchiveTests(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which('ffmpeg'),'Existing FFmpeg required')
 class EncoderIntegrationTests(unittest.TestCase):
+    def test_temporary_recording_lag_does_not_abort_session(self):
+        class DelayedEncoder(Encoder):
+            delayed=False
+            def write(self,data):
+                super().write(data)
+                if not self.delayed:
+                    self.delayed=True
+                    time.sleep(1.2)
+        with tempfile.TemporaryDirectory() as tmp:
+            report={'mission':{'session_id':1,'task_id':1,'epoch':1}}
+            r=Recording(tmp,{'min_free_bytes':1},snapshot(),report,writer_factory=DelayedEncoder)
+            deadline=time.monotonic()+5
+            try:
+                while r.frames<15 and not r.error and time.monotonic()<deadline:time.sleep(.02)
+            finally:r.finish('cancelled',report);r.wait()
+            self.assertIsNone(r.error)
+            self.assertGreaterEqual(r.frames,15)
+            rows=[json.loads(x) for x in (r.path/'frames.jsonl').read_text(encoding='utf-8').splitlines()]
+            self.assertGreater(max(x['sampled_monotonic_s']-x['scheduled_monotonic_s'] for x in rows),1)
+            self.assertEqual([x['relative_ms'] for x in rows],list(range(0,len(rows)*100,100)))
+            self.assertTrue(all(x['stream_frames']['camera']==x['stream_frames']['map'] for x in segment_inventory(r.path)))
+
     def test_waypoint_progress_pause_and_return_share_one_synchronised_video_session(self):
         with tempfile.TemporaryDirectory() as tmp:
             current=snapshot();current['mission'].update(waypoints_m=[[1,0],[2,1]],waypoint_index=0,

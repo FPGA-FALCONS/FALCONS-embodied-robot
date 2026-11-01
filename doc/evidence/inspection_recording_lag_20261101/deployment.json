@@ -1,0 +1,12 @@
+{
+  "release": "/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/inspection_src_213a5d4b18af",
+  "files": [
+    "host/ai_coordinator/inspection/controller.py",
+    "host/ai_coordinator/inspection/recording.py",
+    "host/ai_coordinator/tests/test_inspection_controller.py",
+    "host/ai_coordinator/tests/test_inspection_recording.py"
+  ],
+  "configuration_sha256": "5d74934e7fa85d214a641d85c9b465c59d1c0c3eec9dced4c8d577e8b873b7ac",
+  "config_unchanged": true,
+  "tests_exit": 0
+}

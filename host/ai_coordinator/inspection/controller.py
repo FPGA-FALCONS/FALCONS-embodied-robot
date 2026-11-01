@@ -528,8 +528,8 @@ class InspectionController:
                 self.edit_action=(self.edit_action+(-1 if throttle>250 else 1))%4
                 self.edit_stick_ready=False
         elif abs(steer)>250 or abs(throttle)>250:
-            self.cursor=[max(-6.375,min(6.375,self.cursor[0]+(-.05 if steer>250 else .05 if steer<-250 else 0))),
-                         max(-6.375,min(6.375,self.cursor[1]+(.05 if throttle>250 else -.05 if throttle<-250 else 0)))]
+            self.cursor=[max(-6.375,min(6.375,self.cursor[0]+(-.15 if steer>250 else .15 if steer<-250 else 0))),
+                         max(-6.375,min(6.375,self.cursor[1]+(.15 if throttle>250 else -.15 if throttle<-250 else 0)))]
             self.cursor_initialized=True
     async def _render(self,generation,binding,recognition=False):
         try:

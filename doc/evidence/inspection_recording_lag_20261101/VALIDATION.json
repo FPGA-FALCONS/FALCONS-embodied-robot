@@ -1,0 +1,15 @@
+{
+  "local_tests": 65,
+  "rk_tests": 65,
+  "tests_passed": true,
+  "files_verified": 4,
+  "config_unchanged": true,
+  "service_active": true,
+  "service_restarts": 0,
+  "startup_ready": true,
+  "ai_active": false,
+  "recording_lag_no_longer_aborts": true,
+  "cursor_step_m": 0.15,
+  "motion_sent": false,
+  "fpga_changed": false
+}

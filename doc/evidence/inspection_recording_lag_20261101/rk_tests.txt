@@ -1,0 +1,7 @@
+test_temporary_recording_lag_does_not_abort_session (ai_coordinator.tests.test_inspection_recording.EncoderIntegrationTests) ... ok
+test_waypoint_progress_pause_and_return_share_one_synchronised_video_session (ai_coordinator.tests.test_inspection_recording.EncoderIntegrationTests) ... ok
+
+----------------------------------------------------------------------
+Ran 65 tests in 9.378s
+
+OK

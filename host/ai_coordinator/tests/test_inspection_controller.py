@@ -456,7 +456,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
         self.c._edit_stick(0,0);self.c._edit_stick(0,1000)
         self.input(3,2,0,1.02)
         self.assertEqual(self.c.mission.waypoints,[[1,0]]);self.assertIsNone(self.c.edit_action)
-        self.c._edit_stick(-1000,0);self.assertEqual(self.c.cursor,[1.05,0])
+        self.c._edit_stick(-1000,0);self.assertEqual(self.c.cursor,[1.15,0])
 
     async def test_undo_clear_and_empty_start_never_create_a_task_or_video(self):
         self.c.radar=bytes(PLANE_BYTES)
