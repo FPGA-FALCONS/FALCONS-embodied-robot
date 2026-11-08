@@ -12,6 +12,8 @@ AI模块是RK3588承担的扩展，含语义导航、目标识别、聊天机器
 
 ## 文档入口
 
+现行模块说明见[文档导航](doc/README.md)，本次阶段见[11-09快照](doc/milestones/20261109.md)，历史报告见[主题归档](doc/archive/README.md)。
+
 | 目的 | 文档 |
 | --- | --- |
 | 接手与当前待办 | [交接单](doc/交接单.md)、[文档索引](doc/README.md)、[设计落实待办](doc/设计落实待办.md) |
@@ -19,7 +21,7 @@ AI模块是RK3588承担的扩展，含语义导航、目标识别、聊天机器
 | 独立规划参考 | [任意角度规划/文件接口](host/inspection_reference/README.md)、[RTL线段检查器](rtl/inspection/README.md)、[设计与三视图](doc/AI自主巡检_20261026/README.md)；保留主分支成果，尚未接入生产导航 |
 | 多点视觉巡检 | [使用与架构](doc/AI视觉巡检.md)、[录像与报告](doc/AI巡检录像与报告.md)、[验证记录](doc/AI巡检验证记录.md) |
 | 标定 | [去畸变H及独立验证](doc/七点地面单应性标定_20261028.md)、[Windows采图/标定](host/usb_camera_win/README.md)、[H接口](host/ai_coordinator/inspection/HOMOGRAPHY.md) |
-| 基础导航 | [避障导航操作](doc/避障导航操作指南.md)、[导航控制](doc/导航控制方案.md)、[Dijkstra验证](doc/Dijkstra导航验证_20261025.md) |
+| 基础导航 | [避障导航操作](doc/导航控制方案.md#按键)、[导航控制](doc/导航控制方案.md)、[Dijkstra验证](doc/archive/navigation/规划与路线演进_20261022-25.md#report-04) |
 | 遥控、接线与参数 | [HT10A接线](doc/HT10A接线与验收.md)、[约束说明](constr/README.md)、[参数总表](doc/参数总表与待定清单.md)、[遥控/ToF待办](TODO_RC_CAR.md) |
 | 构建与上板 | [工具](tools/README.md)、[应用仿真](sim/README.md)、[基础上板操作](doc/上板指南_v1.md)、[手柄独立LED测试](doc/手柄LED上板测试.md) |
 | 需求与历史 | [用户原始需求](doc/使用FPGA实现的差速小车功能设计.md)、[实现说明](doc/使用FPGA实现的差速小车功能设计_ai优化版.md)、[工作记录](doc/工作记录.md) |

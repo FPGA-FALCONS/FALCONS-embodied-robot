@@ -22,7 +22,7 @@ FPGA OV5640图像不传RK；RK使用自己的UVC相机。旧FIMG输入、FAM1找
 - [AI页面和原三个功能](../../doc/AI模块页面与遥控交互_20261024.md)
 - [多点巡检使用/架构](../../doc/AI视觉巡检.md)、[录像与报告](../../doc/AI巡检录像与报告.md)、[已测/待测和部署证据](../../doc/AI巡检验证记录.md)
 - [地面H接口](inspection/HOMOGRAPHY.md)、[Windows标定](../usb_camera_win/README.md)、[UVC工具](../usb_camera_v4l2/README.md)
-- [模型自启](../../doc/RK模型开机加载与手动暂停_20261025.md)、[固定任务播报工具](SPEECH.md)、[模型与缓存](../MODELS.md)
+- [模型自启](../../doc/archive/camera/RK相机与自启验证_20261025-27.md#report-02)、[固定任务播报工具](SPEECH.md)、[模型与缓存](../MODELS.md)
 
 ## 板端与检查
 

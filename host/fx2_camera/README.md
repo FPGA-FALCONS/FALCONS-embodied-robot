@@ -35,7 +35,7 @@ python3 host/fx2_camera/receive.py --config verified_fimg2_usb.json --out sessio
 
 独立RTL在原相机输出处分出支路，以完整帧双时钟RAM隔离USB背压，FIMG v1头和像素一起做CRC32，显式提交USB短包。默认保持1024×600采集和原有显示，AI支路隔点抽取为512×300。它不会向摄像头施加ready或停止原DDR/HDMI。该抽取是链路初验方案，小目标识别效果仍需真实相机画面验证。
 
-`build_integration_candidate.py`从固定GitHub版本生成独立候选目录，不覆盖本地旧且有未提交工作的顶层。代码和实测范围见[摄像头传输实现与验收](../../doc/摄像头到FPGA再到RK3588实现与验收_20261024.md)。
+`build_integration_candidate.py`从固定GitHub版本生成独立候选目录，不覆盖本地旧且有未提交工作的顶层。代码和实测范围见[摄像头传输实现与验收](../../doc/archive/camera/FPGA采集与传输实验_20261024.md#report-02)。
 
 真实板上先运行前述probe，将实际信息填到 `usb.example.json` 的副本。VID/PID/接口/端点均为JSON整数；示例的null是刻意保留的未配置状态。然后：
 
@@ -100,7 +100,7 @@ python3 host/fx2_camera/raw565.py --input frame.raw --width 1024 --height 600 --
 
 官网直接下载入口：[高云 ACG720](https://www.gowinsemi.com.cn/university/board/17)。源码及下载校验记录位于 `D:/FALCONS_workspace/ai部分/acg720_official_20261024/`。原论坛入口直接打开超时，后续改从官网取得源码；现有本地教材中有复制和表述错误，应以原理图、固件描述符和实际时序为准；例如 USB 2.0 High Speed 不采用教材末尾所写的 8b/10b 编码。
 
-用户反馈实板没有 DVP 接口。原理图第 11 页存在 P4、2×10 CMOS 接口，但尚未完成实物 PCB 版本／焊接状态比对。此前 2×9 描述是模块插头，不能等同于开发板连接器；新下载的厂家摄像头约束与现有 BY 模块约束不同，不直接覆盖应用。详见[摄像头物理接口核验](../../doc/摄像头物理接口核验_20261024.md)。
+用户反馈实板没有 DVP 接口。原理图第 11 页存在 P4、2×10 CMOS 接口，但尚未完成实物 PCB 版本／焊接状态比对。此前 2×9 描述是模块插头，不能等同于开发板连接器；新下载的厂家摄像头约束与现有 BY 模块约束不同，不直接覆盖应用。详见[摄像头物理接口核验](../../doc/archive/camera/FPGA采集与传输实验_20261024.md#report-01)。
 
 ## 验收顺序
 
@@ -116,4 +116,4 @@ python3 host/fx2_camera/raw565.py --input frame.raw --width 1024 --height 600 --
 
 ## FIMG v2（2026-10-24 直传相机）
 
-`ai_coordinator/frames.py` 同时接受 FIMG v1 与 v2。v2 的 24 字节头字段 20 是头 20 字节的 CRC32，payload 后追加 4 字节尾 CRC32（头 20 字节 + payload）；坏尾帧会被丢弃。直传 FPGA 模块以 5/8 抽选取 640×375，用 128k 字弹性 FIFO 吸收帧内突发，不再冻结整帧。协议细节和验证证据见 `vendor/verilog-reusable-modules/modules/camera_fx2_direct/README.md` 与 `doc/摄像头直传高分辨率_20261024.md`。
+`ai_coordinator/frames.py` 同时接受 FIMG v1 与 v2。v2 的 24 字节头字段 20 是头 20 字节的 CRC32，payload 后追加 4 字节尾 CRC32（头 20 字节 + payload）；坏尾帧会被丢弃。直传 FPGA 模块以 5/8 抽选取 640×375，用 128k 字弹性 FIFO 吸收帧内突发，不再冻结整帧。协议细节和验证证据见 `vendor/verilog-reusable-modules/modules/camera_fx2_direct/README.md` 与 [高分辨率直传实验](../../doc/archive/camera/FPGA采集与传输实验_20261024.md#report-03)。

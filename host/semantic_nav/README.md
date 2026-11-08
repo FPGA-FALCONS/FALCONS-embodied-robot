@@ -67,7 +67,7 @@ python3 send_motion.py --device /dev/serial/by-id/usb-... --speed 10 "前进"
 
 - ✅ 规则、限值、MOT1 编解码、CRC/重同步、共享串口整帧调度、心跳/停止/取消测试。
 - ✅ FPGA `voice_motion_bridge` 已随本发布 RTL 仿真/综合（见 vendor README 和
-  `doc/运动桥生产接入验证_20261024.md`）；协调器有正式执行后端。
+  [运动桥历史接入验证](../../doc/archive/ai/语音运动接入_20261024.md#report-03)）；协调器有正式执行后端。
 - ⚠️ 尚未做真实麦克风到电机、轮子架空、落地、偏航/轮速标定；这些不能由仿真替代。
 - ❌ `patrol_start` 未接真实航点，不能声称自动巡航已工作。
 - ❌ ToF 仍是生产工程占位，不能声称已有实物防撞。

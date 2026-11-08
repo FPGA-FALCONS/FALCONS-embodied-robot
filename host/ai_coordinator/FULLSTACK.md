@@ -21,4 +21,4 @@
 
 `package_release.py`、`adb_deploy.py`和`deploy_board.py`保留早期通用打包/ADB安装能力；当前巡检使用deploy_inspection.py和既有事务安装器。迁移从实际config.json和资产清单开始，保留模型、USB角色及标定，不从旧HOLD/shadow示例推断当前服务状态。
 
-10-24的模型回放、失败尝试和旧release成绩见[历史整合记录](../../doc/全栈整合与巡航找物交付_20261024.md)及Git历史。最近部署和现场范围只在[巡检验证](../../doc/AI巡检验证记录.md)维护，不在这里累计v5/v6/v7等阶段日志。
+10-24的模型回放、失败尝试和旧release成绩见[历史整合记录](../../doc/archive/ai/AI整合与模型对照_20261023-24.md#report-04)及Git历史。最近部署和现场范围只在[巡检验证](../../doc/AI巡检验证记录.md)维护，不在这里累计v5/v6/v7等阶段日志。

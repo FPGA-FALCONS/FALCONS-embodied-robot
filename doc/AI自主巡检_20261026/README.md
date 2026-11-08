@@ -242,4 +242,4 @@ R3实现及可复现入口：
 
 本轮按用户要求将这些新增代码及设计提交至规范仓库；原生产RTL/host实现未改行为。未连接RK/FPGA、未启动模型、未升级环境。图示与示例均合成，无新的NPU精度、相机帧率、综合资源/时序或实车结论。现有两套验证脚本分别记录各自边界，软件/RTL仿真不能充当上车验收。
 
-下一位开发者优先读本文第2/4/5节，再读现有 `host/ai_coordinator/FULLSTACK.md`、`doc/避障导航操作指南.md` 和 `vendor/verilog-reusable-modules/modules/radar_navigation/docs/delivery_handoff.md`。开始写代码时沿用本轮基线检查新上游改动，保留其他工作区未提交内容。
+下一位开发者优先读本文第2/4/5节，再读现有 `host/ai_coordinator/FULLSTACK.md`、[导航操作与控制架构](../导航控制方案.md) 和 `vendor/verilog-reusable-modules/modules/radar_navigation/docs/delivery_handoff.md`。开始写代码时沿用本轮基线检查新上游改动，保留其他工作区未提交内容。

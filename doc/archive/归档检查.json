@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-09",
+  "source_commit": "dd62de7ee07fc39e50af1206ab7f8be404a1a063",
+  "historical_reports_verified": 42,
+  "topic_collections": 11,
+  "stage_volumes": 6,
+  "stage_substantive_lines_lost": 0,
+  "root_markdown_before": 67,
+  "root_markdown_after": 25,
+  "checked_project_markdown": 80,
+  "checked_local_links": 555,
+  "link_issues": 0,
+  "protected_present_files_unchanged": 309,
+  "exporter_only_document_selection_changed": true,
+  "restored_debug_sources_match_git": 4,
+  "hardware_logic_changed": false,
+  "rk_deployed": false,
+  "fpga_programmed": false
+}

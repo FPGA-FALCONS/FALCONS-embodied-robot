@@ -1,0 +1,3955 @@
+{
+  "schema": 1,
+  "archive_date": "2026-11-09",
+  "source_commit": "dd62de7ee07fc39e50af1206ab7f8be404a1a063",
+  "records": [
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "source_sha256": "7a40f4c0c72f3551edadc26961757de82985f9de6cf5f7dcaed7042ffe7a6201",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "7a40f4c0c72f3551edadc26961757de82985f9de6cf5f7dcaed7042ffe7a6201",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/Fmax优化验证_20261021.md",
+      "source_sha256": "9bd4358b04aa40c6a73007f6650eda3c1e6ecb4ef01fdc2e7b48238fd233d494",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "9bd4358b04aa40c6a73007f6650eda3c1e6ecb4ef01fdc2e7b48238fd233d494",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/Fmax流水优化验证_20261022.md",
+      "source_sha256": "c3d1d2109dd6ca7e4918cf366ffcca90f63001f6befe683e4d35b6ac2a90d2cf",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-03",
+      "kind": "historical_report",
+      "git_blob_sha256": "c3d1d2109dd6ca7e4918cf366ffcca90f63001f6befe683e4d35b6ac2a90d2cf",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "source_sha256": "983df0a64acc8c883dfd995f9fbbdeecab1e7f282cc57df40e170e8222048e3b",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04",
+      "kind": "historical_report",
+      "git_blob_sha256": "983df0a64acc8c883dfd995f9fbbdeecab1e7f282cc57df40e170e8222048e3b",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/短段锁定与运行时规划窗口验证_20261029.md",
+      "source_sha256": "3acb36c0db32abbb14a8604dc03c1e925ba1111aa22ea38a8fcb076cdd9e22bb",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "3acb36c0db32abbb14a8604dc03c1e925ba1111aa22ea38a8fcb076cdd9e22bb",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/短段导航时序审查与优化_20261029.md",
+      "source_sha256": "7933206349de0471c0fd78d75ef67dc78443004e924d606e02726ae925be6ec1",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "7933206349de0471c0fd78d75ef67dc78443004e924d606e02726ae925be6ec1",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/BFS直行优先验证_20261022.md",
+      "source_sha256": "8256ab067bae3d70ed7d19cab00d10656df52859cedf48dff58d3ac1657a79e2",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "8256ab067bae3d70ed7d19cab00d10656df52859cedf48dff58d3ac1657a79e2",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/路线居中修正验证_20261022.md",
+      "source_sha256": "5bef73e3a1470def5725eb9ef04ca319df20af99d6b7519b175390574eb32c4a",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "5bef73e3a1470def5725eb9ef04ca319df20af99d6b7519b175390574eb32c4a",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/当前段轴线补画验证_20261023.md",
+      "source_sha256": "c7b1b25b891f6b4c7e7d78e2ddd70ffe7bae877c825e155d76ccb117a74e2050",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-03",
+      "kind": "historical_report",
+      "git_blob_sha256": "c7b1b25b891f6b4c7e7d78e2ddd70ffe7bae877c825e155d76ccb117a74e2050",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "source_sha256": "cec7fe06f4b518cf6ad3221b05557ae0eb3d9fbd6ccd1d6c005e37051e0e0414",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04",
+      "kind": "historical_report",
+      "git_blob_sha256": "cec7fe06f4b518cf6ad3221b05557ae0eb3d9fbd6ccd1d6c005e37051e0e0414",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/Dijkstra存储优化验证_20261025.md",
+      "source_sha256": "2c5b1596c4e9e94f468479be802f681ca2476e1087a25313feca7087a564e2bd",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-05",
+      "kind": "historical_report",
+      "git_blob_sha256": "2c5b1596c4e9e94f468479be802f681ca2476e1087a25313feca7087a564e2bd",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "source_sha256": "dee3fc5161de1100c77b6c1914912fff571b951f7ca1b22b8904f138243f92b2",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06",
+      "kind": "historical_report",
+      "git_blob_sha256": "dee3fc5161de1100c77b6c1914912fff571b951f7ca1b22b8904f138243f92b2",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/雷达坐标翻转修复验证_20261021.md",
+      "source_sha256": "8e60e04cf1e27a3db7892d69c88d3f66193936b0a7d2024b26f50c02c109b130",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "8e60e04cf1e27a3db7892d69c88d3f66193936b0a7d2024b26f50c02c109b130",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/前探配置运行时化验证_20261025.md",
+      "source_sha256": "ce29e9fec73e54ddf31262677d8b84bfd1355b8fe8ec4d40101edd9975b19b71",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "ce29e9fec73e54ddf31262677d8b84bfd1355b8fe8ec4d40101edd9975b19b71",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "source_sha256": "2b65a59d52502924809916db707ccbb7f1905bc3336c0f12e69232dcbf6be053",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03",
+      "kind": "historical_report",
+      "git_blob_sha256": "2b65a59d52502924809916db707ccbb7f1905bc3336c0f12e69232dcbf6be053",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "source_sha256": "f2fb56fa11ab78534c6931eb257e0b37da762f742eb898bb56658c6e8a241f49",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04",
+      "kind": "historical_report",
+      "git_blob_sha256": "f2fb56fa11ab78534c6931eb257e0b37da762f742eb898bb56658c6e8a241f49",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "source_sha256": "654670ad91d4b294e4df10e791612045af2b3e9a64ea198ae759eebc9c64f20b",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "ed3c691989a0d8fe46cd3e962998d6936de322d6861fe9bea1588cd63257f92c",
+      "source_representation": "git_blob_with_CRLF"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "source_sha256": "b162a2e44365336d68f16f0c146648b1fe077fe39870d9adf34c33f262b412a0",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "b162a2e44365336d68f16f0c146648b1fe077fe39870d9adf34c33f262b412a0",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/避障导航UI交互重构验证_20261025.md",
+      "source_sha256": "a907c0b45139c91587e9bfb17eb14bcdbad494b26d6144452cae567e46e2b1de",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-03",
+      "kind": "historical_report",
+      "git_blob_sha256": "a907c0b45139c91587e9bfb17eb14bcdbad494b26d6144452cae567e46e2b1de",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/摄像头物理接口核验_20261024.md",
+      "source_sha256": "c98f96695cddc45a285f2f5bc2d6e59370d387e94a24b0d785083121ed23e3f2",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "c98f96695cddc45a285f2f5bc2d6e59370d387e94a24b0d785083121ed23e3f2",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/摄像头到FPGA再到RK3588实现与验收_20261024.md",
+      "source_sha256": "bfd411a794c2820a8470c5f10433d6688d852e6fc769eeab9b3ad0a45180397e",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "bfd411a794c2820a8470c5f10433d6688d852e6fc769eeab9b3ad0a45180397e",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "source_sha256": "29591c50c2dd3ddb1dfe6e9bcd7f63f773d3f8b6ee4bb8d7bc5710d75e76fa39",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03",
+      "kind": "historical_report",
+      "git_blob_sha256": "29591c50c2dd3ddb1dfe6e9bcd7f63f773d3f8b6ee4bb8d7bc5710d75e76fa39",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/USB摄像头统一入口与周末验收_20261024.md",
+      "source_sha256": "9eb85fc75a030814505210416557a12cc04d001309d761bc3253f2536c29eb0d",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-04",
+      "kind": "historical_report",
+      "git_blob_sha256": "9eb85fc75a030814505210416557a12cc04d001309d761bc3253f2536c29eb0d",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/RK独立UVC摄像头准备与验证_20261025.md",
+      "source_sha256": "18cafc02fa3b428888c79fce7cc9915d64057463f73f3226dfbdb7217fb8bd8d",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "18cafc02fa3b428888c79fce7cc9915d64057463f73f3226dfbdb7217fb8bd8d",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/RK模型开机加载与手动暂停_20261025.md",
+      "source_sha256": "7e321e0db738f5aec905634f8d87f6632c93e02ae28fa359ff37cdc8c11be5be",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "7e321e0db738f5aec905634f8d87f6632c93e02ae28fa359ff37cdc8c11be5be",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/RK相机固定对焦_20261027.md",
+      "source_sha256": "0a6be6a05efd902f754575eab6bfc5b7666f728bd593bca4c5b7e3741f60f553",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-03",
+      "kind": "historical_report",
+      "git_blob_sha256": "0a6be6a05efd902f754575eab6bfc5b7666f728bd593bca4c5b7e3741f60f553",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/AI联调交付验证_20261023.md",
+      "source_sha256": "a293b91c6a2c3a063058d5efde0339d7b860ef659ba9cb1e5cd2c65a8886baee",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "a293b91c6a2c3a063058d5efde0339d7b860ef659ba9cb1e5cd2c65a8886baee",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/AI总协调器板端部署与验证_20261024.md",
+      "source_sha256": "b9d7cd09e709145172a7360b5b53b3b29f8451279adeb7bbf9f3398dcad31908",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "b9d7cd09e709145172a7360b5b53b3b29f8451279adeb7bbf9f3398dcad31908",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/Claude进展复核与接口接手_20261024.md",
+      "source_sha256": "21997bbe493ecd2d16bf3048af9f88a0f16d23e694ddd80d20e4e4c625a72ee7",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-03",
+      "kind": "historical_report",
+      "git_blob_sha256": "21997bbe493ecd2d16bf3048af9f88a0f16d23e694ddd80d20e4e4c625a72ee7",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/全栈整合与巡航找物交付_20261024.md",
+      "source_sha256": "8884691357efabc61c15e43dfb0f17ef0dbe16eaa47df86b74d71a36a90b228c",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-04",
+      "kind": "historical_report",
+      "git_blob_sha256": "8884691357efabc61c15e43dfb0f17ef0dbe16eaa47df86b74d71a36a90b228c",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "source_sha256": "4f722e2b6a27c4a7697a476e66aa6372198b6a6c0b8d333dc0f660a061c69215",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05",
+      "kind": "historical_report",
+      "git_blob_sha256": "4f722e2b6a27c4a7697a476e66aa6372198b6a6c0b8d333dc0f660a061c69215",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/YOLO头部修正对照_20261024.md",
+      "source_sha256": "35c8aa0f13a2db31ed34cdd8e8b8e6ed599bdf3b515ea19b463065043b763320",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-06",
+      "kind": "historical_report",
+      "git_blob_sha256": "35c8aa0f13a2db31ed34cdd8e8b8e6ed599bdf3b515ea19b463065043b763320",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/语义运动指令与FPGA运动桥_20261024.md",
+      "source_sha256": "215a115bcfd634e56f0f2ac1f3d6be2f43d35076dbe941211e4b10286a02e5a7",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "27a901da902df44d5d7440375aceafc22e6ed84c9beb0e93570feda6ee45b315",
+      "source_representation": "git_blob_with_CRLF"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "source_sha256": "71ef20dc8cd1162349961c5da7558ae32d37dd4131541bb062d5cf2796b099f8",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "be31fb0e6619b58790bee532b81c892f6a4fdf82812cf3bb38c277707278b9c7",
+      "source_representation": "git_blob_with_CRLF"
+    },
+    {
+      "source": "doc/运动桥生产接入验证_20261024.md",
+      "source_sha256": "5eba38b9b4ee34faffced76f6057f1c0ae786235b665d6191f28d67270c230b9",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-03",
+      "kind": "historical_report",
+      "git_blob_sha256": "5eba38b9b4ee34faffced76f6057f1c0ae786235b665d6191f28d67270c230b9",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/无相机语音运动接入与验收_20261024.md",
+      "source_sha256": "3855dda8a095d5535f082e38b5c72f56c8230f101c30ff94c75e2fcbcdad07dd",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-04",
+      "kind": "historical_report",
+      "git_blob_sha256": "3855dda8a095d5535f082e38b5c72f56c8230f101c30ff94c75e2fcbcdad07dd",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/HT10A验证记录.md",
+      "source_sha256": "4d98f4fa8b56b990aa0fc4356d1895e2f69a0accc635eda29e592bf9f4d95ad7",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "4d98f4fa8b56b990aa0fc4356d1895e2f69a0accc635eda29e592bf9f4d95ad7",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/审查与上板验证_20261017.md",
+      "source_sha256": "ef2d0be8d197ee2861a0847411ba2615fbfecf0130013c97ae96c3a6782e2f68",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "ef2d0be8d197ee2861a0847411ba2615fbfecf0130013c97ae96c3a6782e2f68",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/遥控与ToF模块同步_20261018.md",
+      "source_sha256": "206280b791bfb6196beaf4ad5a85794e618f85dabe368ace1c84ed6643a1cdeb",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-03",
+      "kind": "historical_report",
+      "git_blob_sha256": "206280b791bfb6196beaf4ad5a85794e618f85dabe368ace1c84ed6643a1cdeb",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/装车接口与联调清单_20261024.md",
+      "source_sha256": "fc95b939fc44bf1c8a468ad5c892dcd80fc31337cd21f6f9bd1deee45cd827f5",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-04",
+      "kind": "historical_report",
+      "git_blob_sha256": "fc95b939fc44bf1c8a468ad5c892dcd80fc31337cd21f6f9bd1deee45cd827f5",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "host/vision_bridge/模块协同验证报告.md",
+      "source_sha256": "a42938501c12049ae3a373ae6fb10793c1cd910fa7d5bc0ba6861142432b5d1d",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-01",
+      "kind": "historical_report",
+      "git_blob_sha256": "a42938501c12049ae3a373ae6fb10793c1cd910fa7d5bc0ba6861142432b5d1d",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "host/vision_bridge/MOTION_LINK.md",
+      "source_sha256": "20a7e7a8fb2a61ed53e9a8466f674cbb96ba19e347c4885de5140cad7aa803c6",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-02",
+      "kind": "historical_report",
+      "git_blob_sha256": "20a7e7a8fb2a61ed53e9a8466f674cbb96ba19e347c4885de5140cad7aa803c6",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "source_sha256": "019c53e12302ab747c39c6a4a542b4a7169e6d1ce184d8db277a5c67aa09a5c6",
+      "destinations": [
+        "doc/archive/development/基础整车记录_20261015-19.md",
+        "doc/archive/development/控制层与方向记录_20261019-20.md",
+        "doc/archive/development/参数界面记录_20261020.md",
+        "doc/archive/development/时序迭代记录_20261020-21.md",
+        "doc/archive/development/导航语音记录_20261021-25.md",
+        "doc/archive/development/巡检交付记录_20261026-20261109.md"
+      ],
+      "kind": "stage_log",
+      "git_blob_sha256": "50b75387fd6c2b8764cd4a971b64dd324df17b5690b15e4dd564bfadf99322d2",
+      "source_representation": "git_blob_with_CRLF"
+    },
+    {
+      "source": "doc/导航控制方案.md",
+      "source_sha256": "c13b5b81422cb8c6315acb9b4cade3c3e3b076c1aa5c3c77d4b11eb98b2340c3",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "",
+      "kind": "current_consolidation",
+      "git_blob_sha256": "c13b5b81422cb8c6315acb9b4cade3c3e3b076c1aa5c3c77d4b11eb98b2340c3",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/避障导航操作指南.md",
+      "source_sha256": "3afe22b3f79ece281003b5b7cacdcb9c33930704e941154d29997838e51327be",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "按键",
+      "kind": "current_consolidation",
+      "git_blob_sha256": "ecce3b0cb102547fade469e7fdc59ac2455b840f1fc66b6f8cfd518716e77d85",
+      "source_representation": "git_blob_with_CRLF"
+    },
+    {
+      "source": "doc/自动导航接入方案.md",
+      "source_sha256": "196aa415edda5feffd20710f94b6f8eec06b8396ac64e2ff2b0406a70fd7dce8",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "三个任务入口共用底盘",
+      "kind": "current_consolidation",
+      "git_blob_sha256": "854f02d14f0a6b24ae295144cd3b538b089de1f4a4adb2e914262bf9243767d3",
+      "source_representation": "git_blob_with_CRLF"
+    },
+    {
+      "source": "doc/AI与整车联调开发指南_20261023.md",
+      "source_sha256": "b6dccdd59feca4da0724767768478e08567476f19fe7f35e9888248ad4a15cec",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": "",
+      "kind": "current_consolidation",
+      "git_blob_sha256": "b6dccdd59feca4da0724767768478e08567476f19fe7f35e9888248ad4a15cec",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/AI显示接入现有UI方案_20261024.md",
+      "source_sha256": "12a2d7b690b3a56291dd66244296279e2fbc2d9af4370fc23f6f1e569fadbf20",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": "显示接口",
+      "kind": "current_consolidation",
+      "git_blob_sha256": "12a2d7b690b3a56291dd66244296279e2fbc2d9af4370fc23f6f1e569fadbf20",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/相机与AI上板启动流程_20261024.md",
+      "source_sha256": "8f28f0c89208d6de154864698e3988e14cd433b89b07ebc1d664951c1ecf00ed",
+      "destination": "doc/相机与AI上板启动流程_20261024.md",
+      "anchor": "",
+      "kind": "current_consolidation",
+      "git_blob_sha256": "8f28f0c89208d6de154864698e3988e14cd433b89b07ebc1d664951c1ecf00ed",
+      "source_representation": "git_blob"
+    },
+    {
+      "source": "doc/RK前进后退固定速度码_20261025.md",
+      "source_sha256": "ecc0d29d001505be8344561b2cccc89002fad03cd9dcc859b05f354609f9dbb0",
+      "destination": "doc/相机与AI上板启动流程_20261024.md",
+      "anchor": "直行与距离指令",
+      "kind": "current_consolidation",
+      "git_blob_sha256": "a96e3c0c9e36b8be3e5f2e85accb87aa811826f17731a63d47b9a2e0c0d551e4",
+      "source_representation": "git_blob_with_CRLF"
+    }
+  ],
+  "fragment_redirects": [
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "fmax-优化方案2026-10-21",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--fmax-优化方案2026-10-21"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "1-结论与实施顺序",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--1-结论与实施顺序"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "2-本次使用的基线",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--2-本次使用的基线"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "3-关键路径与具体改法",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--3-关键路径与具体改法"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "31-p1-1接回已经声明的投影流水",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--31-p1-1接回已经声明的投影流水"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "32-p1-2切开-imu-的算术与标定控制",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--32-p1-2切开-imu-的算术与标定控制"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "33-p1-3动态文字读址流水",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--33-p1-3动态文字读址流水"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "34-p1-4同步修复列选择到-rgb-的路径",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--34-p1-4同步修复列选择到-rgb-的路径"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "4-为什么第一轮要覆盖四类路径",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--4-为什么第一轮要覆盖四类路径"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "5-p2资源复制只做一次受控试验",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--5-p2资源复制只做一次受控试验"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "6-控制验证成本",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--6-控制验证成本"
+    },
+    {
+      "source": "doc/Fmax优化方案_20261021.md",
+      "old_anchor": "7-暂不投入的方向与独立问题",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-01--7-暂不投入的方向与独立问题"
+    },
+    {
+      "source": "doc/Fmax优化验证_20261021.md",
+      "old_anchor": "fmax-前四项优化验证2026-10-21",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-02--fmax-前四项优化验证2026-10-21"
+    },
+    {
+      "source": "doc/Fmax优化验证_20261021.md",
+      "old_anchor": "范围与版本",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-02--范围与版本"
+    },
+    {
+      "source": "doc/Fmax优化验证_20261021.md",
+      "old_anchor": "已实施的结构",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-02--已实施的结构"
+    },
+    {
+      "source": "doc/Fmax优化验证_20261021.md",
+      "old_anchor": "自检与回归",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-02--自检与回归"
+    },
+    {
+      "source": "doc/Fmax优化验证_20261021.md",
+      "old_anchor": "综合与布局布线",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-02--综合与布局布线"
+    },
+    {
+      "source": "doc/Fmax优化验证_20261021.md",
+      "old_anchor": "复核入口",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-02--复核入口"
+    },
+    {
+      "source": "doc/Fmax流水优化验证_20261022.md",
+      "old_anchor": "整车流水与并行逻辑优化验证2026-10-22",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-03--整车流水与并行逻辑优化验证2026-10-22"
+    },
+    {
+      "source": "doc/Fmax流水优化验证_20261022.md",
+      "old_anchor": "范围与基线",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-03--范围与基线"
+    },
+    {
+      "source": "doc/Fmax流水优化验证_20261022.md",
+      "old_anchor": "最终结构与周期",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-03--最终结构与周期"
+    },
+    {
+      "source": "doc/Fmax流水优化验证_20261022.md",
+      "old_anchor": "自检与应用回归",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-03--自检与应用回归"
+    },
+    {
+      "source": "doc/Fmax流水优化验证_20261022.md",
+      "old_anchor": "综合与布局布线",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-03--综合与布局布线"
+    },
+    {
+      "source": "doc/Fmax流水优化验证_20261022.md",
+      "old_anchor": "复核命令",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-03--复核命令"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "时序违例分析2026-10-21",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--时序违例分析2026-10-21"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "1-数据来源与口径",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--1-数据来源与口径"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "2-约束改造让跨时钟域能被分析唯一保留的净收益",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--2-约束改造让跨时钟域能被分析唯一保留的净收益"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "3-违例全貌b-实验后的口径",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--3-违例全貌b-实验后的口径"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "4-sys-域根因是控制依赖不是算术位宽",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--4-sys-域根因是控制依赖不是算术位宽"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "5-pixel-域位选链串在除法器后面",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--5-pixel-域位选链串在除法器后面"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "6-试过的方案与实测结果",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--6-试过的方案与实测结果"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "61-方案-a-的细节最值得记录的一次",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--61-方案-a-的细节最值得记录的一次"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "7-结论与建议",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--7-结论与建议"
+    },
+    {
+      "source": "doc/时序违例分析_20261021.md",
+      "old_anchor": "8-复现命令",
+      "destination": "doc/archive/timing/基础时序优化_20261021-22.md",
+      "anchor": "report-04--8-复现命令"
+    },
+    {
+      "source": "doc/短段锁定与运行时规划窗口验证_20261029.md",
+      "old_anchor": "短段锁定与运行时规划窗口验证",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-01--短段锁定与运行时规划窗口验证"
+    },
+    {
+      "source": "doc/短段锁定与运行时规划窗口验证_20261029.md",
+      "old_anchor": "行为",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-01--行为"
+    },
+    {
+      "source": "doc/短段锁定与运行时规划窗口验证_20261029.md",
+      "old_anchor": "参数与界面",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-01--参数与界面"
+    },
+    {
+      "source": "doc/短段锁定与运行时规划窗口验证_20261029.md",
+      "old_anchor": "时序实现",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-01--时序实现"
+    },
+    {
+      "source": "doc/短段锁定与运行时规划窗口验证_20261029.md",
+      "old_anchor": "验证",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-01--验证"
+    },
+    {
+      "source": "doc/短段导航时序审查与优化_20261029.md",
+      "old_anchor": "短段导航时序审查与优化",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-02--短段导航时序审查与优化"
+    },
+    {
+      "source": "doc/短段导航时序审查与优化_20261029.md",
+      "old_anchor": "审查发现",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-02--审查发现"
+    },
+    {
+      "source": "doc/短段导航时序审查与优化_20261029.md",
+      "old_anchor": "修改",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-02--修改"
+    },
+    {
+      "source": "doc/短段导航时序审查与优化_20261029.md",
+      "old_anchor": "自检与周期",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-02--自检与周期"
+    },
+    {
+      "source": "doc/短段导航时序审查与优化_20261029.md",
+      "old_anchor": "局部综合",
+      "destination": "doc/archive/timing/导航时序与参数_20261029.md",
+      "anchor": "report-02--局部综合"
+    },
+    {
+      "source": "doc/BFS直行优先验证_20261022.md",
+      "old_anchor": "直行优先-bfs-实现与验证2026-10-22",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-01--直行优先-bfs-实现与验证2026-10-22"
+    },
+    {
+      "source": "doc/BFS直行优先验证_20261022.md",
+      "old_anchor": "实现",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-01--实现"
+    },
+    {
+      "source": "doc/BFS直行优先验证_20261022.md",
+      "old_anchor": "地图与自检",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-01--地图与自检"
+    },
+    {
+      "source": "doc/BFS直行优先验证_20261022.md",
+      "old_anchor": "实际-rtl-输出对比",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-01--实际-rtl-输出对比"
+    },
+    {
+      "source": "doc/BFS直行优先验证_20261022.md",
+      "old_anchor": "综合与布局布线",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-01--综合与布局布线"
+    },
+    {
+      "source": "doc/BFS直行优先验证_20261022.md",
+      "old_anchor": "复核与范围",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-01--复核与范围"
+    },
+    {
+      "source": "doc/路线居中修正验证_20261022.md",
+      "old_anchor": "路线居中最小间隙端点与参数修正2026-10-22",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-02--路线居中最小间隙端点与参数修正2026-10-22"
+    },
+    {
+      "source": "doc/路线居中修正验证_20261022.md",
+      "old_anchor": "具体变化",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-02--具体变化"
+    },
+    {
+      "source": "doc/路线居中修正验证_20261022.md",
+      "old_anchor": "自检与必要回归",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-02--自检与必要回归"
+    },
+    {
+      "source": "doc/路线居中修正验证_20261022.md",
+      "old_anchor": "路线与计算周期",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-02--路线与计算周期"
+    },
+    {
+      "source": "doc/路线居中修正验证_20261022.md",
+      "old_anchor": "综合与布局布线",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-02--综合与布局布线"
+    },
+    {
+      "source": "doc/路线居中修正验证_20261022.md",
+      "old_anchor": "复核与文件范围",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-02--复核与文件范围"
+    },
+    {
+      "source": "doc/当前段轴线补画验证_20261023.md",
+      "old_anchor": "当前任务轴线补画验证2026-10-23",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-03--当前任务轴线补画验证2026-10-23"
+    },
+    {
+      "source": "doc/当前段轴线补画验证_20261023.md",
+      "old_anchor": "修改范围",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-03--修改范围"
+    },
+    {
+      "source": "doc/当前段轴线补画验证_20261023.md",
+      "old_anchor": "自检和回归",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-03--自检和回归"
+    },
+    {
+      "source": "doc/当前段轴线补画验证_20261023.md",
+      "old_anchor": "完整综合布局布线2026-10-23-1316",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-03--完整综合布局布线2026-10-23-1316"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "四桶-dijkstra-导航验证2026-10-25",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--四桶-dijkstra-导航验证2026-10-25"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "范围与基线",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--范围与基线"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "搜索实现",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--搜索实现"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "时序处理",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--时序处理"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "自检与回归",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--自检与回归"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "路线效果",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--路线效果"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "整车综合与布局布线",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--整车综合与布局布线"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "资源",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--资源"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "布线后时序",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--布线后时序"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "产物与提交",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--产物与提交"
+    },
+    {
+      "source": "doc/Dijkstra导航验证_20261025.md",
+      "old_anchor": "主线合并与发布",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-04--主线合并与发布"
+    },
+    {
+      "source": "doc/Dijkstra存储优化验证_20261025.md",
+      "old_anchor": "dijkstra-存储优化验证2026-10-25",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-05--dijkstra-存储优化验证2026-10-25"
+    },
+    {
+      "source": "doc/Dijkstra存储优化验证_20261025.md",
+      "old_anchor": "范围与基线",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-05--范围与基线"
+    },
+    {
+      "source": "doc/Dijkstra存储优化验证_20261025.md",
+      "old_anchor": "实现",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-05--实现"
+    },
+    {
+      "source": "doc/Dijkstra存储优化验证_20261025.md",
+      "old_anchor": "首轮验证",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-05--首轮验证"
+    },
+    {
+      "source": "doc/Dijkstra存储优化验证_20261025.md",
+      "old_anchor": "完整验证及构建",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-05--完整验证及构建"
+    },
+    {
+      "source": "doc/Dijkstra存储优化验证_20261025.md",
+      "old_anchor": "资源比较",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-05--资源比较"
+    },
+    {
+      "source": "doc/Dijkstra存储优化验证_20261025.md",
+      "old_anchor": "布线后时序",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-05--布线后时序"
+    },
+    {
+      "source": "doc/Dijkstra存储优化验证_20261025.md",
+      "old_anchor": "产物复现与提交",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-05--产物复现与提交"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "八方向导航改造记录2026-10-25",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--八方向导航改造记录2026-10-25"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "实施顺序",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--实施顺序"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "第一步八方向搜索核心",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--第一步八方向搜索核心"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "综合布线基线",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--综合布线基线"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "第二步八方向导航链路",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--第二步八方向导航链路"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "第三步八方向居中与前缀排空",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--第三步八方向居中与前缀排空"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "第四步前置修正搜索队列保持块-ram",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--第四步前置修正搜索队列保持块-ram"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "第四步完整综合与布局布线结果",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--第四步完整综合与布局布线结果"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "资源比较",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--资源比较"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "布线后时序",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--布线后时序"
+    },
+    {
+      "source": "doc/八方向导航改造记录_20261025.md",
+      "old_anchor": "产物提交与复现",
+      "destination": "doc/archive/navigation/规划与路线演进_20261022-25.md",
+      "anchor": "report-06--产物提交与复现"
+    },
+    {
+      "source": "doc/雷达坐标翻转修复验证_20261021.md",
+      "old_anchor": "雷达坐标翻转修复与验证2026-10-21",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-01--雷达坐标翻转修复与验证2026-10-21"
+    },
+    {
+      "source": "doc/雷达坐标翻转修复验证_20261021.md",
+      "old_anchor": "问题与修改",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-01--问题与修改"
+    },
+    {
+      "source": "doc/雷达坐标翻转修复验证_20261021.md",
+      "old_anchor": "验证方法与结果",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-01--验证方法与结果"
+    },
+    {
+      "source": "doc/雷达坐标翻转修复验证_20261021.md",
+      "old_anchor": "综合与布局布线",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-01--综合与布局布线"
+    },
+    {
+      "source": "doc/雷达坐标翻转修复验证_20261021.md",
+      "old_anchor": "复核命令",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-01--复核命令"
+    },
+    {
+      "source": "doc/雷达坐标翻转修复验证_20261021.md",
+      "old_anchor": "后续硬件操作记录",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-01--后续硬件操作记录"
+    },
+    {
+      "source": "doc/前探配置运行时化验证_20261025.md",
+      "old_anchor": "前探配置运行时化验证2026-10-25",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-02--前探配置运行时化验证2026-10-25"
+    },
+    {
+      "source": "doc/前探配置运行时化验证_20261025.md",
+      "old_anchor": "行为及接口",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-02--行为及接口"
+    },
+    {
+      "source": "doc/前探配置运行时化验证_20261025.md",
+      "old_anchor": "显示",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-02--显示"
+    },
+    {
+      "source": "doc/前探配置运行时化验证_20261025.md",
+      "old_anchor": "验证结果",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-02--验证结果"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "地图清理与历史障碍留存分析",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--地图清理与历史障碍留存分析"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "结论",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--结论"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "当前过程",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--当前过程"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "用三圈说明",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--用三圈说明"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "跨圈竞争检查",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--跨圈竞争检查"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "为什么远离转弯会放大问题",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--为什么远离转弯会放大问题"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "无回波也会清整条-10-m-射线",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--无回波也会清整条-10-m-射线"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "多条射线并不等于多次清空但增加了-free-出现的机会",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--多条射线并不等于多次清空但增加了-free-出现的机会"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "位姿偏差改变了射线的世界位置",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--位姿偏差改变了射线的世界位置"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "仿真与结果",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--仿真与结果"
+    },
+    {
+      "source": "doc/地图清理与历史障碍留存分析_20261026.md",
+      "old_anchor": "建议优先级",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-03--建议优先级"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "old_anchor": "遮挡保护地图清理验证",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04--遮挡保护地图清理验证"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "old_anchor": "实现范围",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04--实现范围"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "old_anchor": "rtl-和时序组织",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04--rtl-和时序组织"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "old_anchor": "同场景对比",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04--同场景对比"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "old_anchor": "遮挡与障碍移走",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04--遮挡与障碍移走"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "old_anchor": "自检周期与连续输入",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04--自检周期与连续输入"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "old_anchor": "ram-与资源",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04--ram-与资源"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "old_anchor": "复现及产物",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04--复现及产物"
+    },
+    {
+      "source": "doc/遮挡保护地图清理验证_20261026.md",
+      "old_anchor": "迁入最新-ai-分支的复核2026-10-29",
+      "destination": "doc/archive/navigation/地图留存与前探_20261021-26.md",
+      "anchor": "report-04--迁入最新-ai-分支的复核2026-10-29"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "自动导航整车接入验证",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--自动导航整车接入验证"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "第一步雷达与公共位姿",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--第一步雷达与公共位姿"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "第二步新增避障选点原非避障调试保留",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--第二步新增避障选点原非避障调试保留"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "第三步避障目标点执行与停车握手",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--第三步避障目标点执行与停车握手"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "第四步显示双缓冲与完整运动闭环",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--第四步显示双缓冲与完整运动闭环"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "整车接手操作",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--整车接手操作"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "第五步采样对齐整体验证与生产构建",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--第五步采样对齐整体验证与生产构建"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "本轮综合资源",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--本轮综合资源"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "布局布线与时序结果",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--布局布线与时序结果"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "产物及复核",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--产物及复核"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "sram-下载结果",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--sram-下载结果"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "同圈射线不互相清障2026-10-21",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--同圈射线不互相清障2026-10-21"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "自检与必要回归",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--自检与必要回归"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "本步综合结果",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--本步综合结果"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "地图改为-128-m--50-mm2026-10-21",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--地图改为-128-m--50-mm2026-10-21"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "距离参数同步",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--距离参数同步"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "自检与必要回归-1",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--自检与必要回归-1"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "本步综合资源",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--本步综合资源"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "本步布局布线与时序",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--本步布局布线与时序"
+    },
+    {
+      "source": "doc/自动导航接入验证.md",
+      "old_anchor": "产物与提交",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-01--产物与提交"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "避障导航-ui-交互审查与状态规范",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--避障导航-ui-交互审查与状态规范"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "1-结论及范围",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--1-结论及范围"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "2-当前各层分别决定什么",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--2-当前各层分别决定什么"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "3-当前状态及按键行为",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--3-当前状态及按键行为"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "4-问题及优先级",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--4-问题及优先级"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "p0最后到达后-ui-没结束",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--p0最后到达后-ui-没结束"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "p1故障后重试会丢失当前目的地进度",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--p1故障后重试会丢失当前目的地进度"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "p1取消与再次进入的行为不一致容易误重跑",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--p1取消与再次进入的行为不一致容易误重跑"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "p2辅助菜单和状态文案没有完整表达按键含义",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--p2辅助菜单和状态文案没有完整表达按键含义"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "已确认正常应保留的行为",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--已确认正常应保留的行为"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "5-建议的统一交互规范",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--5-建议的统一交互规范"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "51-行为状态",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--51-行为状态"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "52-一次完整任务",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--52-一次完整任务"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "53-暂停取消与故障",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--53-暂停取消与故障"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "54-显示归属",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--54-显示归属"
+    },
+    {
+      "source": "doc/避障导航UI交互审查与状态规范_20261025.md",
+      "old_anchor": "6-复现与测试缺口",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-02--6-复现与测试缺口"
+    },
+    {
+      "source": "doc/避障导航UI交互重构验证_20261025.md",
+      "old_anchor": "避障导航-ui-交互重构验证2026-10-25",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-03--避障导航-ui-交互重构验证2026-10-25"
+    },
+    {
+      "source": "doc/避障导航UI交互重构验证_20261025.md",
+      "old_anchor": "修改结果",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-03--修改结果"
+    },
+    {
+      "source": "doc/避障导航UI交互重构验证_20261025.md",
+      "old_anchor": "时序处理",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-03--时序处理"
+    },
+    {
+      "source": "doc/避障导航UI交互重构验证_20261025.md",
+      "old_anchor": "验证",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-03--验证"
+    },
+    {
+      "source": "doc/避障导航UI交互重构验证_20261025.md",
+      "old_anchor": "渲染预览",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-03--渲染预览"
+    },
+    {
+      "source": "doc/避障导航UI交互重构验证_20261025.md",
+      "old_anchor": "范围边界",
+      "destination": "doc/archive/navigation/导航接入与交互验证_20261021-25.md",
+      "anchor": "report-03--范围边界"
+    },
+    {
+      "source": "doc/摄像头物理接口核验_20261024.md",
+      "old_anchor": "acg720-摄像头物理接口核验2026-10-24",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-01--acg720-摄像头物理接口核验2026-10-24"
+    },
+    {
+      "source": "doc/摄像头物理接口核验_20261024.md",
+      "old_anchor": "当前结论",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-01--当前结论"
+    },
+    {
+      "source": "doc/摄像头物理接口核验_20261024.md",
+      "old_anchor": "证据",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-01--证据"
+    },
+    {
+      "source": "doc/摄像头物理接口核验_20261024.md",
+      "old_anchor": "路线比较",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-01--路线比较"
+    },
+    {
+      "source": "doc/摄像头物理接口核验_20261024.md",
+      "old_anchor": "本轮取得的官方源码",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-01--本轮取得的官方源码"
+    },
+    {
+      "source": "doc/摄像头到FPGA再到RK3588实现与验收_20261024.md",
+      "old_anchor": "摄像头--fpga--rk3588实现与验收",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-02--摄像头--fpga--rk3588实现与验收"
+    },
+    {
+      "source": "doc/摄像头到FPGA再到RK3588实现与验收_20261024.md",
+      "old_anchor": "代码与硬件路径",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-02--代码与硬件路径"
+    },
+    {
+      "source": "doc/摄像头到FPGA再到RK3588实现与验收_20261024.md",
+      "old_anchor": "发送协议与固件合同",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-02--发送协议与固件合同"
+    },
+    {
+      "source": "doc/摄像头到FPGA再到RK3588实现与验收_20261024.md",
+      "old_anchor": "已验证与保留的失败结果",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-02--已验证与保留的失败结果"
+    },
+    {
+      "source": "doc/摄像头到FPGA再到RK3588实现与验收_20261024.md",
+      "old_anchor": "接线部署与物理验收",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-02--接线部署与物理验收"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "old_anchor": "高分辨率相机直传从-512300-到-640375fimg-v2",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03--高分辨率相机直传从-512300-到-640375fimg-v2"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "old_anchor": "1-为什么不能直接-11-传-1024600",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03--1-为什么不能直接-11-传-1024600"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "old_anchor": "2-实现结构",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03--2-实现结构"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "old_anchor": "3-验证结果",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03--3-验证结果"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "old_anchor": "31-rtl-仿真icarus",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03--31-rtl-仿真icarus"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "old_anchor": "32-主机解析与回归",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03--32-主机解析与回归"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "old_anchor": "33-综合",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03--33-综合"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "old_anchor": "4-集成候选与未关闭门",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03--4-集成候选与未关闭门"
+    },
+    {
+      "source": "doc/摄像头直传高分辨率_20261024.md",
+      "old_anchor": "5-证据路径",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-03--5-证据路径"
+    },
+    {
+      "source": "doc/USB摄像头统一入口与周末验收_20261024.md",
+      "old_anchor": "usb摄像头统一入口与周末验收",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-04--usb摄像头统一入口与周末验收"
+    },
+    {
+      "source": "doc/USB摄像头统一入口与周末验收_20261024.md",
+      "old_anchor": "当前分工与版本",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-04--当前分工与版本"
+    },
+    {
+      "source": "doc/USB摄像头统一入口与周末验收_20261024.md",
+      "old_anchor": "已实现的连接",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-04--已实现的连接"
+    },
+    {
+      "source": "doc/USB摄像头统一入口与周末验收_20261024.md",
+      "old_anchor": "到货后顺序",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-04--到货后顺序"
+    },
+    {
+      "source": "doc/USB摄像头统一入口与周末验收_20261024.md",
+      "old_anchor": "尚不能放开的环节",
+      "destination": "doc/archive/camera/FPGA采集与传输实验_20261024.md",
+      "anchor": "report-04--尚不能放开的环节"
+    },
+    {
+      "source": "doc/RK独立UVC摄像头准备与验证_20261025.md",
+      "old_anchor": "rk独立uvc摄像头准备与验证",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-01--rk独立uvc摄像头准备与验证"
+    },
+    {
+      "source": "doc/RK独立UVC摄像头准备与验证_20261025.md",
+      "old_anchor": "实际设备与接入",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-01--实际设备与接入"
+    },
+    {
+      "source": "doc/RK独立UVC摄像头准备与验证_20261025.md",
+      "old_anchor": "新增准备工具",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-01--新增准备工具"
+    },
+    {
+      "source": "doc/RK独立UVC摄像头准备与验证_20261025.md",
+      "old_anchor": "声明模式与实际帧率",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-01--声明模式与实际帧率"
+    },
+    {
+      "source": "doc/RK独立UVC摄像头准备与验证_20261025.md",
+      "old_anchor": "使用方式",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-01--使用方式"
+    },
+    {
+      "source": "doc/RK独立UVC摄像头准备与验证_20261025.md",
+      "old_anchor": "标定与后续边界",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-01--标定与后续边界"
+    },
+    {
+      "source": "doc/RK模型开机加载与手动暂停_20261025.md",
+      "old_anchor": "rk模型开机加载相机方向与ai手动暂停",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-02--rk模型开机加载相机方向与ai手动暂停"
+    },
+    {
+      "source": "doc/RK模型开机加载与手动暂停_20261025.md",
+      "old_anchor": "开机自启与模型就绪",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-02--开机自启与模型就绪"
+    },
+    {
+      "source": "doc/RK模型开机加载与手动暂停_20261025.md",
+      "old_anchor": "板端安装方式已部署保留操作步骤",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-02--板端安装方式已部署保留操作步骤"
+    },
+    {
+      "source": "doc/RK模型开机加载与手动暂停_20261025.md",
+      "old_anchor": "摄像头180翻转",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-02--摄像头180翻转"
+    },
+    {
+      "source": "doc/RK模型开机加载与手动暂停_20261025.md",
+      "old_anchor": "手动接管与下一项任务",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-02--手动接管与下一项任务"
+    },
+    {
+      "source": "doc/RK模型开机加载与手动暂停_20261025.md",
+      "old_anchor": "验证与后续现场项目",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-02--验证与后续现场项目"
+    },
+    {
+      "source": "doc/RK相机固定对焦_20261027.md",
+      "old_anchor": "rk相机运行时固定对焦",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-03--rk相机运行时固定对焦"
+    },
+    {
+      "source": "doc/RK相机固定对焦_20261027.md",
+      "old_anchor": "运行行为",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-03--运行行为"
+    },
+    {
+      "source": "doc/RK相机固定对焦_20261027.md",
+      "old_anchor": "影响范围",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-03--影响范围"
+    },
+    {
+      "source": "doc/RK相机固定对焦_20261027.md",
+      "old_anchor": "验证与部署",
+      "destination": "doc/archive/camera/RK相机与自启验证_20261025-27.md",
+      "anchor": "report-03--验证与部署"
+    },
+    {
+      "source": "doc/AI联调交付验证_20261023.md",
+      "old_anchor": "ai-联调交付验证",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-01--ai-联调交付验证"
+    },
+    {
+      "source": "doc/AI联调交付验证_20261023.md",
+      "old_anchor": "复现入口",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-01--复现入口"
+    },
+    {
+      "source": "doc/AI联调交付验证_20261023.md",
+      "old_anchor": "结果",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-01--结果"
+    },
+    {
+      "source": "doc/AI联调交付验证_20261023.md",
+      "old_anchor": "本轮发现并处理",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-01--本轮发现并处理"
+    },
+    {
+      "source": "doc/AI联调交付验证_20261023.md",
+      "old_anchor": "尚未验证",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-01--尚未验证"
+    },
+    {
+      "source": "doc/AI总协调器板端部署与验证_20261024.md",
+      "old_anchor": "ai总协调器板端部署与验证",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-02--ai总协调器板端部署与验证"
+    },
+    {
+      "source": "doc/AI总协调器板端部署与验证_20261024.md",
+      "old_anchor": "模块与研究依据",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-02--模块与研究依据"
+    },
+    {
+      "source": "doc/AI总协调器板端部署与验证_20261024.md",
+      "old_anchor": "板端部署",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-02--板端部署"
+    },
+    {
+      "source": "doc/AI总协调器板端部署与验证_20261024.md",
+      "old_anchor": "实际结果与证据范围",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-02--实际结果与证据范围"
+    },
+    {
+      "source": "doc/AI总协调器板端部署与验证_20261024.md",
+      "old_anchor": "重启与双方协作",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-02--重启与双方协作"
+    },
+    {
+      "source": "doc/AI总协调器板端部署与验证_20261024.md",
+      "old_anchor": "语音播报扩展建议初轮记录",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-02--语音播报扩展建议初轮记录"
+    },
+    {
+      "source": "doc/AI总协调器板端部署与验证_20261024.md",
+      "old_anchor": "后续用户确认继续已实现缓存中文播报",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-02--后续用户确认继续已实现缓存中文播报"
+    },
+    {
+      "source": "doc/Claude进展复核与接口接手_20261024.md",
+      "old_anchor": "claude进展复核与接口接手",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-03--claude进展复核与接口接手"
+    },
+    {
+      "source": "doc/Claude进展复核与接口接手_20261024.md",
+      "old_anchor": "已确认的进展",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-03--已确认的进展"
+    },
+    {
+      "source": "doc/Claude进展复核与接口接手_20261024.md",
+      "old_anchor": "发现一新旧图像协议尚未部署同步",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-03--发现一新旧图像协议尚未部署同步"
+    },
+    {
+      "source": "doc/Claude进展复核与接口接手_20261024.md",
+      "old_anchor": "发现二原分辨率不可行的论据需要修正",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-03--发现二原分辨率不可行的论据需要修正"
+    },
+    {
+      "source": "doc/Claude进展复核与接口接手_20261024.md",
+      "old_anchor": "建议由codex接手的工作",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-03--建议由codex接手的工作"
+    },
+    {
+      "source": "doc/Claude进展复核与接口接手_20261024.md",
+      "old_anchor": "当前边界",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-03--当前边界"
+    },
+    {
+      "source": "doc/Claude进展复核与接口接手_20261024.md",
+      "old_anchor": "本轮续推独立暂存与合同加固",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-03--本轮续推独立暂存与合同加固"
+    },
+    {
+      "source": "doc/Claude进展复核与接口接手_20261024.md",
+      "old_anchor": "后续实况v5已激活usbuvc入口独立候选",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-03--后续实况v5已激活usbuvc入口独立候选"
+    },
+    {
+      "source": "doc/全栈整合与巡航找物交付_20261024.md",
+      "old_anchor": "全栈整合与巡航找物交付记录",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-04--全栈整合与巡航找物交付记录"
+    },
+    {
+      "source": "doc/全栈整合与巡航找物交付_20261024.md",
+      "old_anchor": "yolo最后一组对照",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-04--yolo最后一组对照"
+    },
+    {
+      "source": "doc/全栈整合与巡航找物交付_20261024.md",
+      "old_anchor": "全栈代码与实测",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-04--全栈代码与实测"
+    },
+    {
+      "source": "doc/全栈整合与巡航找物交付_20261024.md",
+      "old_anchor": "部署与实物阻塞",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-04--部署与实物阻塞"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "old_anchor": "中文语音视觉fpga任务链路论文核验与整合方案",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05--中文语音视觉fpga任务链路论文核验与整合方案"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "old_anchor": "结论",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05--结论"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "old_anchor": "1-已核对的成功链路",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05--1-已核对的成功链路"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "old_anchor": "2-查到代码不代表可以原样搬到板上",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05--2-查到代码不代表可以原样搬到板上"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "old_anchor": "3-新近论文线索的证据等级",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05--3-新近论文线索的证据等级"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "old_anchor": "4-falcons的推荐结构",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05--4-falcons的推荐结构"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "old_anchor": "5-对照现有代码后的实际缺口",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05--5-对照现有代码后的实际缺口"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "old_anchor": "6-后续整合顺序与完成标准",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05--6-后续整合顺序与完成标准"
+    },
+    {
+      "source": "doc/多模态任务链路论文核验与整合方案_20261024.md",
+      "old_anchor": "7-可检验的项目价值",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-05--7-可检验的项目价值"
+    },
+    {
+      "source": "doc/YOLO头部修正对照_20261024.md",
+      "old_anchor": "yolo-nano头部修正受控对照与语义匹配后续",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-06--yolo-nano头部修正受控对照与语义匹配后续"
+    },
+    {
+      "source": "doc/YOLO头部修正对照_20261024.md",
+      "old_anchor": "结果",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-06--结果"
+    },
+    {
+      "source": "doc/YOLO头部修正对照_20261024.md",
+      "old_anchor": "协议与训练证据",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-06--协议与训练证据"
+    },
+    {
+      "source": "doc/YOLO头部修正对照_20261024.md",
+      "old_anchor": "验收与决定",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-06--验收与决定"
+    },
+    {
+      "source": "doc/YOLO头部修正对照_20261024.md",
+      "old_anchor": "导出与操作边界",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-06--导出与操作边界"
+    },
+    {
+      "source": "doc/YOLO头部修正对照_20261024.md",
+      "old_anchor": "数据与结论限制",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-06--数据与结论限制"
+    },
+    {
+      "source": "doc/YOLO头部修正对照_20261024.md",
+      "old_anchor": "方法来源与复现",
+      "destination": "doc/archive/ai/AI整合与模型对照_20261023-24.md",
+      "anchor": "report-06--方法来源与复现"
+    },
+    {
+      "source": "doc/语义运动指令与FPGA运动桥_20261024.md",
+      "old_anchor": "语义运动指令与-fpga-运动桥无摄像头",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-01--语义运动指令与-fpga-运动桥无摄像头"
+    },
+    {
+      "source": "doc/语义运动指令与FPGA运动桥_20261024.md",
+      "old_anchor": "1-已实现的命令",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-01--1-已实现的命令"
+    },
+    {
+      "source": "doc/语义运动指令与FPGA运动桥_20261024.md",
+      "old_anchor": "2-主机侧",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-01--2-主机侧"
+    },
+    {
+      "source": "doc/语义运动指令与FPGA运动桥_20261024.md",
+      "old_anchor": "3-fpga-侧",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-01--3-fpga-侧"
+    },
+    {
+      "source": "doc/语义运动指令与FPGA运动桥_20261024.md",
+      "old_anchor": "4-候选顶层接线",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-01--4-候选顶层接线"
+    },
+    {
+      "source": "doc/语义运动指令与FPGA运动桥_20261024.md",
+      "old_anchor": "5-还没完成",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-01--5-还没完成"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "麦克风语音--fpga-运动执行接入mot1-共享串口",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--麦克风语音--fpga-运动执行接入mot1-共享串口"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "1-执行缺口与本次补齐",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--1-执行缺口与本次补齐"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "2-配置板端默认关闭",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--2-配置板端默认关闭"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "距离指令按设定速度估算",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--距离指令按设定速度估算"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "3-生命周期与停止",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--3-生命周期与停止"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "4-真实状态字段",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--4-真实状态字段"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "5-明确未支持",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--5-明确未支持"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "6-验证",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--6-验证"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "电脑软件",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--电脑软件"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "板端2026-10-24-实际部署",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--板端2026-10-24-实际部署"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "物理验收待现场",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--物理验收待现场"
+    },
+    {
+      "source": "doc/语音到FPGA运动执行接入_20261024.md",
+      "old_anchor": "7-现场启用停止回滚",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-02--7-现场启用停止回滚"
+    },
+    {
+      "source": "doc/运动桥生产接入验证_20261024.md",
+      "old_anchor": "运动桥生产接入与验证2026-10-24",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-03--运动桥生产接入与验证2026-10-24"
+    },
+    {
+      "source": "doc/运动桥生产接入验证_20261024.md",
+      "old_anchor": "连接",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-03--连接"
+    },
+    {
+      "source": "doc/运动桥生产接入验证_20261024.md",
+      "old_anchor": "必要修复",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-03--必要修复"
+    },
+    {
+      "source": "doc/运动桥生产接入验证_20261024.md",
+      "old_anchor": "本版边界",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-03--本版边界"
+    },
+    {
+      "source": "doc/运动桥生产接入验证_20261024.md",
+      "old_anchor": "验证",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-03--验证"
+    },
+    {
+      "source": "doc/运动桥生产接入验证_20261024.md",
+      "old_anchor": "队友现场顺序",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-03--队友现场顺序"
+    },
+    {
+      "source": "doc/无相机语音运动接入与验收_20261024.md",
+      "old_anchor": "无相机语音运动接入与验收",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-04--无相机语音运动接入与验收"
+    },
+    {
+      "source": "doc/无相机语音运动接入与验收_20261024.md",
+      "old_anchor": "本轮完成",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-04--本轮完成"
+    },
+    {
+      "source": "doc/无相机语音运动接入与验收_20261024.md",
+      "old_anchor": "巡航配置",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-04--巡航配置"
+    },
+    {
+      "source": "doc/无相机语音运动接入与验收_20261024.md",
+      "old_anchor": "无硬件预览",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-04--无硬件预览"
+    },
+    {
+      "source": "doc/无相机语音运动接入与验收_20261024.md",
+      "old_anchor": "与claude的执行侧分工",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-04--与claude的执行侧分工"
+    },
+    {
+      "source": "doc/无相机语音运动接入与验收_20261024.md",
+      "old_anchor": "完成实车前",
+      "destination": "doc/archive/ai/语音运动接入_20261024.md",
+      "anchor": "report-04--完成实车前"
+    },
+    {
+      "source": "doc/HT10A验证记录.md",
+      "old_anchor": "ht10a接口对接验证记录2026-10-16",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-01--ht10a接口对接验证记录2026-10-16"
+    },
+    {
+      "source": "doc/HT10A验证记录.md",
+      "old_anchor": "范围和版本",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-01--范围和版本"
+    },
+    {
+      "source": "doc/HT10A验证记录.md",
+      "old_anchor": "实际执行结果",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-01--实际执行结果"
+    },
+    {
+      "source": "doc/HT10A验证记录.md",
+      "old_anchor": "测试反向检查",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-01--测试反向检查"
+    },
+    {
+      "source": "doc/HT10A验证记录.md",
+      "old_anchor": "当前下载文件",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-01--当前下载文件"
+    },
+    {
+      "source": "doc/HT10A验证记录.md",
+      "old_anchor": "时序限制没有宣称全系统关闭",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-01--时序限制没有宣称全系统关闭"
+    },
+    {
+      "source": "doc/HT10A验证记录.md",
+      "old_anchor": "必须留待实物验证",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-01--必须留待实物验证"
+    },
+    {
+      "source": "doc/审查与上板验证_20261017.md",
+      "old_anchor": "审查与上板验证2026-10-17",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-02--审查与上板验证2026-10-17"
+    },
+    {
+      "source": "doc/审查与上板验证_20261017.md",
+      "old_anchor": "发现与处理",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-02--发现与处理"
+    },
+    {
+      "source": "doc/审查与上板验证_20261017.md",
+      "old_anchor": "保留的行为与模块边界",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-02--保留的行为与模块边界"
+    },
+    {
+      "source": "doc/审查与上板验证_20261017.md",
+      "old_anchor": "独立手柄测试交付",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-02--独立手柄测试交付"
+    },
+    {
+      "source": "doc/审查与上板验证_20261017.md",
+      "old_anchor": "本轮工具结果",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-02--本轮工具结果"
+    },
+    {
+      "source": "doc/审查与上板验证_20261017.md",
+      "old_anchor": "仓库整理",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-02--仓库整理"
+    },
+    {
+      "source": "doc/遥控与ToF模块同步_20261018.md",
+      "old_anchor": "遥控器与tof模块同步2026-10-18",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-03--遥控器与tof模块同步2026-10-18"
+    },
+    {
+      "source": "doc/遥控与ToF模块同步_20261018.md",
+      "old_anchor": "同步范围与边界",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-03--同步范围与边界"
+    },
+    {
+      "source": "doc/遥控与ToF模块同步_20261018.md",
+      "old_anchor": "应用映射保持不变",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-03--应用映射保持不变"
+    },
+    {
+      "source": "doc/遥控与ToF模块同步_20261018.md",
+      "old_anchor": "在目标main隔离快照实际复验",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-03--在目标main隔离快照实际复验"
+    },
+    {
+      "source": "doc/遥控与ToF模块同步_20261018.md",
+      "old_anchor": "已有独立实板观察",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-03--已有独立实板观察"
+    },
+    {
+      "source": "doc/装车接口与联调清单_20261024.md",
+      "old_anchor": "装车接口与联调清单",
+      "destination": "doc/archive/hardware/遥控与装车接口验证_20261016-24.md",
+      "anchor": "report-04--装车接口与联调清单"
+    },
+    {
+      "source": "host/vision_bridge/模块协同验证报告.md",
+      "old_anchor": "视觉观测与-fpga-模块协同验证",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-01--视觉观测与-fpga-模块协同验证"
+    },
+    {
+      "source": "host/vision_bridge/模块协同验证报告.md",
+      "old_anchor": "实际完成",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-01--实际完成"
+    },
+    {
+      "source": "host/vision_bridge/模块协同验证报告.md",
+      "old_anchor": "证据与结果",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-01--证据与结果"
+    },
+    {
+      "source": "host/vision_bridge/模块协同验证报告.md",
+      "old_anchor": "验证覆盖",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-01--验证覆盖"
+    },
+    {
+      "source": "host/vision_bridge/模块协同验证报告.md",
+      "old_anchor": "对线上工程现状的核查",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-01--对线上工程现状的核查"
+    },
+    {
+      "source": "host/vision_bridge/模块协同验证报告.md",
+      "old_anchor": "追加安全桥到候选-uart-解析器",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-01--追加安全桥到候选-uart-解析器"
+    },
+    {
+      "source": "host/vision_bridge/模块协同验证报告.md",
+      "old_anchor": "后续真正上车前还差什么",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-01--后续真正上车前还差什么"
+    },
+    {
+      "source": "host/vision_bridge/MOTION_LINK.md",
+      "old_anchor": "ai--运动控制仿真链路2026-10-19",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-02--ai--运动控制仿真链路2026-10-19"
+    },
+    {
+      "source": "host/vision_bridge/MOTION_LINK.md",
+      "old_anchor": "1-数据链",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-02--1-数据链"
+    },
+    {
+      "source": "host/vision_bridge/MOTION_LINK.md",
+      "old_anchor": "2-规划规则",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-02--2-规划规则"
+    },
+    {
+      "source": "host/vision_bridge/MOTION_LINK.md",
+      "old_anchor": "3-仿真结果v7-真实模型输出",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-02--3-仿真结果v7-真实模型输出"
+    },
+    {
+      "source": "host/vision_bridge/MOTION_LINK.md",
+      "old_anchor": "4-与生产安全的边界",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-02--4-与生产安全的边界"
+    },
+    {
+      "source": "host/vision_bridge/MOTION_LINK.md",
+      "old_anchor": "5-下一步",
+      "destination": "doc/archive/ai/独立视觉观察桥实验_20261018-23.md",
+      "anchor": "report-02--5-下一步"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-28巡检交付状态与文档归并",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-10-28巡检交付状态与文档归并"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-26ai自主巡检架构设计",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-10-26ai自主巡检架构设计"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-23ai-与整车联调开发包交接",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "2026-10-23ai-与整车联调开发包交接"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "零阶段索引一页纸看完全程",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "零阶段索引一页纸看完全程"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "一九阶段一九骨架--imu-链路",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "一九阶段一九骨架--imu-链路"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "阶段一工程骨架与依赖锁定",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "阶段一工程骨架与依赖锁定"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "阶段二升级流程演练与文档纳管",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "阶段二升级流程演练与文档纳管"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "阶段三参数确认与运动学换算",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "阶段三参数确认与运动学换算"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "阶段四中文界面基础设施",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "阶段四中文界面基础设施"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "阶段五rtl-实现7-个核心文件",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "阶段五rtl-实现7-个核心文件"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "阶段六约束首次综合与时序优化",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "阶段六约束首次综合与时序优化"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "阶段七ui-实时数值",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "阶段七ui-实时数值"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "阶段八仿真4-台--70-项",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "阶段八仿真4-台--70-项"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "阶段九imu-链路接入",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "阶段九imu-链路接入"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "十踩坑清单按类别供后人避坑",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "十踩坑清单按类别供后人避坑"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "-a0-流程与协作教训最贵的一类",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "-a0-流程与协作教训最贵的一类"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "a-工具链与沙箱",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "a-工具链与沙箱"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "b-powershell--脚本",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "b-powershell--脚本"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "c-verilog--rtl",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "c-verilog--rtl"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "d-gowin-综合特有",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "d-gowin-综合特有"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "e-写-testbench",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "e-写-testbench"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "f-时序优化",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "f-时序优化"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "十一决策记录为什么这么做",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "十一决策记录为什么这么做"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "十二遗留项的最终去向",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "十二遗留项的最终去向"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "如果换人接手建议顺序",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "如果换人接手建议顺序"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "十三五十九10-1510-19-的持续迭代按主题合并",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "十三五十九10-1510-19-的持续迭代按主题合并"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "一vendor-转本项目自维护10-15",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "一vendor-转本项目自维护10-15"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "二串口-csv-上报--引脚逐针复验10-15",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "二串口-csv-上报--引脚逐针复验10-15"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "三上板前补全-ab-六项--遥控死区归属10-15",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "三上板前补全-ab-六项--遥控死区归属10-15"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "四需求原文两次全量核对10-16",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "四需求原文两次全量核对10-16"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "五合并队友-ht-10a-遥控分支10-16",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "五合并队友-ht-10a-遥控分支10-16"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "-214-setup违规端点口径的彻底查清本节最有价值的方法论",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "-214-setup违规端点口径的彻底查清本节最有价值的方法论"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "-215-独立复布实验本轮新增方法论",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "-215-独立复布实验本轮新增方法论"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "-216-工具限制别再重复踩",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "-216-工具限制别再重复踩"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "六首次上板烧录与方向标定10-17",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "六首次上板烧录与方向标定10-17"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "七摄像头模块接入--ddr3-帧缓存10-17-晚",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "七摄像头模块接入--ddr3-帧缓存10-17-晚"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "八ui-迭代--数值口径--坐标约定10-1710-19",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "八ui-迭代--数值口径--坐标约定10-1710-19"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "ui-视觉与排版迭代-8-次已按主题合并",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "ui-视觉与排版迭代-8-次已按主题合并"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "数据页数值口径-5-次迭代",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "数据页数值口径-5-次迭代"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "odom-落地与三次坐标约定修正10-18",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "odom-落地与三次坐标约定修正10-18"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "后续三个关键变更10-1810-19",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "后续三个关键变更10-1810-19"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "导航控制层10-19",
+      "destination": "doc/archive/development/基础整车记录_20261015-19.md",
+      "anchor": "导航控制层10-19"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "60-时序两条修法落地--上板两个-bug2026-10-19-1722--1735",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "60-时序两条修法落地--上板两个-bug2026-10-19-1722--1735"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "601-两条修法rtl-已改",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "601-两条修法rtl-已改"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "602-chassis_ctrl_tb-跟着多等一拍",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "602-chassis_ctrl_tb-跟着多等一拍"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "603-二次综合-1722两条目标路径清零",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "603-二次综合-1722两条目标路径清零"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "604-上板反馈的两个-bug-与修法",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "604-上板反馈的两个-bug-与修法"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "6041-两个三档开关的上下方向都反了",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "6041-两个三档开关的上下方向都反了"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "6042-退出导航交互态后无法立即再进入",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "6042-退出导航交互态后无法立即再进入"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "605-本轮仿真",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "605-本轮仿真"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "606-三次综合对比以及同域条数为什么每次都不一样",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "606-三次综合对比以及同域条数为什么每次都不一样"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "607-当前时序结论",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "607-当前时序结论"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "608-本次位流与上板验证清单",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "608-本次位流与上板验证清单"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "61-导航控制层落地cordic_atan2--nav_ctrl--与-ui底盘接线2026-10-19-2203--2303",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "61-导航控制层落地cordic_atan2--nav_ctrl--与-ui底盘接线2026-10-19-2203--2303"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "611-本轮做了什么",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "611-本轮做了什么"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "612-手动挡语义用户-m01153--m01187",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "612-手动挡语义用户-m01153--m01187"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "613-暂停必须真停车nav_ctrl-侧的坑",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "613-暂停必须真停车nav_ctrl-侧的坑"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "614-顺带修掉一个功能-bugi_acc-从来没累加过",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "614-顺带修掉一个功能-bugi_acc-从来没累加过"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "615-四轮综合把-50-mhz-同域违约清到-0",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "615-四轮综合把-50-mhz-同域违约清到-0"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "616-仿真14-台--604-项全-pass",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "616-仿真14-台--604-项全-pass"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "617-资源",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "617-资源"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "618-位流与状态",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "618-位流与状态"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "62-航向极性反向修复--imu-初始化失败可观测化2026-10-19-234x--10-20",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "62-航向极性反向修复--imu-初始化失败可观测化2026-10-19-234x--10-20"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "621-三个用户报的现象与真实原因",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "621-三个用户报的现象与真实原因"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "622-极性修复rtlnavnav_ctrlv",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "622-极性修复rtlnavnav_ctrlv"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "623-imu-看门狗rtltopfalcons_topv不改-vendor-快照",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "623-imu-看门狗rtltopfalcons_topv不改-vendor-快照"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "624-imu-失败红字提示用户-m01709--m01727--m01757",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "624-imu-失败红字提示用户-m01709--m01727--m01757"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "625-临时诊断口改为仅失败时占用",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "625-临时诊断口改为仅失败时占用"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "626-仿真",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "626-仿真"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "627-本轮踩到的两个工具坑",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "627-本轮踩到的两个工具坑"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "628-nav_ctrl-时序拆拍12-条--3-条2026-10-19-2353-综合",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "628-nav_ctrl-时序拆拍12-条--3-条2026-10-19-2353-综合"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "三处改动只动-rtlnavnav_ctrlv",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "三处改动只动-rtlnavnav_ctrlv"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "结果",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "结果"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "63-三个导航参数调整--仿真补参数边界断言2026-10-20-115x",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "63-三个导航参数调整--仿真补参数边界断言2026-10-20-115x"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "631-改了什么",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "631-改了什么"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "632-为什么要补断言",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "632-为什么要补断言"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "633-g11-组14-项参数边界断言simnav_ctrl_tbv91--105-项",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "633-g11-组14-项参数边界断言simnav_ctrl_tbv91--105-项"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "634-g11g-实测-437-而非理论-446-的原因",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "634-g11g-实测-437-而非理论-446-的原因"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "635-另外两处仿真改进",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "635-另外两处仿真改进"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "636-结果",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "636-结果"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "637-综合2026-10-20-1207",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "637-综合2026-10-20-1207"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "六十四2026-10-20-1207-综合与时序复核调参后首综合",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "六十四2026-10-20-1207-综合与时序复核调参后首综合"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "641-范围与结果",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "641-范围与结果"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "642-时序按域组合全表判据-implpnrfalcons_tr_contenthtml四张表各-25-条",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "642-时序按域组合全表判据-implpnrfalcons_tr_contenthtml四张表各-25-条"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "643-i_clk_50m-同域-11-条明细",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "643-i_clk_50m-同域-11-条明细"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "644-pixel-域同域-9-条明细",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "644-pixel-域同域-9-条明细"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "645-与上一版对比本次时序明显变差",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "645-与上一版对比本次时序明显变差"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "646-结论与可选修法",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "646-结论与可选修法"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "647-烧录2026-10-20-1256",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "647-烧录2026-10-20-1256"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "六十五2026-10-20-130x-max_diff_cruise-退回-180",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "六十五2026-10-20-130x-max_diff_cruise-退回-180"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "651-变更内容",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "651-变更内容"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "652-换算口径不变",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "652-换算口径不变"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "653-验证",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "653-验证"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "654-板上状态不一致必须记住",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "654-板上状态不一致必须记住"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "655-文档处理原则",
+      "destination": "doc/archive/development/控制层与方向记录_20261019-20.md",
+      "anchor": "655-文档处理原则"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "六十六参数整定页一期参数运行时化--11-项可调--像素级仿真2026-10-20-133x--141x",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "六十六参数整定页一期参数运行时化--11-项可调--像素级仿真2026-10-20-133x--141x"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "661-需求与范围",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "661-需求与范围"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "662-改动清单",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "662-改动清单"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "663-11-项参数rtluitune_ctrlv-的-p_defp_minp_maxp_stepd_def",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "663-11-项参数rtluitune_ctrlv-的-p_defp_minp_maxp_stepd_def"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "664-交互遥控器",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "664-交互遥控器"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "665-位序约定",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "665-位序约定"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "666-显示换算的两个定点乘",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "666-显示换算的两个定点乘"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "667-div_iter-与-k_slow-重算",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "667-div_iter-与-k_slow-重算"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "668-字库",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "668-字库"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "669-布局",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "669-布局"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "6610-效果图审查抓出的一处改动",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "6610-效果图审查抓出的一处改动"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "6611-三个-bug-与坑",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "6611-三个-bug-与坑"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "6612-仿真",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "6612-仿真"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "6613-综合2026-10-20-140344",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "6613-综合2026-10-20-140344"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "6614-已知限制一期",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "6614-已知限制一期"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "六十七构建工具链gw_sh-挂住-12-分钟的根因与三入口分阶段2026-10-20-1430",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "六十七构建工具链gw_sh-挂住-12-分钟的根因与三入口分阶段2026-10-20-1430"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "671-根因tcl-脚本没有-exit",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "671-根因tcl-脚本没有-exit"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "672-耗时分解实测2026-10-20-1355-那次",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "672-耗时分解实测2026-10-20-1355-那次"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "673-gowin-1912-实测没有增量没有并行",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "673-gowin-1912-实测没有增量没有并行"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "674-为什么复用旧成果在本工程不成立",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "674-为什么复用旧成果在本工程不成立"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "675-落地四个构建入口--一个公共片段",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "675-落地四个构建入口--一个公共片段"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "676-验证",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "676-验证"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "677-使用方式",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "677-使用方式"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "678-踩坑相对路径喂给-iofile-又犯一次",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "678-踩坑相对路径喂给-iofile-又犯一次"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "68-参数整定页上板问题修复2026-10-20烧录-0x0000a624-之后",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "68-参数整定页上板问题修复2026-10-20烧录-0x0000a624-之后"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "681-上板发现的四个问题",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "681-上板发现的四个问题"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "682-修复一返回时回到进入前那一页",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "682-修复一返回时回到进入前那一页"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "683-修复二数值与单位下部被截断",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "683-修复二数值与单位下部被截断"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "684-修复三摇杆极性右推--增大",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "684-修复三摇杆极性右推--增大"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "685-被取消的需求调值摇杆改-ch2",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "685-被取消的需求调值摇杆改-ch2"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "686-验证",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "686-验证"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "687-三载体状态",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "687-三载体状态"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "69-积分限幅端口化--参数页改-ch2-选行2026-10-20-下午上板反馈驱动",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "69-积分限幅端口化--参数页改-ch2-选行2026-10-20-下午上板反馈驱动"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "691-起因直行摆头的真根因是积分限幅--行进差速限幅",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "691-起因直行摆头的真根因是积分限幅--行进差速限幅"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "692-改动一i_limit--运行时端口-i_i_limit",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "692-改动一i_limit--运行时端口-i_i_limit"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "693-改动二第-12-项参数积分限幅",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "693-改动二第-12-项参数积分限幅"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "694-默认值-90-的选取依据",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "694-默认值-90-的选取依据"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "695-改动三选行由-ch8-键改为-ch2-摇杆",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "695-改动三选行由-ch8-键改为-ch2-摇杆"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "696-改动四页面-11-行--12-行",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "696-改动四页面-11-行--12-行"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "697-字库238--241-字--346--350-条",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "697-字库238--241-字--346--350-条"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "698-仿真16-台--745-项全-pass",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "698-仿真16-台--745-项全-pass"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "699-效果图",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "699-效果图"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "6910-已知限制",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "6910-已知限制"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "70-参数整定页交互收尾退出保持高亮--菜单变暗--积分限幅换行位",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "70-参数整定页交互收尾退出保持高亮--菜单变暗--积分限幅换行位"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "701-需求",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "701-需求"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "702-退出后菜单高亮留在参数整定",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "702-退出后菜单高亮留在参数整定"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "703-参数页菜单栏变暗",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "703-参数页菜单栏变暗"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "704-积分限幅换到航向-kd下速度环-kp上",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "704-积分限幅换到航向-kd下速度环-kp上"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "705-索引变了五处必须同改",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "705-索引变了五处必须同改"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "706-验证",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "706-验证"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "707-踩坑用行号批量改却没给新增行腾位置",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "707-踩坑用行号批量改却没给新增行腾位置"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "708-速度环默认值改为-kp24--ki36",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "708-速度环默认值改为-kp24--ki36"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "709-未做",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "709-未做"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "71-综合2026-10-20-1939综合器抓出的两个显示-bug",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "71-综合2026-10-20-1939综合器抓出的两个显示-bug"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "711-第一次综合直接失败",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "711-第一次综合直接失败"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "712-第二个-bug参数页数字带前导零和小数点",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "712-第二个-bug参数页数字带前导零和小数点"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "713-改法把哪些字段带小数交给顶层按页面决定",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "713-改法把哪些字段带小数交给顶层按页面决定"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "714-全量回归",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "714-全量回归"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "715-综合结果2026-10-20-193913",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "715-综合结果2026-10-20-193913"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "716-时序",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "716-时序"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "717-未做",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "717-未做"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "72-参数页退出改为只退编辑态不换页2026-10-20-晚",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "72-参数页退出改为只退编辑态不换页2026-10-20-晚"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "721-需求",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "721-需求"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "722-改动",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "722-改动"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "723-页面的两个视觉状态",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "723-页面的两个视觉状态"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "724-跨域",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "724-跨域"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "725-仿真",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "725-仿真"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "726-效果图",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "726-效果图"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "727-未做",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "727-未做"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "728-综合2026-10-20-200508",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "728-综合2026-10-20-200508"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "73-需求方指定-6-项默认参数--setup-违例针对性优化2026-10-20",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "73-需求方指定-6-项默认参数--setup-违例针对性优化2026-10-20"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "731-需求原话",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "731-需求原话"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "732-六项参数改动",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "732-六项参数改动"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "733-断言重算118--119-项",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "733-断言重算118--119-项"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "734-setup-违例的四项优化",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "734-setup-违例的四项优化"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "735-三轮综合对比",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "735-三轮综合对比"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "736-剩余-13-条的分类与影响",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "736-剩余-13-条的分类与影响"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "737-上板sram-烧录--flash-固化",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "737-上板sram-烧录--flash-固化"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "738-提交与推送",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "738-提交与推送"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "739-未做",
+      "destination": "doc/archive/development/参数界面记录_20261020.md",
+      "anchor": "739-未做"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "74-vendor-三处时序优化全部回退三处皆负优化②-是唯一主因2026-10-20-2138--2230",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "74-vendor-三处时序优化全部回退三处皆负优化②-是唯一主因2026-10-20-2138--2230"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "741-缘起与授权范围",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "741-缘起与授权范围"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "742-三处改动",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "742-三处改动"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "743-三个模块级-tb本轮新增全部保留",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "743-三个模块级-tb本轮新增全部保留"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "744-四版综合对照",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "744-四版综合对照"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "745--决定性证据综合器对本设计是确定性的",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "745--决定性证据综合器对本设计是确定性的"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "746-逐条归因",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "746-逐条归因"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "747-本轮留下的东西",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "747-本轮留下的东西"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "748-未做",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "748-未做"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "75-违例审计与三处时序优化sys-域-fmax-46955--497332026-10-20-2240--2340",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "75-违例审计与三处时序优化sys-域-fmax-46955--497332026-10-20-2240--2340"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "751-缘起",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "751-缘起"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "752-全工程审计结论",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "752-全工程审计结论"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "753-三处改动按落地顺序",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "753-三处改动按落地顺序"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "754-p0set_clock_groups失败",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "754-p0set_clock_groups失败"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "755-四版综合对照",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "755-四版综合对照"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "756--归因限制最后一步的收益不能全记在改动上",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "756--归因限制最后一步的收益不能全记在改动上"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "757-剩余-4-个端点",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "757-剩余-4-个端点"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "758-未做",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "758-未做"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "76-a1--b1常数除法与累加器改写的两次负优化2026-10-21",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "76-a1--b1常数除法与累加器改写的两次负优化2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "761-缘起与结论",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "761-缘起与结论"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "762-a148-位累加器--32-位",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "762-a148-位累加器--32-位"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "763-b1-第一版寄存器增量计数器已废弃",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "763-b1-第一版寄存器增量计数器已废弃"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "764-b1纯组合的除法分解",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "764-b1纯组合的除法分解"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "765-综合看不出问题但数字已经不对",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "765-综合看不出问题但数字已经不对"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "766-pnr-实测全面变差",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "766-pnr-实测全面变差"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "767--为什么判断错了本节是这次最大的产出",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "767--为什么判断错了本节是这次最大的产出"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "768-回退与重建",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "768-回退与重建"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "769-未做",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "769-未做"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "77-按方法论文档复查全部违例sdc-改造成功--方案-a-负优化",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "77-按方法论文档复查全部违例sdc-改造成功--方案-a-负优化"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "771-第一次真正看清-4-条真违例",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "771-第一次真正看清-4-条真违例"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "772-b-实验sdc-时钟分组-成功保留",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "772-b-实验sdc-时钟分组-成功保留"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "773-方案-alg_col-与-lg_slot-解耦-负优化已回退",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "773-方案-alg_col-与-lg_slot-解耦-负优化已回退"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "774-为什么又失败pixel-域是多条近临界路径并存",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "774-为什么又失败pixel-域是多条近临界路径并存"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "775-四次试验对照全部负优化全部已回退",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "775-四次试验对照全部负优化全部已回退"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "776-回退与重建",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "776-回退与重建"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "777-结论与建议",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "777-结论与建议"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "778-未做",
+      "destination": "doc/archive/development/时序迭代记录_20261020-21.md",
+      "anchor": "778-未做"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "78-自动导航整车接入方案2026-10-21仅分析与文档",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "78-自动导航整车接入方案2026-10-21仅分析与文档"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "79-雷达建图接入第一步2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "79-雷达建图接入第一步2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "80-新增避障选点保留非避障调试2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "80-新增避障选点保留非避障调试2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "81-避障执行器与握手第三步2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "81-避障执行器与握手第三步2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "82-显示双缓冲与避障运动闭环2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "82-显示双缓冲与避障运动闭环2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "83-采样对齐与导航界面预览2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "83-采样对齐与导航界面预览2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "84-imu-零偏标定失败也显示imu初始化错误2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "84-imu-零偏标定失败也显示imu初始化错误2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "85-系统复位也重新标定-imu-零偏2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "85-系统复位也重新标定-imu-零偏2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "86-同一圈射线命中优先2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "86-同一圈射线命中优先2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "87-128-m-地图与-50-mm-网格2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "87-128-m-地图与-50-mm-网格2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "88-最新整车-fmax-优化方案2026-10-21仅分析",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "88-最新整车-fmax-优化方案2026-10-21仅分析"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "89-实施-fmax-前四项优化2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "89-实施-fmax-前四项优化2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "90-修复雷达前半平面翻转2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "90-修复雷达前半平面翻转2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "91-雷达坐标修复版下载与-flash-固化2026-10-21",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "91-雷达坐标修复版下载与-flash-固化2026-10-21"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "92-直行优先-bfs-与室内斜墙验证2026-10-22",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "92-直行优先-bfs-与室内斜墙验证2026-10-22"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "93-路线居中最小间隙端点与参数修正2026-10-22",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "93-路线居中最小间隙端点与参数修正2026-10-22"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "94-显示与控制链路流水并行优化2026-10-22",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "94-显示与控制链路流水并行优化2026-10-22"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "95-补画当前控制任务轴线2026-10-23",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "95-补画当前控制任务轴线2026-10-23"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "96-当前段补线版完整重建2026-10-23",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "96-当前段补线版完整重建2026-10-23"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "97-整车语音运动现场验收--录音提示音产品化2026-10-24-2000--2115",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "97-整车语音运动现场验收--录音提示音产品化2026-10-24-2000--2115"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "98-ai视觉巡检架构评估与最新导航读取2026-10-25",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "98-ai视觉巡检架构评估与最新导航读取2026-10-25"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "99-rk独立uvc实物接入与代码准备2026-10-25",
+      "destination": "doc/archive/development/导航语音记录_20261021-25.md",
+      "anchor": "99-rk独立uvc实物接入与代码准备2026-10-25"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-29-ai分支合入主分支",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-10-29-ai分支合入主分支"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-29-规划窗口扩展与独立巡检转向参数",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-10-29-规划窗口扩展与独立巡检转向参数"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-29-k541-p02新权重及连续确认部署",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-10-29-k541-p02新权重及连续确认部署"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-29-巡检矛盾修复与简化",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-10-29-巡检矛盾修复与简化"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-29rk前进后退改为独立约300mms",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-10-29rk前进后退改为独立约300mms"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-29启用前进后退距离指令",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-10-29启用前进后退距离指令"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-10-31避障地图显示改为y轴约5米",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-10-31避障地图显示改为y轴约5米"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-11-01巡检选点灵敏度提高3倍",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-11-01巡检选点灵敏度提高3倍"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-11-04fpga摄像头运动画面防撕裂",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-11-04fpga摄像头运动画面防撕裂"
+    },
+    {
+      "source": "doc/工作记录.md",
+      "old_anchor": "2026-11-09文档口径整理与源码恢复",
+      "destination": "doc/archive/development/巡检交付记录_20261026-20261109.md",
+      "anchor": "2026-11-09文档口径整理与源码恢复"
+    },
+    {
+      "source": "doc/导航控制方案.md",
+      "old_anchor": "导航控制现行接口与执行流程",
+      "destination": "doc/导航控制方案.md",
+      "anchor": ""
+    },
+    {
+      "source": "doc/导航控制方案.md",
+      "old_anchor": "三个任务入口共用底盘",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "三个任务入口共用底盘"
+    },
+    {
+      "source": "doc/导航控制方案.md",
+      "old_anchor": "坐标量纲和符号",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "坐标量纲和符号"
+    },
+    {
+      "source": "doc/导航控制方案.md",
+      "old_anchor": "原非避障控制",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "原非避障控制"
+    },
+    {
+      "source": "doc/导航控制方案.md",
+      "old_anchor": "避障单点执行器",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "避障单点执行器"
+    },
+    {
+      "source": "doc/导航控制方案.md",
+      "old_anchor": "ai控制权与图层",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "ai控制权与图层"
+    },
+    {
+      "source": "doc/导航控制方案.md",
+      "old_anchor": "验证与后续修改",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "验证与后续修改"
+    },
+    {
+      "source": "doc/避障导航操作指南.md",
+      "old_anchor": "避障导航操作指南",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "按键"
+    },
+    {
+      "source": "doc/避障导航操作指南.md",
+      "old_anchor": "按键",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "按键"
+    },
+    {
+      "source": "doc/避障导航操作指南.md",
+      "old_anchor": "开始一次导航",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "开始一次导航"
+    },
+    {
+      "source": "doc/避障导航操作指南.md",
+      "old_anchor": "暂停手动和恢复",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "暂停手动和恢复"
+    },
+    {
+      "source": "doc/避障导航操作指南.md",
+      "old_anchor": "完成无路和故障",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "完成无路和故障"
+    },
+    {
+      "source": "doc/避障导航操作指南.md",
+      "old_anchor": "状态切换",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "状态切换"
+    },
+    {
+      "source": "doc/避障导航操作指南.md",
+      "old_anchor": "规划窗口整定",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "规划窗口整定"
+    },
+    {
+      "source": "doc/自动导航接入方案.md",
+      "old_anchor": "整车避障导航接入",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "三个任务入口共用底盘"
+    },
+    {
+      "source": "doc/自动导航接入方案.md",
+      "old_anchor": "数据流与模块",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "三个任务入口共用底盘"
+    },
+    {
+      "source": "doc/自动导航接入方案.md",
+      "old_anchor": "地图和前探",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "地图和前探"
+    },
+    {
+      "source": "doc/自动导航接入方案.md",
+      "old_anchor": "ai巡检接入",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "ai控制权与图层"
+    },
+    {
+      "source": "doc/自动导航接入方案.md",
+      "old_anchor": "验证入口",
+      "destination": "doc/导航控制方案.md",
+      "anchor": "验证与后续修改"
+    },
+    {
+      "source": "doc/AI与整车联调开发指南_20261023.md",
+      "old_anchor": "ai与整车联调开发指南",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": ""
+    },
+    {
+      "source": "doc/AI与整车联调开发指南_20261023.md",
+      "old_anchor": "分工",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": "分工"
+    },
+    {
+      "source": "doc/AI与整车联调开发指南_20261023.md",
+      "old_anchor": "调试顺序",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": "调试顺序"
+    },
+    {
+      "source": "doc/AI与整车联调开发指南_20261023.md",
+      "old_anchor": "独立工具与生产接口",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": "独立工具与生产接口"
+    },
+    {
+      "source": "doc/AI显示接入现有UI方案_20261024.md",
+      "old_anchor": "ai显示与现有ui集成",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": "显示接口"
+    },
+    {
+      "source": "doc/AI显示接入现有UI方案_20261024.md",
+      "old_anchor": "两路相机与页面",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": "两路相机与页面"
+    },
+    {
+      "source": "doc/AI显示接入现有UI方案_20261024.md",
+      "old_anchor": "高速与ddr",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": "高速与ddr"
+    },
+    {
+      "source": "doc/AI显示接入现有UI方案_20261024.md",
+      "old_anchor": "依赖与验证",
+      "destination": "doc/AI与整车联调开发指南_20261023.md",
+      "anchor": "依赖与验证"
+    },
+    {
+      "source": "doc/相机与AI上板启动流程_20261024.md",
+      "old_anchor": "rk相机与ai启动检查",
+      "destination": "doc/相机与AI上板启动流程_20261024.md",
+      "anchor": ""
+    },
+    {
+      "source": "doc/相机与AI上板启动流程_20261024.md",
+      "old_anchor": "连接与登录",
+      "destination": "doc/相机与AI上板启动流程_20261024.md",
+      "anchor": "连接与登录"
+    },
+    {
+      "source": "doc/相机与AI上板启动流程_20261024.md",
+      "old_anchor": "检查现有服务",
+      "destination": "doc/相机与AI上板启动流程_20261024.md",
+      "anchor": "检查现有服务"
+    },
+    {
+      "source": "doc/相机与AI上板启动流程_20261024.md",
+      "old_anchor": "屏幕操作",
+      "destination": "doc/相机与AI上板启动流程_20261024.md",
+      "anchor": "屏幕操作"
+    },
+    {
+      "source": "doc/相机与AI上板启动流程_20261024.md",
+      "old_anchor": "更新部署时",
+      "destination": "doc/相机与AI上板启动流程_20261024.md",
+      "anchor": "更新部署时"
+    },
+    {
+      "source": "doc/RK前进后退固定速度码_20261025.md",
+      "old_anchor": "rk前进后退固定约300mms",
+      "destination": "doc/相机与AI上板启动流程_20261024.md",
+      "anchor": "直行与距离指令"
+    }
+  ],
+  "evidence_link_entries": [
+    "doc/RK模型开机加载与手动暂停_20261025.md",
+    "doc/RK独立UVC摄像头准备与验证_20261025.md"
+  ]
+}

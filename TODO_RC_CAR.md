@@ -50,4 +50,4 @@
 - [CH5/CH6 LED例程](vendor/verilog-reusable-modules/modules/rc_pwm_receiver/examples/acg720_rc_6ch_led/README.md)
 - [ToF核心](vendor/verilog-reusable-modules/modules/tof_vl53l0x/README.md)
 - [ToF数码管例程](vendor/verilog-reusable-modules/modules/tof_vl53l0x/examples/acg720_tof_debug/README.md)
-- [本次同步验证记录](doc/遥控与ToF模块同步_20261018.md)
+- [本次同步验证记录](doc/archive/hardware/遥控与装车接口验证_20261016-24.md#report-03)
