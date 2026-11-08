@@ -6,8 +6,8 @@
 #   3) tools/run_all_modules.ps1 依据它决定哪些包必须先跑通（库自带测试当门槛）。
 #
 # 格式：包名<空格>用途说明。以 # 开头的行为注释。
-# vendor/ 里共有 10 个包（2026-10-15 起由本工程直接维护，见 vendor/ORIGIN.md）；
-# 本文件只列【当前编译进工程的】包，其余包是"已就位、待接入"，把包名移出注释即可加入编译。
+# vendor/ 里共有 16 个包（2026-10-15 起由本工程直接维护，见 vendor/ORIGIN.md）；
+# 非注释包名参与整车编译；是否已实例化还需核对顶层。未启用包保持注释。
 
 # ---- 当前已接入（整车顶层 falcons_top 在用）----
 motor_tb6612     四路 TB6612 驱动 / 正交编码器解码 / 定窗口测速 / 堵转保护（motor_top 四路集成）
@@ -18,18 +18,16 @@ imu660ra         ★ IMU660RA（BMI270）六轴 SPI 驱动：初始化 + 1 kHz �
 gyro_tilt_comp   陀螺 Z 轴固定安装倾斜补偿（k = |a|/a_z，自动带符号）
 yaw_integrate    偏航角积分（1024 Hz 定点，±180° 回绕，零乘法器）
 rc_pwm_receiver  ★ 只实例化包内的 rc_pwm_capture（单路捕获）×6 → 6 路接口，见 rtl/rc/rc_input.v；
-#                 ★ 遥控器实际只用 5 路（2 摇杆+确认+select+模式拨杆），第 6 路（J6.6/bit5/CH8）预留未接；
+#                 整车六路均使用：CH4/CH2摇杆、CH5确认返回、CH7模式、CH6录音、CH8/select；
 #                   不使用包内的 rc_receiver（它把两路固定包成 steering/throttle，不够用）
 ov5640_capture   ★ 并行 DVP OV5640 初始化与采集（摄像头页）。2026-10-17 接入：
 #                   引脚按 doc\高云 ACG720-138&60K通用管脚分配表.xlsx 的「摄像头接口」段；
 #                   帧缓存用其示例的 DDR3 方案（rtl\ip\ 下的 ddr3_ctrl_2port 等 Gowin IP），
-#                   集成层见 rtl\cam\cam_overlay.v（架构照 examples\acg720_ddr3_hdmi）
+#                   集成层cam_overlay，camera_frame_buffer管理DDR三帧银行；帧缓冲候选尚未烧录。
 
-# ---- 已就位、按阶段接入（把包名移出注释即进入编译）----
-# 注：imu660ra / gyro_tilt_comp / yaw_integrate 已在上面"当前已接入"段生效，
-#     这里的重复条目已删除（2026-10-16 文档复查）
-m10_radar        M10 GPS 读取与随点位姿解析，RX 接 C14
-auto_navigation  障碍地图、后台 BFS 与车前检查
+# ---- 当前已接入的雷达、导航与语音运动 ----
+m10_radar        M10激光雷达帧解析与随点位姿处理，RX 接 C14
+auto_navigation  障碍地图、八方向Dijkstra 与车前检查
 radar_navigation 整车雷达导航正式入口
 # （ov5640_capture 已于 2026-10-17 接入，见上方"当前已接入"段）
 

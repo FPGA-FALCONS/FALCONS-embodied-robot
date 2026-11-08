@@ -11,7 +11,7 @@
 | FX2相机 | fx2_camera/ | 历史FIMG v1/v2解析与回放；当前AI高速显示/地图使用ai_coordinator/inspection的AIF1 |
 | USB相机 | usb_camera_v4l2/ | UVC模式探测和独立取帧；正式原生采集为ai_coordinator/native_v4l2_camera.py，focus260、720p；另保留独立探测工具 |
 | USB相机(Windows) | usb_camera_win/ | 本机 DirectShow 固定焦距/曝光 + 9×6 棋盘格针孔标定；MSMF 后端不生效 |
-| 视觉训练研究 | vision_training/ | 语义蒸馏、检测头/P3候选与对照评估；未通过候选不替换v17 |
+| 视觉训练研究 | vision_training/ | 语义蒸馏、检测头/P3候选与对照评估；10-24 v17基线的历史研究；生产视觉已于10-29切换K541 P02，见[模型资产](MODELS.md) |
 | 语音任务研究 | voice_task_demo/ | ASR与领域训练、评估、任务图和演示；正式入口为协调器 |
 
 模型版本与实际文件校验由板端配置`artifacts`记录，并随发布导出`MODEL_MANIFEST.json`。C1b、SenseVoice、YOLO和女声缓存均沿用已核验基线；源码不携带权重；本车用户服务已配置启动加载既有模型。新环境应按各模块说明安装独立依赖，RK3588现有竞赛环境不得upgrade。

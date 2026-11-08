@@ -1,6 +1,6 @@
 # RK3588 AI协调器
 
-状态核对：2026-10-28。生产服务覆盖语义导航、独立目标识别、聊天机器人、视觉巡检四个功能；各模型复用RK已有资产。FPGA运行基础相机、雷达、导航、闭环和最终手动仲裁，RK运行模型、AI任务、图像渲染及记录，不安装ROS2/Nav2。
+状态核对：2026-11-09。生产服务覆盖语义导航、独立目标识别、聊天机器人、视觉巡检四个功能；各模型复用RK已有资产。FPGA运行基础相机、雷达、导航、闭环和最终手动仲裁，RK运行模型、AI任务、图像渲染及记录，不安装ROS2/Nav2。
 
 ## 当前入口与数据流
 
@@ -28,7 +28,7 @@ FPGA OV5640图像不传RK；RK使用自己的UVC相机。旧FIMG输入、FAM1找
 
 运行根：`/home/orangepi/workspace/falcons_ai_coordinator_20261024_r1`。`active_release.json`给出代码release，`config.json`给出实际模型、设备身份、功能和标定，依赖在`python/`，运行结果在`runs/`。生产代码release另位于`/home/orangepi/workspace/falcons_ai_interactive_20261024/releases/`；不要假定都在运行根的releases下。
 
-`falcons-ai-coordinator.service`为已启用linger的用户服务，开机加载既有ASR、语义、聊天、TTS及视觉模型，完成后尝试播放一次就绪音。默认示例配置/shadow模式与本车已部署配置不同；不能凭示例的关闭开关断言板端未启用模型或串口。
+`falcons-ai-coordinator.service`为已启用linger的用户服务，开机加载既有ASR、语义、聊天、TTS及视觉模型，完成后尝试播放一次就绪音。`config.example.json`是shadow示例，包含历史v17模型路径，不能直接当作当前生产配置。新环境按[模型资产](../MODELS.md)配置K541 P02并核对实际路径；示例的关闭开关保持用于离线操作。不能凭示例的关闭开关断言板端未启用模型或串口。
 
 ```bash
 systemctl --user status falcons-ai-coordinator.service
@@ -51,6 +51,6 @@ $env:PYTHONPATH = (Join-Path $PWD 'host')
 python -m unittest discover -s host/ai_coordinator/tests -v
 ```
 
-最近多点版RK343项协调服务、36项FX2工具、12项语义工具通过；原始状态和实物限制只在[验证记录](../../doc/AI巡检验证记录.md)维护。现场三视图及独立识别画面已确认，多点实车巡检和发现语音未测。最近FX2暂不接回、扬声器缺失，不能以模型ready推断已完成实物验收。
+各轮主机和板端测试按日期、范围及跳过项记录在[验证记录](../../doc/AI巡检验证记录.md)，不在此复制发布号、测试总数或某次外设缺失状态。成果拍摄和实物反馈不代表所有故障边界均已验收；当前设备/服务状态需实际连接RK检查。
 
 FAM1仍为独立任务协议参考，生产FPGA不提供完整FAM1找物/拾取回执；语义MOT1串口写入也不等于物理动作完成。巡检所用保留事务接口确有真实FPGA状态回传，三者不能混为同一协议。

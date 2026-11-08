@@ -1,6 +1,6 @@
 # AI视觉巡检：使用与架构
 
-状态核对：2026-10-29。RK已部署多路径点巡检、停车后三帧定位、双路录像及发现播报代码；实车自动巡检尚未验收。最近部署、硬件反馈与时序见[验证记录](AI巡检验证记录.md)，录像导出与清理见[录像与报告](AI巡检录像与报告.md)。
+状态核对：2026-11-09。本文维护现行操作与架构；源码能力、部署证据及用户实测反馈分开记录。最近部署、硬件反馈与时序见[验证记录](AI巡检验证记录.md)，录像导出与清理见[录像与报告](AI巡检录像与报告.md)。
 
 ## 使用范围
 
@@ -105,7 +105,7 @@ SWB仍用于录音。进入AI、换功能或手动恢复后需先上拨再下拨
 
 地图256×256、每格50mm，范围`[-6.4,6.4)`米，地图x前/y左。raw/cost每张8192字节，逻辑双bank共32KiB；`effective_raw = radar_raw OR visual_raw`，cost同理，RK预先计算视觉膨胀。图层切换使旧规划失效，不只改变显示。
 
-控制串口沿用115200/8N1和MOT1保留信封0x60/61/62，事务最多32个uint32，头及负载整体CRC32。类型包括HELLO、CONTROL、图层BEGIN/DATA/COMMIT、心跳、UI_CLOSE和状态/位姿/输入回传。CONTROL含session/task/epoch/command、格坐标、图层版本及物理确认令牌；速度码固定30。同一授权任务可依次下发多个GOTO，手动或人工暂停撤销旧授权。
+控制串口沿用115200/8N1。巡检事务封装于12字节MOT1帧：magic为`MOT1`，保留操作码0x60/0x61/0x62分别表示BEGIN/DATA/END。外层帧校验CRC16，内层事务最多32个uint32，事务头及负载整体校验CRC32。类型包括HELLO、CONTROL、图层BEGIN/DATA/COMMIT、心跳、UI_CLOSE和状态/位姿/输入回传。CONTROL含session/task/epoch/command、格坐标、图层版本及物理确认令牌；第8字高16位携带巡航速度mm/s、低16位为图层版本。同一授权任务可依次下发多个GOTO，手动或人工暂停撤销旧授权。
 
 高速线为RK USB-A Host → FPGA J5高速Type-C，控制串口另留。FX2为04b4:00f1、interface0、EP2 OUT/EP6 IN（Bulk512）；只加载受校验的原厂30MHz运行RAM固件，不写EEPROM。新连接先实际测频与特征诊断；PA0固定低是该固件正常回传的必要板级配置，见[固件说明](../host/ai_coordinator/inspection/firmware/README.md)。
 

@@ -14,23 +14,15 @@ module ht10a_input #(
     parameter integer STEER_CENTER_US=1500, THROTTLE_CENTER_US=1500,
     parameter integer STEER_HALF_RANGE_US=500, THROTTLE_HALF_RANGE_US=500,
     parameter integer STEER_DEADZONE_US=25, THROTTLE_DEADZONE_US=25,
-    // ★ 2026-10-17 上板实测标定：推杆向前时车反而后退 → 油门通道取反（THROTTLE_REVERSE=1）。
-    //   ★ 该取值【由顶层例化覆盖】（`falcons_top.v` 第 2 节 `.THROTTLE_REVERSE(1)`），
-    //     这里的默认值**仍保持 0** —— 因为 `ht10a_input_tb` / `rc_input_tb` 的主实例
-    //     用默认参数做"方向/量程"断言，改默认值会直接把回归测试打破。
-    //   ★ 只反油门：不要动 motor_top 的 INV_DIR_VEC（四路全反会把差速转向一起带反）。
+    // 通用默认方向不代表整车；顶层u_rc显式覆盖STEER_REVERSE=1、THROTTLE_REVERSE=0。
+    // 轮位/电机方向单独由底盘配置维护，不能用四路全反代替遥控轴方向修正。
     parameter integer STEER_REVERSE=0, THROTTLE_REVERSE=0, MENU_REVERSE=0,
     parameter integer MODE_REVERSE=0, SELECT_ACTIVE_LOW=0, CONFIRM_ACTIVE_LOW=0,
     parameter integer AUX_SWAP=0,
     parameter integer SW_LO_US=1300, SW_HI_US=1700, SW_HYST_US=30, SW_CONFIRM_FRAMES=2,
     parameter integer MIN_PULSE_US=900, MAX_PULSE_US=2100, TIMEOUT_US=100_000,
     parameter integer MENU_STEP_TH=400, MENU_IDLE_TH=150,
-    // 参与"信号有效"判定的通道掩码：6'b011111 = 排除闲置的 bit5（见 rc_input 头注释②）
-    //   ★ 位序提醒：6'b011111 的 MSB 是 bit5=0（排除）、其余 bit4..bit0=1（参与）。
-    // ★ 2026-10-19：CH8（槽位 5）现在有角色了（辅助菜单上下切），**整车**要把 6 路全部纳入
-    //   "信号有效"判定。但**默认值仍保持 6'b011111**：`ht10a_input_tb` / `rc_led_test`
-    //   用默认参数做"第 6 路未接也能解锁"的断言，改默认值会直接打断它们。
-    //   整车配置在 `falcons_top` 的 `u_rc` 例化里显式传 6'b111111。
+    // 通用默认011111供独立配置/测试；本车六路均使用，顶层显式覆盖111111。
     parameter integer SIG_VALID_MASK=6'b011111
 )(
     input wire clk,rst_n,
@@ -44,10 +36,8 @@ module ht10a_input #(
 );
     rc_input #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ), .NUM_CH(6),
-        // 槽位索引：bit3 = select（原"返回"键位），bit5 闲置不进映射
-        // ★ 2026-10-19 槽位重排：模式由槽位 4(CH6) 移到槽位 3(CH7)；
-        //   o_btn_select保留旧接口，仍由槽位4生成但整车不消费；AI录音直接采CH6。
-        //   用户所称select是CH8，应用使用o_aux_up/o_aux_down选择子菜单，不能把两者混接。
+        // 零起始J6槽位索引，映射见文件头。o_btn_select保留端口来自CH6，
+        // 整车录音直接读取CH6；用户所称select为CH8的o_aux_up/o_aux_down。
         .CH_STEER(0),.CH_THROTTLE(1),.CH_CONFIRM(2),.CH_SELECT(4),.CH_MODE(3),.CH_AUX(5),
         .AUX_SWAP(AUX_SWAP),
         .SIG_VALID_MASK(SIG_VALID_MASK),

@@ -54,8 +54,10 @@ Gowin 1.9.12.03 整车综合及布局布线完成，退出码 0。所有 8 个�
 
 布线后 Logic 54012、Register 26987、BSRAM 246、DSP 255.5；对比现有保存的位流构建报告，分别变化 −36、+5、0、0。没有新增整帧片上存储或 DSP。
 
-候选位流：`build/falcons_camera_frame_buffer_20261104.fs`；SHA256：`de424baa0ef8b271f6de29f31e303e86f5971e3a9adb0d1136199fa53b449a84`。旧 `build/falcons.fs`、`build/falcons1.fs` 和根目录 `impl/pnr` 未覆盖。134 项构建输入的哈希清单已保存，当前工作区中存在的输入均与隔离副本一致。
+候选位流：`build/falcons_camera_frame_buffer_20261104.fs`；SHA256：`de424baa0ef8b271f6de29f31e303e86f5971e3a9adb0d1136199fa53b449a84`。旧 `build/falcons.fs`、`build/falcons1.fs` 和根目录 `impl/pnr` 未覆盖。134 项构建输入的哈希清单已保存，构建当时工作区中存在的输入均与隔离副本一致。
 
 紧凑证据：[camera_frame_buffer_20261104](evidence/camera_frame_buffer_20261104/)，含两台最终日志、83 台汇总、资源、时序及输入清单。
 
 按用户要求，本轮不加载 SRAM、不写 Flash；消除实屏运动撕裂仍需后续上板确认。
+
+2026-11-09文档整理仅调整注释并恢复工作区缺失的原有诊断源码，没有重建候选；上述输入哈希及报告仍对应11-04构建快照，不代表后续文件字节保持不变。

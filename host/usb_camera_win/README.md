@@ -214,4 +214,4 @@ python fit_ground_homography.py --input calib_out/ground_homography_points_combi
 
 40cm处横向±20cm，边界与原远处实测范围组成凸包，径向上限2.1m；范围外不作定位。安装高度/角度的初始候选没有用于当前H。详细误差及测量来源见[地面H记录](../../doc/七点地面单应性标定_20261028.md)，实际调用见[H接口](../ai_coordinator/inspection/HOMOGRAPHY.md)。
 
-原始标定JSON禁用Git换行转换，来源SHA按原字节关联，不能因整理文档改写。候选生成时的状态保留在原始证据，当前运行配置由RK config.json决定；当前巡检为停车后0.5秒等待/三帧平均，操作见[巡检指南](../../doc/AI视觉巡检.md)。
+原始标定JSON禁用Git换行转换，来源SHA按原字节关联，不能因整理文档改写。候选生成时的状态保留在原始证据，当前运行配置由RK config.json决定；当前巡检为停车后0.3秒等待/三帧平均，操作见[巡检指南](../../doc/AI视觉巡检.md)。

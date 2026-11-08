@@ -147,7 +147,7 @@ module ui_render #(
     localparam integer TUNE_LBL_XW  = TUNE_LBL_X / LG_CELL;
     localparam integer TUNE_VAL_XW  = 24;   // 数值左界 24×16 = 384
     localparam integer TUNE_UNIT_XW = 30;   // 单位左界 30×16 = 480
-    localparam integer TUNE_ROWS    = 16;   // 参数行数（与 tune_ctrl 的 16 项一一对应）
+    localparam integer TUNE_ROWS    = 16;   // 参数行数（与 tune_ctrl 的16项一一对应）
 
     // ------------------------------------------------------------------
     // 文案取用（function：纯组合，综合稳）  {addr[11:0], len[5:0]}
@@ -651,7 +651,7 @@ module ui_render #(
 
         // ---- 非避障导航页：右上角准心坐标（x 在上、y 在下，竖排）----
         //   两行 y = 24 与 56，最右墨迹到 x=1007（离右边缘 16 px，不贴边）。
-        //   字段 9 = 准心 x、字段 10 = 准心 y（num_text 的 NUM_FIELDS 已由 9 扩到 11），
+        //   字段 9 = 准心 x、字段 10 = 准心 y（num_text提供16个字段，0..15），
         //   单位 0.01 m、5 字符、悬挂小数点 —— 与数据页的数值完全同一套格式化。
         //   ★ 与数据页的 sm 段条件互斥（i_page 不同），所以谁写在前都不影响。
         //   ★ 2026-10-19 需求方给了样例「x:  2.60m」并要求"右侧不要紧贴、留出合适间距"：
