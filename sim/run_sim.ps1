@@ -237,6 +237,9 @@ $sources += @(
     "$ProjectRoot\rtl\ai\inspection_route_export.v",
     "$PSScriptRoot\inspection_route_export_tb.v",
     "$ProjectRoot\rtl\ai\inspection_ddr_arb.v",
+    "$ProjectRoot\rtl\cam\camera_frame_buffer.v",
+    "$PSScriptRoot\models\camera_fifo_models.v",
+    "$PSScriptRoot\camera_frame_buffer_tb.v",
     "$ProjectRoot\rtl\ai\inspection_frame_tokens.v",
     "$ProjectRoot\rtl\ai\inspection_frame_writer.v",
     "$ProjectRoot\rtl\ai\inspection_frame_reader.v",
@@ -248,6 +251,8 @@ $sources += @(
     "$PSScriptRoot\inspection_map_export_tb.v"
 )
 $tests = @(
+    @{ Name = 'camera_frame_buffer'; Top = 'camera_frame_buffer_tb'; Desc = 'Three-bank camera / asynchronous clocks / incomplete frames / overflow / DDR response drain' },
+    @{ Name = 'camera_frame_buffer_full'; Top = 'camera_frame_buffer_full_tb'; Desc = '1024x600 camera frames / shared AI DDR traffic / full pixel order and bank ownership' },
     @{ Name = 'inspection_epoch'; Top = 'inspection_epoch_tb'; Desc = 'Held IMU valid level / event-only epoch / origin clear / reboot handshake' },
     @{ Name = 'inspection_route_export'; Top = 'inspection_route_export_tb'; Desc = 'Passive navigation prefix / bounded CRC / context and publication' },
     @{ Name = 'inspection_timebase'; Top = 'inspection_timebase_tb'; Desc = 'Device clock exchange / nonce and epoch isolation / no authority' },

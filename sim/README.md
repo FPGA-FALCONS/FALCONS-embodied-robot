@@ -29,6 +29,7 @@ ModelSim路径可通过-ModelSim覆盖。脚本按每台独立仿真进程执行
 | 基础导航 | 原非避障和避障单点执行、地图/Dijkstra、对角/路线复核、双缓冲及运行参数 |
 | 语音运动 | MOT1/ASCII隔离、有界动作、转向、停止所有权和本地恢复 |
 | 巡检控制/图层 | session/task/epoch/command、物理令牌、停车/图层版本、授权内连续GOTO、手动撤权 |
+| FPGA摄像头帧缓存 | 三银行所有权、完整帧发布、截断/溢出丢帧、空白期排空切换、复位与完整1024×600逐像素检查；FIFO为仿真行为模型 |
 | 高速/DDR | AIF1容器、FX2时钟/PHY/回环、跨域FIFO、DDR仲裁/帧银行、地图/路线导出和UI门控 |
 
 实际测试名、顶层与源依赖以脚本清单为准；新增台须加入入口，不能只放源码后声称全量已覆盖。向量生成工具位于sim/gen_inspection_vectors.py及gen_inspection_stream_vectors.py，主机/RTL交叉回放和自造RTL输入分别说明。

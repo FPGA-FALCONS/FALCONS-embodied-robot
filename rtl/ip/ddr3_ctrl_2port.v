@@ -1,4 +1,4 @@
-module ddr3_ctrl_2port #(parameter integer AI_DISPLAY_ENABLE=0)(
+module ddr3_ctrl_2port #(parameter integer AI_DISPLAY_ENABLE=0, parameter integer CAMERA_PIXELS=1024*600)(
     input           clk                 ,      //50M时钟信号
     input           pll_lock            ,
     input           clk_200m            ,      //DDR3参考时钟信号
@@ -100,7 +100,7 @@ module ddr3_ctrl_2port #(parameter integer AI_DISPLAY_ENABLE=0)(
         assign app_wdf_data=legacy_app_wdf_data,app_wdf_wren=legacy_app_wdf_wren,app_wdf_end=legacy_app_wdf_end;
         assign ai_write_ready=0,ai_read_ready=0,ai_response_valid=0,ai_response_data=0,ai_protocol_fault=0;
     end endgenerate
-    fifo_ddr3_adapter fifo_ddr3_adapter(
+    camera_frame_buffer #(.PIXELS(CAMERA_PIXELS)) fifo_ddr3_adapter(
        .o_request(legacy_request),
        .ui_clk(ui_clk)              ,    //DDR用户时钟信号
        .rst_n(ui_reset_n)               ,    //外部按键复位信号
@@ -117,12 +117,6 @@ module ddr3_ctrl_2port #(parameter integer AI_DISPLAY_ENABLE=0)(
        .app_wdf_data(legacy_app_wdf_data)        ,   //写入进DDR的数据
        .rd_load(rd_load)             ,   //输出源更新信号
        .wr_load(wr_load)             ,   //输入源更新信号
-       .app_addr_rd_min(app_addr_rd_min)     ,   //读DDR3的起始地址
-       .app_addr_rd_max(app_addr_rd_max)     ,   //读DDR3的结束地址
-       .rd_bust_len(rd_bust_len)         ,   //从DDR3中读数据时的突发长度
-       .app_addr_wr_min(app_addr_wr_min)     ,   //写DD3的起始地址
-       .app_addr_wr_max(app_addr_wr_max)     ,   //写DDR的结束地址
-       .wr_bust_len(wr_bust_len)         ,   //向DDR3中写数据时的突发长度
        .wr_clk(wr_clk)              ,//wr_fifo的写时钟信号
        .wfifo_wren(wfifo_wren)          , //wr_fifo的写使能信号
        .wfifo_din(wfifo_din)           , //写入到wr_fifo中的数据

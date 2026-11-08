@@ -1,0 +1,34 @@
+# 测试：camera_frame_buffer_full  top=camera_frame_buffer_full_tb  模拟器=ModelSim  退出码=0
+# 下面是完整输出（屏幕只回显了检查行与结论）
+Reading D:/Apps/modeltech64_10.6d/tcl/vsim/pref.tcl
+
+# 10.6d
+
+# vsim -c -do "run -all; quit -f" work_camera_verify_20261104.camera_frame_buffer_full_tb 
+# Start time: 21:09:13 on Nov 04,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# //  ModelSim SE-64 10.6d Feb 24 2018
+# //
+# //  Copyright 1991-2018 Mentor Graphics Corporation
+# //  All Rights Reserved.
+# //
+# //  ModelSim SE-64 and its associated documentation contain trade
+# //  secrets and commercial or financial information that are the property of
+# //  Mentor Graphics Corporation and are privileged, confidential,
+# //  and exempt from disclosure under the Freedom of Information Act,
+# //  5 U.S.C. Section 552. Furthermore, this information
+# //  is prohibited from disclosure under the Trade Secrets Act,
+# //  18 U.S.C. Section 1905.
+# //
+# Loading work.camera_frame_buffer_full_tb(fast)
+# run -all
+# pass full 1024x600 frames retain pixel order under shared DDR traffic
+# pass full-resolution capture writes all 76800 blocks before publishing
+# pass all full-resolution pixel and bank ownership comparisons pass
+# COMPARISONS: 14179451
+# CHECKS: 3
+# PASS: camera_frame_buffer_full
+# ** Note: $finish    : D:/Programs/FPGA Projects/FALCONS-embodied-robot/build/camera_frame_fix_20261104/source/sim/camera_frame_buffer_tb.v(109)
+#    Time: 135657260 ns  Iteration: 1  Instance: /camera_frame_buffer_full_tb/test
+# End time: 21:09:21 on Nov 04,2026, Elapsed time: 0:00:08
+# Errors: 0, Warnings: 0

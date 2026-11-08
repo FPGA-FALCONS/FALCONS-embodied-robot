@@ -1,0 +1,422 @@
+{
+  "tests": 83,
+  "passed": 83,
+  "checks": 10698,
+  "results": {
+    "camera_frame_buffer": {
+      "status": "PASS",
+      "checks": 12,
+      "source": "camera_regression_final.log"
+    },
+    "camera_frame_buffer_full": {
+      "status": "PASS",
+      "checks": 3,
+      "source": "camera_regression_final.log"
+    },
+    "inspection_epoch": {
+      "status": "PASS",
+      "checks": 5,
+      "source": "regression.log"
+    },
+    "inspection_route_export": {
+      "status": "PASS",
+      "checks": 10,
+      "source": "regression.log"
+    },
+    "inspection_timebase": {
+      "status": "PASS",
+      "checks": 4,
+      "source": "regression.log"
+    },
+    "inspection_mailbox": {
+      "status": "PASS",
+      "checks": 7,
+      "source": "regression.log"
+    },
+    "inspection_ddr_arb": {
+      "status": "PASS",
+      "checks": 3,
+      "source": "regression.log"
+    },
+    "inspection_frame": {
+      "status": "PASS",
+      "checks": 7,
+      "source": "regression.log"
+    },
+    "inspection_ddr_deadline": {
+      "status": "PASS",
+      "checks": 2,
+      "source": "regression.log"
+    },
+    "inspection_map_export": {
+      "status": "PASS",
+      "checks": 6,
+      "source": "regression.log"
+    },
+    "inspection_fx2_clock": {
+      "status": "PASS",
+      "checks": 8,
+      "source": "regression.log"
+    },
+    "nav_map_arb": {
+      "status": "PASS",
+      "checks": 9,
+      "source": "regression.log"
+    },
+    "stall_monitor": {
+      "status": "PASS",
+      "checks": 7,
+      "source": "regression.log"
+    },
+    "inspection_highspeed": {
+      "status": "PASS",
+      "checks": 4,
+      "source": "regression.log"
+    },
+    "inspection_stream": {
+      "status": "PASS",
+      "checks": 9,
+      "source": "regression.log"
+    },
+    "inspection_fx2": {
+      "status": "PASS",
+      "checks": 4,
+      "source": "regression.log"
+    },
+    "stream_async_fifo": {
+      "status": "PASS",
+      "checks": 1,
+      "source": "regression.log"
+    },
+    "inspection_ui": {
+      "status": "PASS",
+      "checks": 13,
+      "source": "regression.log"
+    },
+    "inspection_application": {
+      "status": "PASS",
+      "checks": 10,
+      "source": "regression.log"
+    },
+    "inspection_speed": {
+      "status": "PASS",
+      "checks": 8,
+      "source": "regression.log"
+    },
+    "inspection_dispatch": {
+      "status": "PASS",
+      "checks": 7,
+      "source": "regression.log"
+    },
+    "inspection_uart": {
+      "status": "PASS",
+      "checks": 3,
+      "source": "regression.log"
+    },
+    "inspection_control": {
+      "status": "PASS",
+      "checks": 24,
+      "source": "regression.log"
+    },
+    "inspection_tx": {
+      "status": "PASS",
+      "checks": 3,
+      "source": "regression.log"
+    },
+    "visual_navigation": {
+      "status": "PASS",
+      "checks": 4,
+      "source": "regression.log"
+    },
+    "inspection_packet": {
+      "status": "PASS",
+      "checks": 8,
+      "source": "regression.log"
+    },
+    "nav_visual_layer": {
+      "status": "PASS",
+      "checks": 14,
+      "source": "regression.log"
+    },
+    "camera_rotation": {
+      "status": "PASS",
+      "checks": 253,
+      "source": "regression.log"
+    },
+    "nav_planner_limit": {
+      "status": "PASS",
+      "checks": 16,
+      "source": "regression.log"
+    },
+    "nav_center": {
+      "status": "PASS",
+      "checks": 41,
+      "source": "regression.log"
+    },
+    "nav_lock": {
+      "status": "PASS",
+      "checks": 12,
+      "source": "regression.log"
+    },
+    "nav_route": {
+      "status": "PASS",
+      "checks": 55,
+      "source": "regression.log"
+    },
+    "nav_line_cells": {
+      "status": "PASS",
+      "checks": 17,
+      "source": "regression.log"
+    },
+    "nav_drive": {
+      "status": "PASS",
+      "checks": 60,
+      "source": "regression.log"
+    },
+    "nav_dijkstra_pool": {
+      "status": "PASS",
+      "checks": 6,
+      "source": "regression.log"
+    },
+    "nav_dijkstra": {
+      "status": "PASS",
+      "checks": 286,
+      "source": "regression.log"
+    },
+    "yaw_pipeline": {
+      "status": "PASS",
+      "checks": 1,
+      "source": "regression.log"
+    },
+    "manual_takeover": {
+      "status": "PASS",
+      "checks": 18,
+      "source": "regression.log"
+    },
+    "ai_video_gate": {
+      "status": "PASS",
+      "checks": 9,
+      "source": "regression.log"
+    },
+    "ai_rc_control": {
+      "status": "PASS",
+      "checks": 23,
+      "source": "regression.log"
+    },
+    "ai_uart_tx": {
+      "status": "PASS",
+      "checks": 5,
+      "source": "regression.log"
+    },
+    "ai_display_link": {
+      "status": "PASS",
+      "checks": 20,
+      "source": "regression.log"
+    },
+    "voice_motion_bridge": {
+      "status": "PASS",
+      "checks": 71,
+      "source": "regression.log"
+    },
+    "uart_command_router": {
+      "status": "PASS",
+      "checks": 2304,
+      "source": "regression.log"
+    },
+    "voice_motion_integration": {
+      "status": "PASS",
+      "checks": 24,
+      "source": "regression.log"
+    },
+    "ui_layers": {
+      "status": "PASS",
+      "checks": 1,
+      "source": "regression.log"
+    },
+    "display_mm_to_cm": {
+      "status": "PASS",
+      "checks": 1,
+      "source": "regression.log"
+    },
+    "nav_planner": {
+      "status": "PASS",
+      "checks": 465,
+      "source": "regression.log"
+    },
+    "ui_pipeline": {
+      "status": "PASS",
+      "checks": 6,
+      "source": "regression.log"
+    },
+    "imu_calib": {
+      "status": "PASS",
+      "checks": 22,
+      "source": "regression.log"
+    },
+    "radar_coordinates": {
+      "status": "PASS",
+      "checks": 34,
+      "source": "regression.log"
+    },
+    "nav_geometry": {
+      "status": "PASS",
+      "checks": 19,
+      "source": "regression.log"
+    },
+    "nav_scanner": {
+      "status": "PASS",
+      "checks": 18,
+      "source": "regression.log"
+    },
+    "nav_scan_accumulator": {
+      "status": "PASS",
+      "checks": 27,
+      "source": "regression.log"
+    },
+    "nav_pose": {
+      "status": "PASS",
+      "checks": 8,
+      "source": "regression.log"
+    },
+    "obstacle_motion": {
+      "status": "PASS",
+      "checks": 15,
+      "source": "regression.log"
+    },
+    "nav_command": {
+      "status": "PASS",
+      "checks": 40,
+      "source": "regression.log"
+    },
+    "nav_map_view": {
+      "status": "PASS",
+      "checks": 52,
+      "source": "regression.log"
+    },
+    "nav_point_ctrl": {
+      "status": "PASS",
+      "checks": 17,
+      "source": "regression.log"
+    },
+    "obstacle_display": {
+      "status": "PASS",
+      "checks": 20,
+      "source": "regression.log"
+    },
+    "obstacle_page": {
+      "status": "PASS",
+      "checks": 45,
+      "source": "regression.log"
+    },
+    "obstacle_plan": {
+      "status": "PASS",
+      "checks": 5,
+      "source": "regression.log"
+    },
+    "radar_map": {
+      "status": "PASS",
+      "checks": 20,
+      "source": "regression.log"
+    },
+    "rc_led_test": {
+      "status": "PASS",
+      "checks": 27,
+      "source": "regression.log"
+    },
+    "rc_probe_report": {
+      "status": "PASS",
+      "checks": 5,
+      "source": "regression.log"
+    },
+    "reset_sync": {
+      "status": "PASS",
+      "checks": 6,
+      "source": "regression.log"
+    },
+    "ht10a_input": {
+      "status": "PASS",
+      "checks": 83,
+      "source": "regression.log"
+    },
+    "rc_input": {
+      "status": "PASS",
+      "checks": 32,
+      "source": "regression.log"
+    },
+    "chassis_ctrl": {
+      "status": "PASS",
+      "checks": 25,
+      "source": "regression.log"
+    },
+    "encoder_chain": {
+      "status": "PASS",
+      "checks": 7,
+      "source": "regression.log"
+    },
+    "num_text": {
+      "status": "PASS",
+      "checks": 119,
+      "source": "regression.log"
+    },
+    "ui_render": {
+      "status": "PASS",
+      "checks": 50,
+      "source": "regression.log"
+    },
+    "nav_free": {
+      "status": "PASS",
+      "checks": 88,
+      "source": "regression.log"
+    },
+    "speed_report": {
+      "status": "PASS",
+      "checks": 4,
+      "source": "regression.log"
+    },
+    "odom": {
+      "status": "PASS",
+      "checks": 20,
+      "source": "regression.log"
+    },
+    "cordic_atan2": {
+      "status": "PASS",
+      "checks": 12,
+      "source": "regression.log"
+    },
+    "nav_ctrl": {
+      "status": "PASS",
+      "checks": 388,
+      "source": "regression.log"
+    },
+    "nav_sys": {
+      "status": "PASS",
+      "checks": 79,
+      "source": "regression.log"
+    },
+    "tune_ctrl": {
+      "status": "PASS",
+      "checks": 96,
+      "source": "regression.log"
+    },
+    "tune_page": {
+      "status": "PASS",
+      "checks": 73,
+      "source": "regression.log"
+    },
+    "disp_driver": {
+      "status": "PASS",
+      "checks": 5267,
+      "source": "regression.log"
+    },
+    "dyn_text_ram": {
+      "status": "PASS",
+      "checks": 70,
+      "source": "regression.log"
+    },
+    "imu_top": {
+      "status": "PASS",
+      "checks": 16,
+      "source": "regression.log"
+    }
+  }
+}

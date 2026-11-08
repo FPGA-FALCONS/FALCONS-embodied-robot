@@ -1,14 +1,10 @@
 // ============================================================================
 // cam_overlay —— 摄像头画面叠加层（OV5640 → DDR3 帧缓存 → 显示像素二选一）
 //
-// 架构**照模块示例**：vendor\verilog-reusable-modules\modules\ov5640_capture\
-//   examples\acg720_ddr3_hdmi\rtl\acg720_ov5640_ddr3_hdmi_top.v（该示例已在实板验证）
-//   链路 = ov5640_capture → ddr3_ctrl_2port → HDMI 像素
-//
-// 本模块相对示例的**唯一必要偏离**：示例把 DDR 读出的像素直接当整屏输出；
-// 本工程需求原文 §17/§21 要求「左侧约 1/5~1/6 宽度为菜单，选中摄像头页时
-// **菜单右侧全部画面**显示摄像头画面」，所以我们在**输出端做二选一**：
-//   o_rgb = (当前页==摄像头页 && pixel_x >= MENU_W) ? DDR像素 : UI像素
+// 采集仍使用模块库 ov5640_capture；DDR 控制器内由 camera_frame_buffer
+// 管理三块互斥帧区。完整帧写完后发布，在显示垂直空白期切换读帧，
+// 避免异步采集/显示读写同一帧造成运动画面撕裂。AI 保留独立双缓冲。
+// 输出端按菜单区域叠加，摄像头画面仍保持原有 180° 旋转。
 //
 // ★★ 一个容易踩错的点：`rfifo_rden` **必须绑 pixel_req 全程连续读**。
 //    不能改成「只读菜单右侧区域」—— DDR 读是顺序突发流，跳过若干点会让
@@ -134,7 +130,7 @@ module cam_overlay #(
     );
 
     // ---------------------------------------------------------------
-    // DDR3 帧缓存（模块示例的 ddr3_ctrl_2port）
+    // DDR3 三帧缓存（ddr3_ctrl_2port + camera_frame_buffer）
     //   写侧：摄像头 PCLK 域，按 camera_frame_sync 对齐帧首
     //   读侧：显示 pixel_clk 域，按 frame_sync 对齐帧首，rden 绑 pixel_req
     // ---------------------------------------------------------------
@@ -159,7 +155,7 @@ module cam_overlay #(
         assign ai_read_valid=0,ai_read_address=0,ai_rgb=0,ai_rgb_valid=0,ai_store_fault=0;
     end endgenerate
     assign ai_fault=ai_arb_fault || ai_store_fault;
-    ddr3_ctrl_2port #(.AI_DISPLAY_ENABLE(AI_DISPLAY_ENABLE)) u_frame_buffer (
+    ddr3_ctrl_2port #(.AI_DISPLAY_ENABLE(AI_DISPLAY_ENABLE),.CAMERA_PIXELS(IMAGE_WIDTH*IMAGE_HEIGHT)) u_frame_buffer (
         .ai_ddr_clk(ai_ddr_clk),.ai_write_valid(ai_write_valid),.ai_write_address(ai_write_address),.ai_write_data(ai_write_data),
         .ai_write_ready(ai_write_ready),.ai_read_valid(ai_read_valid),.ai_read_address(ai_read_address),.ai_read_ready(ai_read_ready),
         .ai_response_valid(ai_response_valid),.ai_response_data(ai_response_data),.ai_protocol_fault(ai_arb_fault),
